@@ -41,10 +41,10 @@
 
 ### 后端
 
-- **[Go 1.26.10](https://go.dev/doc)** —— 主要开发语言
-- **[Gin](https://github.com/gin-gonic/gin)** —— Web 框架
-- **[PostgreSQL](https://www.postgresql.org/)** —— 主数据库
-- **[Redis](https://github.com/redis/redis)** —— 缓存和会话存储
+- **[Go 1.26.10](https://go.dev/doc)** - 主要开发语言
+- **[Gin](https://github.com/gin-gonic/gin)** - Web 框架
+- **[PostgreSQL](https://www.postgresql.org/)** - 主数据库
+- **[Redis](https://github.com/redis/redis)** - 缓存和会话存储
 - **[OpenTelemetry](https://opentelemetry.io)** - 可观测性
 - **[Swagger](https://github.com/swaggo/swag)** - API 文档
 
