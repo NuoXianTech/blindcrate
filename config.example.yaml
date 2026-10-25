@@ -1,0 +1,20 @@
+# BlindCrate Config
+# Copy to config.yaml for runtime
+
+# App
+app:
+  app_name: "blindcrate"
+  env: "development"
+  addr: ":8000"
+  api_prefix: "/api"
+
+# Log
+log:
+  level: "info"  # debug, info, warn, error, fatal, panic
+  format: "json"  # text, json
+  output: "stdout"  # stdout, file
+  file_path: "./logs/app.log"
+  max_size: 100
+  max_age: 30
+  max_backups: 10
+  compress: true

@@ -129,7 +129,7 @@ pnpm dev
 
 | 配置项 | 说明 | 示例 |
 |--------|------|------|
-| | | |
+| `app.addr` | 后端服务监听地址 | `:8000` |
 
 详细配置说明请参考 `config.example.yaml` 文件。
 
@@ -185,9 +185,6 @@ http://localhost:8000/swagger/index.html
 
 - `GET /api/v1/health` - 健康检查
 - `GET /api/v1/ready` - 就绪检查
-- `GET /api/oauth2/login` - OAuth2 登录
-- `GET /api/projects` - 获取项目列表
-- `POST /api/projects` - 创建新项目
 
 ## 🧪 测试
 
@@ -211,14 +208,14 @@ pnpm test
 
 2. 编译后端程序：
    ```bash
-   go build -o cdk main.go
+   go build -o blindcrate main.go
    ```
 
 3. 配置生产环境的 `config.yaml`
 
 4. 启动服务：
    ```bash
-   ./cdk api
+   ./blindcrate api
    ```
 
 ## 🤝 贡献指南
