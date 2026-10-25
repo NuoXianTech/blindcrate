@@ -17,7 +17,7 @@
 [![Backend Build](https://github.com/NuoXianTech/blindcrate/actions/workflows/build_backend.yml/badge.svg)](https://github.com/NuoXianTech/blindcrate/actions/workflows/build_backend.yml)
 [![Frontend Build](https://github.com/NuoXianTech/blindcrate/actions/workflows/build_frontend.yml/badge.svg)](https://github.com/NuoXianTech/blindcrate/actions/workflows/build_frontend.yml)
 [![CodeQL](https://github.com/NuoXianTech/blindcrate/actions/workflows/codeql.yml/badge.svg)](https://github.com/NuoXianTech/blindcrate/actions/workflows/codeql.yml)
-[![ESLint](https://github.com/NuoXianTech/blindcrate/actions/workflows/eslint.yml/badge.svg)](https://eslint.org/)
+[![ESLint](https://github.com/NuoXianTech/blindcrate/actions/workflows/eslint.yml/badge.svg)](https://github.com/NuoXianTech/blindcrate/actions/workflows/eslint.yml)
 
 ## 📖 项目简介
 

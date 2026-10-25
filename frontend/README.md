@@ -94,7 +94,7 @@ frontend/
 
 | 目录 | 描述 | 规范 |
 |------|------|------|
-| `app/` | Next.js 15 App Router 页面组件 | 使用文件系统路由 |
+| `app/` | Next.js 16 App Router 页面组件 | 使用文件系统路由 |
 | `components/common/` | 业务相关的通用组件 | 按功能模块组织 |
 | `components/ui/` | Shadcn UI 基础组件 | 不直接修改，通过覆盖样式自定义 |
 | `components/layout/` | 布局相关组件 | 页面结构和导航组件 |
