@@ -26,12 +26,16 @@ package router
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"strconv"
 
 	_ "github.com/NuoXianTech/blindcrate/docs"
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -49,6 +53,30 @@ func Serve() {
 	// 初始化路由
 	r := gin.New()
 	r.Use(gin.Recovery())
+
+	// Session
+	sessionStore, err := redis.NewStoreWithDB(
+		config.Config.Redis.MinIdleConn,
+		"tcp",
+		fmt.Sprintf("%s:%d", config.Config.Redis.Host, config.Config.Redis.Port),
+		config.Config.Redis.Username,
+		config.Config.Redis.Password,
+		strconv.Itoa(config.Config.Redis.DB),
+		[]byte(config.Config.App.SessionSecret),
+	)
+	if err != nil {
+		log.Fatalf("[API] init session store failed: %v\n", err)
+	}
+	sessionStore.Options(
+		sessions.Options{
+			Path:     "/",
+			Domain:   config.Config.App.SessionDomain,
+			MaxAge:   config.Config.App.SessionAge,
+			HttpOnly: config.Config.App.SessionHttpOnly,
+			Secure:   config.Config.App.SessionSecure, // 若用 HTTPS 可以设 true
+		},
+	)
+	r.Use(sessions.Sessions(config.Config.App.SessionCookieName, sessionStore))
 
 	// 补充中间件
 	r.Use(otelgin.Middleware(config.Config.App.AppName), loggerMiddleware())

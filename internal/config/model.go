@@ -36,10 +36,16 @@ type ConfigModel struct {
 
 // appConfig 应用基本配置
 type AppConfig struct {
-	AppName   string `mapstructure:"app_name"`
-	Env       string `mapstructure:"env"`
-	Addr      string `mapstructure:"addr"`
-	APIPrefix string `mapstructure:"api_prefix"`
+	AppName           string `mapstructure:"app_name"`
+	Env               string `mapstructure:"env"`
+	Addr              string `mapstructure:"addr"`
+	SessionCookieName string `mapstructure:"session_cookie_name"`
+	SessionSecret     string `mapstructure:"session_secret"`
+	SessionDomain     string `mapstructure:"session_domain"`
+	SessionAge        int    `mapstructure:"session_age"`
+	SessionHttpOnly   bool   `mapstructure:"session_http_only"`
+	SessionSecure     bool   `mapstructure:"session_secure"`
+	APIPrefix         string `mapstructure:"api_prefix"`
 }
 
 // databaseConfig 数据库配置

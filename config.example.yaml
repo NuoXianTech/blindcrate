@@ -6,6 +6,12 @@ app:
   app_name: "blindcrate"
   env: "development"
   addr: ":8000"
+  session_cookie_name: "blindcrate_session_id" # change this in local dev env
+  session_secret: "<uniq string>" # you can't change this after first time start
+  session_domain: ".blindcrate.com"
+  session_age: 86400
+  session_secure: false
+  session_http_only: false
   api_prefix: "/api"
 
 # DB
