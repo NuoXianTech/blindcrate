@@ -1,26 +1,132 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* 所有主题都是暗色系, html 上固定带 .dark, shadcn 组件里的 dark: 变体始终生效 */
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-sans: var(--font-inter), var(--font-noto-sans-sc), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), var(--font-noto-sans-sc), monospace;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* 物品品质: 灰 · 绿 · 蓝 · 紫 · 红 · 金, 炫彩是渐变, 见 .quality-rainbow */
+  --color-quality-gray: var(--quality-gray);
+  --color-quality-green: var(--quality-green);
+  --color-quality-blue: var(--quality-blue);
+  --color-quality-purple: var(--quality-purple);
+  --color-quality-red: var(--quality-red);
+  --color-quality-gold: var(--quality-gold);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* 默认主题 amber: 蓝黑底 + 琥珀金强调色; 新增主题时复制一份 [data-theme="xxx"] 改变量即可 */
+:root,
+[data-theme="amber"] {
+  --radius: 0.625rem;
+
+  --background: oklch(0.145 0.012 265);
+  --foreground: oklch(0.95 0.005 265);
+  --card: oklch(0.19 0.014 265 / 80%);
+  --card-foreground: oklch(0.95 0.005 265);
+  --popover: oklch(0.2 0.014 265);
+  --popover-foreground: oklch(0.95 0.005 265);
+  --primary: oklch(0.8 0.15 75);
+  --primary-foreground: oklch(0.2 0.03 60);
+  --secondary: oklch(0.25 0.014 265);
+  --secondary-foreground: oklch(0.95 0.005 265);
+  --muted: oklch(0.25 0.014 265);
+  --muted-foreground: oklch(0.68 0.015 265);
+  --accent: oklch(0.27 0.02 265);
+  --accent-foreground: oklch(0.95 0.005 265);
+  --destructive: oklch(0.65 0.2 25);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.8 0.15 75 / 60%);
+
+  --glow: 0 0 24px oklch(0.8 0.15 75 / 35%);
+
+  --quality-gray: oklch(0.72 0.01 265);
+  --quality-green: oklch(0.75 0.17 150);
+  --quality-blue: oklch(0.7 0.15 245);
+  --quality-purple: oklch(0.68 0.2 300);
+  --quality-red: oklch(0.65 0.22 25);
+  --quality-gold: oklch(0.82 0.16 80);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  button {
+    cursor: pointer;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@utility glow {
+  box-shadow: var(--glow);
+}
+
+/* 炫彩品质: 文字和边框都用流动渐变 */
+@utility quality-rainbow {
+  background-image: linear-gradient(
+    90deg,
+    var(--quality-red),
+    var(--quality-gold),
+    var(--quality-green),
+    var(--quality-blue),
+    var(--quality-purple),
+    var(--quality-red)
+  );
+  background-size: 200% 100%;
+  animation: quality-rainbow 4s linear infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes quality-rainbow {
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@utility hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
