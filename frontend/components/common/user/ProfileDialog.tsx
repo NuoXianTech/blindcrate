@@ -9,16 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/components/common/auth/AuthProvider";
+import { SubmitButton } from "@/components/common/form/SubmitButton";
+import { check, useSubmit } from "@/components/common/form/use-submit";
 import { UserAvatar } from "@/components/common/user/UserAvatar";
 import { AuthService, type UserInfo } from "@/lib/services/auth";
-import { ApiError } from "@/lib/services/core";
+import { checkNickname, checkPassword, checkPasswordConfirm } from "@/lib/validation";
 
 /** 发送验证码的冷却秒数, 与后端一致 */
 const EMAIL_CODE_COOLDOWN = 60;
-
-function errorMessage(err: unknown) {
-  return err instanceof ApiError ? err.message : "请求失败, 请稍后再试";
-}
 
 /** 个人资料面板: 资料、密码、邮箱 */
 export function ProfileDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -64,37 +62,20 @@ export function ProfileDialog({ open, onOpenChange }: { open: boolean; onOpenCha
 
 function ProfileForm({ user }: { user: UserInfo }) {
   const { setUser } = useAuth();
+  const { pending, submit } = useSubmit();
   const [nickname, setNickname] = useState(user.nickname);
   const [avatarURL, setAvatarURL] = useState(user.avatar_url);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = submit(async () => {
     // 只提交改动过的字段
     const body: { nickname?: string; avatar_url?: string } = {};
     if (nickname.trim() !== user.nickname) body.nickname = nickname.trim();
     if (avatarURL.trim() !== user.avatar_url) body.avatar_url = avatarURL.trim();
-    if (Object.keys(body).length === 0) {
-      setError("没有修改");
-      return;
-    }
-    if (body.nickname !== undefined && (body.nickname.length < 1 || [...body.nickname].length > 32)) {
-      setError("昵称需为 1-32 个字符");
-      return;
-    }
-
-    setError(null);
-    setSaving(true);
-    try {
-      setUser(await AuthService.updateUserInfo(body));
-      toast.success("资料已更新");
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  };
+    check(Object.keys(body).length === 0 ? "资料没有变化, 无需保存" : null);
+    if (body.nickname !== undefined) check(checkNickname(body.nickname));
+    setUser(await AuthService.updateUserInfo(body));
+    toast.success("资料已保存");
+  });
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-2" noValidate>
@@ -109,7 +90,7 @@ function ProfileForm({ user }: { user: UserInfo }) {
           placeholder="1-32 个字符"
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
-          disabled={saving}
+          disabled={pending}
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -122,47 +103,32 @@ function ProfileForm({ user }: { user: UserInfo }) {
             placeholder="https://..., 留空则清除头像"
             value={avatarURL}
             onChange={(e) => setAvatarURL(e.target.value)}
-            disabled={saving}
+            disabled={pending}
           />
         </div>
       </div>
-      <FormFooter error={error} pending={saving} label="保存" />
+      <SubmitButton pending={pending} className="w-full">
+        保存资料
+      </SubmitButton>
     </form>
   );
 }
 
 function PasswordForm() {
+  const { pending, submit } = useSubmit();
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (newPassword.length < 8 || newPassword.length > 72) {
-      setError("新密码长度需为 8-72 位");
-      return;
-    }
-    if (newPassword !== confirm) {
-      setError("两次输入的密码不一致");
-      return;
-    }
-
-    setError(null);
-    setSaving(true);
-    try {
-      await AuthService.changePassword({ old_password: oldPassword, new_password: newPassword });
-      toast.success("密码已修改, 其他设备已下线");
-      setOldPassword("");
-      setNewPassword("");
-      setConfirm("");
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleSubmit = submit(async () => {
+    check(checkPassword(newPassword));
+    check(checkPasswordConfirm(newPassword, confirm));
+    await AuthService.changePassword({ old_password: oldPassword, new_password: newPassword });
+    toast.success("密码已修改, 其他设备已下线");
+    setOldPassword("");
+    setNewPassword("");
+    setConfirm("");
+  });
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-2" noValidate>
@@ -174,7 +140,7 @@ function PasswordForm() {
           autoComplete="current-password"
           value={oldPassword}
           onChange={(e) => setOldPassword(e.target.value)}
-          disabled={saving}
+          disabled={pending}
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -186,7 +152,7 @@ function PasswordForm() {
           placeholder="8-72 位"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
-          disabled={saving}
+          disabled={pending}
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -197,22 +163,23 @@ function PasswordForm() {
           autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          disabled={saving}
+          disabled={pending}
         />
       </div>
-      <FormFooter error={error} pending={saving} label="修改密码" />
+      <SubmitButton pending={pending} className="w-full">
+        修改密码
+      </SubmitButton>
     </form>
   );
 }
 
 function EmailForm({ user }: { user: UserInfo }) {
   const { refresh } = useAuth();
+  const send = useSubmit();
+  const verify = useSubmit();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [cooldown, setCooldown] = useState(0);
-  const [sending, setSending] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -220,44 +187,21 @@ function EmailForm({ user }: { user: UserInfo }) {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  const handleSend = async () => {
-    if (!email.trim()) {
-      setError("请填写邮箱");
-      return;
-    }
-    setError(null);
-    setSending(true);
-    try {
-      await AuthService.sendEmailCode(email.trim());
-      setCooldown(EMAIL_CODE_COOLDOWN);
-      toast.success("验证码已发送, 10 分钟内有效");
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setSending(false);
-    }
-  };
+  const handleSend = send.submit(async () => {
+    check(email.trim() ? null : "请先填写邮箱");
+    await AuthService.sendEmailCode(email.trim());
+    setCooldown(EMAIL_CODE_COOLDOWN);
+    toast.success("验证码已发送, 10 分钟内有效");
+  });
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!email.trim() || !code.trim()) {
-      setError("请填写邮箱和验证码");
-      return;
-    }
-    setError(null);
-    setVerifying(true);
-    try {
-      await AuthService.verifyEmail(email.trim(), code.trim());
-      await refresh();
-      toast.success("邮箱已绑定");
-      setEmail("");
-      setCode("");
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setVerifying(false);
-    }
-  };
+  const handleSubmit = verify.submit(async () => {
+    check(email.trim() && code.trim() ? null : "请填写邮箱和验证码");
+    await AuthService.verifyEmail(email.trim(), code.trim());
+    await refresh();
+    toast.success("邮箱已绑定");
+    setEmail("");
+    setCode("");
+  });
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-2" noValidate>
@@ -276,11 +220,11 @@ function EmailForm({ user }: { user: UserInfo }) {
             placeholder="name@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={verifying}
+            disabled={verify.pending}
           />
-          <Button type="button" variant="secondary" onClick={handleSend} disabled={sending || cooldown > 0}>
-            {sending && <LoaderCircle className="animate-spin" />}
-            {cooldown > 0 ? `${cooldown}s` : "发送验证码"}
+          <Button type="button" variant="secondary" onClick={() => handleSend()} disabled={send.pending || cooldown > 0}>
+            {send.pending && <LoaderCircle className="animate-spin" />}
+            {cooldown > 0 ? `${cooldown} 秒后重发` : "发送验证码"}
           </Button>
         </div>
       </div>
@@ -294,26 +238,12 @@ function EmailForm({ user }: { user: UserInfo }) {
           placeholder="6 位数字"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          disabled={verifying}
+          disabled={verify.pending}
         />
       </div>
-      <FormFooter error={error} pending={verifying} label="绑定邮箱" />
+      <SubmitButton pending={verify.pending} className="w-full">
+        绑定邮箱
+      </SubmitButton>
     </form>
-  );
-}
-
-function FormFooter({ error, pending, label }: { error: string | null; pending: boolean; label: string }) {
-  return (
-    <>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending && <LoaderCircle className="animate-spin" />}
-        {label}
-      </Button>
-    </>
   );
 }

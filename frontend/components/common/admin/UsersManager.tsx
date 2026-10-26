@@ -11,11 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/components/common/auth/AuthProvider";
+import { SubmitButton } from "@/components/common/form/SubmitButton";
+import { check, useSubmit } from "@/components/common/form/use-submit";
 import { Pagination } from "@/components/common/admin/Pagination";
 import { UserAvatar } from "@/components/common/user/UserAvatar";
 import { AdminService, type AdminUser, type ListUsersParams } from "@/lib/services/admin";
-import { ApiError } from "@/lib/services/core";
+import { toErrorMessage } from "@/lib/services/core";
 import { formatDateTime } from "@/lib/format";
+import { checkNickname, checkUsername } from "@/lib/validation";
 
 const PAGE_SIZE = 20;
 
@@ -35,8 +38,9 @@ const BAN_DURATIONS = [
   { value: "30d", label: "30 天", ms: 30 * 86400_000 },
 ];
 
-function errorMessage(err: unknown) {
-  return err instanceof ApiError ? err.message : "请求失败, 请稍后再试";
+/** 从现在起 ms 毫秒后的时间 */
+function banUntil(ms: number) {
+  return new Date(Date.now() + ms).toISOString();
 }
 
 function isBanned(user: AdminUser) {
@@ -58,6 +62,7 @@ function statusParams(status: StatusFilter): Partial<ListUsersParams> {
 
 export function UsersManager() {
   const { user: me } = useAuth();
+  const isAdmin = !!me?.is_admin;
   const [keywordInput, setKeywordInput] = useState("");
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -67,17 +72,20 @@ export function UsersManager() {
 
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [banning, setBanning] = useState<AdminUser | null>(null);
+  const [disabling, setDisabling] = useState<AdminUser | null>(null);
 
   const load = useCallback(async () => {
+    // 确认是管理员后再拉取, 否则 AdminGuard 会跳走
+    if (!isAdmin) return;
     setLoading(true);
     try {
       setData(await AdminService.listUsers({ current, size: PAGE_SIZE, keyword: keyword || undefined, ...statusParams(status) }));
     } catch (err) {
-      toast.error(errorMessage(err));
+      toast.error(toErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [current, keyword, status]);
+  }, [current, keyword, status, isAdmin]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 筛选条件变化时重新拉取
@@ -96,16 +104,13 @@ export function UsersManager() {
       toast.success(success);
       await load();
     } catch (err) {
-      toast.error(errorMessage(err));
+      toast.error(toErrorMessage(err));
     }
   };
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">用户管理</h1>
-        <p className="text-sm text-muted-foreground">查看用户, 修改资料, 封禁或停用账号</p>
-      </div>
+      <h1 className="text-2xl font-bold">用户管理</h1>
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <form onSubmit={handleSearch} className="flex flex-1 gap-2">
@@ -170,8 +175,9 @@ export function UsersManager() {
                         <UserAvatar user={u} className="size-8 text-xs" />
                         <div className="flex flex-col">
                           <span className="font-medium">{u.nickname}</span>
-                          <span className="text-xs text-muted-foreground">
-                            @{u.username} · #{u.id}
+                          <span className="flex gap-2 text-xs text-muted-foreground">
+                            <span>@{u.username}</span>
+                            <span>#{u.id}</span>
                           </span>
                         </div>
                       </div>
@@ -211,7 +217,7 @@ export function UsersManager() {
                               aria-label={banned ? "解除封禁" : "封禁"}
                               className={banned ? "text-destructive" : undefined}
                               onClick={() =>
-                                banned ? runAction(() => AdminService.unbanUser(u.id), "已解除封禁") : setBanning(u)
+                                banned ? runAction(() => AdminService.unbanUser(u.id), `已解除 ${u.username} 的封禁`) : setBanning(u)
                               }
                             >
                               <Ban />
@@ -222,13 +228,11 @@ export function UsersManager() {
                               title={u.is_disabled ? "启用" : "停用"}
                               aria-label={u.is_disabled ? "启用" : "停用"}
                               className={u.is_disabled ? "text-destructive" : undefined}
-                              onClick={() => {
-                                if (!u.is_disabled && !window.confirm(`确定停用 ${u.username}? 停用后其所有设备会下线`)) return;
-                                void runAction(
-                                  () => AdminService.setUserDisabled(u.id, !u.is_disabled),
-                                  u.is_disabled ? "已启用" : "已停用",
-                                );
-                              }}
+                              onClick={() =>
+                                u.is_disabled
+                                  ? runAction(() => AdminService.setUserDisabled(u.id, false), `已启用 ${u.username}`)
+                                  : setDisabling(u)
+                              }
                             >
                               <Power />
                             </Button>
@@ -254,6 +258,7 @@ export function UsersManager() {
 
       <EditUserDialog user={editing} onClose={() => setEditing(null)} onSaved={load} />
       <BanUserDialog user={banning} onClose={() => setBanning(null)} onSaved={load} />
+      <DisableUserDialog user={disabling} onClose={() => setDisabling(null)} onSaved={load} />
     </div>
   );
 }
@@ -275,47 +280,36 @@ function EditUserDialog({ user, onClose, onSaved }: { user: AdminUser | null; on
 
 function EditUserForm({ user, onClose, onSaved }: { user: AdminUser; onClose: () => void; onSaved: () => void }) {
   const { user: me, refresh } = useAuth();
+  const { pending, submit } = useSubmit();
   const [username, setUsername] = useState(user.username);
   const [nickname, setNickname] = useState(user.nickname);
   const [avatarURL, setAvatarURL] = useState(user.avatar_url);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = submit(async () => {
     const body: { username?: string; nickname?: string; avatar_url?: string } = {};
     if (username.trim() !== user.username) body.username = username.trim();
     if (nickname.trim() !== user.nickname) body.nickname = nickname.trim();
     if (avatarURL.trim() !== user.avatar_url) body.avatar_url = avatarURL.trim();
-    if (Object.keys(body).length === 0) {
-      setError("没有修改");
-      return;
-    }
-
-    setError(null);
-    setSaving(true);
-    try {
-      await AdminService.updateUser(user.id, body);
-      toast.success("资料已更新");
-      // 改的是自己时同步 dock 上的信息
-      if (user.id === me?.id) await refresh();
-      onSaved();
-      onClose();
-    } catch (err) {
-      setError(errorMessage(err));
-      setSaving(false);
-    }
-  };
+    check(Object.keys(body).length === 0 ? "资料没有变化, 无需保存" : null);
+    if (body.username !== undefined) check(checkUsername(body.username));
+    if (body.nickname !== undefined) check(checkNickname(body.nickname));
+    await AdminService.updateUser(user.id, body);
+    toast.success(`已保存 ${body.username ?? user.username} 的资料`);
+    // 改的是自己时同步 dock 上的信息
+    if (user.id === me?.id) await refresh();
+    onSaved();
+    onClose();
+  });
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
       <div className="flex flex-col gap-2">
         <Label htmlFor="edit-username">用户名</Label>
-        <Input id="edit-username" value={username} onChange={(e) => setUsername(e.target.value)} disabled={saving} />
+        <Input id="edit-username" value={username} onChange={(e) => setUsername(e.target.value)} disabled={pending} />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="edit-nickname">昵称</Label>
-        <Input id="edit-nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} disabled={saving} />
+        <Input id="edit-nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} disabled={pending} />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="edit-avatar">头像地址</Label>
@@ -325,22 +319,14 @@ function EditUserForm({ user, onClose, onSaved }: { user: AdminUser; onClose: ()
           placeholder="留空则清除头像"
           value={avatarURL}
           onChange={(e) => setAvatarURL(e.target.value)}
-          disabled={saving}
+          disabled={pending}
         />
       </div>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+        <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
           取消
         </Button>
-        <Button type="submit" disabled={saving}>
-          {saving && <LoaderCircle className="animate-spin" />}
-          保存
-        </Button>
+        <SubmitButton pending={pending}>保存资料</SubmitButton>
       </DialogFooter>
     </form>
   );
@@ -361,32 +347,23 @@ function BanUserDialog({ user, onClose, onSaved }: { user: AdminUser | null; onC
 }
 
 function BanUserForm({ user, onClose, onSaved }: { user: AdminUser; onClose: () => void; onSaved: () => void }) {
+  const { pending, submit } = useSubmit();
   const [duration, setDuration] = useState(BAN_DURATIONS[1].value);
   const [reason, setReason] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = submit(async () => {
     const ms = BAN_DURATIONS.find((d) => d.value === duration)!.ms;
-    setError(null);
-    setSaving(true);
-    try {
-      await AdminService.banUser(user.id, new Date(Date.now() + ms).toISOString(), reason.trim());
-      toast.success(`已封禁 ${user.username}`);
-      onSaved();
-      onClose();
-    } catch (err) {
-      setError(errorMessage(err));
-      setSaving(false);
-    }
-  };
+    await AdminService.banUser(user.id, banUntil(ms), reason.trim());
+    toast.success(`已封禁 ${user.username}`);
+    onSaved();
+    onClose();
+  });
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
       <div className="flex flex-col gap-2">
         <Label>封禁时长</Label>
-        <Select value={duration} onValueChange={setDuration} disabled={saving}>
+        <Select value={duration} onValueChange={setDuration} disabled={pending}>
           <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>
@@ -407,23 +384,50 @@ function BanUserForm({ user, onClose, onSaved }: { user: AdminUser; onClose: () 
           placeholder="选填, 最多 255 个字符"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          disabled={saving}
+          disabled={pending}
         />
       </div>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+        <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
           取消
         </Button>
-        <Button type="submit" variant="destructive" disabled={saving}>
-          {saving && <LoaderCircle className="animate-spin" />}
+        <SubmitButton pending={pending} variant="destructive">
           封禁
-        </Button>
+        </SubmitButton>
       </DialogFooter>
     </form>
+  );
+}
+
+function DisableUserDialog({ user, onClose, onSaved }: { user: AdminUser | null; onClose: () => void; onSaved: () => void }) {
+  const { pending, submit } = useSubmit();
+
+  const handleSubmit = submit(async () => {
+    if (!user) return;
+    await AdminService.setUserDisabled(user.id, true);
+    toast.success(`已停用 ${user.username}`);
+    onSaved();
+    onClose();
+  });
+
+  return (
+    <Dialog open={!!user} onOpenChange={(open) => !open && !pending && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>停用 {user?.username}</DialogTitle>
+          <DialogDescription>停用后该账号无法登录, 所有设备会立即下线, 直到重新启用。</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
+              取消
+            </Button>
+            <SubmitButton pending={pending} variant="destructive">
+              停用
+            </SubmitButton>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

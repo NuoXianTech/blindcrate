@@ -9,6 +9,7 @@ import { FloatingDock, type DockEntry } from "@/components/ui/floating-dock";
 import { useAuth } from "@/components/common/auth/AuthProvider";
 import { ProfileDialog } from "@/components/common/user/ProfileDialog";
 import { UserAvatar } from "@/components/common/user/UserAvatar";
+import { ROUTES } from "@/lib/access";
 import { THEMES } from "@/lib/themes";
 
 /** 底部悬浮导航: 桌面端居中, 移动端右下角 */
@@ -23,7 +24,7 @@ export function ManagementBar() {
     setTheme(THEMES[(idx + 1) % THEMES.length].value);
   };
 
-  // 退出成功后由登录守卫跳回首页
+  // 退出成功后由 AuthProvider 跳回首页
   const handleLogout = async () => {
     try {
       await logout();
@@ -32,20 +33,22 @@ export function ManagementBar() {
     }
   };
 
-  const items: DockEntry[] = [{ title: "大厅", icon: <Gamepad2 />, href: "/home", active: pathname === "/home" }];
+  const items: DockEntry[] = [{ title: "大厅", icon: <Gamepad2 />, href: ROUTES.gameHome, active: pathname === ROUTES.gameHome }];
 
   // 管理区域, 单独一组
   if (user?.is_admin) {
     items.push(
       null,
-      { title: "用户管理", icon: <Users />, href: "/admin/users", active: pathname.startsWith("/admin/users") },
-      { title: "操作日志", icon: <ScrollText />, href: "/admin/audit-logs", active: pathname.startsWith("/admin/audit-logs") },
+      { title: "用户管理", icon: <Users />, href: ROUTES.adminUsers, active: pathname.startsWith(ROUTES.adminUsers) },
+      { title: "操作日志", icon: <ScrollText />, href: ROUTES.adminAuditLogs, active: pathname.startsWith(ROUTES.adminAuditLogs) },
     );
   }
 
-  items.push(null, { title: "切换主题", icon: <Palette />, onClick: cycleTheme });
+  // 个人区域: 只有一个主题时不显示切换
+  const personal: DockEntry[] = [];
+  if (THEMES.length > 1) personal.push({ title: "切换主题", icon: <Palette />, onClick: cycleTheme });
   if (user) {
-    items.push(
+    personal.push(
       {
         title: user.nickname,
         icon: <UserAvatar user={user} className="text-sm" />,
@@ -54,6 +57,7 @@ export function ManagementBar() {
       { title: "退出登录", icon: <LogOut />, onClick: handleLogout },
     );
   }
+  if (personal.length) items.push(null, ...personal);
 
   return (
     <div className="fixed right-4 bottom-4 z-50 md:right-auto md:left-1/2 md:-translate-x-1/2">

@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAuth } from "@/components/common/auth/AuthProvider";
 import { Pagination } from "@/components/common/admin/Pagination";
 import { AdminService, type AuditLog, type AuditScope } from "@/lib/services/admin";
-import { ApiError } from "@/lib/services/core";
+import { toErrorMessage } from "@/lib/services/core";
 import { formatDateTime } from "@/lib/format";
 
 const PAGE_SIZE = 20;
@@ -34,11 +35,8 @@ const ACTION_LABELS: Record<string, string> = {
 
 const SCOPE_LABELS: Record<AuditScope, string> = { user: "用户", admin: "管理员" };
 
-function errorMessage(err: unknown) {
-  return err instanceof ApiError ? err.message : "请求失败, 请稍后再试";
-}
-
 export function AuditLogsManager() {
+  const isAdmin = !!useAuth().user?.is_admin;
   const [scope, setScope] = useState<string>(ALL);
   const [action, setAction] = useState<string>(ALL);
   const [actorInput, setActorInput] = useState("");
@@ -48,6 +46,8 @@ export function AuditLogsManager() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    // 确认是管理员后再拉取, 否则 AdminGuard 会跳走
+    if (!isAdmin) return;
     setLoading(true);
     try {
       setData(
@@ -60,11 +60,11 @@ export function AuditLogsManager() {
         }),
       );
     } catch (err) {
-      toast.error(errorMessage(err));
+      toast.error(toErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [current, scope, action, actorID]);
+  }, [current, scope, action, actorID, isAdmin]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 筛选条件变化时重新拉取
@@ -75,7 +75,7 @@ export function AuditLogsManager() {
     e.preventDefault();
     const value = actorInput.trim();
     if (value && !/^\d+$/.test(value)) {
-      toast.error("操作人 ID 需为数字");
+      toast.error("操作人 ID 只能填数字");
       return;
     }
     setCurrent(1);
@@ -84,10 +84,7 @@ export function AuditLogsManager() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">操作日志</h1>
-        <p className="text-sm text-muted-foreground">用户和管理员的操作记录</p>
-      </div>
+      <h1 className="text-2xl font-bold">操作日志</h1>
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <form onSubmit={handleActorSearch} className="flex flex-1 gap-2">
