@@ -67,7 +67,7 @@ func SetUserToContext(c *gin.Context, user *User) {
 func doLogin(ctx context.Context, username, password string) (*User, error) {
 	// query user
 	var user User
-	tx := db.DB(ctx).Where("username = ?", username).First(&user)
+	tx := db.DB(ctx).Where("LOWER(username) = LOWER(?)", username).First(&user)
 	if tx.Error != nil {
 		if !errors.Is(tx.Error, gorm.ErrRecordNotFound) {
 			logger.ErrorF(ctx, "[Login] query user failed: %s", tx.Error.Error())
@@ -79,12 +79,16 @@ func doLogin(ctx context.Context, username, password string) (*User, error) {
 	}
 
 	// verify password
+	if !user.HasPassword() {
+		compareDummyPassword(password)
+		return nil, errors.New(InvalidCredentials)
+	}
 	if err := comparePassword(user.PasswordHash, password); err != nil {
 		return nil, errors.New(InvalidCredentials)
 	}
 
 	// check status
-	if err := user.CheckActive(); err != nil {
+	if err := user.CheckDisabled(); err != nil {
 		return nil, err
 	}
 	if err := user.CheckBan(); err != nil {
@@ -113,14 +117,14 @@ func comparePassword(passwordHash string, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password))
 }
 
+// dummyPasswordHash 陪跑比对用的固定哈希, 启动时生成一次
+var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("blindcrate"), bcrypt.DefaultCost)
+
 // compareDummyPassword 用户名不存在时陪跑一次比对
 //
 // 目的是让"用户不存在"与"密码错误"两条路径的耗时接近,
 // 否则攻击者可以靠响应时间枚举出哪些用户名有效。
+// 哈希必须预先生成, 否则这条路径会多一次 bcrypt 计算, 反而更慢。
 func compareDummyPassword(password string) {
-	hash, err := bcrypt.GenerateFromPassword([]byte("blindcrate"), bcrypt.DefaultCost)
-	if err != nil {
-		return
-	}
-	_ = bcrypt.CompareHashAndPassword(hash, []byte(password))
+	_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
 }

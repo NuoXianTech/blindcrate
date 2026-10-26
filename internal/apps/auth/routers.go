@@ -93,7 +93,7 @@ func Login(c *gin.Context) {
 				ID:        user.ID,
 				Username:  user.Username,
 				Nickname:  user.Nickname,
-				AvatarUrl: user.AvatarUrl,
+				AvatarURL: user.AvatarURL,
 				IsAdmin:   user.IsAdmin,
 			},
 		},
@@ -125,7 +125,7 @@ type BasicUserInfo struct {
 	ID        uint64 `json:"id"`
 	Username  string `json:"username"`
 	Nickname  string `json:"nickname"`
-	AvatarUrl string `json:"avatar_url"`
+	AvatarURL string `json:"avatar_url"`
 	IsAdmin   bool   `json:"is_admin"`
 }
 
@@ -158,7 +158,7 @@ func UserInfo(c *gin.Context) {
 				ID:        user.ID,
 				Username:  user.Username,
 				Nickname:  user.Nickname,
-				AvatarUrl: user.AvatarUrl,
+				AvatarURL: user.AvatarURL,
 				IsAdmin:   user.IsAdmin,
 			},
 		},
