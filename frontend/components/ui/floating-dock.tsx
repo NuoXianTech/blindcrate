@@ -7,6 +7,7 @@ import {
   AnimatePresence,
   motion,
   useMotionValue,
+  useReducedMotion,
   useSpring,
   useTransform,
   type MotionValue,
@@ -142,8 +143,10 @@ function IconContainer({ mouseX, item }: { mouseX: MotionValue<number>; item: Do
     return val - bounds.x - bounds.width / 2;
   });
 
-  const size = useSpring(useTransform(distance, [-150, 0, 150], [40, 64, 40]), SPRING);
-  const iconSize = useSpring(useTransform(distance, [-150, 0, 150], [20, 32, 20]), SPRING);
+  // 减少动态效果时不做放大
+  const reduced = useReducedMotion();
+  const size = useSpring(useTransform(distance, [-150, 0, 150], reduced ? [40, 40, 40] : [40, 64, 40]), SPRING);
+  const iconSize = useSpring(useTransform(distance, [-150, 0, 150], reduced ? [20, 20, 20] : [20, 32, 20]), SPRING);
 
   const [hovered, setHovered] = useState(false);
 
