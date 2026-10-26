@@ -35,4 +35,9 @@ const (
 	PasswordInvalid    = "密码长度需为 8-72 位"
 	UsernameTaken      = "用户名已被占用"
 	WrongPassword      = "原密码错误"
+	EmailInvalid       = "邮箱格式不正确"
+	EmailTaken         = "邮箱已被其他账号绑定"
+	CodeTooFrequent    = "验证码发送过于频繁, 请稍后再试"
+	CodeInvalid        = "验证码错误或已过期"
+	MailUnavailable    = "邮件服务暂不可用"
 )

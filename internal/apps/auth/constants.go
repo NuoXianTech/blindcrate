@@ -24,6 +24,8 @@
 
 package auth
 
+import "time"
+
 const (
 	UserNameKey = "username"
 	UserIDKey   = "user_id"
@@ -35,4 +37,14 @@ const (
 	sessionKeyPrefix = "session_"
 	// userSessionsKeyPrefix 记录用户所有 session ID 的集合, 用于让其他设备下线
 	userSessionsKeyPrefix = "blindcrate:user_sessions:"
+	// emailCodeKeyPrefix 邮箱验证码(email/code/attempts)
+	emailCodeKeyPrefix = "blindcrate:email_code:"
+	// emailCodeCooldownKeyPrefix 邮箱验证码发送冷却
+	emailCodeCooldownKeyPrefix = "blindcrate:email_code_cooldown:"
+)
+
+const (
+	emailCodeTTL         = 10 * time.Minute
+	emailCodeCooldown    = time.Minute
+	emailCodeMaxAttempts = 5
 )

@@ -3,6 +3,9 @@ definitions:
     properties:
       avatar_url:
         type: string
+      email:
+        description: 只有验证通过的邮箱才会写入, 未绑定为空
+        type: string
       id:
         type: integer
       is_admin:
@@ -32,6 +35,7 @@ definitions:
       password:
         type: string
       username:
+        description: 用户名或已验证的邮箱
         type: string
     required:
     - password
@@ -65,10 +69,39 @@ definitions:
       error_msg:
         type: string
     type: object
+  auth.SendEmailCodeRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  auth.SendEmailCodeResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
   auth.UserInfoResponse:
     properties:
       data:
         $ref: '#/definitions/auth.BasicUserInfo'
+      error_msg:
+        type: string
+    type: object
+  auth.VerifyEmailRequest:
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+    required:
+    - code
+    - email
+    type: object
+  auth.VerifyEmailResponse:
+    properties:
+      data: {}
       error_msg:
         type: string
     type: object
@@ -89,6 +122,82 @@ info:
   title: BlindCrate
   version: 0.1.0
 paths:
+  /api/v1/auth/email/code:
+    post:
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.SendEmailCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.SendEmailCodeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.SendEmailCodeResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.SendEmailCodeResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/auth.SendEmailCodeResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/auth.SendEmailCodeResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.SendEmailCodeResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/auth.SendEmailCodeResponse'
+      tags:
+      - auth
+  /api/v1/auth/email/verify:
+    post:
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.VerifyEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.VerifyEmailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.VerifyEmailResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.VerifyEmailResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/auth.VerifyEmailResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.VerifyEmailResponse'
+      tags:
+      - auth
   /api/v1/auth/login:
     post:
       parameters:

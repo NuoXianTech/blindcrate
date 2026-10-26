@@ -34,7 +34,7 @@ import (
 )
 
 type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
+	Username string `json:"username" binding:"required"` // 用户名或已验证的邮箱
 	Password string `json:"password" binding:"required"`
 }
 
@@ -96,6 +96,7 @@ func Login(c *gin.Context) {
 				ID:        user.ID,
 				Username:  user.Username,
 				Nickname:  user.Nickname,
+				Email:     user.Email,
 				AvatarURL: user.AvatarURL,
 				IsAdmin:   user.IsAdmin,
 			},
@@ -166,6 +167,7 @@ func Register(c *gin.Context) {
 				ID:        user.ID,
 				Username:  user.Username,
 				Nickname:  user.Nickname,
+				Email:     user.Email,
 				AvatarURL: user.AvatarURL,
 				IsAdmin:   user.IsAdmin,
 			},
@@ -250,10 +252,113 @@ func ChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, ChangePasswordResponse{})
 }
 
+type SendEmailCodeRequest struct {
+	Email string `json:"email" binding:"required"`
+}
+
+type SendEmailCodeResponse struct {
+	ErrorMsg string      `json:"error_msg"`
+	Data     interface{} `json:"data"`
+}
+
+// SendEmailCode godoc
+// @Tags auth
+// @Param request body SendEmailCodeRequest true "request body"
+// @Produce json
+// @Success 200 {object} SendEmailCodeResponse
+// @Failure 400 {object} SendEmailCodeResponse
+// @Failure 401 {object} SendEmailCodeResponse
+// @Failure 409 {object} SendEmailCodeResponse
+// @Failure 429 {object} SendEmailCodeResponse
+// @Failure 500 {object} SendEmailCodeResponse
+// @Failure 503 {object} SendEmailCodeResponse
+// @Router /api/v1/auth/email/code [post]
+func SendEmailCode(c *gin.Context) {
+	// init req
+	var req SendEmailCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, SendEmailCodeResponse{ErrorMsg: InvalidParams})
+		return
+	}
+	user, ok := GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, SendEmailCodeResponse{ErrorMsg: UnAuthorized})
+		return
+	}
+	// do send
+	if err := doSendEmailCode(c.Request.Context(), user.ID, req.Email); err != nil {
+		switch err.Error() {
+		case EmailInvalid:
+			c.JSON(http.StatusBadRequest, SendEmailCodeResponse{ErrorMsg: err.Error()})
+		case EmailTaken:
+			c.JSON(http.StatusConflict, SendEmailCodeResponse{ErrorMsg: err.Error()})
+		case CodeTooFrequent:
+			c.JSON(http.StatusTooManyRequests, SendEmailCodeResponse{ErrorMsg: err.Error()})
+		case MailUnavailable:
+			c.JSON(http.StatusServiceUnavailable, SendEmailCodeResponse{ErrorMsg: err.Error()})
+		default:
+			logger.ErrorF(c.Request.Context(), "[SendEmailCode] send failed: %s", err.Error())
+			c.JSON(http.StatusInternalServerError, SendEmailCodeResponse{ErrorMsg: InternalError})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, SendEmailCodeResponse{})
+}
+
+type VerifyEmailRequest struct {
+	Email string `json:"email" binding:"required"`
+	Code  string `json:"code" binding:"required"`
+}
+
+type VerifyEmailResponse struct {
+	ErrorMsg string      `json:"error_msg"`
+	Data     interface{} `json:"data"`
+}
+
+// VerifyEmail godoc
+// @Tags auth
+// @Param request body VerifyEmailRequest true "request body"
+// @Produce json
+// @Success 200 {object} VerifyEmailResponse
+// @Failure 400 {object} VerifyEmailResponse
+// @Failure 401 {object} VerifyEmailResponse
+// @Failure 409 {object} VerifyEmailResponse
+// @Failure 500 {object} VerifyEmailResponse
+// @Router /api/v1/auth/email/verify [post]
+func VerifyEmail(c *gin.Context) {
+	// init req
+	var req VerifyEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, VerifyEmailResponse{ErrorMsg: InvalidParams})
+		return
+	}
+	user, ok := GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, VerifyEmailResponse{ErrorMsg: UnAuthorized})
+		return
+	}
+	// do verify
+	if err := doVerifyEmail(c.Request.Context(), user.ID, req.Email, req.Code); err != nil {
+		switch err.Error() {
+		case EmailInvalid, CodeInvalid:
+			c.JSON(http.StatusBadRequest, VerifyEmailResponse{ErrorMsg: err.Error()})
+		case EmailTaken:
+			c.JSON(http.StatusConflict, VerifyEmailResponse{ErrorMsg: err.Error()})
+		default:
+			logger.ErrorF(c.Request.Context(), "[VerifyEmail] verify failed: %s", err.Error())
+			c.JSON(http.StatusInternalServerError, VerifyEmailResponse{ErrorMsg: InternalError})
+		}
+		return
+	}
+	logger.InfoF(c.Request.Context(), "[VerifyEmail] %d %s", user.ID, user.Username)
+	c.JSON(http.StatusOK, VerifyEmailResponse{})
+}
+
 type BasicUserInfo struct {
 	ID        uint64 `json:"id"`
 	Username  string `json:"username"`
 	Nickname  string `json:"nickname"`
+	Email     string `json:"email"` // 只有验证通过的邮箱才会写入, 未绑定为空
 	AvatarURL string `json:"avatar_url"`
 	IsAdmin   bool   `json:"is_admin"`
 }
@@ -287,6 +392,7 @@ func UserInfo(c *gin.Context) {
 				ID:        user.ID,
 				Username:  user.Username,
 				Nickname:  user.Nickname,
+				Email:     user.Email,
 				AvatarURL: user.AvatarURL,
 				IsAdmin:   user.IsAdmin,
 			},
