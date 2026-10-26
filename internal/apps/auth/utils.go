@@ -88,7 +88,7 @@ func doLogin(ctx context.Context, username, password string) (*User, error) {
 	}
 
 	// check status
-	if err := user.CheckActive(); err != nil {
+	if err := user.CheckDisabled(); err != nil {
 		return nil, err
 	}
 	if err := user.CheckBan(); err != nil {

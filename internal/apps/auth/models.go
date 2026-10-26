@@ -39,7 +39,7 @@ type User struct {
 	EmailVerifiedAt *time.Time `json:"email_verified_at"`
 	Nickname        string     `json:"nickname" gorm:"size:64;not null;default:''"`
 	AvatarURL       string     `json:"avatar_url" gorm:"size:1024;not null;default:''"`
-	IsActive        bool       `json:"is_active" gorm:"not null;default:true"`
+	IsDisabled      bool       `json:"is_disabled" gorm:"not null;default:false"`
 	IsAdmin         bool       `json:"is_admin" gorm:"not null;default:false"`
 	BannedUntil     *time.Time `json:"banned_until" gorm:"index"`
 	BanReason       string     `json:"ban_reason" gorm:"size:255;not null;default:''"`
@@ -85,9 +85,9 @@ func (u *User) UpdateLastLogin(tx *gorm.DB) error {
 	return tx.Model(u).Update("last_login_at", now).Error
 }
 
-// CheckActive 检查用户账户是否激活,未激活则返回错误
-func (u *User) CheckActive() error {
-	if !u.IsActive {
+// CheckDisabled 检查用户账户是否被停用,已停用则返回错误
+func (u *User) CheckDisabled() error {
+	if u.IsDisabled {
 		return errors.New(BannedAccount)
 	}
 	return nil

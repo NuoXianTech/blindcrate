@@ -75,7 +75,7 @@ func LoginRequired() gin.HandlerFunc {
 			return
 		}
 
-		if err := user.CheckActive(); err != nil {
+		if err := user.CheckDisabled(); err != nil {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error_msg": BannedAccount, "data": nil})
 			return
 		}

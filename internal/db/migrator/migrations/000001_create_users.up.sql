@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users
     email_verified_at TIMESTAMPTZ,
     nickname          VARCHAR(64)   NOT NULL DEFAULT '',
     avatar_url        VARCHAR(1024) NOT NULL DEFAULT '',
-    is_active         BOOLEAN       NOT NULL DEFAULT TRUE,
+    is_disabled       BOOLEAN       NOT NULL DEFAULT FALSE,
     is_admin          BOOLEAN       NOT NULL DEFAULT FALSE,
     banned_until      TIMESTAMPTZ,
     ban_reason        VARCHAR(255)  NOT NULL DEFAULT '',

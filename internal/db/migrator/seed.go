@@ -66,7 +66,6 @@ func seedAdmin() {
 			Username:     defaultAdminUsername,
 			PasswordHash: hash,
 			Nickname:     defaultAdminNickname,
-			IsActive:     true,
 			IsAdmin:      true,
 		}
 		if err = tx.Create(&admin).Error; err != nil {
