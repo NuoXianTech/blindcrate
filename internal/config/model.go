@@ -29,6 +29,7 @@ import "time"
 type ConfigModel struct {
 	App      AppConfig      `mapstructure:"app"`
 	Database DatabaseConfig `mapstructure:"database"`
+	Redis    RedisConfig    `mapstructure:"redis"`
 	Log      LogConfig      `mapstructure:"log"`
 	Otel     OtelConfig     `mapstructure:"otel"`
 }
@@ -57,6 +58,21 @@ type DatabaseConfig struct {
 	LogLevel                  string        `mapstructure:"log_level"`
 	SlowThreshold             time.Duration `mapstructure:"slow_threshold"`
 	IgnoreRecordNotFoundError bool          `mapstructure:"ignore_record_not_found_error"`
+}
+
+// redisConfig Redis配置
+type RedisConfig struct {
+	Enabled      bool   `mapstructure:"enabled"`
+	Host         string `mapstructure:"host"`
+	Port         int    `mapstructure:"port"`
+	Username     string `mapstructure:"username"`
+	Password     string `mapstructure:"password"`
+	DB           int    `mapstructure:"db"`
+	PoolSize     int    `mapstructure:"pool_size"`
+	MinIdleConn  int    `mapstructure:"min_idle_conn"`
+	DialTimeout  int    `mapstructure:"dial_timeout"`
+	ReadTimeout  int    `mapstructure:"read_timeout"`
+	WriteTimeout int    `mapstructure:"write_timeout"`
 }
 
 // logConfig 日志配置

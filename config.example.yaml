@@ -25,6 +25,20 @@ database:
   slow_threshold: 200ms
   ignore_record_not_found_error: false
 
+# Redis
+redis:
+  enabled: true
+  host: "127.0.0.1"
+  port: 6379
+  username: ""
+  password: ""
+  db: 0
+  pool_size: 100
+  min_idle_conn: 10
+  dial_timeout: 5
+  read_timeout: 3
+  write_timeout: 3
+
 # Log
 log:
   level: "info"  # debug, info, warn, error, fatal, panic

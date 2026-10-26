@@ -75,6 +75,13 @@ func Ready(c *gin.Context) {
 		}
 	}
 	// check redis
+	if config.Config.Redis.Enabled {
+		if err := db.Redis.Ping(ctx).Err(); err != nil {
+			logger.ErrorF(c.Request.Context(), "[Ready] redis check failed: %s", err.Error())
+			c.AbortWithStatusJSON(http.StatusInternalServerError, ReadyResponse{})
+			return
+		}
+	}
 	// check clickhouse
 	// response
 	c.JSON(http.StatusOK, ReadyResponse{})
