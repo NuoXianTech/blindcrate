@@ -67,7 +67,7 @@ func SetUserToContext(c *gin.Context, user *User) {
 func doLogin(ctx context.Context, username, password string) (*User, error) {
 	// query user
 	var user User
-	tx := db.DB(ctx).Where("username = ?", username).First(&user)
+	tx := db.DB(ctx).Where("LOWER(username) = LOWER(?)", username).First(&user)
 	if tx.Error != nil {
 		if !errors.Is(tx.Error, gorm.ErrRecordNotFound) {
 			logger.ErrorF(ctx, "[Login] query user failed: %s", tx.Error.Error())
@@ -79,6 +79,10 @@ func doLogin(ctx context.Context, username, password string) (*User, error) {
 	}
 
 	// verify password
+	if !user.HasPassword() {
+		compareDummyPassword(password)
+		return nil, errors.New(InvalidCredentials)
+	}
 	if err := comparePassword(user.PasswordHash, password); err != nil {
 		return nil, errors.New(InvalidCredentials)
 	}

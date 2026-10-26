@@ -26,22 +26,78 @@ package migrator
 
 import (
 	"context"
-	"github.com/NuoXianTech/blindcrate/internal/config"
+	"embed"
+	"errors"
 	"log"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
+	"github.com/golang-migrate/migrate/v4"
+	migratepg "github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
+//go:embed migrations/*.sql
+var migrationFS embed.FS
+
+// Migrate 执行数据库迁移
+//
+// 版本化 SQL 迁移是表结构的唯一来源, 所有环境都会执行;
+// 开发环境额外跑一次 AutoMigrate, 方便在写正式 SQL 之前快速迭代模型。
 func Migrate() {
 	if !config.Config.Database.Enabled {
 		return
 	}
 
+	runVersioned()
+
+	if config.Config.App.Env == "development" {
+		runAutoMigrate()
+	}
+
+	seedAdmin()
+}
+
+func runVersioned() {
+	ctx := context.Background()
+	sqlDB, err := db.DB(ctx).DB()
+	if err != nil {
+		log.Fatalf("[PostgreSQL] load sql db failed: %v\n", err)
+	}
+	// 从 GORM 连接池借出一个连接; WithConnection 模式下 Close 只归还该连接, 不会关闭连接池
+	conn, err := sqlDB.Conn(ctx)
+	if err != nil {
+		log.Fatalf("[PostgreSQL] acquire migrate connection failed: %v\n", err)
+	}
+
+	src, err := iofs.New(migrationFS, "migrations")
+	if err != nil {
+		log.Fatalf("[PostgreSQL] load migrations failed: %v\n", err)
+	}
+	driver, err := migratepg.WithConnection(ctx, conn, &migratepg.Config{})
+	if err != nil {
+		log.Fatalf("[PostgreSQL] init migrate driver failed: %v\n", err)
+	}
+	m, err := migrate.NewWithInstance("iofs", src, "postgres", driver)
+	if err != nil {
+		log.Fatalf("[PostgreSQL] init migrate failed: %v\n", err)
+	}
+	defer m.Close()
+
+	if err = m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		log.Fatalf("[PostgreSQL] versioned migrate failed: %v\n", err)
+	}
+	version, dirty, _ := m.Version()
+	log.Printf("[PostgreSQL] versioned migrate success, version=%d dirty=%v\n", version, dirty)
+}
+
+func runAutoMigrate() {
 	if err := db.DB(context.Background()).AutoMigrate(
 		&auth.User{},
+		&auth.UserIdentity{},
 	); err != nil {
 		log.Fatalf("[PostgreSQL] auto migrate failed: %v\n", err)
 	}
-	log.Printf("[PostgreSQL] auto migrate success\n")
+	log.Printf("[PostgreSQL] auto migrate (development) success\n")
 }

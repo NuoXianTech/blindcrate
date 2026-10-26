@@ -32,22 +32,43 @@ import (
 )
 
 type User struct {
-	ID           uint64     `json:"id" gorm:"primaryKey"`
-	Username     string     `json:"username" gorm:"size:255;unique"`
-	PasswordHash string     `json:"-" gorm:"size:255"`
-	Nickname     string     `json:"nickname" gorm:"size:255"`
-	AvatarUrl    string     `json:"avatar_url" gorm:"size:255"`
-	IsActive     bool       `json:"is_active" gorm:"default:true"`
-	IsAdmin      bool       `json:"is_admin" gorm:"default:false"`
-	BannedUntil  *time.Time `json:"banned_until" gorm:"index"`
-	BanReason    string     `json:"ban_reason" gorm:"size:255"`
-	LastLoginAt  *time.Time `json:"last_login_at" gorm:"index"`
-	CreatedAt    time.Time  `json:"created_at" gorm:"autoCreateTime;index"`
-	UpdatedAt    time.Time  `json:"updated_at" gorm:"autoUpdateTime;index"`
+	ID              uint64     `json:"id" gorm:"primaryKey"`
+	Username        string     `json:"username" gorm:"size:64;not null;index:uniq_users_username_lower,unique,expression:lower(username)"`
+	PasswordHash    string     `json:"-" gorm:"size:255;not null;default:''"`
+	Email           string     `json:"email" gorm:"size:255;not null;default:'';index:uniq_users_email_lower,unique,expression:lower(email),where:email <> ''"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at"`
+	Nickname        string     `json:"nickname" gorm:"size:64;not null;default:''"`
+	AvatarURL       string     `json:"avatar_url" gorm:"size:1024;not null;default:''"`
+	IsActive        bool       `json:"is_active" gorm:"not null;default:true"`
+	IsAdmin         bool       `json:"is_admin" gorm:"not null;default:false"`
+	BannedUntil     *time.Time `json:"banned_until" gorm:"index"`
+	BanReason       string     `json:"ban_reason" gorm:"size:255;not null;default:''"`
+	LastLoginAt     *time.Time `json:"last_login_at" gorm:"index"`
+	CreatedAt       time.Time  `json:"created_at" gorm:"not null;autoCreateTime;index"`
+	UpdatedAt       time.Time  `json:"updated_at" gorm:"not null;autoUpdateTime"`
 }
 
 func (u *User) TableName() string {
 	return "users"
+}
+
+// HasPassword 是否设置了密码, 仅通过第三方登录注册的用户没有密码
+func (u *User) HasPassword() bool {
+	return u.PasswordHash != ""
+}
+
+// UserIdentity 用户绑定的外部身份(第三方登录), 一个用户可绑定多个
+type UserIdentity struct {
+	ID             uint64    `json:"id" gorm:"primaryKey"`
+	UserID         uint64    `json:"user_id" gorm:"not null;index"`
+	Provider       string    `json:"provider" gorm:"size:32;not null;uniqueIndex:uniq_user_identities_provider_uid"`
+	ProviderUserID string    `json:"provider_user_id" gorm:"size:255;not null;uniqueIndex:uniq_user_identities_provider_uid"`
+	CreatedAt      time.Time `json:"created_at" gorm:"not null;autoCreateTime"`
+	UpdatedAt      time.Time `json:"updated_at" gorm:"not null;autoUpdateTime"`
+}
+
+func (i *UserIdentity) TableName() string {
+	return "user_identities"
 }
 
 func (u *User) Exact(tx *gorm.DB, id uint64) error {
