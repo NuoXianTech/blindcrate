@@ -25,16 +25,21 @@
 package router
 
 import (
+	"context"
 	"log"
 
 	_ "github.com/NuoXianTech/blindcrate/docs"
 	"github.com/NuoXianTech/blindcrate/internal/config"
+	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func Serve() {
+	defer otel_trace.Shutdown(context.Background())
+
 	// 运行模式
 	if config.Config.App.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -44,7 +49,8 @@ func Serve() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
-	r.Use(loggerMiddleware())
+	// 补充中间件
+	r.Use(otelgin.Middleware(config.Config.App.AppName), loggerMiddleware())
 
 	apiGroup := r.Group(config.Config.App.APIPrefix)
 	{

@@ -48,7 +48,7 @@ type LogConfig struct {
 	Compress   bool   `mapstructure:"compress"`
 }
 
+// OtelConfig OpenTelemetry 配置
 type OtelConfig struct {
-	Enabled      bool    `mapstructure:"enabled"`
 	SamplingRate float64 `mapstructure:"sampling_rate"`
 }
