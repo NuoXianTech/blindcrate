@@ -104,6 +104,11 @@ func Serve() {
 			apiV1Router.PUT("/auth/password", auth.LoginRequired(), auth.ChangePassword)
 			apiV1Router.POST("/auth/email/code", auth.LoginRequired(), auth.SendEmailCode)
 			apiV1Router.POST("/auth/email/verify", auth.LoginRequired(), auth.VerifyEmail)
+
+			// Auth Admin
+			apiV1Router.PUT("/auth/users/:id/ban", auth.LoginRequired(), auth.AdminRequired(), auth.BanUser)
+			apiV1Router.DELETE("/auth/users/:id/ban", auth.LoginRequired(), auth.AdminRequired(), auth.UnbanUser)
+			apiV1Router.PUT("/auth/users/:id/disabled", auth.LoginRequired(), auth.AdminRequired(), auth.SetUserDisabled)
 		}
 	}
 

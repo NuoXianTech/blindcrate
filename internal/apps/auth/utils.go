@@ -353,6 +353,39 @@ func doVerifyEmail(ctx context.Context, userID uint64, rawEmail, code string) er
 	return nil
 }
 
+// updateOtherUser 管理员修改其他用户的字段, 不允许操作自己
+func updateOtherUser(ctx context.Context, operatorID, userID uint64, values map[string]interface{}) error {
+	if operatorID == userID {
+		return errors.New(CannotOperateSelf)
+	}
+	tx := db.DB(ctx).Model(&User{}).Where("id = ?", userID).Updates(values)
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if tx.RowsAffected == 0 {
+		return errors.New(UserNotFound)
+	}
+	return nil
+}
+
+// doBanUser 封禁用户到指定时间
+func doBanUser(ctx context.Context, operatorID, userID uint64, until time.Time, reason string) error {
+	if !until.After(time.Now()) {
+		return errors.New(BanUntilInvalid)
+	}
+	return updateOtherUser(ctx, operatorID, userID, map[string]interface{}{"banned_until": until, "ban_reason": reason})
+}
+
+// doUnbanUser 解除封禁
+func doUnbanUser(ctx context.Context, operatorID, userID uint64) error {
+	return updateOtherUser(ctx, operatorID, userID, map[string]interface{}{"banned_until": nil, "ban_reason": ""})
+}
+
+// doSetUserDisabled 停用或启用用户
+func doSetUserDisabled(ctx context.Context, operatorID, userID uint64, disabled bool) error {
+	return updateOtherUser(ctx, operatorID, userID, map[string]interface{}{"is_disabled": disabled})
+}
+
 // generateEmailCode 生成 6 位数字验证码
 func generateEmailCode() (string, error) {
 	n, err := rand.Int(rand.Reader, big.NewInt(1000000))

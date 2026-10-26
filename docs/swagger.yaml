@@ -1,4 +1,21 @@
 definitions:
+  auth.BanUserRequest:
+    properties:
+      banned_until:
+        description: RFC3339, 必须晚于当前时间; 永久封禁请使用停用
+        type: string
+      reason:
+        maxLength: 255
+        type: string
+    required:
+    - banned_until
+    type: object
+  auth.BanUserResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
   auth.BasicUserInfo:
     properties:
       avatar_url:
@@ -77,6 +94,25 @@ definitions:
     - email
     type: object
   auth.SendEmailCodeResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  auth.SetUserDisabledRequest:
+    properties:
+      disabled:
+        type: boolean
+    required:
+    - disabled
+    type: object
+  auth.SetUserDisabledResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  auth.UnbanUserResponse:
     properties:
       data: {}
       error_msg:
@@ -320,6 +356,128 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/auth.UserInfoResponse'
+      tags:
+      - auth
+  /api/v1/auth/users/{id}/ban:
+    delete:
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.UnbanUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.UnbanUserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.UnbanUserResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.UnbanUserResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/auth.UnbanUserResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.UnbanUserResponse'
+      tags:
+      - auth
+    put:
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.BanUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.BanUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.BanUserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.BanUserResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.BanUserResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/auth.BanUserResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.BanUserResponse'
+      tags:
+      - auth
+  /api/v1/auth/users/{id}/disabled:
+    put:
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.SetUserDisabledRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.SetUserDisabledResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.SetUserDisabledResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.SetUserDisabledResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.SetUserDisabledResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/auth.SetUserDisabledResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.SetUserDisabledResponse'
       tags:
       - auth
   /api/v1/health:

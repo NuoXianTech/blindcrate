@@ -40,4 +40,7 @@ const (
 	CodeTooFrequent    = "验证码发送过于频繁, 请稍后再试"
 	CodeInvalid        = "验证码错误或已过期"
 	MailUnavailable    = "邮件服务暂不可用"
+	UserNotFound       = "用户不存在"
+	CannotOperateSelf  = "不能对自己执行该操作"
+	BanUntilInvalid    = "封禁截止时间必须晚于当前时间"
 )
