@@ -8,6 +8,23 @@ app:
   addr: ":8000"
   api_prefix: "/api"
 
+# DB
+database:
+  enabled: true
+  host: "127.0.0.1"
+  port: 5432
+  username: "postgres"
+  password: ""
+  database: "blindcrate"
+  ssl_mode: "disable"
+  time_zone: "UTC"
+  max_idle_conn: 10
+  max_open_conn: 100
+  conn_max_lifetime: 3600
+  log_level: "info"  # silent, error, warn, info
+  slow_threshold: 200ms
+  ignore_record_not_found_error: false
+
 # Log
 log:
   level: "info"  # debug, info, warn, error, fatal, panic

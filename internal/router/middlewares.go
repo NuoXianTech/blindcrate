@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/gin-gonic/gin"
@@ -59,18 +60,20 @@ func loggerMiddleware() gin.HandlerFunc {
 		latency := end.Sub(start)
 
 		// 打印日志
-		logger.InfoF(
-			ctx,
-			"[LoggerMiddleware] %s %s\nStartTime: %s\nEndTime: %s\nLatency: %d\nClientIP: %s\nResponse: %d %d",
-			c.Request.Method,
-			path,
-			start.Format(time.RFC3339),
-			end.Format(time.RFC3339),
-			latency.Milliseconds(),
-			c.ClientIP(),
-			c.Writer.Status(),
-			c.Writer.Size(),
-		)
+		if !isProbePath(c.Request.URL.Path) {
+			logger.InfoF(
+				ctx,
+				"[LoggerMiddleware] %s %s\nStartTime: %s\nEndTime: %s\nLatency: %d\nClientIP: %s\nResponse: %d %d",
+				c.Request.Method,
+				path,
+				start.Format(time.RFC3339),
+				end.Format(time.RFC3339),
+				latency.Milliseconds(),
+				c.ClientIP(),
+				c.Writer.Status(),
+				c.Writer.Size(),
+			)
+		}
 
 		// 设置 Span 状态
 		if c.Writer.Status() >= 400 {
@@ -78,4 +81,9 @@ func loggerMiddleware() gin.HandlerFunc {
 			span.SetStatus(codes.Error, strconv.Itoa(c.Writer.Status()))
 		}
 	}
+}
+
+func isProbePath(path string) bool {
+	return path == config.Config.App.APIPrefix+"/v1/health" ||
+		path == config.Config.App.APIPrefix+"/v1/ready"
 }

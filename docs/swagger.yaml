@@ -1,6 +1,41 @@
+definitions:
+  health.HealthResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  health.ReadyResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
 info:
   contact: {}
   title: BlindCrate
   version: 0.1.0
-paths: {}
+paths:
+  /api/v1/health:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/health.HealthResponse'
+      tags:
+      - health
+  /api/v1/ready:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/health.ReadyResponse'
+      tags:
+      - health
 swagger: "2.0"

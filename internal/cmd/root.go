@@ -27,11 +27,15 @@ package cmd
 import (
 	"log"
 
+	"github.com/NuoXianTech/blindcrate/internal/db/migrator"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
 	Use: "blindcrate",
+	PreRun: func(cmd *cobra.Command, args []string) {
+		migrator.Migrate()
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			log.Fatalf("[CMD] please provide a command\n")

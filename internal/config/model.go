@@ -24,12 +24,16 @@
 
 package config
 
+import "time"
+
 type ConfigModel struct {
-	App  AppConfig  `mapstructure:"app"`
-	Log  LogConfig  `mapstructure:"log"`
-	Otel OtelConfig `mapstructure:"otel"`
+	App      AppConfig      `mapstructure:"app"`
+	Database DatabaseConfig `mapstructure:"database"`
+	Log      LogConfig      `mapstructure:"log"`
+	Otel     OtelConfig     `mapstructure:"otel"`
 }
 
+// appConfig 应用基本配置
 type AppConfig struct {
 	AppName   string `mapstructure:"app_name"`
 	Env       string `mapstructure:"env"`
@@ -37,6 +41,25 @@ type AppConfig struct {
 	APIPrefix string `mapstructure:"api_prefix"`
 }
 
+// databaseConfig 数据库配置
+type DatabaseConfig struct {
+	Enabled                   bool          `mapstructure:"enabled"`
+	Host                      string        `mapstructure:"host"`
+	Port                      int           `mapstructure:"port"`
+	Username                  string        `mapstructure:"username"`
+	Password                  string        `mapstructure:"password"`
+	Database                  string        `mapstructure:"database"`
+	SSLMode                   string        `mapstructure:"ssl_mode"`
+	TimeZone                  string        `mapstructure:"time_zone"`
+	MaxIdleConn               int           `mapstructure:"max_idle_conn"`
+	MaxOpenConn               int           `mapstructure:"max_open_conn"`
+	ConnMaxLifetime           int           `mapstructure:"conn_max_lifetime"`
+	LogLevel                  string        `mapstructure:"log_level"`
+	SlowThreshold             time.Duration `mapstructure:"slow_threshold"`
+	IgnoreRecordNotFoundError bool          `mapstructure:"ignore_record_not_found_error"`
+}
+
+// logConfig 日志配置
 type LogConfig struct {
 	Level      string `mapstructure:"level"`
 	Format     string `mapstructure:"format"`
@@ -48,7 +71,7 @@ type LogConfig struct {
 	Compress   bool   `mapstructure:"compress"`
 }
 
-// OtelConfig OpenTelemetry 配置
+// otelConfig OpenTelemetry 配置
 type OtelConfig struct {
 	SamplingRate float64 `mapstructure:"sampling_rate"`
 }

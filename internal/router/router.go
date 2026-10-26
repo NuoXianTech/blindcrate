@@ -29,6 +29,7 @@ import (
 	"log"
 
 	_ "github.com/NuoXianTech/blindcrate/docs"
+	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/gin-gonic/gin"
@@ -62,7 +63,9 @@ func Serve() {
 		// API V1
 		apiV1Router := apiGroup.Group("/v1")
 		{
-			_ = apiV1Router
+			// Health
+			apiV1Router.GET("/health", health.Health)
+			apiV1Router.GET("/ready", health.Ready)
 		}
 	}
 
