@@ -559,3 +559,131 @@ func UserInfo(c *gin.Context) {
 		},
 	)
 }
+
+type UpdateUserInfoRequest struct {
+	Nickname  *string `json:"nickname"`   // 不传表示不修改
+	AvatarURL *string `json:"avatar_url"` // 不传表示不修改, 传空字符串表示清除头像
+}
+
+type UpdateUserInfoResponse struct {
+	ErrorMsg string      `json:"error_msg"`
+	Data     interface{} `json:"data"`
+}
+
+// UpdateUserInfo godoc
+// @Tags auth
+// @Param request body UpdateUserInfoRequest true "request body"
+// @Produce json
+// @Success 200 {object} UpdateUserInfoResponse
+// @Failure 400 {object} UpdateUserInfoResponse
+// @Failure 401 {object} UpdateUserInfoResponse
+// @Failure 500 {object} UpdateUserInfoResponse
+// @Router /api/v1/auth/user-info [patch]
+func UpdateUserInfo(c *gin.Context) {
+	// init req
+	var req UpdateUserInfoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, UpdateUserInfoResponse{ErrorMsg: InvalidParams})
+		return
+	}
+	user, ok := GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, UpdateUserInfoResponse{ErrorMsg: UnAuthorized})
+		return
+	}
+	// do update
+	updated, err := doUpdateUserInfo(c.Request.Context(), user.ID, nil, req.Nickname, req.AvatarURL)
+	if err != nil {
+		switch err.Error() {
+		case NicknameInvalid, AvatarURLInvalid:
+			c.JSON(http.StatusBadRequest, UpdateUserInfoResponse{ErrorMsg: err.Error()})
+		default:
+			logger.ErrorF(c.Request.Context(), "[UpdateUserInfo] update failed: %s", err.Error())
+			c.JSON(http.StatusInternalServerError, UpdateUserInfoResponse{ErrorMsg: InternalError})
+		}
+		return
+	}
+	logger.InfoF(c.Request.Context(), "[UpdateUserInfo] %d %s", updated.ID, updated.Username)
+	c.JSON(
+		http.StatusOK,
+		UpdateUserInfoResponse{
+			Data: BasicUserInfo{
+				ID:        updated.ID,
+				Username:  updated.Username,
+				Nickname:  updated.Nickname,
+				Email:     updated.Email,
+				AvatarURL: updated.AvatarURL,
+				IsAdmin:   updated.IsAdmin,
+			},
+		},
+	)
+}
+
+type AdminUpdateUserRequest struct {
+	Username  *string `json:"username"`   // 不传表示不修改
+	Nickname  *string `json:"nickname"`   // 不传表示不修改
+	AvatarURL *string `json:"avatar_url"` // 不传表示不修改, 传空字符串表示清除头像
+}
+
+type AdminUpdateUserResponse struct {
+	ErrorMsg string      `json:"error_msg"`
+	Data     interface{} `json:"data"`
+}
+
+// AdminUpdateUser godoc
+// @Tags auth
+// @Param id path int true "user id"
+// @Param request body AdminUpdateUserRequest true "request body"
+// @Produce json
+// @Success 200 {object} AdminUpdateUserResponse
+// @Failure 400 {object} AdminUpdateUserResponse
+// @Failure 401 {object} AdminUpdateUserResponse
+// @Failure 403 {object} AdminUpdateUserResponse
+// @Failure 404 {object} AdminUpdateUserResponse
+// @Failure 409 {object} AdminUpdateUserResponse
+// @Failure 500 {object} AdminUpdateUserResponse
+// @Router /api/v1/auth/users/{id} [patch]
+func AdminUpdateUser(c *gin.Context) {
+	// init req
+	var req AdminUpdateUserRequest
+	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || c.ShouldBindJSON(&req) != nil {
+		c.JSON(http.StatusBadRequest, AdminUpdateUserResponse{ErrorMsg: InvalidParams})
+		return
+	}
+	operator, ok := GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, AdminUpdateUserResponse{ErrorMsg: UnAuthorized})
+		return
+	}
+	// do update
+	updated, err := doUpdateUserInfo(c.Request.Context(), userID, req.Username, req.Nickname, req.AvatarURL)
+	if err != nil {
+		switch err.Error() {
+		case UsernameInvalid, NicknameInvalid, AvatarURLInvalid:
+			c.JSON(http.StatusBadRequest, AdminUpdateUserResponse{ErrorMsg: err.Error()})
+		case UserNotFound:
+			c.JSON(http.StatusNotFound, AdminUpdateUserResponse{ErrorMsg: err.Error()})
+		case UsernameTaken:
+			c.JSON(http.StatusConflict, AdminUpdateUserResponse{ErrorMsg: err.Error()})
+		default:
+			logger.ErrorF(c.Request.Context(), "[AdminUpdateUser] update failed: %s", err.Error())
+			c.JSON(http.StatusInternalServerError, AdminUpdateUserResponse{ErrorMsg: InternalError})
+		}
+		return
+	}
+	logger.InfoF(c.Request.Context(), "[AdminUpdateUser] %d updated %d %s", operator.ID, updated.ID, updated.Username)
+	c.JSON(
+		http.StatusOK,
+		AdminUpdateUserResponse{
+			Data: BasicUserInfo{
+				ID:        updated.ID,
+				Username:  updated.Username,
+				Nickname:  updated.Nickname,
+				Email:     updated.Email,
+				AvatarURL: updated.AvatarURL,
+				IsAdmin:   updated.IsAdmin,
+			},
+		},
+	)
+}

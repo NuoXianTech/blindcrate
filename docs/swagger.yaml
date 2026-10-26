@@ -1,4 +1,22 @@
 definitions:
+  auth.AdminUpdateUserRequest:
+    properties:
+      avatar_url:
+        description: 不传表示不修改, 传空字符串表示清除头像
+        type: string
+      nickname:
+        description: 不传表示不修改
+        type: string
+      username:
+        description: 不传表示不修改
+        type: string
+    type: object
+  auth.AdminUpdateUserResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
   auth.BanUserRequest:
     properties:
       banned_until:
@@ -113,6 +131,21 @@ definitions:
         type: string
     type: object
   auth.UnbanUserResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  auth.UpdateUserInfoRequest:
+    properties:
+      avatar_url:
+        description: 不传表示不修改, 传空字符串表示清除头像
+        type: string
+      nickname:
+        description: 不传表示不修改
+        type: string
+    type: object
+  auth.UpdateUserInfoResponse:
     properties:
       data: {}
       error_msg:
@@ -356,6 +389,82 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/auth.UserInfoResponse'
+      tags:
+      - auth
+    patch:
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.UpdateUserInfoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.UpdateUserInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.UpdateUserInfoResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.UpdateUserInfoResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.UpdateUserInfoResponse'
+      tags:
+      - auth
+  /api/v1/auth/users/{id}:
+    patch:
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.AdminUpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.AdminUpdateUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.AdminUpdateUserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.AdminUpdateUserResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.AdminUpdateUserResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/auth.AdminUpdateUserResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/auth.AdminUpdateUserResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.AdminUpdateUserResponse'
       tags:
       - auth
   /api/v1/auth/users/{id}/ban:

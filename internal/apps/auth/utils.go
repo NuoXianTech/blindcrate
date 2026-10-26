@@ -31,10 +31,12 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -384,6 +386,79 @@ func doUnbanUser(ctx context.Context, operatorID, userID uint64) error {
 // doSetUserDisabled 停用或启用用户
 func doSetUserDisabled(ctx context.Context, operatorID, userID uint64, disabled bool) error {
 	return updateOtherUser(ctx, operatorID, userID, map[string]interface{}{"is_disabled": disabled})
+}
+
+// validateNickname 昵称去掉首尾空白后需为 1-32 个字符
+func validateNickname(nickname string) error {
+	n := utf8.RuneCountInString(nickname)
+	if n < 1 || n > 32 {
+		return errors.New(NicknameInvalid)
+	}
+	return nil
+}
+
+// validateAvatarURL 头像地址允许为空(清除头像), 否则必须是 http(s) 链接
+func validateAvatarURL(avatarURL string) error {
+	if avatarURL == "" {
+		return nil
+	}
+	if len(avatarURL) > 1024 {
+		return errors.New(AvatarURLInvalid)
+	}
+	u, err := url.Parse(avatarURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return errors.New(AvatarURLInvalid)
+	}
+	return nil
+}
+
+// doUpdateUserInfo 更新用户资料, 字段为 nil 表示不修改; username 仅管理员可改
+func doUpdateUserInfo(ctx context.Context, userID uint64, username, nickname, avatarURL *string) (*User, error) {
+	values := map[string]interface{}{}
+	if username != nil {
+		if err := validateUsername(*username); err != nil {
+			return nil, err
+		}
+		values["username"] = *username
+	}
+	if nickname != nil {
+		*nickname = strings.TrimSpace(*nickname)
+		if err := validateNickname(*nickname); err != nil {
+			return nil, err
+		}
+		values["nickname"] = *nickname
+	}
+	if avatarURL != nil {
+		*avatarURL = strings.TrimSpace(*avatarURL)
+		if err := validateAvatarURL(*avatarURL); err != nil {
+			return nil, err
+		}
+		values["avatar_url"] = *avatarURL
+	}
+
+	var user User
+	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := user.Exact(tx, userID); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New(UserNotFound)
+			}
+			return err
+		}
+		if len(values) == 0 {
+			return nil
+		}
+		if err := tx.Model(&user).Updates(values).Error; err != nil {
+			if isUniqueViolation(err) {
+				return errors.New(UsernameTaken)
+			}
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 // generateEmailCode 生成 6 位数字验证码
