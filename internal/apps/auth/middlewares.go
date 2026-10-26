@@ -25,11 +25,14 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type loginRequiredAuditLog struct {
@@ -58,12 +61,24 @@ func LoginRequired() gin.HandlerFunc {
 
 		// load user from db to make sure is active
 		var user User
-		tx := db.DB(ctx).Where("id = ? AND is_active = ?", userId, true).First(&user)
+		tx := db.DB(ctx).Where("id = ?", userId).First(&user)
 		if tx.Error != nil {
+			// 用户已不存在: 清掉失效的 session, 按未登录处理
+			if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
+				session := sessions.Default(c)
+				session.Clear()
+				_ = session.Save()
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_msg": UnAuthorized, "data": nil})
+				return
+			}
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error_msg": tx.Error.Error(), "data": nil})
 			return
 		}
 
+		if err := user.CheckActive(); err != nil {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error_msg": BannedAccount, "data": nil})
+			return
+		}
 		if err := user.CheckBan(); err != nil {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error_msg": BannedAccount, "data": nil})
 			return
