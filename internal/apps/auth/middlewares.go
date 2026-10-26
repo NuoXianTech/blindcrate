@@ -94,3 +94,19 @@ func LoginRequired() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// AdminRequired 要求当前用户为管理员, 必须放在 LoginRequired 之后使用
+func AdminRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, ok := GetUserFromContext(c)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_msg": UnAuthorized, "data": nil})
+			return
+		}
+		if !user.IsAdmin {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error_msg": Forbidden, "data": nil})
+			return
+		}
+		c.Next()
+	}
+}

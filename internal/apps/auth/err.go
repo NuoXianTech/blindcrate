@@ -30,6 +30,7 @@ const (
 	InvalidParams      = "参数不合法"
 	BannedAccount      = "账号已被封禁"
 	InternalError      = "服务器内部错误"
+	Forbidden          = "无权限"
 	UsernameInvalid    = "用户名需为 3-32 位字母、数字或下划线"
 	PasswordInvalid    = "密码长度需为 8-72 位"
 	UsernameTaken      = "用户名已被占用"
