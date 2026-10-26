@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Noto_Sans_SC } from "next/font/google";
+import { AuthProvider } from "@/components/common/auth/AuthProvider";
 import { ThemeProvider } from "@/components/common/layout/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -41,7 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col">
         <ThemeProvider>
-          {children}
+          <AuthProvider>{children}</AuthProvider>
           <Toaster />
         </ThemeProvider>
       </body>

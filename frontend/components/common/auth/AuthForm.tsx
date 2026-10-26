@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoaderCircle, Package } from "lucide-react";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthService } from "@/lib/services/auth";
 import { ApiError } from "@/lib/services/core";
+import { useAuth } from "./AuthProvider";
 
 type Mode = "login" | "register";
 
@@ -43,12 +44,18 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
   const copy = COPY[mode];
+  const { user, setUser } = useAuth();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // 已登录(含刚登录成功)时离开登录页
+  useEffect(() => {
+    if (user) router.replace(safeRedirect(redirect));
+  }, [user, redirect, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -63,10 +70,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
     setSubmitting(true);
     try {
       const body = { username: name, password };
-      const user = mode === "login" ? await AuthService.login(body) : await AuthService.register(body);
-      toast.success(mode === "login" ? `欢迎回来, ${user.nickname}` : `注册成功, 欢迎 ${user.nickname}`);
-      router.replace(safeRedirect(redirect));
-      router.refresh();
+      const info = mode === "login" ? await AuthService.login(body) : await AuthService.register(body);
+      toast.success(mode === "login" ? `欢迎回来, ${info.nickname}` : `注册成功, 欢迎 ${info.nickname}`);
+      setUser(info);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "请求失败, 请稍后再试");
       setSubmitting(false);
