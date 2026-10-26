@@ -55,8 +55,6 @@ func Migrate() {
 	if config.Config.App.Env == "development" {
 		runAutoMigrate()
 	}
-
-	seedAdmin()
 }
 
 func runVersioned() {
