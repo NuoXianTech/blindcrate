@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Gamepad2, LogOut, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { FloatingDock, type DockEntry } from "@/components/ui/floating-dock";
 import { useAuth } from "@/components/common/auth/AuthProvider";
+import { ProfileDialog } from "@/components/common/user/ProfileDialog";
+import { UserAvatar } from "@/components/common/user/UserAvatar";
 import { THEMES } from "@/lib/themes";
 
 /** 底部悬浮导航: 桌面端居中, 移动端右下角 */
@@ -13,6 +16,7 @@ export function ManagementBar() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const cycleTheme = () => {
     const idx = THEMES.findIndex((t) => t.value === theme);
@@ -38,11 +42,8 @@ export function ManagementBar() {
     items.push(
       {
         title: user.nickname,
-        icon: (
-          <span className="flex size-full items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary uppercase">
-            {user.nickname.slice(0, 1)}
-          </span>
-        ),
+        icon: <UserAvatar user={user} className="text-sm" />,
+        onClick: () => setProfileOpen(true),
       },
       { title: "退出登录", icon: <LogOut />, onClick: handleLogout },
     );
@@ -51,6 +52,7 @@ export function ManagementBar() {
   return (
     <div className="fixed right-4 bottom-4 z-50 md:right-auto md:left-1/2 md:-translate-x-1/2">
       <FloatingDock items={items} />
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
     </div>
   );
 }

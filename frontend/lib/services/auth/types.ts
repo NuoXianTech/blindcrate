@@ -13,3 +13,16 @@ export interface CredentialsRequest {
   username: string;
   password: string;
 }
+
+export interface UpdateUserInfoRequest {
+  /** 不传表示不修改 */
+  nickname?: string;
+  /** 不传表示不修改, 传空字符串表示清除头像 */
+  avatar_url?: string;
+}
+
+export interface ChangePasswordRequest {
+  /** 未设置过密码(仅第三方登录)的用户可不填 */
+  old_password?: string;
+  new_password: string;
+}
