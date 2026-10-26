@@ -98,6 +98,7 @@ func Serve() {
 
 			// Auth
 			apiV1Router.POST("/auth/login", auth.Login)
+			apiV1Router.POST("/auth/register", auth.Register)
 			apiV1Router.POST("/auth/logout", auth.Logout)
 			apiV1Router.GET("/auth/user-info", auth.LoginRequired(), auth.UserInfo)
 		}

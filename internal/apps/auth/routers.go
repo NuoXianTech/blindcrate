@@ -100,6 +100,73 @@ func Login(c *gin.Context) {
 	)
 }
 
+type RegisterRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+type RegisterResponse struct {
+	ErrorMsg string      `json:"error_msg"`
+	Data     interface{} `json:"data"`
+}
+
+// Register godoc
+// @Tags auth
+// @Param request body RegisterRequest true "request body"
+// @Produce json
+// @Success 201 {object} RegisterResponse
+// @Failure 400 {object} RegisterResponse
+// @Failure 409 {object} RegisterResponse
+// @Failure 500 {object} RegisterResponse
+// @Router /api/v1/auth/register [post]
+func Register(c *gin.Context) {
+	// init req
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, RegisterResponse{ErrorMsg: InvalidParams})
+		return
+	}
+	// do register
+	user, err := doRegister(c.Request.Context(), req.Username, req.Password)
+	if err != nil {
+		switch err.Error() {
+		case UsernameInvalid, PasswordInvalid:
+			c.JSON(http.StatusBadRequest, RegisterResponse{ErrorMsg: err.Error()})
+		case UsernameTaken:
+			c.JSON(http.StatusConflict, RegisterResponse{ErrorMsg: err.Error()})
+		default:
+			logger.ErrorF(c.Request.Context(), "[Register] register failed: %s", err.Error())
+			c.JSON(http.StatusInternalServerError, RegisterResponse{ErrorMsg: InternalError})
+		}
+		return
+	}
+	// bind to session
+	session := sessions.Default(c)
+	session.Set(UserIDKey, user.ID)
+	session.Set(UserNameKey, user.Username)
+	if err := session.Save(); err != nil {
+		logger.ErrorF(c.Request.Context(), "[Register] save session failed: %s", err.Error())
+		c.JSON(http.StatusInternalServerError, RegisterResponse{ErrorMsg: InternalError})
+		return
+	}
+	// log
+	LogForAudit(c.Request.Context(), user, c)
+	logger.InfoF(c.Request.Context(), "[Register] %d %s", user.ID, user.Username)
+	// response
+	c.JSON(
+		http.StatusCreated,
+		RegisterResponse{
+			Data: BasicUserInfo{
+				ID:        user.ID,
+				Username:  user.Username,
+				Nickname:  user.Nickname,
+				AvatarURL: user.AvatarURL,
+				IsAdmin:   user.IsAdmin,
+			},
+		},
+	)
+}
+
 type LogoutResponse struct {
 	ErrorMsg string      `json:"error_msg"`
 	Data     interface{} `json:"data"`

@@ -34,6 +34,22 @@ definitions:
       error_msg:
         type: string
     type: object
+  auth.RegisterRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  auth.RegisterResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
   auth.UserInfoResponse:
     properties:
       data:
@@ -105,6 +121,36 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/auth.LogoutResponse'
+      tags:
+      - auth
+  /api/v1/auth/register:
+    post:
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/auth.RegisterResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.RegisterResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/auth.RegisterResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.RegisterResponse'
       tags:
       - auth
   /api/v1/auth/user-info:

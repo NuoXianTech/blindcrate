@@ -27,11 +27,13 @@ package auth
 import (
 	"context"
 	"errors"
+	"regexp"
 
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -101,6 +103,82 @@ func doLogin(ctx context.Context, username, password string) (*User, error) {
 	}
 
 	return &user, nil
+}
+
+// usernamePattern 用户名只允许字母、数字和下划线
+var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9_]{3,32}$`)
+
+func validateUsername(username string) error {
+	if !usernamePattern.MatchString(username) {
+		return errors.New(UsernameInvalid)
+	}
+	return nil
+}
+
+// validatePassword 校验密码长度, bcrypt 最多只处理 72 字节
+func validatePassword(password string) error {
+	if len(password) < 8 || len(password) > 72 {
+		return errors.New(PasswordInvalid)
+	}
+	return nil
+}
+
+// doRegister 注册新用户, 系统中第一个注册的用户自动成为管理员
+func doRegister(ctx context.Context, username, password string) (*User, error) {
+	if err := validateUsername(username); err != nil {
+		return nil, err
+	}
+	if err := validatePassword(password); err != nil {
+		return nil, err
+	}
+	hash, err := HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+
+	user := User{Username: username, PasswordHash: hash, Nickname: username}
+	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		// 事务级咨询锁: 并发注册时保证只有一个人成为第一个用户(管理员)
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext('blindcrate:register'))").Error; err != nil {
+			return err
+		}
+
+		var count int64
+		if err := tx.Model(&User{}).Where("LOWER(username) = LOWER(?)", username).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return errors.New(UsernameTaken)
+		}
+
+		var hasUser bool
+		if err := tx.Raw("SELECT EXISTS (SELECT 1 FROM users)").Scan(&hasUser).Error; err != nil {
+			return err
+		}
+		user.IsAdmin = !hasUser
+
+		if err := tx.Create(&user).Error; err != nil {
+			if isUniqueViolation(err) {
+				return errors.New(UsernameTaken)
+			}
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if user.IsAdmin {
+		logger.InfoF(ctx, "[Register] first user %d %s registered as admin", user.ID, user.Username)
+	}
+	return &user, nil
+}
+
+// isUniqueViolation 是否为唯一约束冲突
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 // HashPassword 生成密码哈希
