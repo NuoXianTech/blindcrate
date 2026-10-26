@@ -31,6 +31,7 @@ import (
 	"strconv"
 
 	_ "github.com/NuoXianTech/blindcrate/docs"
+	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
@@ -94,6 +95,11 @@ func Serve() {
 			// Health
 			apiV1Router.GET("/health", health.Health)
 			apiV1Router.GET("/ready", health.Ready)
+
+			// Auth
+			apiV1Router.POST("/auth/login", auth.Login)
+			apiV1Router.POST("/auth/logout", auth.Logout)
+			apiV1Router.GET("/auth/user-info", auth.LoginRequired(), auth.UserInfo)
 		}
 	}
 

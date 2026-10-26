@@ -1,4 +1,46 @@
 definitions:
+  auth.BasicUserInfo:
+    properties:
+      avatar_url:
+        type: string
+      id:
+        type: integer
+      is_admin:
+        type: boolean
+      nickname:
+        type: string
+      username:
+        type: string
+    type: object
+  auth.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  auth.LoginResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  auth.LogoutResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  auth.UserInfoResponse:
+    properties:
+      data:
+        $ref: '#/definitions/auth.BasicUserInfo'
+      error_msg:
+        type: string
+    type: object
   health.HealthResponse:
     properties:
       data: {}
@@ -16,6 +58,70 @@ info:
   title: BlindCrate
   version: 0.1.0
 paths:
+  /api/v1/auth/login:
+    post:
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+      tags:
+      - auth
+  /api/v1/auth/logout:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LogoutResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.LogoutResponse'
+      tags:
+      - auth
+  /api/v1/auth/user-info:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.UserInfoResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.UserInfoResponse'
+      tags:
+      - auth
   /api/v1/health:
     get:
       produces:
