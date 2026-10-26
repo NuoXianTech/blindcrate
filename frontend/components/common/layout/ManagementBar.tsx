@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { House, Palette } from "lucide-react";
+import { Gamepad2, Palette } from "lucide-react";
 import { FloatingDock, type DockEntry } from "@/components/ui/floating-dock";
 import { THEMES } from "@/lib/themes";
 
@@ -17,7 +17,7 @@ export function ManagementBar() {
   };
 
   const items: DockEntry[] = [
-    { title: "首页", icon: <House />, href: "/", active: pathname === "/" },
+    { title: "大厅", icon: <Gamepad2 />, href: "/home", active: pathname === "/home" },
     null,
     { title: "切换主题", icon: <Palette />, onClick: cycleTheme },
   ];
