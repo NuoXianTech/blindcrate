@@ -26,9 +26,8 @@ package auth
 
 import (
 	"net/http"
-	"strconv"
-	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/audit"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-contrib/sessions"
@@ -65,6 +64,9 @@ func Login(c *gin.Context) {
 	// do login
 	user, err := doLogin(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
+		if err.Error() == InvalidCredentials || err.Error() == BannedAccount {
+			audit.Record(c, 0, audit.ScopeUser, audit.ActionLoginFailed, "", 0, map[string]interface{}{"identifier": req.Username, "reason": err.Error()})
+		}
 		if err.Error() == InvalidCredentials {
 			c.JSON(http.StatusUnauthorized, LoginResponse{ErrorMsg: InvalidCredentials})
 			return
@@ -89,6 +91,7 @@ func Login(c *gin.Context) {
 	}
 	// log
 	LogForAudit(c.Request.Context(), user, c)
+	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionLogin, audit.TargetUser, user.ID, nil)
 	logger.InfoF(c.Request.Context(), "[Login] %d %s", user.ID, user.Username)
 	// response
 	c.JSON(
@@ -160,6 +163,7 @@ func Register(c *gin.Context) {
 	}
 	// log
 	LogForAudit(c.Request.Context(), user, c)
+	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionRegister, audit.TargetUser, user.ID, map[string]interface{}{"is_admin": user.IsAdmin})
 	logger.InfoF(c.Request.Context(), "[Register] %d %s", user.ID, user.Username)
 	// response
 	c.JSON(
@@ -195,6 +199,9 @@ func Logout(c *gin.Context) {
 	if err := session.Save(); err != nil {
 		c.JSON(http.StatusInternalServerError, LogoutResponse{ErrorMsg: err.Error()})
 		return
+	}
+	if userID > 0 {
+		audit.Record(c, userID, audit.ScopeUser, audit.ActionLogout, audit.TargetUser, userID, nil)
 	}
 	if userID > 0 && sessionID != "" {
 		if err := untrackSession(c.Request.Context(), userID, sessionID); err != nil {
@@ -250,6 +257,7 @@ func ChangePassword(c *gin.Context) {
 	if err := RevokeUserSessions(c.Request.Context(), user.ID, sessions.Default(c).ID()); err != nil {
 		logger.ErrorF(c.Request.Context(), "[ChangePassword] revoke sessions failed: %s", err.Error())
 	}
+	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionChangePassword, audit.TargetUser, user.ID, nil)
 	logger.InfoF(c.Request.Context(), "[ChangePassword] %d %s", user.ID, user.Username)
 	c.JSON(http.StatusOK, ChangePasswordResponse{})
 }
@@ -352,166 +360,9 @@ func VerifyEmail(c *gin.Context) {
 		}
 		return
 	}
+	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionVerifyEmail, audit.TargetUser, user.ID, map[string]interface{}{"email": req.Email})
 	logger.InfoF(c.Request.Context(), "[VerifyEmail] %d %s", user.ID, user.Username)
 	c.JSON(http.StatusOK, VerifyEmailResponse{})
-}
-
-type BanUserRequest struct {
-	BannedUntil time.Time `json:"banned_until" binding:"required"` // RFC3339, 必须晚于当前时间; 永久封禁请使用停用
-	Reason      string    `json:"reason" binding:"max=255"`
-}
-
-type BanUserResponse struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
-
-// BanUser godoc
-// @Tags auth
-// @Param id path int true "user id"
-// @Param request body BanUserRequest true "request body"
-// @Produce json
-// @Success 200 {object} BanUserResponse
-// @Failure 400 {object} BanUserResponse
-// @Failure 401 {object} BanUserResponse
-// @Failure 403 {object} BanUserResponse
-// @Failure 404 {object} BanUserResponse
-// @Failure 500 {object} BanUserResponse
-// @Router /api/v1/auth/users/{id}/ban [put]
-func BanUser(c *gin.Context) {
-	// init req
-	var req BanUserRequest
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, BanUserResponse{ErrorMsg: InvalidParams})
-		return
-	}
-	operator, ok := GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, BanUserResponse{ErrorMsg: UnAuthorized})
-		return
-	}
-	// do ban
-	if err := doBanUser(c.Request.Context(), operator.ID, userID, req.BannedUntil, req.Reason); err != nil {
-		switch err.Error() {
-		case CannotOperateSelf, BanUntilInvalid:
-			c.JSON(http.StatusBadRequest, BanUserResponse{ErrorMsg: err.Error()})
-		case UserNotFound:
-			c.JSON(http.StatusNotFound, BanUserResponse{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(c.Request.Context(), "[BanUser] ban failed: %s", err.Error())
-			c.JSON(http.StatusInternalServerError, BanUserResponse{ErrorMsg: InternalError})
-		}
-		return
-	}
-	// 所有设备下线
-	if err := RevokeUserSessions(c.Request.Context(), userID, ""); err != nil {
-		logger.ErrorF(c.Request.Context(), "[BanUser] revoke sessions failed: %s", err.Error())
-	}
-	logger.InfoF(c.Request.Context(), "[BanUser] %d banned %d until %s", operator.ID, userID, req.BannedUntil.Format(time.RFC3339))
-	c.JSON(http.StatusOK, BanUserResponse{})
-}
-
-type UnbanUserResponse struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
-
-// UnbanUser godoc
-// @Tags auth
-// @Param id path int true "user id"
-// @Produce json
-// @Success 200 {object} UnbanUserResponse
-// @Failure 400 {object} UnbanUserResponse
-// @Failure 401 {object} UnbanUserResponse
-// @Failure 403 {object} UnbanUserResponse
-// @Failure 404 {object} UnbanUserResponse
-// @Failure 500 {object} UnbanUserResponse
-// @Router /api/v1/auth/users/{id}/ban [delete]
-func UnbanUser(c *gin.Context) {
-	// init req
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, UnbanUserResponse{ErrorMsg: InvalidParams})
-		return
-	}
-	operator, ok := GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, UnbanUserResponse{ErrorMsg: UnAuthorized})
-		return
-	}
-	// do unban
-	if err := doUnbanUser(c.Request.Context(), operator.ID, userID); err != nil {
-		switch err.Error() {
-		case CannotOperateSelf:
-			c.JSON(http.StatusBadRequest, UnbanUserResponse{ErrorMsg: err.Error()})
-		case UserNotFound:
-			c.JSON(http.StatusNotFound, UnbanUserResponse{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(c.Request.Context(), "[UnbanUser] unban failed: %s", err.Error())
-			c.JSON(http.StatusInternalServerError, UnbanUserResponse{ErrorMsg: InternalError})
-		}
-		return
-	}
-	logger.InfoF(c.Request.Context(), "[UnbanUser] %d unbanned %d", operator.ID, userID)
-	c.JSON(http.StatusOK, UnbanUserResponse{})
-}
-
-type SetUserDisabledRequest struct {
-	Disabled *bool `json:"disabled" binding:"required"`
-}
-
-type SetUserDisabledResponse struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
-
-// SetUserDisabled godoc
-// @Tags auth
-// @Param id path int true "user id"
-// @Param request body SetUserDisabledRequest true "request body"
-// @Produce json
-// @Success 200 {object} SetUserDisabledResponse
-// @Failure 400 {object} SetUserDisabledResponse
-// @Failure 401 {object} SetUserDisabledResponse
-// @Failure 403 {object} SetUserDisabledResponse
-// @Failure 404 {object} SetUserDisabledResponse
-// @Failure 500 {object} SetUserDisabledResponse
-// @Router /api/v1/auth/users/{id}/disabled [put]
-func SetUserDisabled(c *gin.Context) {
-	// init req
-	var req SetUserDisabledRequest
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, SetUserDisabledResponse{ErrorMsg: InvalidParams})
-		return
-	}
-	operator, ok := GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, SetUserDisabledResponse{ErrorMsg: UnAuthorized})
-		return
-	}
-	// do set
-	if err := doSetUserDisabled(c.Request.Context(), operator.ID, userID, *req.Disabled); err != nil {
-		switch err.Error() {
-		case CannotOperateSelf:
-			c.JSON(http.StatusBadRequest, SetUserDisabledResponse{ErrorMsg: err.Error()})
-		case UserNotFound:
-			c.JSON(http.StatusNotFound, SetUserDisabledResponse{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(c.Request.Context(), "[SetUserDisabled] set failed: %s", err.Error())
-			c.JSON(http.StatusInternalServerError, SetUserDisabledResponse{ErrorMsg: InternalError})
-		}
-		return
-	}
-	// 停用时所有设备下线
-	if *req.Disabled {
-		if err := RevokeUserSessions(c.Request.Context(), userID, ""); err != nil {
-			logger.ErrorF(c.Request.Context(), "[SetUserDisabled] revoke sessions failed: %s", err.Error())
-		}
-	}
-	logger.InfoF(c.Request.Context(), "[SetUserDisabled] %d set %d disabled=%t", operator.ID, userID, *req.Disabled)
-	c.JSON(http.StatusOK, SetUserDisabledResponse{})
 }
 
 type BasicUserInfo struct {
@@ -592,7 +443,7 @@ func UpdateUserInfo(c *gin.Context) {
 		return
 	}
 	// do update
-	updated, err := doUpdateUserInfo(c.Request.Context(), user.ID, nil, req.Nickname, req.AvatarURL)
+	updated, err := UpdateUserProfile(c.Request.Context(), user.ID, nil, req.Nickname, req.AvatarURL)
 	if err != nil {
 		switch err.Error() {
 		case NicknameInvalid, AvatarURLInvalid:
@@ -603,79 +454,11 @@ func UpdateUserInfo(c *gin.Context) {
 		}
 		return
 	}
+	audit.Record(c, updated.ID, audit.ScopeUser, audit.ActionUpdateProfile, audit.TargetUser, updated.ID, ProfileChanges(nil, req.Nickname, req.AvatarURL))
 	logger.InfoF(c.Request.Context(), "[UpdateUserInfo] %d %s", updated.ID, updated.Username)
 	c.JSON(
 		http.StatusOK,
 		UpdateUserInfoResponse{
-			Data: BasicUserInfo{
-				ID:        updated.ID,
-				Username:  updated.Username,
-				Nickname:  updated.Nickname,
-				Email:     updated.Email,
-				AvatarURL: updated.AvatarURL,
-				IsAdmin:   updated.IsAdmin,
-			},
-		},
-	)
-}
-
-type AdminUpdateUserRequest struct {
-	Username  *string `json:"username"`   // 不传表示不修改
-	Nickname  *string `json:"nickname"`   // 不传表示不修改
-	AvatarURL *string `json:"avatar_url"` // 不传表示不修改, 传空字符串表示清除头像
-}
-
-type AdminUpdateUserResponse struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
-
-// AdminUpdateUser godoc
-// @Tags auth
-// @Param id path int true "user id"
-// @Param request body AdminUpdateUserRequest true "request body"
-// @Produce json
-// @Success 200 {object} AdminUpdateUserResponse
-// @Failure 400 {object} AdminUpdateUserResponse
-// @Failure 401 {object} AdminUpdateUserResponse
-// @Failure 403 {object} AdminUpdateUserResponse
-// @Failure 404 {object} AdminUpdateUserResponse
-// @Failure 409 {object} AdminUpdateUserResponse
-// @Failure 500 {object} AdminUpdateUserResponse
-// @Router /api/v1/auth/users/{id} [patch]
-func AdminUpdateUser(c *gin.Context) {
-	// init req
-	var req AdminUpdateUserRequest
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, AdminUpdateUserResponse{ErrorMsg: InvalidParams})
-		return
-	}
-	operator, ok := GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, AdminUpdateUserResponse{ErrorMsg: UnAuthorized})
-		return
-	}
-	// do update
-	updated, err := doUpdateUserInfo(c.Request.Context(), userID, req.Username, req.Nickname, req.AvatarURL)
-	if err != nil {
-		switch err.Error() {
-		case UsernameInvalid, NicknameInvalid, AvatarURLInvalid:
-			c.JSON(http.StatusBadRequest, AdminUpdateUserResponse{ErrorMsg: err.Error()})
-		case UserNotFound:
-			c.JSON(http.StatusNotFound, AdminUpdateUserResponse{ErrorMsg: err.Error()})
-		case UsernameTaken:
-			c.JSON(http.StatusConflict, AdminUpdateUserResponse{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(c.Request.Context(), "[AdminUpdateUser] update failed: %s", err.Error())
-			c.JSON(http.StatusInternalServerError, AdminUpdateUserResponse{ErrorMsg: InternalError})
-		}
-		return
-	}
-	logger.InfoF(c.Request.Context(), "[AdminUpdateUser] %d updated %d %s", operator.ID, updated.ID, updated.Username)
-	c.JSON(
-		http.StatusOK,
-		AdminUpdateUserResponse{
 			Data: BasicUserInfo{
 				ID:        updated.ID,
 				Username:  updated.Username,

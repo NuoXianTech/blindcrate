@@ -355,39 +355,6 @@ func doVerifyEmail(ctx context.Context, userID uint64, rawEmail, code string) er
 	return nil
 }
 
-// updateOtherUser 管理员修改其他用户的字段, 不允许操作自己
-func updateOtherUser(ctx context.Context, operatorID, userID uint64, values map[string]interface{}) error {
-	if operatorID == userID {
-		return errors.New(CannotOperateSelf)
-	}
-	tx := db.DB(ctx).Model(&User{}).Where("id = ?", userID).Updates(values)
-	if tx.Error != nil {
-		return tx.Error
-	}
-	if tx.RowsAffected == 0 {
-		return errors.New(UserNotFound)
-	}
-	return nil
-}
-
-// doBanUser 封禁用户到指定时间
-func doBanUser(ctx context.Context, operatorID, userID uint64, until time.Time, reason string) error {
-	if !until.After(time.Now()) {
-		return errors.New(BanUntilInvalid)
-	}
-	return updateOtherUser(ctx, operatorID, userID, map[string]interface{}{"banned_until": until, "ban_reason": reason})
-}
-
-// doUnbanUser 解除封禁
-func doUnbanUser(ctx context.Context, operatorID, userID uint64) error {
-	return updateOtherUser(ctx, operatorID, userID, map[string]interface{}{"banned_until": nil, "ban_reason": ""})
-}
-
-// doSetUserDisabled 停用或启用用户
-func doSetUserDisabled(ctx context.Context, operatorID, userID uint64, disabled bool) error {
-	return updateOtherUser(ctx, operatorID, userID, map[string]interface{}{"is_disabled": disabled})
-}
-
 // validateNickname 昵称去掉首尾空白后需为 1-32 个字符
 func validateNickname(nickname string) error {
 	n := utf8.RuneCountInString(nickname)
@@ -412,8 +379,23 @@ func validateAvatarURL(avatarURL string) error {
 	return nil
 }
 
-// doUpdateUserInfo 更新用户资料, 字段为 nil 表示不修改; username 仅管理员可改
-func doUpdateUserInfo(ctx context.Context, userID uint64, username, nickname, avatarURL *string) (*User, error) {
+// ProfileChanges 资料修改的操作日志内容, 只记录本次传入的字段
+func ProfileChanges(username, nickname, avatarURL *string) map[string]interface{} {
+	changes := map[string]interface{}{}
+	if username != nil {
+		changes["username"] = *username
+	}
+	if nickname != nil {
+		changes["nickname"] = *nickname
+	}
+	if avatarURL != nil {
+		changes["avatar_url"] = *avatarURL
+	}
+	return changes
+}
+
+// UpdateUserProfile 更新用户资料, 字段为 nil 表示不修改; username 仅管理员可改
+func UpdateUserProfile(ctx context.Context, userID uint64, username, nickname, avatarURL *string) (*User, error) {
 	values := map[string]interface{}{}
 	if username != nil {
 		if err := validateUsername(*username); err != nil {

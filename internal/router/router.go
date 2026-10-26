@@ -31,6 +31,7 @@ import (
 	"strconv"
 
 	_ "github.com/NuoXianTech/blindcrate/docs"
+	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/config"
@@ -106,11 +107,23 @@ func Serve() {
 			apiV1Router.POST("/auth/email/code", auth.LoginRequired(), auth.SendEmailCode)
 			apiV1Router.POST("/auth/email/verify", auth.LoginRequired(), auth.VerifyEmail)
 
-			// Auth Admin
-			apiV1Router.PATCH("/auth/users/:id", auth.LoginRequired(), auth.AdminRequired(), auth.AdminUpdateUser)
-			apiV1Router.PUT("/auth/users/:id/ban", auth.LoginRequired(), auth.AdminRequired(), auth.BanUser)
-			apiV1Router.DELETE("/auth/users/:id/ban", auth.LoginRequired(), auth.AdminRequired(), auth.UnbanUser)
-			apiV1Router.PUT("/auth/users/:id/disabled", auth.LoginRequired(), auth.AdminRequired(), auth.SetUserDisabled)
+			// Admin
+			adminRouter := apiV1Router.Group("/admin")
+			adminRouter.Use(auth.LoginRequired(), admin.LoginAdminRequired())
+			{
+				// User
+				userAdminRouter := adminRouter.Group("/users")
+				{
+					userAdminRouter.GET("", admin.ListUsers)
+					userAdminRouter.PATCH("/:id", admin.UpdateUser)
+					userAdminRouter.PUT("/:id/ban", admin.BanUser)
+					userAdminRouter.DELETE("/:id/ban", admin.UnbanUser)
+					userAdminRouter.PUT("/:id/disabled", admin.SetUserDisabled)
+				}
+
+				// Audit Log
+				adminRouter.GET("/audit-logs", admin.ListAuditLogs)
+			}
 		}
 	}
 

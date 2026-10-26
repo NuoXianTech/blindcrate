@@ -31,6 +31,7 @@ import (
 	"log"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/audit"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/golang-migrate/migrate/v4"
@@ -94,6 +95,7 @@ func runAutoMigrate() {
 	if err := db.DB(context.Background()).AutoMigrate(
 		&auth.User{},
 		&auth.UserIdentity{},
+		&audit.Log{},
 	); err != nil {
 		log.Fatalf("[PostgreSQL] auto migrate failed: %v\n", err)
 	}

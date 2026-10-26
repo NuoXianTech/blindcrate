@@ -1,5 +1,99 @@
 definitions:
-  auth.AdminUpdateUserRequest:
+  admin.AuditLogItem:
+    properties:
+      action:
+        type: string
+      actor_id:
+        type: integer
+      actor_username:
+        description: 操作人用户名, 未登录或用户已不存在时为空
+        type: string
+      created_at:
+        type: string
+      detail:
+        type: object
+      id:
+        type: integer
+      ip:
+        type: string
+      scope:
+        type: string
+      target_id:
+        type: integer
+      target_type:
+        type: string
+      user_agent:
+        type: string
+    type: object
+  admin.BanUserRequest:
+    properties:
+      banned_until:
+        description: RFC3339, 必须晚于当前时间; 永久封禁请使用停用
+        type: string
+      reason:
+        maxLength: 255
+        type: string
+    required:
+    - banned_until
+    type: object
+  admin.BanUserResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  admin.ListAuditLogsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/admin.ListAuditLogsResponseData'
+      error_msg:
+        type: string
+    type: object
+  admin.ListAuditLogsResponseData:
+    properties:
+      logs:
+        items:
+          $ref: '#/definitions/admin.AuditLogItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  admin.ListUsersResponse:
+    properties:
+      data:
+        $ref: '#/definitions/admin.ListUsersResponseData'
+      error_msg:
+        type: string
+    type: object
+  admin.ListUsersResponseData:
+    properties:
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/auth.User'
+        type: array
+    type: object
+  admin.SetUserDisabledRequest:
+    properties:
+      disabled:
+        type: boolean
+    required:
+    - disabled
+    type: object
+  admin.SetUserDisabledResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  admin.UnbanUserResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  admin.UpdateUserRequest:
     properties:
       avatar_url:
         description: 不传表示不修改, 传空字符串表示清除头像
@@ -11,24 +105,7 @@ definitions:
         description: 不传表示不修改
         type: string
     type: object
-  auth.AdminUpdateUserResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
-    type: object
-  auth.BanUserRequest:
-    properties:
-      banned_until:
-        description: RFC3339, 必须晚于当前时间; 永久封禁请使用停用
-        type: string
-      reason:
-        maxLength: 255
-        type: string
-    required:
-    - banned_until
-    type: object
-  auth.BanUserResponse:
+  admin.UpdateUserResponse:
     properties:
       data: {}
       error_msg:
@@ -117,25 +194,6 @@ definitions:
       error_msg:
         type: string
     type: object
-  auth.SetUserDisabledRequest:
-    properties:
-      disabled:
-        type: boolean
-    required:
-    - disabled
-    type: object
-  auth.SetUserDisabledResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
-    type: object
-  auth.UnbanUserResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
-    type: object
   auth.UpdateUserInfoRequest:
     properties:
       avatar_url:
@@ -149,6 +207,35 @@ definitions:
     properties:
       data: {}
       error_msg:
+        type: string
+    type: object
+  auth.User:
+    properties:
+      avatar_url:
+        type: string
+      ban_reason:
+        type: string
+      banned_until:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      email_verified_at:
+        type: string
+      id:
+        type: integer
+      is_admin:
+        type: boolean
+      is_disabled:
+        type: boolean
+      last_login_at:
+        type: string
+      nickname:
+        type: string
+      updated_at:
+        type: string
+      username:
         type: string
     type: object
   auth.UserInfoResponse:
@@ -191,6 +278,291 @@ info:
   title: BlindCrate
   version: 0.1.0
 paths:
+  /api/v1/admin/audit-logs:
+    get:
+      parameters:
+      - in: query
+        maxLength: 64
+        name: action
+        type: string
+      - in: query
+        name: actor_id
+        type: integer
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: RFC3339, 不包含
+        in: query
+        name: end_time
+        type: string
+      - enum:
+        - user
+        - admin
+        in: query
+        name: scope
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - description: RFC3339, 包含
+        in: query
+        name: start_time
+        type: string
+      - in: query
+        name: target_id
+        type: integer
+      - in: query
+        maxLength: 32
+        name: target_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ListAuditLogsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ListAuditLogsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ListAuditLogsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ListAuditLogsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ListAuditLogsResponse'
+      tags:
+      - admin
+  /api/v1/admin/users:
+    get:
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - in: query
+        name: is_admin
+        type: boolean
+      - in: query
+        name: is_banned
+        type: boolean
+      - in: query
+        name: is_disabled
+        type: boolean
+      - description: 按用户名或邮箱前缀搜索, 不区分大小写
+        in: query
+        maxLength: 255
+        name: keyword
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ListUsersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ListUsersResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ListUsersResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ListUsersResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ListUsersResponse'
+      tags:
+      - admin
+  /api/v1/admin/users/{id}:
+    patch:
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.UpdateUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.UpdateUserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.UpdateUserResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.UpdateUserResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.UpdateUserResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.UpdateUserResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.UpdateUserResponse'
+      tags:
+      - admin
+  /api/v1/admin/users/{id}/ban:
+    delete:
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.UnbanUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.UnbanUserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.UnbanUserResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.UnbanUserResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.UnbanUserResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.UnbanUserResponse'
+      tags:
+      - admin
+    put:
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.BanUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.BanUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.BanUserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.BanUserResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.BanUserResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.BanUserResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.BanUserResponse'
+      tags:
+      - admin
+  /api/v1/admin/users/{id}/disabled:
+    put:
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.SetUserDisabledRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.SetUserDisabledResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.SetUserDisabledResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.SetUserDisabledResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.SetUserDisabledResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.SetUserDisabledResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.SetUserDisabledResponse'
+      tags:
+      - admin
   /api/v1/auth/email/code:
     post:
       parameters:
@@ -418,175 +790,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/auth.UpdateUserInfoResponse'
-      tags:
-      - auth
-  /api/v1/auth/users/{id}:
-    patch:
-      parameters:
-      - description: user id
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: request body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/auth.AdminUpdateUserRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/auth.AdminUpdateUserResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/auth.AdminUpdateUserResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/auth.AdminUpdateUserResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/auth.AdminUpdateUserResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/auth.AdminUpdateUserResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/auth.AdminUpdateUserResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/auth.AdminUpdateUserResponse'
-      tags:
-      - auth
-  /api/v1/auth/users/{id}/ban:
-    delete:
-      parameters:
-      - description: user id
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/auth.UnbanUserResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/auth.UnbanUserResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/auth.UnbanUserResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/auth.UnbanUserResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/auth.UnbanUserResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/auth.UnbanUserResponse'
-      tags:
-      - auth
-    put:
-      parameters:
-      - description: user id
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: request body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/auth.BanUserRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/auth.BanUserResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/auth.BanUserResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/auth.BanUserResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/auth.BanUserResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/auth.BanUserResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/auth.BanUserResponse'
-      tags:
-      - auth
-  /api/v1/auth/users/{id}/disabled:
-    put:
-      parameters:
-      - description: user id
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: request body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/auth.SetUserDisabledRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/auth.SetUserDisabledResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/auth.SetUserDisabledResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/auth.SetUserDisabledResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/auth.SetUserDisabledResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/auth.SetUserDisabledResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/auth.SetUserDisabledResponse'
       tags:
       - auth
   /api/v1/health:
