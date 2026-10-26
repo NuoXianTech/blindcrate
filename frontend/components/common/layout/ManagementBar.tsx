@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Gamepad2, LogOut, Palette } from "lucide-react";
+import { Gamepad2, LogOut, Palette, ScrollText, Users } from "lucide-react";
 import { toast } from "sonner";
 import { FloatingDock, type DockEntry } from "@/components/ui/floating-dock";
 import { useAuth } from "@/components/common/auth/AuthProvider";
@@ -32,12 +32,18 @@ export function ManagementBar() {
     }
   };
 
-  const items: DockEntry[] = [
-    { title: "大厅", icon: <Gamepad2 />, href: "/home", active: pathname === "/home" },
-    null,
-    { title: "切换主题", icon: <Palette />, onClick: cycleTheme },
-  ];
+  const items: DockEntry[] = [{ title: "大厅", icon: <Gamepad2 />, href: "/home", active: pathname === "/home" }];
 
+  // 管理区域, 单独一组
+  if (user?.is_admin) {
+    items.push(
+      null,
+      { title: "用户管理", icon: <Users />, href: "/admin/users", active: pathname.startsWith("/admin/users") },
+      { title: "操作日志", icon: <ScrollText />, href: "/admin/audit-logs", active: pathname.startsWith("/admin/audit-logs") },
+    );
+  }
+
+  items.push(null, { title: "切换主题", icon: <Palette />, onClick: cycleTheme });
   if (user) {
     items.push(
       {
