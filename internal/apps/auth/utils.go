@@ -28,7 +28,10 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"strconv"
+	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-contrib/sessions"
@@ -179,6 +182,62 @@ func doRegister(ctx context.Context, username, password string) (*User, error) {
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+// doChangePassword 修改密码, 未设置过密码(仅第三方登录)的用户无需提供原密码
+func doChangePassword(ctx context.Context, user *User, oldPassword, newPassword string) error {
+	if user.HasPassword() {
+		if err := comparePassword(user.PasswordHash, oldPassword); err != nil {
+			return errors.New(WrongPassword)
+		}
+	}
+	if err := validatePassword(newPassword); err != nil {
+		return err
+	}
+	hash, err := HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	return db.DB(ctx).Model(user).Update("password_hash", hash).Error
+}
+
+func userSessionsKey(userID uint64) string {
+	return userSessionsKeyPrefix + strconv.FormatUint(userID, 10)
+}
+
+// trackSession 记录用户的 session ID, 集合有效期与 session 一致
+func trackSession(ctx context.Context, userID uint64, sessionID string) error {
+	key := userSessionsKey(userID)
+	pipe := db.Redis.TxPipeline()
+	pipe.SAdd(ctx, key, sessionID)
+	pipe.Expire(ctx, key, time.Duration(config.Config.App.SessionAge)*time.Second)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
+// untrackSession 移除用户的某个 session ID(登出时调用)
+func untrackSession(ctx context.Context, userID uint64, sessionID string) error {
+	return db.Redis.SRem(ctx, userSessionsKey(userID), sessionID).Err()
+}
+
+// RevokeUserSessions 让用户的 session 全部失效, keepSessionID 非空时保留该 session(当前设备)
+func RevokeUserSessions(ctx context.Context, userID uint64, keepSessionID string) error {
+	key := userSessionsKey(userID)
+	sessionIDs, err := db.Redis.SMembers(ctx, key).Result()
+	if err != nil {
+		return err
+	}
+
+	pipe := db.Redis.TxPipeline()
+	for _, sessionID := range sessionIDs {
+		if sessionID == keepSessionID {
+			continue
+		}
+		pipe.Del(ctx, sessionKeyPrefix+sessionID)
+		pipe.SRem(ctx, key, sessionID)
+	}
+	_, err = pipe.Exec(ctx)
+	return err
 }
 
 // HashPassword 生成密码哈希

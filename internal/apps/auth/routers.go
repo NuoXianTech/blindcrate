@@ -82,6 +82,9 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, LoginResponse{ErrorMsg: err.Error()})
 		return
 	}
+	if err := trackSession(c.Request.Context(), user.ID, session.ID()); err != nil {
+		logger.ErrorF(c.Request.Context(), "[Login] track session failed: %s", err.Error())
+	}
 	// log
 	LogForAudit(c.Request.Context(), user, c)
 	logger.InfoF(c.Request.Context(), "[Login] %d %s", user.ID, user.Username)
@@ -149,6 +152,9 @@ func Register(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, RegisterResponse{ErrorMsg: InternalError})
 		return
 	}
+	if err := trackSession(c.Request.Context(), user.ID, session.ID()); err != nil {
+		logger.ErrorF(c.Request.Context(), "[Register] track session failed: %s", err.Error())
+	}
 	// log
 	LogForAudit(c.Request.Context(), user, c)
 	logger.InfoF(c.Request.Context(), "[Register] %d %s", user.ID, user.Username)
@@ -180,12 +186,68 @@ type LogoutResponse struct {
 // @Router /api/v1/auth/logout [post]
 func Logout(c *gin.Context) {
 	session := sessions.Default(c)
+	userID, sessionID := GetUserIDFromSession(session), session.ID()
 	session.Clear()
 	if err := session.Save(); err != nil {
 		c.JSON(http.StatusInternalServerError, LogoutResponse{ErrorMsg: err.Error()})
 		return
 	}
+	if userID > 0 && sessionID != "" {
+		if err := untrackSession(c.Request.Context(), userID, sessionID); err != nil {
+			logger.ErrorF(c.Request.Context(), "[Logout] untrack session failed: %s", err.Error())
+		}
+	}
 	c.JSON(http.StatusOK, LogoutResponse{})
+}
+
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
+type ChangePasswordResponse struct {
+	ErrorMsg string      `json:"error_msg"`
+	Data     interface{} `json:"data"`
+}
+
+// ChangePassword godoc
+// @Tags auth
+// @Param request body ChangePasswordRequest true "request body"
+// @Produce json
+// @Success 200 {object} ChangePasswordResponse
+// @Failure 400 {object} ChangePasswordResponse
+// @Failure 401 {object} ChangePasswordResponse
+// @Failure 500 {object} ChangePasswordResponse
+// @Router /api/v1/auth/password [put]
+func ChangePassword(c *gin.Context) {
+	// init req
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ChangePasswordResponse{ErrorMsg: InvalidParams})
+		return
+	}
+	user, ok := GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, ChangePasswordResponse{ErrorMsg: UnAuthorized})
+		return
+	}
+	// do change
+	if err := doChangePassword(c.Request.Context(), user, req.OldPassword, req.NewPassword); err != nil {
+		switch err.Error() {
+		case WrongPassword, PasswordInvalid:
+			c.JSON(http.StatusBadRequest, ChangePasswordResponse{ErrorMsg: err.Error()})
+		default:
+			logger.ErrorF(c.Request.Context(), "[ChangePassword] change password failed: %s", err.Error())
+			c.JSON(http.StatusInternalServerError, ChangePasswordResponse{ErrorMsg: InternalError})
+		}
+		return
+	}
+	// 保留当前设备, 其他设备下线
+	if err := RevokeUserSessions(c.Request.Context(), user.ID, sessions.Default(c).ID()); err != nil {
+		logger.ErrorF(c.Request.Context(), "[ChangePassword] revoke sessions failed: %s", err.Error())
+	}
+	logger.InfoF(c.Request.Context(), "[ChangePassword] %d %s", user.ID, user.Username)
+	c.JSON(http.StatusOK, ChangePasswordResponse{})
 }
 
 type BasicUserInfo struct {

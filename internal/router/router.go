@@ -101,6 +101,7 @@ func Serve() {
 			apiV1Router.POST("/auth/register", auth.Register)
 			apiV1Router.POST("/auth/logout", auth.Logout)
 			apiV1Router.GET("/auth/user-info", auth.LoginRequired(), auth.UserInfo)
+			apiV1Router.PUT("/auth/password", auth.LoginRequired(), auth.ChangePassword)
 		}
 	}
 

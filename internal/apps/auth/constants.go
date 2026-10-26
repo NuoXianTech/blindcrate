@@ -29,3 +29,10 @@ const (
 	UserIDKey   = "user_id"
 	UserObjKey  = "user_obj"
 )
+
+const (
+	// sessionKeyPrefix gin-contrib/sessions(redistore) 存储 session 的默认 key 前缀
+	sessionKeyPrefix = "session_"
+	// userSessionsKeyPrefix 记录用户所有 session ID 的集合, 用于让其他设备下线
+	userSessionsKeyPrefix = "blindcrate:user_sessions:"
+)

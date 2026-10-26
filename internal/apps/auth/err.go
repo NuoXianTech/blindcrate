@@ -34,4 +34,5 @@ const (
 	UsernameInvalid    = "用户名需为 3-32 位字母、数字或下划线"
 	PasswordInvalid    = "密码长度需为 8-72 位"
 	UsernameTaken      = "用户名已被占用"
+	WrongPassword      = "原密码错误"
 )
