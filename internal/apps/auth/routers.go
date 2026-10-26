@@ -27,6 +27,7 @@ package auth
 import (
 	"net/http"
 
+	"github.com/NuoXianTech/blindcrate/internal/audit"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-contrib/sessions"
@@ -63,6 +64,9 @@ func Login(c *gin.Context) {
 	// do login
 	user, err := doLogin(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
+		if err.Error() == InvalidCredentials || err.Error() == BannedAccount {
+			audit.Record(c, 0, audit.ScopeUser, audit.ActionLoginFailed, "", 0, map[string]interface{}{"identifier": req.Username, "reason": err.Error()})
+		}
 		if err.Error() == InvalidCredentials {
 			c.JSON(http.StatusUnauthorized, LoginResponse{ErrorMsg: InvalidCredentials})
 			return
@@ -87,6 +91,7 @@ func Login(c *gin.Context) {
 	}
 	// log
 	LogForAudit(c.Request.Context(), user, c)
+	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionLogin, audit.TargetUser, user.ID, nil)
 	logger.InfoF(c.Request.Context(), "[Login] %d %s", user.ID, user.Username)
 	// response
 	c.JSON(
@@ -158,6 +163,7 @@ func Register(c *gin.Context) {
 	}
 	// log
 	LogForAudit(c.Request.Context(), user, c)
+	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionRegister, audit.TargetUser, user.ID, map[string]interface{}{"is_admin": user.IsAdmin})
 	logger.InfoF(c.Request.Context(), "[Register] %d %s", user.ID, user.Username)
 	// response
 	c.JSON(
@@ -193,6 +199,9 @@ func Logout(c *gin.Context) {
 	if err := session.Save(); err != nil {
 		c.JSON(http.StatusInternalServerError, LogoutResponse{ErrorMsg: err.Error()})
 		return
+	}
+	if userID > 0 {
+		audit.Record(c, userID, audit.ScopeUser, audit.ActionLogout, audit.TargetUser, userID, nil)
 	}
 	if userID > 0 && sessionID != "" {
 		if err := untrackSession(c.Request.Context(), userID, sessionID); err != nil {
@@ -248,6 +257,7 @@ func ChangePassword(c *gin.Context) {
 	if err := RevokeUserSessions(c.Request.Context(), user.ID, sessions.Default(c).ID()); err != nil {
 		logger.ErrorF(c.Request.Context(), "[ChangePassword] revoke sessions failed: %s", err.Error())
 	}
+	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionChangePassword, audit.TargetUser, user.ID, nil)
 	logger.InfoF(c.Request.Context(), "[ChangePassword] %d %s", user.ID, user.Username)
 	c.JSON(http.StatusOK, ChangePasswordResponse{})
 }
@@ -350,6 +360,7 @@ func VerifyEmail(c *gin.Context) {
 		}
 		return
 	}
+	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionVerifyEmail, audit.TargetUser, user.ID, map[string]interface{}{"email": req.Email})
 	logger.InfoF(c.Request.Context(), "[VerifyEmail] %d %s", user.ID, user.Username)
 	c.JSON(http.StatusOK, VerifyEmailResponse{})
 }
@@ -443,6 +454,7 @@ func UpdateUserInfo(c *gin.Context) {
 		}
 		return
 	}
+	audit.Record(c, updated.ID, audit.ScopeUser, audit.ActionUpdateProfile, audit.TargetUser, updated.ID, ProfileChanges(nil, req.Nickname, req.AvatarURL))
 	logger.InfoF(c.Request.Context(), "[UpdateUserInfo] %d %s", updated.ID, updated.Username)
 	c.JSON(
 		http.StatusOK,

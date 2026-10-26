@@ -1,4 +1,30 @@
 definitions:
+  admin.AuditLogItem:
+    properties:
+      action:
+        type: string
+      actor_id:
+        type: integer
+      actor_username:
+        description: 操作人用户名, 未登录或用户已不存在时为空
+        type: string
+      created_at:
+        type: string
+      detail:
+        type: object
+      id:
+        type: integer
+      ip:
+        type: string
+      scope:
+        type: string
+      target_id:
+        type: integer
+      target_type:
+        type: string
+      user_agent:
+        type: string
+    type: object
   admin.BanUserRequest:
     properties:
       banned_until:
@@ -15,6 +41,22 @@ definitions:
       data: {}
       error_msg:
         type: string
+    type: object
+  admin.ListAuditLogsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/admin.ListAuditLogsResponseData'
+      error_msg:
+        type: string
+    type: object
+  admin.ListAuditLogsResponseData:
+    properties:
+      logs:
+        items:
+          $ref: '#/definitions/admin.AuditLogItem'
+        type: array
+      total:
+        type: integer
     type: object
   admin.ListUsersResponse:
     properties:
@@ -236,6 +278,71 @@ info:
   title: BlindCrate
   version: 0.1.0
 paths:
+  /api/v1/admin/audit-logs:
+    get:
+      parameters:
+      - in: query
+        maxLength: 64
+        name: action
+        type: string
+      - in: query
+        name: actor_id
+        type: integer
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: RFC3339, 不包含
+        in: query
+        name: end_time
+        type: string
+      - enum:
+        - user
+        - admin
+        in: query
+        name: scope
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - description: RFC3339, 包含
+        in: query
+        name: start_time
+        type: string
+      - in: query
+        name: target_id
+        type: integer
+      - in: query
+        maxLength: 32
+        name: target_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ListAuditLogsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ListAuditLogsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ListAuditLogsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ListAuditLogsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ListAuditLogsResponse'
+      tags:
+      - admin
   /api/v1/admin/users:
     get:
       parameters:

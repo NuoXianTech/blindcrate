@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/audit"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -133,6 +134,7 @@ func UpdateUser(c *gin.Context) {
 		}
 		return
 	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionUserUpdate, audit.TargetUser, updated.ID, auth.ProfileChanges(req.Username, req.Nickname, req.AvatarURL))
 	logger.InfoF(c.Request.Context(), "[UpdateUser] %d updated %d %s", operator.ID, updated.ID, updated.Username)
 	c.JSON(
 		http.StatusOK,
@@ -201,6 +203,7 @@ func BanUser(c *gin.Context) {
 	if err := auth.RevokeUserSessions(c.Request.Context(), userID, ""); err != nil {
 		logger.ErrorF(c.Request.Context(), "[BanUser] revoke sessions failed: %s", err.Error())
 	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionUserBan, audit.TargetUser, userID, map[string]interface{}{"banned_until": req.BannedUntil, "reason": req.Reason})
 	logger.InfoF(c.Request.Context(), "[BanUser] %d banned %d until %s", operator.ID, userID, req.BannedUntil.Format(time.RFC3339))
 	c.JSON(http.StatusOK, BanUserResponse{})
 }
@@ -246,6 +249,7 @@ func UnbanUser(c *gin.Context) {
 		}
 		return
 	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionUserUnban, audit.TargetUser, userID, nil)
 	logger.InfoF(c.Request.Context(), "[UnbanUser] %d unbanned %d", operator.ID, userID)
 	c.JSON(http.StatusOK, UnbanUserResponse{})
 }
@@ -303,6 +307,60 @@ func SetUserDisabled(c *gin.Context) {
 			logger.ErrorF(c.Request.Context(), "[SetUserDisabled] revoke sessions failed: %s", err.Error())
 		}
 	}
+	action := audit.ActionUserEnable
+	if *req.Disabled {
+		action = audit.ActionUserDisable
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, action, audit.TargetUser, userID, nil)
 	logger.InfoF(c.Request.Context(), "[SetUserDisabled] %d set %d disabled=%t", operator.ID, userID, *req.Disabled)
 	c.JSON(http.StatusOK, SetUserDisabledResponse{})
+}
+
+type ListAuditLogsRequest struct {
+	Current    int        `json:"current" form:"current" binding:"min=1"`
+	Size       int        `json:"size" form:"size" binding:"min=1,max=100"`
+	ActorID    *uint64    `json:"actor_id" form:"actor_id"`
+	Scope      string     `json:"scope" form:"scope" binding:"omitempty,oneof=user admin"`
+	Action     string     `json:"action" form:"action" binding:"max=64"`
+	TargetType string     `json:"target_type" form:"target_type" binding:"max=32"`
+	TargetID   *uint64    `json:"target_id" form:"target_id"`
+	StartTime  *time.Time `json:"start_time" form:"start_time" time_format:"2006-01-02T15:04:05Z07:00"` // RFC3339, 包含
+	EndTime    *time.Time `json:"end_time" form:"end_time" time_format:"2006-01-02T15:04:05Z07:00"`     // RFC3339, 不包含
+}
+
+type ListAuditLogsResponseData struct {
+	Total int64          `json:"total"`
+	Logs  []AuditLogItem `json:"logs"`
+}
+
+type ListAuditLogsResponse struct {
+	ErrorMsg string                     `json:"error_msg"`
+	Data     *ListAuditLogsResponseData `json:"data"`
+}
+
+// ListAuditLogs 获取操作日志列表(用户和管理员的操作)
+// @Tags admin
+// @Param request query ListAuditLogsRequest true "request query"
+// @Produce json
+// @Success 200 {object} ListAuditLogsResponse
+// @Failure 400 {object} ListAuditLogsResponse
+// @Failure 401 {object} ListAuditLogsResponse
+// @Failure 403 {object} ListAuditLogsResponse
+// @Failure 500 {object} ListAuditLogsResponse
+// @Router /api/v1/admin/audit-logs [get]
+func ListAuditLogs(c *gin.Context) {
+	// init req
+	req := &ListAuditLogsRequest{}
+	if err := c.ShouldBindQuery(req); err != nil {
+		c.JSON(http.StatusBadRequest, ListAuditLogsResponse{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	// query
+	total, logs, err := QueryAuditLogs(c.Request.Context(), req)
+	if err != nil {
+		logger.ErrorF(c.Request.Context(), "[ListAuditLogs] query failed: %s", err.Error())
+		c.JSON(http.StatusInternalServerError, ListAuditLogsResponse{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, ListAuditLogsResponse{Data: &ListAuditLogsResponseData{Total: total, Logs: logs}})
 }

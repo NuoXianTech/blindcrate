@@ -36,3 +36,23 @@ CREATE TABLE IF NOT EXISTS user_identities
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_identities_provider_uid ON user_identities (provider, provider_user_id);
 CREATE INDEX IF NOT EXISTS idx_user_identities_user_id ON user_identities (user_id);
+
+-- 操作日志, 用户和管理员的操作统一记录在这里, 只有管理员可以查看
+CREATE TABLE IF NOT EXISTS audit_logs
+(
+    id          BIGSERIAL PRIMARY KEY,
+    actor_id    BIGINT       NOT NULL DEFAULT 0,  -- 操作人, 0 表示未登录(如登录失败)
+    scope       VARCHAR(16)  NOT NULL DEFAULT '', -- user: 用户自己的操作, admin: 管理员操作
+    action      VARCHAR(64)  NOT NULL DEFAULT '',
+    target_type VARCHAR(32)  NOT NULL DEFAULT '', -- 操作对象类型, 如 user
+    target_id   BIGINT       NOT NULL DEFAULT 0,
+    detail      JSONB        NOT NULL DEFAULT '{}',
+    ip          VARCHAR(64)  NOT NULL DEFAULT '',
+    user_agent  VARCHAR(512) NOT NULL DEFAULT '',
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_id_created_at ON audit_logs (actor_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs (target_type, target_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created_at ON audit_logs (action, created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at);

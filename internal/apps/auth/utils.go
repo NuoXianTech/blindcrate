@@ -379,6 +379,21 @@ func validateAvatarURL(avatarURL string) error {
 	return nil
 }
 
+// ProfileChanges 资料修改的操作日志内容, 只记录本次传入的字段
+func ProfileChanges(username, nickname, avatarURL *string) map[string]interface{} {
+	changes := map[string]interface{}{}
+	if username != nil {
+		changes["username"] = *username
+	}
+	if nickname != nil {
+		changes["nickname"] = *nickname
+	}
+	if avatarURL != nil {
+		changes["avatar_url"] = *avatarURL
+	}
+	return changes
+}
+
 // UpdateUserProfile 更新用户资料, 字段为 nil 表示不修改; username 仅管理员可改
 func UpdateUserProfile(ctx context.Context, userID uint64, username, nickname, avatarURL *string) (*User, error) {
 	values := map[string]interface{}{}

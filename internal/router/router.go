@@ -120,6 +120,9 @@ func Serve() {
 					userAdminRouter.DELETE("/:id/ban", admin.UnbanUser)
 					userAdminRouter.PUT("/:id/disabled", admin.SetUserDisabled)
 				}
+
+				// Audit Log
+				adminRouter.GET("/audit-logs", admin.ListAuditLogs)
 			}
 		}
 	}
