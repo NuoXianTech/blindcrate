@@ -45,6 +45,15 @@ redis:
   read_timeout: 3
   write_timeout: 3
 
+# Mail (SMTP)
+mail:
+  enabled: false  # when disabled, development env prints mails to the log instead of sending
+  host: "smtp.example.com"
+  port: 465  # 465 = implicit TLS, others (e.g. 587) require STARTTLS
+  username: ""
+  password: ""
+  from: "BlindCrate <noreply@example.com>"
+
 # Log
 log:
   level: "info"  # debug, info, warn, error, fatal, panic

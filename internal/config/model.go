@@ -30,6 +30,7 @@ type ConfigModel struct {
 	App      AppConfig      `mapstructure:"app"`
 	Database DatabaseConfig `mapstructure:"database"`
 	Redis    RedisConfig    `mapstructure:"redis"`
+	Mail     MailConfig     `mapstructure:"mail"`
 	Log      LogConfig      `mapstructure:"log"`
 	Otel     OtelConfig     `mapstructure:"otel"`
 }
@@ -79,6 +80,16 @@ type RedisConfig struct {
 	DialTimeout  int    `mapstructure:"dial_timeout"`
 	ReadTimeout  int    `mapstructure:"read_timeout"`
 	WriteTimeout int    `mapstructure:"write_timeout"`
+}
+
+// mailConfig 邮件(SMTP)配置
+type MailConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	From     string `mapstructure:"from"`
 }
 
 // logConfig 日志配置
