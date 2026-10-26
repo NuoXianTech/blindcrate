@@ -43,4 +43,6 @@ const (
 	UserNotFound       = "用户不存在"
 	CannotOperateSelf  = "不能对自己执行该操作"
 	BanUntilInvalid    = "封禁截止时间必须晚于当前时间"
+	NicknameInvalid    = "昵称需为 1-32 个字符"
+	AvatarURLInvalid   = "头像地址需为 http(s) 链接, 且不超过 1024 个字符"
 )

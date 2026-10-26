@@ -326,6 +326,123 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "patch": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.UpdateUserInfoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.UpdateUserInfoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/auth.UpdateUserInfoResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/auth.UpdateUserInfoResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/auth.UpdateUserInfoResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/users/{id}": {
+            "patch": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "user id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.AdminUpdateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.AdminUpdateUserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/auth.AdminUpdateUserResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/auth.AdminUpdateUserResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/auth.AdminUpdateUserResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/auth.AdminUpdateUserResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/auth.AdminUpdateUserResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/auth.AdminUpdateUserResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/v1/auth/users/{id}/ban": {
@@ -553,6 +670,32 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "auth.AdminUpdateUserRequest": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "description": "不传表示不修改, 传空字符串表示清除头像",
+                    "type": "string"
+                },
+                "nickname": {
+                    "description": "不传表示不修改",
+                    "type": "string"
+                },
+                "username": {
+                    "description": "不传表示不修改",
+                    "type": "string"
+                }
+            }
+        },
+        "auth.AdminUpdateUserResponse": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
         "auth.BanUserRequest": {
             "type": "object",
             "required": [
@@ -724,6 +867,28 @@ const docTemplate = `{
             }
         },
         "auth.UnbanUserResponse": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.UpdateUserInfoRequest": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "description": "不传表示不修改, 传空字符串表示清除头像",
+                    "type": "string"
+                },
+                "nickname": {
+                    "description": "不传表示不修改",
+                    "type": "string"
+                }
+            }
+        },
+        "auth.UpdateUserInfoResponse": {
             "type": "object",
             "properties": {
                 "data": {},
