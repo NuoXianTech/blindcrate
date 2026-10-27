@@ -34,26 +34,25 @@ import (
 //
 // 删除为软删除, ID 不会被新物品复用; 已删除的物品在背包中按占位物品处理, 见 Resolve。
 type Item struct {
-	ID            uint64         `json:"id" gorm:"primaryKey"`
-	Name          string         `json:"name" gorm:"size:64;not null;uniqueIndex:uniq_items_name,where:deleted_at IS NULL"`
-	Description   string         `json:"description" gorm:"size:255;not null;default:''"`
-	Quality       int16          `json:"quality" gorm:"not null;default:1;check:chk_items_quality,quality BETWEEN 1 AND 7"` // 见 constants.go
-	ImageURL      string         `json:"image_url" gorm:"size:1024;not null;default:''"`
-	SellCurrency  string         `json:"sell_currency" gorm:"size:32;not null;default:'chip'"`
-	SellPrice     int64          `json:"sell_price" gorm:"not null;default:0;check:chk_items_sell_price,sell_price >= 0"` // 0 表示不可卖出
-	Weight        int32          `json:"weight" gorm:"not null;default:0;check:chk_items_weight,weight >= 0"`             // 掉落权重, 0 表示不会掉落
-	Width         int16          `json:"width" gorm:"not null;default:1;check:chk_items_width,width >= 1"`                // 在保险柜中占的格数
-	Height        int16          `json:"height" gorm:"not null;default:1;check:chk_items_height,height >= 1"`
-	IsEnabled     bool           `json:"is_enabled" gorm:"not null;default:false"` // 下架后不会掉落, 也不能再发放
-	IsPlaceholder bool           `json:"is_placeholder,omitempty" gorm:"-"`        // 是否为占位物品, 只由 Resolve 生成
-	CreatedAt     time.Time      `json:"created_at" gorm:"not null;default:now();autoCreateTime"`
-	UpdatedAt     time.Time      `json:"updated_at" gorm:"not null;default:now();autoUpdateTime"`
-	DeletedAt     gorm.DeletedAt `json:"-" gorm:"index"`
+	ID            uint64         `gorm:"primaryKey" json:"id"`
+	Name          string         `gorm:"size:64;not null;uniqueIndex:uniq_items_name,where:deleted_at IS NULL" json:"name"`
+	Description   string         `gorm:"size:255;not null;default:''" json:"description"`
+	Quality       int16          `gorm:"not null;default:1;check:chk_items_quality,quality BETWEEN 1 AND 7" json:"quality"` // 见 constants.go
+	ImageURL      string         `gorm:"size:1024;not null;default:''" json:"image_url"`
+	SellCurrency  string         `gorm:"size:32;not null;default:'chip'" json:"sell_currency"`
+	SellPrice     int64          `gorm:"not null;default:0;check:chk_items_sell_price,sell_price >= 0" json:"sell_price"` // 0 表示不可卖出
+	Weight        int32          `gorm:"not null;default:0;check:chk_items_weight,weight >= 0" json:"weight"`             // 掉落权重, 0 表示不会掉落
+	Width         int16          `gorm:"not null;default:1;check:chk_items_width,width >= 1" json:"width"`                // 在保险柜中占的格数
+	Height        int16          `gorm:"not null;default:1;check:chk_items_height,height >= 1" json:"height"`
+	IsEnabled     bool           `gorm:"not null;default:false" json:"is_enabled"` // 下架后不会掉落, 也不能再发放
+	IsPlaceholder bool           `gorm:"-" json:"is_placeholder,omitempty"`        // 是否为占位物品, 只由 Resolve 生成
+	CreatedAt     time.Time      `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+	UpdatedAt     time.Time      `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-func (i *Item) TableName() string {
-	return "items"
-}
+// TableName 自定义表名
+func (Item) TableName() string { return "items" }
 
 // Exact 按 ID 获取未删除的物品
 func (i *Item) Exact(tx *gorm.DB, id uint64) error {

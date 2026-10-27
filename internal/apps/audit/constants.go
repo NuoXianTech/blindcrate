@@ -22,32 +22,40 @@
  * SOFTWARE.
  */
 
-package settings
+package audit
 
-import (
-	"net/http"
-
-	"github.com/NuoXianTech/blindcrate/internal/logger"
-	"github.com/gin-gonic/gin"
+// 操作范围
+const (
+	ScopeUser  = "user"
+	ScopeAdmin = "admin"
 )
 
-type PublicSettingsResponse struct {
-	ErrorMsg string                            `json:"error_msg"`
-	Data     map[string]map[string]interface{} `json:"data"` // 设置组 -> 字段 -> 值, 只包含公开字段
-}
+// 操作对象类型
+const (
+	TargetUser    = "user"
+	TargetSetting = "setting" // target_id 固定为 0, 设置组见 detail.key
+	TargetItem    = "item"
+)
 
-// PublicSettings 获取公开设置, 如站点名称、是否开放注册, 无需登录
-// @Tags settings
-// @Produce json
-// @Success 200 {object} PublicSettingsResponse
-// @Failure 500 {object} PublicSettingsResponse
-// @Router /api/v1/settings/public [get]
-func PublicSettings(c *gin.Context) {
-	data, err := QueryPublic(c.Request.Context())
-	if err != nil {
-		logger.ErrorF(c.Request.Context(), "[PublicSettings] query failed: %s", err.Error())
-		c.JSON(http.StatusInternalServerError, PublicSettingsResponse{ErrorMsg: QueryFailed})
-		return
-	}
-	c.JSON(http.StatusOK, PublicSettingsResponse{Data: data})
-}
+// 操作类型, 格式为 "模块.动作"
+const (
+	ActionLogin           = "auth.login"
+	ActionLoginFailed     = "auth.login_failed"
+	ActionRegister        = "auth.register"
+	ActionLogout          = "auth.logout"
+	ActionChangePassword  = "auth.change_password"
+	ActionVerifyEmail     = "auth.verify_email"
+	ActionUpdateProfile   = "auth.update_profile"
+	ActionUserUpdate      = "admin.user_update"
+	ActionUserBan         = "admin.user_ban"
+	ActionUserUnban       = "admin.user_unban"
+	ActionUserDisable     = "admin.user_disable"
+	ActionUserEnable      = "admin.user_enable"
+	ActionWalletAdjust    = "admin.wallet_adjust"
+	ActionItemCreate      = "admin.item_create"
+	ActionItemUpdate      = "admin.item_update"
+	ActionItemDelete      = "admin.item_delete"
+	ActionInventoryAdjust = "admin.inventory_adjust"
+	ActionSettingsUpdate  = "admin.settings_update"
+	ActionMailTest        = "admin.mail_test"
+)

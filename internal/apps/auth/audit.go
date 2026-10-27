@@ -32,6 +32,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// LogForAudit 把已登录用户的这次访问(IP、路径、UA 等)写入应用日志, 便于事后排查
 func LogForAudit(ctx context.Context, user *User, c *gin.Context) {
 	auditLog := loginRequiredAuditLog{
 		UserID:     user.ID,

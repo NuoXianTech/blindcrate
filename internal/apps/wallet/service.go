@@ -135,6 +135,7 @@ func validateChange(req *ChangeRequest) error {
 	return nil
 }
 
+// amountInRange 单笔变动不能超过 MaxAmount
 func amountInRange(amount int64) bool {
 	return amount >= -MaxAmount && amount <= MaxAmount
 }
@@ -208,6 +209,7 @@ func (t *Transaction) sameChange(req *ChangeRequest) bool {
 		t.Remark == req.Remark
 }
 
+// BalanceItem 用户某种货币的余额, 带上货币信息方便展示
 type BalanceItem struct {
 	Currency  string `json:"currency"`
 	Name      string `json:"name"`

@@ -33,39 +33,44 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Response 统一的 wallet 响应壳, 保持与其他 app 一致
+type Response struct {
+	ErrorMsg string      `json:"error_msg"`
+	Data     interface{} `json:"data"`
+}
+
+// ListBalancesResponseData 当前用户的各货币余额
 type ListBalancesResponseData struct {
 	Balances []BalanceItem `json:"balances"`
 }
 
-type ListBalancesResponse struct {
-	ErrorMsg string                    `json:"error_msg"`
-	Data     *ListBalancesResponseData `json:"data"`
-}
-
-// ListBalances 获取当前用户的各货币余额
+// ListBalances
 // @Tags wallet
+// @Summary 获取当前用户的各货币余额
+// @Description 没有余额行的货币按 0 返回, 已停用且没有余额的货币不返回
 // @Produce json
-// @Success 200 {object} ListBalancesResponse
-// @Failure 401 {object} ListBalancesResponse
-// @Failure 403 {object} ListBalancesResponse
-// @Failure 500 {object} ListBalancesResponse
+// @Success 200 {object} Response{data=ListBalancesResponseData}
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 500 {object} Response
 // @Router /api/v1/wallet/balances [get]
 func ListBalances(c *gin.Context) {
+	ctx := c.Request.Context()
 	user, ok := auth.GetUserFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, ListBalancesResponse{ErrorMsg: auth.UnAuthorized})
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
-	// query
-	balances, err := QueryBalances(c.Request.Context(), user.ID, false)
+	balances, err := QueryBalances(ctx, user.ID, false)
 	if err != nil {
-		logger.ErrorF(c.Request.Context(), "[ListBalances] query failed: %s", err.Error())
-		c.JSON(http.StatusInternalServerError, ListBalancesResponse{ErrorMsg: auth.InternalError})
+		logger.ErrorF(ctx, "[ListBalances] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	c.JSON(http.StatusOK, ListBalancesResponse{Data: &ListBalancesResponseData{Balances: balances}})
+	c.JSON(http.StatusOK, Response{Data: ListBalancesResponseData{Balances: balances}})
 }
 
+// ListTransactionsRequest 余额流水查询参数
 type ListTransactionsRequest struct {
 	Current   int        `json:"current" form:"current" binding:"min=1"`
 	Size      int        `json:"size" form:"size" binding:"min=1,max=100"`
@@ -75,44 +80,40 @@ type ListTransactionsRequest struct {
 	EndTime   *time.Time `json:"end_time" form:"end_time" time_format:"2006-01-02T15:04:05Z07:00"`     // RFC3339, 不包含
 }
 
+// ListTransactionsResponseData 余额流水分页结果
 type ListTransactionsResponseData struct {
 	Total        int64             `json:"total"`
 	Transactions []TransactionItem `json:"transactions"`
 }
 
-type ListTransactionsResponse struct {
-	ErrorMsg string                        `json:"error_msg"`
-	Data     *ListTransactionsResponseData `json:"data"`
-}
-
-// ListTransactions 获取当前用户的余额流水
+// ListTransactions
 // @Tags wallet
-// @Param request query ListTransactionsRequest true "request query"
+// @Summary 获取当前用户的余额流水
 // @Produce json
-// @Success 200 {object} ListTransactionsResponse
-// @Failure 400 {object} ListTransactionsResponse
-// @Failure 401 {object} ListTransactionsResponse
-// @Failure 403 {object} ListTransactionsResponse
-// @Failure 500 {object} ListTransactionsResponse
+// @Param request query ListTransactionsRequest true "request query"
+// @Success 200 {object} Response{data=ListTransactionsResponseData}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 500 {object} Response
 // @Router /api/v1/wallet/transactions [get]
 func ListTransactions(c *gin.Context) {
-	// init req
+	ctx := c.Request.Context()
 	req := &ListTransactionsRequest{}
 	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, ListTransactionsResponse{ErrorMsg: auth.InvalidParams})
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
 		return
 	}
 	user, ok := auth.GetUserFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, ListTransactionsResponse{ErrorMsg: auth.UnAuthorized})
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
-	// query
-	total, transactions, err := QueryUserTransactions(c.Request.Context(), user.ID, req)
+	total, transactions, err := QueryUserTransactions(ctx, user.ID, req)
 	if err != nil {
-		logger.ErrorF(c.Request.Context(), "[ListTransactions] query failed: %s", err.Error())
-		c.JSON(http.StatusInternalServerError, ListTransactionsResponse{ErrorMsg: auth.InternalError})
+		logger.ErrorF(ctx, "[ListTransactions] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	c.JSON(http.StatusOK, ListTransactionsResponse{Data: &ListTransactionsResponseData{Total: total, Transactions: transactions}})
+	c.JSON(http.StatusOK, Response{Data: ListTransactionsResponseData{Total: total, Transactions: transactions}})
 }

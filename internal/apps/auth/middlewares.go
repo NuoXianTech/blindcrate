@@ -29,6 +29,7 @@ import (
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/db"
+	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -46,6 +47,7 @@ type loginRequiredAuditLog struct {
 	Referer    string `json:"referer"`
 }
 
+// LoginRequired 登录校验中间件, 每次请求都从数据库重新加载用户, 已停用或封禁中的用户直接拒绝
 func LoginRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// init trace
@@ -71,7 +73,8 @@ func LoginRequired() gin.HandlerFunc {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_msg": UnAuthorized, "data": nil})
 				return
 			}
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error_msg": tx.Error.Error(), "data": nil})
+			logger.ErrorF(ctx, "[LoginRequired] query user %d failed: %v", userId, tx.Error)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error_msg": InternalError, "data": nil})
 			return
 		}
 

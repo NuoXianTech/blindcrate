@@ -32,19 +32,19 @@ import (
 
 // Currency 货币定义
 type Currency struct {
-	Code      string    `json:"code" gorm:"primaryKey;size:32"`
-	Name      string    `json:"name" gorm:"size:32;not null"`
-	Decimals  int16     `json:"decimals" gorm:"not null;default:0"` // 展示用小数位, 金额统一按最小单位的整数存储
-	SortOrder int32     `json:"sort_order" gorm:"not null;default:0"`
-	IsEnabled bool      `json:"is_enabled" gorm:"not null;default:true"`
-	CreatedAt time.Time `json:"created_at" gorm:"not null;default:now();autoCreateTime"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"not null;default:now();autoUpdateTime"`
+	Code      string    `gorm:"primaryKey;size:32" json:"code"`
+	Name      string    `gorm:"size:32;not null" json:"name"`
+	Decimals  int16     `gorm:"not null;default:0" json:"decimals"` // 展示用小数位, 金额统一按最小单位的整数存储
+	SortOrder int32     `gorm:"not null;default:0" json:"sort_order"`
+	IsEnabled bool      `gorm:"not null;default:true" json:"is_enabled"`
+	CreatedAt time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
 }
 
-func (c *Currency) TableName() string {
-	return "currencies"
-}
+// TableName 自定义表名
+func (Currency) TableName() string { return "currencies" }
 
+// Exact 按货币代码查询
 func (c *Currency) Exact(tx *gorm.DB, code string) error {
 	if err := tx.Where("code = ?", code).First(c).Error; err != nil {
 		return err
@@ -54,35 +54,37 @@ func (c *Currency) Exact(tx *gorm.DB, code string) error {
 
 // Balance 用户某种货币的余额, 首次入账时创建
 type Balance struct {
-	UserID    uint64    `json:"user_id" gorm:"primaryKey;autoIncrement:false"`
-	Currency  string    `json:"currency" gorm:"primaryKey;size:32"`
-	Balance   int64     `json:"balance" gorm:"not null;default:0;check:chk_wallet_balances_balance,balance >= 0"`
-	Frozen    int64     `json:"frozen" gorm:"not null;default:0;check:chk_wallet_balances_frozen,frozen >= 0"`
-	CreatedAt time.Time `json:"created_at" gorm:"not null;default:now();autoCreateTime"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"not null;default:now();autoUpdateTime"`
+	UserID    uint64    `gorm:"primaryKey;autoIncrement:false" json:"user_id"`
+	Currency  string    `gorm:"primaryKey;size:32" json:"currency"`
+	Balance   int64     `gorm:"not null;default:0;check:chk_wallet_balances_balance,balance >= 0" json:"balance"`
+	Frozen    int64     `gorm:"not null;default:0;check:chk_wallet_balances_frozen,frozen >= 0" json:"frozen"`
+	CreatedAt time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
 }
 
-func (b *Balance) TableName() string {
-	return "wallet_balances"
-}
+// TableName 自定义表名
+func (Balance) TableName() string { return "wallet_balances" }
 
 // Transaction 余额流水, 只追加不修改
+//
+// 联合索引：
+//   - idx_wallet_transactions_user_currency (user_id, currency, id)：按用户和货币倒序分页查询流水
+//   - idx_wallet_transactions_biz           (biz_type, biz_id)：按业务单号回查流水
 type Transaction struct {
-	ID             uint64    `json:"id" gorm:"primaryKey;index:idx_wallet_transactions_user_currency,priority:3"`
-	UserID         uint64    `json:"user_id" gorm:"not null;index:idx_wallet_transactions_user_currency,priority:1"`
-	Currency       string    `json:"currency" gorm:"size:32;not null;index:idx_wallet_transactions_user_currency,priority:2"`
-	Amount         int64     `json:"amount" gorm:"not null;default:0;check:chk_wallet_transactions_nonzero,amount <> 0 OR frozen_amount <> 0"`
-	FrozenAmount   int64     `json:"frozen_amount" gorm:"not null;default:0"`
-	BalanceAfter   int64     `json:"balance_after" gorm:"not null"`
-	FrozenAfter    int64     `json:"frozen_after" gorm:"not null"`
-	BizType        string    `json:"biz_type" gorm:"size:32;not null;index:idx_wallet_transactions_biz,priority:1"`
-	BizID          string    `json:"biz_id" gorm:"size:64;not null;default:'';index:idx_wallet_transactions_biz,priority:2"`
-	IdempotencyKey string    `json:"idempotency_key" gorm:"size:128;not null;default:'';index:uniq_wallet_transactions_idempotency_key,unique,where:idempotency_key <> ''"`
-	OperatorID     uint64    `json:"operator_id" gorm:"not null;default:0;index:idx_wallet_transactions_operator_id,where:operator_id <> 0"`
-	Remark         string    `json:"remark" gorm:"size:255;not null;default:''"`
-	CreatedAt      time.Time `json:"created_at" gorm:"not null;default:now();autoCreateTime;index"`
+	ID             uint64    `gorm:"primaryKey;index:idx_wallet_transactions_user_currency,priority:3" json:"id"`
+	UserID         uint64    `gorm:"not null;index:idx_wallet_transactions_user_currency,priority:1" json:"user_id"`
+	Currency       string    `gorm:"size:32;not null;index:idx_wallet_transactions_user_currency,priority:2" json:"currency"`
+	Amount         int64     `gorm:"not null;default:0;check:chk_wallet_transactions_nonzero,amount <> 0 OR frozen_amount <> 0" json:"amount"`
+	FrozenAmount   int64     `gorm:"not null;default:0" json:"frozen_amount"`
+	BalanceAfter   int64     `gorm:"not null" json:"balance_after"`
+	FrozenAfter    int64     `gorm:"not null" json:"frozen_after"`
+	BizType        string    `gorm:"size:32;not null;index:idx_wallet_transactions_biz,priority:1" json:"biz_type"`
+	BizID          string    `gorm:"size:64;not null;default:'';index:idx_wallet_transactions_biz,priority:2" json:"biz_id"`
+	IdempotencyKey string    `gorm:"size:128;not null;default:'';index:uniq_wallet_transactions_idempotency_key,unique,where:idempotency_key <> ''" json:"idempotency_key"`
+	OperatorID     uint64    `gorm:"not null;default:0;index:idx_wallet_transactions_operator_id,where:operator_id <> 0" json:"operator_id"`
+	Remark         string    `gorm:"size:255;not null;default:''" json:"remark"`
+	CreatedAt      time.Time `gorm:"not null;default:now();autoCreateTime;index" json:"created_at"`
 }
 
-func (t *Transaction) TableName() string {
-	return "wallet_transactions"
-}
+// TableName 自定义表名
+func (Transaction) TableName() string { return "wallet_transactions" }

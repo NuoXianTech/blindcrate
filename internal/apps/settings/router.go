@@ -22,47 +22,36 @@
  * SOFTWARE.
  */
 
-package item
+package settings
 
 import (
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
-	"gorm.io/gorm"
+	"net/http"
+
+	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/gin-gonic/gin"
 )
 
-// Placeholder 生成占位物品, 保留原物品 ID
-func Placeholder(id uint64) *Item {
-	return &Item{
-		ID:            id,
-		Name:          placeholderName(id),
-		Quality:       QualityGray,
-		SellCurrency:  wallet.CurrencyChip,
-		SellPrice:     PlaceholderSellPrice,
-		Width:         1,
-		Height:        1,
-		IsPlaceholder: true,
-	}
+// Response 统一的 settings 响应壳, 保持与其他 app 一致
+type Response struct {
+	ErrorMsg string      `json:"error_msg"`
+	Data     interface{} `json:"data"`
 }
 
-// Resolve 按 ID 批量获取物品, 已删除或不存在的物品返回占位物品
-//
-// 背包展示、卖出、保险柜等读取用户持有的物品时都应走这里, 占位规则只在这一处决定。
-func Resolve(tx *gorm.DB, ids []uint64) (map[uint64]*Item, error) {
-	result := make(map[uint64]*Item, len(ids))
-	if len(ids) == 0 {
-		return result, nil
+// PublicSettings
+// @Tags settings
+// @Summary 获取公开设置
+// @Description 如站点名称、是否开放注册, 无需登录; 返回 设置组 -> 字段 -> 值, 只包含公开字段
+// @Produce json
+// @Success 200 {object} Response{data=map[string]object}
+// @Failure 500 {object} Response
+// @Router /api/v1/settings/public [get]
+func PublicSettings(c *gin.Context) {
+	ctx := c.Request.Context()
+	data, err := QueryPublic(ctx)
+	if err != nil {
+		logger.ErrorF(ctx, "[PublicSettings] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: QueryFailed})
+		return
 	}
-
-	var items []Item
-	if err := tx.Where("id IN ?", ids).Find(&items).Error; err != nil {
-		return nil, err
-	}
-	for i := range items {
-		result[items[i].ID] = &items[i]
-	}
-	for _, id := range ids {
-		if result[id] == nil {
-			result[id] = Placeholder(id)
-		}
-	}
-	return result, nil
+	c.JSON(http.StatusOK, Response{Data: data})
 }
