@@ -27,6 +27,7 @@ package settings
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hkdf"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -38,13 +39,19 @@ import (
 // secretAADPrefix 加密时绑定 "设置组.字段" 作为附加数据, 防止密文被挪到其他字段解密
 const secretAADPrefix = "blindcrate:settings:"
 
-// secretCipher 用 app.secret_key 派生 AES-256-GCM 密钥
+// secretKeyInfo HKDF 的用途标识, app.secret_key 用于其他用途时派生出的密钥互不相同
+const secretKeyInfo = "blindcrate:settings:secret"
+
+// secretCipher 用 HKDF 从 app.secret_key 派生 AES-256-GCM 密钥
 func secretCipher() (cipher.AEAD, error) {
 	if config.Config.App.SecretKey == "" {
 		return nil, errors.New(SecretKeyMissing)
 	}
-	key := sha256.Sum256([]byte(config.Config.App.SecretKey))
-	block, err := aes.NewCipher(key[:])
+	key, err := hkdf.Key(sha256.New, []byte(config.Config.App.SecretKey), nil, secretKeyInfo, 32)
+	if err != nil {
+		return nil, err
+	}
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
