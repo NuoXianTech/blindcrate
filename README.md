@@ -132,6 +132,7 @@ pnpm dev
 | `app.addr` | 后端服务监听地址 | `:8000` |
 | `worker.port` | Worker 探针端口 | `8001` |
 | `schedule.port` | Scheduler 探针端口 | `8002` |
+| `ws.origin_patterns` | WebSocket 连接域名 | `["localhost:3000"]` |
 | `database.host` | PostgreSQL 数据库地址 | `127.0.0.1` |
 | `redis.host` | Redis 服务器地址 | `127.0.0.1` |
 

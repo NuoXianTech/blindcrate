@@ -1,7 +1,10 @@
 import axios, {AxiosError} from 'axios';
 import type {ApiResponse} from './types';
 
-/** 未登录(401)时派发的事件, 由登录状态相关组件监听后跳转登录 */
+/**
+ * 未登录(接口返回 401 或 WebSocket 登录失效)时派发的事件, 由登录状态相关组件监听后跳转登录
+ * WebSocket 派发时 detail 为断开原因, 如被强制下线
+ */
 export const UNAUTHORIZED_EVENT = 'blindcrate:unauthorized';
 
 /** 请求失败的错误, message 为后端返回的 error_msg, 没有时为按失败原因生成的提示 */

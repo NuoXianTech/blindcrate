@@ -39,6 +39,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
+	"github.com/NuoXianTech/blindcrate/internal/ws"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
@@ -113,6 +114,9 @@ func Serve() {
 			// Settings
 			apiV1Router.GET("/settings/public", settings.PublicSettings)
 
+			// WebSocket
+			apiV1Router.GET("/ws", auth.LoginRequired(), ws.Connect)
+
 			// Wallet
 			walletRouter := apiV1Router.Group("/wallet")
 			walletRouter.Use(auth.LoginRequired())
@@ -183,6 +187,11 @@ func Serve() {
 				adminRouter.GET("/audit-logs", admin.ListAuditLogs)
 			}
 		}
+	}
+
+	// WebSocket 推送
+	if err := ws.Start(); err != nil {
+		log.Fatalf("[API] start websocket failed: %v\n", err)
 	}
 
 	// Serve

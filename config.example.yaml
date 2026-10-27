@@ -67,6 +67,10 @@ worker:
   port: 8001 # worker probe port
   concurrency: 10 # max tasks processed at the same time
 
+# WebSocket
+ws:
+  origin_patterns: ["localhost:3000"] # page hosts allowed to connect besides the API's own host, e.g. the Next.js dev server
+
 # OpenTelemetry
 otel:
   sampling_rate: 0.1

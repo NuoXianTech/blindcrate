@@ -33,6 +33,7 @@ type configModel struct {
 	Log      logConfig      `mapstructure:"log"`
 	Schedule scheduleConfig `mapstructure:"schedule"`
 	Worker   workerConfig   `mapstructure:"worker"`
+	WS       wsConfig       `mapstructure:"ws"`
 	Otel     otelConfig     `mapstructure:"otel"`
 }
 
@@ -106,6 +107,11 @@ type scheduleConfig struct {
 type workerConfig struct {
 	Port        int `mapstructure:"port"`        // 探针端口
 	Concurrency int `mapstructure:"concurrency"` // 同时处理的任务数
+}
+
+// wsConfig WebSocket 配置
+type wsConfig struct {
+	OriginPatterns []string `mapstructure:"origin_patterns"` // 允许发起连接的页面来源, 与 API 同域名的页面总是允许
 }
 
 // otelConfig OpenTelemetry 配置

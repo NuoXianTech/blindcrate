@@ -11,6 +11,7 @@ import {WalletService} from './wallet';
  *     - api-client.ts - Axios 实例和统一错误处理
  *     - base.service.ts - 服务基类, 自动剥掉响应外壳
  *     - types.ts - 通用类型
+ *     - ws-client.ts - WebSocket 长连接, 订阅推送和发送请求
  *   /<模块> - 每个后端模块一个目录
  *     - xxx.service.ts - 服务实现, 继承 BaseService 并设置 basePath
  *     - types.ts - 请求和响应类型

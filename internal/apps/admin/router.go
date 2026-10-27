@@ -39,6 +39,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/mail"
+	"github.com/NuoXianTech/blindcrate/internal/ws"
 	"github.com/gin-gonic/gin"
 )
 
@@ -208,6 +209,9 @@ func BanUser(c *gin.Context) {
 	if err := auth.RevokeUserSessions(ctx, userID, ""); err != nil {
 		logger.ErrorF(ctx, "[BanUser] revoke sessions failed: %v", err)
 	}
+	if err := ws.DisconnectUser(ctx, userID); err != nil {
+		logger.ErrorF(ctx, "[BanUser] disconnect websocket failed: %v", err)
+	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionUserBan, audit.TargetUser, userID, map[string]interface{}{"banned_until": req.BannedUntil, "reason": req.Reason})
 	logger.InfoF(ctx, "[BanUser] %d banned %d until %s", operator.ID, userID, req.BannedUntil.Format(time.RFC3339))
 	c.JSON(http.StatusOK, Response{})
@@ -303,6 +307,9 @@ func SetUserDisabled(c *gin.Context) {
 	if *req.Disabled {
 		if err := auth.RevokeUserSessions(ctx, userID, ""); err != nil {
 			logger.ErrorF(ctx, "[SetUserDisabled] revoke sessions failed: %v", err)
+		}
+		if err := ws.DisconnectUser(ctx, userID); err != nil {
+			logger.ErrorF(ctx, "[SetUserDisabled] disconnect websocket failed: %v", err)
 		}
 	}
 	action := audit.ActionUserEnable
