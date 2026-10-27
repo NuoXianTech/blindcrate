@@ -32,7 +32,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var Config *ConfigModel
+var Config *configModel
 
 func init() {
 	// 加载配置文件路径
@@ -53,7 +53,7 @@ func init() {
 	}
 
 	// 解析配置到结构体
-	var c ConfigModel
+	var c configModel
 	if err := viper.Unmarshal(&c); err != nil {
 		log.Fatalf("[Config] parse config failed: %v\n", err)
 	}

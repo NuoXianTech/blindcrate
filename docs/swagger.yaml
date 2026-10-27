@@ -20,13 +20,6 @@ definitions:
     - idempotency_key
     - remark
     type: object
-  admin.AdjustUserBalanceResponse:
-    properties:
-      data:
-        $ref: '#/definitions/wallet.Transaction'
-      error_msg:
-        type: string
-    type: object
   admin.AdjustUserInventoryRequest:
     properties:
       idempotency_key:
@@ -46,13 +39,6 @@ definitions:
     - item_id
     - quantity
     - remark
-    type: object
-  admin.AdjustUserInventoryResponse:
-    properties:
-      data:
-        $ref: '#/definitions/inventory.Transaction'
-      error_msg:
-        type: string
     type: object
   admin.AuditLogItem:
     properties:
@@ -90,19 +76,6 @@ definitions:
         type: string
     required:
     - banned_until
-    type: object
-  admin.BanUserResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
-    type: object
-  admin.DeleteItemResponse:
-    properties:
-      data:
-        $ref: '#/definitions/admin.DeleteItemResponseData'
-      error_msg:
-        type: string
     type: object
   admin.DeleteItemResponseData:
     properties:
@@ -231,20 +204,6 @@ definitions:
     - sell_currency
     - width
     type: object
-  admin.ItemResponse:
-    properties:
-      data:
-        $ref: '#/definitions/item.Item'
-      error_msg:
-        type: string
-    type: object
-  admin.ListAuditLogsResponse:
-    properties:
-      data:
-        $ref: '#/definitions/admin.ListAuditLogsResponseData'
-      error_msg:
-        type: string
-    type: object
   admin.ListAuditLogsResponseData:
     properties:
       logs:
@@ -254,26 +213,12 @@ definitions:
       total:
         type: integer
     type: object
-  admin.ListCurrenciesResponse:
-    properties:
-      data:
-        $ref: '#/definitions/admin.ListCurrenciesResponseData'
-      error_msg:
-        type: string
-    type: object
   admin.ListCurrenciesResponseData:
     properties:
       currencies:
         items:
           $ref: '#/definitions/wallet.Currency'
         type: array
-    type: object
-  admin.ListInventoryTransactionsResponse:
-    properties:
-      data:
-        $ref: '#/definitions/admin.ListInventoryTransactionsResponseData'
-      error_msg:
-        type: string
     type: object
   admin.ListInventoryTransactionsResponseData:
     properties:
@@ -284,13 +229,6 @@ definitions:
           $ref: '#/definitions/admin.InventoryTransactionItem'
         type: array
     type: object
-  admin.ListItemsResponse:
-    properties:
-      data:
-        $ref: '#/definitions/admin.ListItemsResponseData'
-      error_msg:
-        type: string
-    type: object
   admin.ListItemsResponseData:
     properties:
       items:
@@ -300,13 +238,6 @@ definitions:
       total:
         type: integer
     type: object
-  admin.ListSettingsResponse:
-    properties:
-      data:
-        $ref: '#/definitions/admin.ListSettingsResponseData'
-      error_msg:
-        type: string
-    type: object
   admin.ListSettingsResponseData:
     properties:
       groups:
@@ -314,26 +245,12 @@ definitions:
           $ref: '#/definitions/settings.GroupView'
         type: array
     type: object
-  admin.ListUserBalancesResponse:
-    properties:
-      data:
-        $ref: '#/definitions/admin.ListUserBalancesResponseData'
-      error_msg:
-        type: string
-    type: object
   admin.ListUserBalancesResponseData:
     properties:
       balances:
         items:
           $ref: '#/definitions/wallet.BalanceItem'
         type: array
-    type: object
-  admin.ListUserInventoryResponse:
-    properties:
-      data:
-        $ref: '#/definitions/admin.ListUserInventoryResponseData'
-      error_msg:
-        type: string
     type: object
   admin.ListUserInventoryResponseData:
     properties:
@@ -344,13 +261,6 @@ definitions:
       total:
         type: integer
     type: object
-  admin.ListUsersResponse:
-    properties:
-      data:
-        $ref: '#/definitions/admin.ListUsersResponseData'
-      error_msg:
-        type: string
-    type: object
   admin.ListUsersResponseData:
     properties:
       total:
@@ -359,13 +269,6 @@ definitions:
         items:
           $ref: '#/definitions/auth.User'
         type: array
-    type: object
-  admin.ListWalletTransactionsResponse:
-    properties:
-      data:
-        $ref: '#/definitions/admin.ListWalletTransactionsResponseData'
-      error_msg:
-        type: string
     type: object
   admin.ListWalletTransactionsResponseData:
     properties:
@@ -376,18 +279,18 @@ definitions:
           $ref: '#/definitions/admin.WalletTransactionItem'
         type: array
     type: object
+  admin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
   admin.SetUserDisabledRequest:
     properties:
       disabled:
         type: boolean
     required:
     - disabled
-    type: object
-  admin.SetUserDisabledResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
     type: object
   admin.TestMailRequest:
     properties:
@@ -396,18 +299,6 @@ definitions:
         type: string
     required:
     - to
-    type: object
-  admin.TestMailResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
-    type: object
-  admin.UnbanUserResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
     type: object
   admin.UpdateSettingRequest:
     properties:
@@ -423,13 +314,6 @@ definitions:
     required:
     - value
     type: object
-  admin.UpdateSettingResponse:
-    properties:
-      data:
-        $ref: '#/definitions/settings.GroupView'
-      error_msg:
-        type: string
-    type: object
   admin.UpdateUserRequest:
     properties:
       avatar_url:
@@ -440,12 +324,6 @@ definitions:
         type: string
       username:
         description: 不传表示不修改
-        type: string
-    type: object
-  admin.UpdateUserResponse:
-    properties:
-      data: {}
-      error_msg:
         type: string
     type: object
   admin.WalletTransactionItem:
@@ -504,15 +382,10 @@ definitions:
       new_password:
         type: string
       old_password:
+        description: 未设置过密码时可不传
         type: string
     required:
     - new_password
-    type: object
-  auth.ChangePasswordResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
     type: object
   auth.LoginRequest:
     properties:
@@ -525,18 +398,6 @@ definitions:
     - password
     - username
     type: object
-  auth.LoginResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
-    type: object
-  auth.LogoutResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
-    type: object
   auth.RegisterRequest:
     properties:
       password:
@@ -547,7 +408,7 @@ definitions:
     - password
     - username
     type: object
-  auth.RegisterResponse:
+  auth.Response:
     properties:
       data: {}
       error_msg:
@@ -560,12 +421,6 @@ definitions:
     required:
     - email
     type: object
-  auth.SendEmailCodeResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
-    type: object
   auth.UpdateUserInfoRequest:
     properties:
       avatar_url:
@@ -573,12 +428,6 @@ definitions:
         type: string
       nickname:
         description: 不传表示不修改
-        type: string
-    type: object
-  auth.UpdateUserInfoResponse:
-    properties:
-      data: {}
-      error_msg:
         type: string
     type: object
   auth.User:
@@ -610,13 +459,6 @@ definitions:
       username:
         type: string
     type: object
-  auth.UserInfoResponse:
-    properties:
-      data:
-        $ref: '#/definitions/auth.BasicUserInfo'
-      error_msg:
-        type: string
-    type: object
   auth.VerifyEmailRequest:
     properties:
       code:
@@ -627,28 +469,9 @@ definitions:
     - code
     - email
     type: object
-  auth.VerifyEmailResponse:
+  health.Response:
     properties:
       data: {}
-      error_msg:
-        type: string
-    type: object
-  health.HealthResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
-    type: object
-  health.ReadyResponse:
-    properties:
-      data: {}
-      error_msg:
-        type: string
-    type: object
-  inventory.ListItemsResponse:
-    properties:
-      data:
-        $ref: '#/definitions/inventory.ListItemsResponseData'
       error_msg:
         type: string
     type: object
@@ -661,12 +484,14 @@ definitions:
       total:
         type: integer
     type: object
-  inventory.ListTransactionsResponse:
+  inventory.ListSellOrdersResponseData:
     properties:
-      data:
-        $ref: '#/definitions/inventory.ListTransactionsResponseData'
-      error_msg:
-        type: string
+      orders:
+        items:
+          $ref: '#/definitions/inventory.SellOrderDetail'
+        type: array
+      total:
+        type: integer
     type: object
   inventory.ListTransactionsResponseData:
     properties:
@@ -676,6 +501,100 @@ definitions:
         items:
           $ref: '#/definitions/inventory.TransactionItem'
         type: array
+    type: object
+  inventory.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  inventory.SellIncome:
+    properties:
+      amount:
+        type: integer
+      balance_after:
+        description: 入账后的可用余额
+        type: integer
+      currency:
+        type: string
+    type: object
+  inventory.SellItemsRequest:
+    properties:
+      idempotency_key:
+        description: 每次打开出售确认框生成一个, 重复提交只生效一次
+        maxLength: 64
+        type: string
+      items:
+        description: 同一物品只能出现一次
+        items:
+          $ref: '#/definitions/inventory.SellItemsRequestItem'
+        maxItems: 100
+        minItems: 1
+        type: array
+    required:
+    - idempotency_key
+    - items
+    type: object
+  inventory.SellItemsRequestItem:
+    properties:
+      item_id:
+        type: integer
+      quantity:
+        maximum: 1000000
+        minimum: 1
+        type: integer
+      sell_currency:
+        description: 背包中看到的卖出货币, 与当前不一致时拒绝出售
+        maxLength: 32
+        type: string
+      sell_price:
+        description: 背包中看到的单价, 与当前不一致时拒绝出售
+        minimum: 1
+        type: integer
+    required:
+    - item_id
+    - quantity
+    - sell_currency
+    - sell_price
+    type: object
+  inventory.SellOrderDetail:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      incomes:
+        description: 按货币代码排序
+        items:
+          $ref: '#/definitions/inventory.SellIncome'
+        type: array
+      items:
+        description: 按物品 ID 排序
+        items:
+          $ref: '#/definitions/inventory.SellOrderItem'
+        type: array
+    type: object
+  inventory.SellOrderItem:
+    properties:
+      amount:
+        description: 数量 × 单价
+        type: integer
+      id:
+        type: integer
+      item_id:
+        type: integer
+      item_name:
+        description: 出售时的物品名称
+        type: string
+      order_id:
+        type: integer
+      quantity:
+        type: integer
+      sell_currency:
+        type: string
+      sell_price:
+        description: 出售时的单价
+        type: integer
     type: object
   inventory.Transaction:
     properties:
@@ -847,14 +766,9 @@ definitions:
         description: 密钥字段固定为空字符串
         type: object
     type: object
-  settings.PublicSettingsResponse:
+  settings.Response:
     properties:
-      data:
-        additionalProperties:
-          additionalProperties: true
-          type: object
-        description: 设置组 -> 字段 -> 值, 只包含公开字段
-        type: object
+      data: {}
       error_msg:
         type: string
     type: object
@@ -891,26 +805,12 @@ definitions:
       updated_at:
         type: string
     type: object
-  wallet.ListBalancesResponse:
-    properties:
-      data:
-        $ref: '#/definitions/wallet.ListBalancesResponseData'
-      error_msg:
-        type: string
-    type: object
   wallet.ListBalancesResponseData:
     properties:
       balances:
         items:
           $ref: '#/definitions/wallet.BalanceItem'
         type: array
-    type: object
-  wallet.ListTransactionsResponse:
-    properties:
-      data:
-        $ref: '#/definitions/wallet.ListTransactionsResponseData'
-      error_msg:
-        type: string
     type: object
   wallet.ListTransactionsResponseData:
     properties:
@@ -920,6 +820,12 @@ definitions:
         items:
           $ref: '#/definitions/wallet.TransactionItem'
         type: array
+    type: object
+  wallet.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
     type: object
   wallet.Transaction:
     properties:
@@ -980,6 +886,7 @@ info:
 paths:
   /api/v1/admin/audit-logs:
     get:
+      description: 包含用户和管理员的操作
       parameters:
       - in: query
         maxLength: 64
@@ -1024,23 +931,29 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.ListAuditLogsResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListAuditLogsResponseData'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.ListAuditLogsResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.ListAuditLogsResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.ListAuditLogsResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.ListAuditLogsResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 获取操作日志列表
       tags:
       - admin
   /api/v1/admin/inventory/transactions:
@@ -1086,27 +999,34 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.ListInventoryTransactionsResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListInventoryTransactionsResponseData'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.ListInventoryTransactionsResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.ListInventoryTransactionsResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.ListInventoryTransactionsResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.ListInventoryTransactionsResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 获取全部用户的背包流水
       tags:
       - admin
   /api/v1/admin/items:
     get:
+      description: 包含已下架的物品, 不包含已删除的物品
       parameters:
       - in: query
         minimum: 1
@@ -1136,26 +1056,34 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.ListItemsResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListItemsResponseData'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.ListItemsResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.ListItemsResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.ListItemsResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.ListItemsResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 获取物品列表
       tags:
       - admin
     post:
+      consumes:
+      - application/json
       parameters:
       - description: request body
         in: body
@@ -1169,31 +1097,38 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/item.Item'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            $ref: '#/definitions/admin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 新建物品
       tags:
       - admin
   /api/v1/admin/items/{id}:
     delete:
+      description: 已持有的玩家背包保留该物品并变为占位物品, 物品 ID 不会被复用
       parameters:
       - description: item id
         in: path
@@ -1206,30 +1141,39 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.DeleteItemResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.DeleteItemResponseData'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.DeleteItemResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.DeleteItemResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.DeleteItemResponse'
+            $ref: '#/definitions/admin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.DeleteItemResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.DeleteItemResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 删除物品
       tags:
       - admin
     put:
+      consumes:
+      - application/json
+      description: 需提交全部字段; 修改名称不影响已有流水中的名称
       parameters:
       - description: item id
         in: path
@@ -1248,58 +1192,74 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/item.Item'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            $ref: '#/definitions/admin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            $ref: '#/definitions/admin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.ItemResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 修改物品
       tags:
       - admin
   /api/v1/admin/settings:
     get:
+      description: 包含表单描述和当前值, 密钥字段不返回明文
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.ListSettingsResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListSettingsResponseData'
+              type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.ListSettingsResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.ListSettingsResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.ListSettingsResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 获取全部系统设置
       tags:
       - admin
   /api/v1/admin/settings/{key}:
     put:
+      consumes:
+      - application/json
+      description: 保存后立即生效
       parameters:
       - description: setting group key
         in: path
@@ -1318,31 +1278,40 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.UpdateSettingResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/settings.GroupView'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.UpdateSettingResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.UpdateSettingResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.UpdateSettingResponse'
+            $ref: '#/definitions/admin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.UpdateSettingResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.UpdateSettingResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 保存一个设置组
       tags:
       - admin
   /api/v1/admin/settings/mail/test:
     post:
+      consumes:
+      - application/json
+      description: 使用已保存的邮件设置发送, 未启用邮件发送时也可以测试; 发送失败时返回 SMTP 的错误信息
       parameters:
       - description: request body
         in: body
@@ -1356,27 +1325,28 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.TestMailResponse'
+            $ref: '#/definitions/admin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.TestMailResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.TestMailResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.TestMailResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.TestMailResponse'
+            $ref: '#/definitions/admin.Response'
         "502":
           description: Bad Gateway
           schema:
-            $ref: '#/definitions/admin.TestMailResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 发送测试邮件
       tags:
       - admin
   /api/v1/admin/users:
@@ -1411,27 +1381,35 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.ListUsersResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListUsersResponseData'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.ListUsersResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.ListUsersResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.ListUsersResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.ListUsersResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 获取用户列表
       tags:
       - admin
   /api/v1/admin/users/{id}:
     patch:
+      consumes:
+      - application/json
       parameters:
       - description: user id
         in: path
@@ -1450,31 +1428,37 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.UpdateUserResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.BasicUserInfo'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.UpdateUserResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.UpdateUserResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.UpdateUserResponse'
+            $ref: '#/definitions/admin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.UpdateUserResponse'
+            $ref: '#/definitions/admin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.UpdateUserResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.UpdateUserResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 修改用户资料
       tags:
       - admin
   /api/v1/admin/users/{id}/ban:
@@ -1491,30 +1475,34 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.UnbanUserResponse'
+            $ref: '#/definitions/admin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.UnbanUserResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.UnbanUserResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.UnbanUserResponse'
+            $ref: '#/definitions/admin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.UnbanUserResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.UnbanUserResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 解除封禁
       tags:
       - admin
     put:
+      consumes:
+      - application/json
+      description: 封禁到指定时间, 并让其所有设备下线
       parameters:
       - description: user id
         in: path
@@ -1533,31 +1521,35 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.BanUserResponse'
+            $ref: '#/definitions/admin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.BanUserResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.BanUserResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.BanUserResponse'
+            $ref: '#/definitions/admin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.BanUserResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.BanUserResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 封禁用户
       tags:
       - admin
   /api/v1/admin/users/{id}/disabled:
     put:
+      consumes:
+      - application/json
+      description: 停用时让其所有设备下线
       parameters:
       - description: user id
         in: path
@@ -1576,27 +1568,28 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.SetUserDisabledResponse'
+            $ref: '#/definitions/admin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.SetUserDisabledResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.SetUserDisabledResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.SetUserDisabledResponse'
+            $ref: '#/definitions/admin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.SetUserDisabledResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.SetUserDisabledResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 停用或启用用户
       tags:
       - admin
   /api/v1/admin/users/{id}/inventory:
@@ -1627,31 +1620,40 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.ListUserInventoryResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListUserInventoryResponseData'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.ListUserInventoryResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.ListUserInventoryResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.ListUserInventoryResponse'
+            $ref: '#/definitions/admin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.ListUserInventoryResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.ListUserInventoryResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 获取指定用户背包中的物品
       tags:
       - admin
   /api/v1/admin/users/{id}/inventory/adjust:
     post:
+      consumes:
+      - application/json
+      description: 写入一条 admin_adjust 流水, 不能给自己调整; 重复提交返回原流水
       parameters:
       - description: user id
         in: path
@@ -1670,35 +1672,44 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/inventory.Transaction'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+            $ref: '#/definitions/admin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+            $ref: '#/definitions/admin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 给用户发放或扣除物品
       tags:
       - admin
   /api/v1/admin/users/{id}/wallet/adjust:
     post:
+      consumes:
+      - application/json
+      description: 写入一条 admin_adjust 流水, 不能给自己调账; 重复提交返回原流水
       parameters:
       - description: user id
         in: path
@@ -1717,35 +1728,42 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wallet.Transaction'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+            $ref: '#/definitions/admin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+            $ref: '#/definitions/admin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 给用户调账
       tags:
       - admin
   /api/v1/admin/users/{id}/wallet/balances:
     get:
+      description: 包含已停用的货币
       parameters:
       - description: user id
         in: path
@@ -1758,50 +1776,63 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.ListUserBalancesResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListUserBalancesResponseData'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.ListUserBalancesResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.ListUserBalancesResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.ListUserBalancesResponse'
+            $ref: '#/definitions/admin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.ListUserBalancesResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.ListUserBalancesResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 获取指定用户的各货币余额
       tags:
       - admin
   /api/v1/admin/wallet/currencies:
     get:
+      description: 包含已停用的货币
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.ListCurrenciesResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListCurrenciesResponseData'
+              type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.ListCurrenciesResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.ListCurrenciesResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.ListCurrenciesResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 获取全部货币定义
       tags:
       - admin
   /api/v1/admin/wallet/transactions:
@@ -1848,27 +1879,36 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.ListWalletTransactionsResponse'
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListWalletTransactionsResponseData'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.ListWalletTransactionsResponse'
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.ListWalletTransactionsResponse'
+            $ref: '#/definitions/admin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.ListWalletTransactionsResponse'
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.ListWalletTransactionsResponse'
+            $ref: '#/definitions/admin.Response'
+      summary: 获取全部用户的余额流水
       tags:
       - admin
   /api/v1/auth/email/code:
     post:
+      consumes:
+      - application/json
+      description: 邮箱在验证通过前不会写入账号
       parameters:
       - description: request body
         in: body
@@ -1882,35 +1922,42 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.SendEmailCodeResponse'
+            $ref: '#/definitions/auth.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/auth.SendEmailCodeResponse'
+            $ref: '#/definitions/auth.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/auth.SendEmailCodeResponse'
+            $ref: '#/definitions/auth.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/auth.SendEmailCodeResponse'
+            $ref: '#/definitions/auth.Response'
         "429":
           description: Too Many Requests
           schema:
-            $ref: '#/definitions/auth.SendEmailCodeResponse'
+            $ref: '#/definitions/auth.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/auth.SendEmailCodeResponse'
+            $ref: '#/definitions/auth.Response'
         "503":
           description: Service Unavailable
           schema:
-            $ref: '#/definitions/auth.SendEmailCodeResponse'
+            $ref: '#/definitions/auth.Response'
+      summary: 向待绑定的邮箱发送验证码
       tags:
       - auth
   /api/v1/auth/email/verify:
     post:
+      consumes:
+      - application/json
       parameters:
       - description: request body
         in: body
@@ -1924,27 +1971,35 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.VerifyEmailResponse'
+            $ref: '#/definitions/auth.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/auth.VerifyEmailResponse'
+            $ref: '#/definitions/auth.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/auth.VerifyEmailResponse'
+            $ref: '#/definitions/auth.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/auth.VerifyEmailResponse'
+            $ref: '#/definitions/auth.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/auth.VerifyEmailResponse'
+            $ref: '#/definitions/auth.Response'
+      summary: 校验邮箱验证码并绑定邮箱
       tags:
       - auth
   /api/v1/auth/login:
     post:
+      consumes:
+      - application/json
+      description: 支持用户名或已验证的邮箱 + 密码登录, 邮箱登录需在设置中开启
       parameters:
       - description: request body
         in: body
@@ -1958,23 +2013,29 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.LoginResponse'
+            allOf:
+            - $ref: '#/definitions/auth.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.BasicUserInfo'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/auth.LoginResponse'
+            $ref: '#/definitions/auth.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/auth.LoginResponse'
+            $ref: '#/definitions/auth.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/auth.LoginResponse'
+            $ref: '#/definitions/auth.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/auth.LoginResponse'
+            $ref: '#/definitions/auth.Response'
+      summary: 用户名或邮箱登录
       tags:
       - auth
   /api/v1/auth/logout:
@@ -1985,15 +2046,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.LogoutResponse'
+            $ref: '#/definitions/auth.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/auth.LogoutResponse'
+            $ref: '#/definitions/auth.Response'
+      summary: 退出登录
       tags:
       - auth
   /api/v1/auth/password:
     put:
+      consumes:
+      - application/json
+      description: 未设置过密码(仅第三方登录)的用户无需提供原密码; 修改后当前设备保持登录, 其他设备下线
       parameters:
       - description: request body
         in: body
@@ -2007,23 +2072,31 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.ChangePasswordResponse'
+            $ref: '#/definitions/auth.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/auth.ChangePasswordResponse'
+            $ref: '#/definitions/auth.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/auth.ChangePasswordResponse'
+            $ref: '#/definitions/auth.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/auth.ChangePasswordResponse'
+            $ref: '#/definitions/auth.Response'
+      summary: 修改当前用户的密码
       tags:
       - auth
   /api/v1/auth/register:
     post:
+      consumes:
+      - application/json
+      description: 注册成功后直接登录; 系统中第一个注册的用户自动成为管理员, 且不受注册开关限制
       parameters:
       - description: request body
         in: body
@@ -2037,23 +2110,29 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/auth.RegisterResponse'
+            allOf:
+            - $ref: '#/definitions/auth.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.BasicUserInfo'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/auth.RegisterResponse'
+            $ref: '#/definitions/auth.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/auth.RegisterResponse'
+            $ref: '#/definitions/auth.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/auth.RegisterResponse'
+            $ref: '#/definitions/auth.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/auth.RegisterResponse'
+            $ref: '#/definitions/auth.Response'
+      summary: 注册新用户
       tags:
       - auth
   /api/v1/auth/user-info:
@@ -2064,14 +2143,30 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.UserInfoResponse'
+            allOf:
+            - $ref: '#/definitions/auth.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.BasicUserInfo'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/auth.UserInfoResponse'
+            $ref: '#/definitions/auth.Response'
+      summary: 获取当前用户信息
       tags:
       - auth
     patch:
+      consumes:
+      - application/json
       parameters:
       - description: request body
         in: body
@@ -2085,19 +2180,29 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.UpdateUserInfoResponse'
+            allOf:
+            - $ref: '#/definitions/auth.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.BasicUserInfo'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/auth.UpdateUserInfoResponse'
+            $ref: '#/definitions/auth.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/auth.UpdateUserInfoResponse'
+            $ref: '#/definitions/auth.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/auth.UpdateUserInfoResponse'
+            $ref: '#/definitions/auth.Response'
+      summary: 修改当前用户的昵称和头像
       tags:
       - auth
   /api/v1/health:
@@ -2108,11 +2213,13 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/health.HealthResponse'
+            $ref: '#/definitions/health.Response'
+      summary: 存活检查
       tags:
       - health
   /api/v1/inventory/items:
     get:
+      description: 只返回数量大于 0 的物品, 已删除的物品按占位物品返回
       parameters:
       - in: query
         minimum: 1
@@ -2134,23 +2241,127 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/inventory.ListItemsResponse'
+            allOf:
+            - $ref: '#/definitions/inventory.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/inventory.ListItemsResponseData'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/inventory.ListItemsResponse'
+            $ref: '#/definitions/inventory.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/inventory.ListItemsResponse'
+            $ref: '#/definitions/inventory.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/inventory.ListItemsResponse'
+            $ref: '#/definitions/inventory.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/inventory.ListItemsResponse'
+            $ref: '#/definitions/inventory.Response'
+      summary: 获取当前用户背包中的物品
+      tags:
+      - inventory
+  /api/v1/inventory/sell:
+    post:
+      consumes:
+      - application/json
+      description: 按物品当前的卖出价出售, 可以同时卖出多种物品, 全部成功或全部失败; 重复提交返回原出售单
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/inventory.SellItemsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/inventory.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/inventory.SellOrderDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/inventory.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/inventory.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/inventory.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/inventory.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/inventory.Response'
+      summary: 出售背包中的物品
+      tags:
+      - inventory
+  /api/v1/inventory/sell-orders:
+    get:
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: RFC3339, 不包含
+        in: query
+        name: end_time
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - description: RFC3339, 包含
+        in: query
+        name: start_time
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/inventory.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/inventory.ListSellOrdersResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/inventory.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/inventory.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/inventory.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/inventory.Response'
+      summary: 获取当前用户的出售记录
       tags:
       - inventory
   /api/v1/inventory/transactions:
@@ -2186,72 +2397,100 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/inventory.ListTransactionsResponse'
+            allOf:
+            - $ref: '#/definitions/inventory.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/inventory.ListTransactionsResponseData'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/inventory.ListTransactionsResponse'
+            $ref: '#/definitions/inventory.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/inventory.ListTransactionsResponse'
+            $ref: '#/definitions/inventory.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/inventory.ListTransactionsResponse'
+            $ref: '#/definitions/inventory.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/inventory.ListTransactionsResponse'
+            $ref: '#/definitions/inventory.Response'
+      summary: 获取当前用户的背包流水
       tags:
       - inventory
   /api/v1/ready:
     get:
+      description: 检查已启用的 PostgreSQL 和 Redis 是否可用
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/health.ReadyResponse'
+            $ref: '#/definitions/health.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/health.Response'
+      summary: 就绪检查
       tags:
       - health
   /api/v1/settings/public:
     get:
+      description: 如站点名称、是否开放注册, 无需登录; 返回 设置组 -> 字段 -> 值, 只包含公开字段
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/settings.PublicSettingsResponse'
+            allOf:
+            - $ref: '#/definitions/settings.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: object
+                  type: object
+              type: object
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/settings.PublicSettingsResponse'
+            $ref: '#/definitions/settings.Response'
+      summary: 获取公开设置
       tags:
       - settings
   /api/v1/wallet/balances:
     get:
+      description: 没有余额行的货币按 0 返回, 已停用且没有余额的货币不返回
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/wallet.ListBalancesResponse'
+            allOf:
+            - $ref: '#/definitions/wallet.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wallet.ListBalancesResponseData'
+              type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/wallet.ListBalancesResponse'
+            $ref: '#/definitions/wallet.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/wallet.ListBalancesResponse'
+            $ref: '#/definitions/wallet.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/wallet.ListBalancesResponse'
+            $ref: '#/definitions/wallet.Response'
+      summary: 获取当前用户的各货币余额
       tags:
       - wallet
   /api/v1/wallet/transactions:
@@ -2288,23 +2527,29 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/wallet.ListTransactionsResponse'
+            allOf:
+            - $ref: '#/definitions/wallet.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wallet.ListTransactionsResponseData'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/wallet.ListTransactionsResponse'
+            $ref: '#/definitions/wallet.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/wallet.ListTransactionsResponse'
+            $ref: '#/definitions/wallet.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/wallet.ListTransactionsResponse'
+            $ref: '#/definitions/wallet.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/wallet.ListTransactionsResponse'
+            $ref: '#/definitions/wallet.Response'
+      summary: 获取当前用户的余额流水
       tags:
       - wallet
 swagger: "2.0"

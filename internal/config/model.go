@@ -26,16 +26,16 @@ package config
 
 import "time"
 
-type ConfigModel struct {
-	App      AppConfig      `mapstructure:"app"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	Log      LogConfig      `mapstructure:"log"`
-	Otel     OtelConfig     `mapstructure:"otel"`
+type configModel struct {
+	App      appConfig      `mapstructure:"app"`
+	Database databaseConfig `mapstructure:"database"`
+	Redis    redisConfig    `mapstructure:"redis"`
+	Log      logConfig      `mapstructure:"log"`
+	Otel     otelConfig     `mapstructure:"otel"`
 }
 
 // appConfig 应用基本配置
-type AppConfig struct {
+type appConfig struct {
 	AppName           string `mapstructure:"app_name"`
 	Env               string `mapstructure:"env"`
 	Addr              string `mapstructure:"addr"`
@@ -50,7 +50,7 @@ type AppConfig struct {
 }
 
 // databaseConfig 数据库配置
-type DatabaseConfig struct {
+type databaseConfig struct {
 	Enabled                   bool          `mapstructure:"enabled"`
 	Host                      string        `mapstructure:"host"`
 	Port                      int           `mapstructure:"port"`
@@ -68,7 +68,7 @@ type DatabaseConfig struct {
 }
 
 // redisConfig Redis配置
-type RedisConfig struct {
+type redisConfig struct {
 	Enabled      bool   `mapstructure:"enabled"`
 	Host         string `mapstructure:"host"`
 	Port         int    `mapstructure:"port"`
@@ -83,7 +83,7 @@ type RedisConfig struct {
 }
 
 // logConfig 日志配置
-type LogConfig struct {
+type logConfig struct {
 	Level      string `mapstructure:"level"`
 	Format     string `mapstructure:"format"`
 	Output     string `mapstructure:"output"`
@@ -95,6 +95,6 @@ type LogConfig struct {
 }
 
 // otelConfig OpenTelemetry 配置
-type OtelConfig struct {
+type otelConfig struct {
 	SamplingRate float64 `mapstructure:"sampling_rate"`
 }

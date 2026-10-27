@@ -25,13 +25,18 @@
 package inventory
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
+	"strconv"
 	"time"
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -313,4 +318,231 @@ func QueryUserTransactions(ctx context.Context, userID uint64, req *ListTransact
 		return 0, nil, err
 	}
 	return total, items, nil
+}
+
+// SellIncome 出售单在一种货币上的入账
+type SellIncome struct {
+	Currency     string `json:"currency"`
+	Amount       int64  `json:"amount"`
+	BalanceAfter int64  `json:"balance_after"` // 入账后的可用余额
+}
+
+// SellOrderDetail 出售单, 附带明细和各货币的入账
+type SellOrderDetail struct {
+	ID        uint64          `json:"id"`
+	Items     []SellOrderItem `json:"items"`   // 按物品 ID 排序
+	Incomes   []SellIncome    `json:"incomes"` // 按货币代码排序
+	CreatedAt time.Time       `json:"created_at"`
+}
+
+// doSellItems 按物品当前的卖出价出售背包中的物品, 一次可以卖出多种物品, 全部成功或全部失败
+//
+// 请求需带上背包中看到的卖出货币和单价, 与当前不一致时返回 SellPriceChanged, 避免改价后按非预期的价格成交;
+// 已删除的物品按占位物品的价格出售, 已下架的物品照常出售。
+// 幂等键在同一用户内只生效一次, 重复提交返回原出售单且 replayed 为 true, 内容不同时返回 IdempotencyConflict。
+func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*SellOrderDetail, bool, error) {
+	// 按物品 ID 排序, 同一用户的并发出售按相同顺序锁背包行, 不会互相死锁
+	lines := slices.Clone(req.Items)
+	slices.SortFunc(lines, func(a, b SellItemsRequestItem) int {
+		return cmp.Compare(a.ItemID, b.ItemID)
+	})
+	for i := 1; i < len(lines); i++ {
+		if lines[i].ItemID == lines[i-1].ItemID {
+			return nil, false, errors.New(SellItemDuplicated)
+		}
+	}
+
+	var (
+		detail   *SellOrderDetail
+		replayed bool
+	)
+	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		// 幂等: 同一个 key 的并发请求在咨询锁上排队, 后到的能看到先到的已提交出售单
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", fmt.Sprintf("blindcrate:inventory_sell:%d:%s", userID, req.IdempotencyKey)).Error; err != nil {
+			return err
+		}
+		var existing SellOrder
+		if err := tx.Where("user_id = ? AND idempotency_key = ?", userID, req.IdempotencyKey).Limit(1).Find(&existing).Error; err != nil {
+			return err
+		}
+		if existing.ID != 0 {
+			details, err := loadSellOrders(tx, []SellOrder{existing})
+			if err != nil {
+				return err
+			}
+			if !details[0].sameItems(lines) {
+				return errors.New(IdempotencyConflict)
+			}
+			detail, replayed = &details[0], true
+			return nil
+		}
+
+		var err error
+		detail, err = sell(tx, userID, req.IdempotencyKey, lines)
+		return err
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	return detail, replayed, nil
+}
+
+// sell 创建出售单, 扣除物品后按货币汇总入账, lines 需已按物品 ID 排序且不重复
+func sell(tx *gorm.DB, userID uint64, idempotencyKey string, lines []SellItemsRequestItem) (*SellOrderDetail, error) {
+	ids := make([]uint64, len(lines))
+	for i := range lines {
+		ids[i] = lines[i].ItemID
+	}
+
+	// 以共享锁读取当前售价, 与修改、删除物品的行锁互斥, 避免按刚被修改的价格成交
+	items, err := item.Resolve(tx.Clauses(clause.Locking{Strength: "SHARE"}), ids)
+	if err != nil {
+		return nil, err
+	}
+
+	order := &SellOrder{UserID: userID, IdempotencyKey: idempotencyKey}
+	if err := tx.Create(order).Error; err != nil {
+		// 咨询锁之外的兜底, 正常不会走到
+		if db.IsUniqueViolation(err) {
+			return nil, errors.New(DuplicateRequest)
+		}
+		return nil, err
+	}
+	bizID := strconv.FormatUint(order.ID, 10)
+
+	orderItems := make([]SellOrderItem, len(lines))
+	incomes := map[string]int64{}
+	for i, line := range lines {
+		target := items[line.ItemID]
+		if target.SellPrice <= 0 {
+			return nil, errors.New(ItemNotSellable)
+		}
+		if target.SellCurrency != line.SellCurrency || target.SellPrice != line.SellPrice {
+			return nil, errors.New(SellPriceChanged)
+		}
+
+		// 先比较再相乘, 避免数量乘单价溢出
+		if line.Quantity > wallet.MaxAmount/target.SellPrice {
+			return nil, errors.New(SellAmountExceeded)
+		}
+		amount := line.Quantity * target.SellPrice
+		if incomes[target.SellCurrency] > wallet.MaxAmount-amount {
+			return nil, errors.New(SellAmountExceeded)
+		}
+		incomes[target.SellCurrency] += amount
+
+		if _, _, err := Change(tx, &ChangeRequest{
+			UserID:   userID,
+			ItemID:   line.ItemID,
+			Quantity: -line.Quantity,
+			BizType:  BizItemSell,
+			BizID:    bizID,
+		}); err != nil {
+			return nil, err
+		}
+		orderItems[i] = SellOrderItem{
+			OrderID:      order.ID,
+			ItemID:       line.ItemID,
+			ItemName:     target.Name,
+			Quantity:     line.Quantity,
+			SellCurrency: target.SellCurrency,
+			SellPrice:    target.SellPrice,
+			Amount:       amount,
+		}
+	}
+	if err := tx.Create(&orderItems).Error; err != nil {
+		return nil, err
+	}
+
+	// 按货币代码顺序入账, 与背包行同理, 固定加锁顺序
+	detail := &SellOrderDetail{ID: order.ID, Items: orderItems, CreatedAt: order.CreatedAt}
+	for _, currency := range slices.Sorted(maps.Keys(incomes)) {
+		txn, _, err := wallet.Change(tx, &wallet.ChangeRequest{
+			UserID:   userID,
+			Currency: currency,
+			Amount:   incomes[currency],
+			BizType:  wallet.BizItemSell,
+			BizID:    bizID,
+		})
+		if err != nil {
+			return nil, err
+		}
+		detail.Incomes = append(detail.Incomes, SellIncome{Currency: txn.Currency, Amount: txn.Amount, BalanceAfter: txn.BalanceAfter})
+	}
+	return detail, nil
+}
+
+// sameItems 幂等键重放时校验出售内容一致, lines 已按物品 ID 排序
+func (d *SellOrderDetail) sameItems(lines []SellItemsRequestItem) bool {
+	return slices.EqualFunc(d.Items, lines, func(orderItem SellOrderItem, line SellItemsRequestItem) bool {
+		return orderItem.ItemID == line.ItemID &&
+			orderItem.Quantity == line.Quantity &&
+			orderItem.SellCurrency == line.SellCurrency &&
+			orderItem.SellPrice == line.SellPrice
+	})
+}
+
+// loadSellOrders 补全出售单的明细和入账, 保持 orders 的顺序
+func loadSellOrders(tx *gorm.DB, orders []SellOrder) ([]SellOrderDetail, error) {
+	details := make([]SellOrderDetail, len(orders))
+	if len(orders) == 0 {
+		return details, nil
+	}
+	byID := make(map[uint64]*SellOrderDetail, len(orders))
+	ids := make([]uint64, len(orders))
+	bizIDs := make([]string, len(orders))
+	for i := range orders {
+		details[i] = SellOrderDetail{ID: orders[i].ID, Items: []SellOrderItem{}, Incomes: []SellIncome{}, CreatedAt: orders[i].CreatedAt}
+		byID[orders[i].ID] = &details[i]
+		ids[i] = orders[i].ID
+		bizIDs[i] = strconv.FormatUint(orders[i].ID, 10)
+	}
+
+	var orderItems []SellOrderItem
+	if err := tx.Where("order_id IN ?", ids).Order("id").Find(&orderItems).Error; err != nil {
+		return nil, err
+	}
+	for _, orderItem := range orderItems {
+		detail := byID[orderItem.OrderID]
+		detail.Items = append(detail.Items, orderItem)
+	}
+
+	var txns []wallet.Transaction
+	if err := tx.Where("biz_type = ? AND biz_id IN ?", wallet.BizItemSell, bizIDs).Order("id").Find(&txns).Error; err != nil {
+		return nil, err
+	}
+	for _, txn := range txns {
+		orderID, _ := strconv.ParseUint(txn.BizID, 10, 64)
+		detail := byID[orderID]
+		detail.Incomes = append(detail.Incomes, SellIncome{Currency: txn.Currency, Amount: txn.Amount, BalanceAfter: txn.BalanceAfter})
+	}
+	return details, nil
+}
+
+// QueryUserSellOrders 获取用户自己的出售单
+func QueryUserSellOrders(ctx context.Context, userID uint64, req *ListSellOrdersRequest) (int64, []SellOrderDetail, error) {
+	offset := (req.Current - 1) * req.Size
+
+	query := db.DB(ctx).Model(&SellOrder{}).Where("user_id = ?", userID)
+	if req.StartTime != nil {
+		query = query.Where("created_at >= ?", *req.StartTime)
+	}
+	if req.EndTime != nil {
+		query = query.Where("created_at < ?", *req.EndTime)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return 0, nil, err
+	}
+
+	var orders []SellOrder
+	if err := query.Order("id DESC").Offset(offset).Limit(req.Size).Find(&orders).Error; err != nil {
+		return 0, nil, err
+	}
+	details, err := loadSellOrders(db.DB(ctx), orders)
+	if err != nil {
+		return 0, nil, err
+	}
+	return total, details, nil
 }

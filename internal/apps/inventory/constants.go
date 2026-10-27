@@ -27,6 +27,7 @@ package inventory
 // 业务类型, 每种会变动背包的业务一个
 const (
 	BizAdminAdjust = "admin_adjust" // 管理员发放或扣除
+	BizItemSell    = "item_sell"    // 出售物品, biz_id 为出售单 ID
 )
 
 // MaxQuantity 单笔变动数量上限, 防止异常请求一次写入过多物品

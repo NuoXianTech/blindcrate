@@ -26,6 +26,7 @@ package auth
 
 import "time"
 
+// session 和 gin.Context 中使用的键
 const (
 	UserNameKey = "username"
 	UserIDKey   = "user_id"

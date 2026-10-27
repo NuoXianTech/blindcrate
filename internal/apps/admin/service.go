@@ -33,12 +33,12 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
-	"github.com/NuoXianTech/blindcrate/internal/audit"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/mail"
 	"gorm.io/gorm"
@@ -117,6 +117,7 @@ func doSetUserDisabled(ctx context.Context, operatorID, userID uint64, disabled 
 	return updateOtherUser(ctx, operatorID, userID, map[string]interface{}{"is_disabled": disabled})
 }
 
+// AuditLogItem 管理后台展示的操作日志, 带上操作人用户名
 type AuditLogItem struct {
 	ID            uint64          `json:"id"`
 	ActorID       uint64          `json:"actor_id"`
@@ -175,6 +176,7 @@ func QueryAuditLogs(ctx context.Context, req *ListAuditLogsRequest) (int64, []Au
 	return total, logs, nil
 }
 
+// WalletTransactionItem 管理后台展示的余额流水, 带上用户和操作人的用户名
 type WalletTransactionItem struct {
 	ID               uint64    `json:"id"`
 	UserID           uint64    `json:"user_id"`
@@ -305,6 +307,7 @@ func normalizeRemark(remark string) (string, error) {
 // holderCountSQL 持有某物品(数量大于 0)的用户数
 const holderCountSQL = "SELECT COUNT(*) FROM inventory_items WHERE inventory_items.item_id = items.id AND inventory_items.quantity > 0"
 
+// ItemListItem 管理后台展示的物品, 带上持有人数
 type ItemListItem struct {
 	item.Item
 	HolderCount int64 `json:"holder_count"` // 持有该物品的用户数, 删除前用于提示
@@ -530,6 +533,7 @@ func doAdjustUserInventory(ctx context.Context, operatorID, userID uint64, req *
 	return txn, replayed, nil
 }
 
+// InventoryTransactionItem 管理后台展示的背包流水, 带上用户和操作人的用户名
 type InventoryTransactionItem struct {
 	ID               uint64    `json:"id"`
 	UserID           uint64    `json:"user_id"`

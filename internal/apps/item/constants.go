@@ -24,8 +24,6 @@
 
 package item
 
-import "fmt"
-
 // 物品品质, 数值越大越稀有
 const (
 	QualityGray    int16 = iota + 1 // 灰
@@ -39,8 +37,3 @@ const (
 
 // PlaceholderSellPrice 占位物品的售价, 物品被删除或不存在时背包中的该物品按占位物品展示和结算
 const PlaceholderSellPrice int64 = 1
-
-// placeholderName 占位物品名称, 带上原物品 ID, 删了多个物品时玩家能区分
-func placeholderName(id uint64) string {
-	return fmt.Sprintf("未知物品 #%d", id)
-}

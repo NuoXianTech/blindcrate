@@ -17,12 +17,14 @@ const docTemplate = `{
     "paths": {
         "/api/v1/admin/audit-logs": {
             "get": {
+                "description": "包含用户和管理员的操作",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "获取操作日志列表",
                 "parameters": [
                     {
                         "maxLength": 64,
@@ -85,31 +87,43 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListAuditLogsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListAuditLogsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListAuditLogsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListAuditLogsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListAuditLogsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListAuditLogsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -123,6 +137,7 @@ const docTemplate = `{
                 "tags": [
                     "admin"
                 ],
+                "summary": "获取全部用户的背包流水",
                 "parameters": [
                     {
                         "maxLength": 64,
@@ -181,31 +196,43 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListInventoryTransactionsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListInventoryTransactionsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListInventoryTransactionsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListInventoryTransactionsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListInventoryTransactionsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListInventoryTransactionsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -213,12 +240,14 @@ const docTemplate = `{
         },
         "/api/v1/admin/items": {
             "get": {
+                "description": "包含已下架的物品, 不包含已删除的物品",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "获取物品列表",
                 "parameters": [
                     {
                         "minimum": 1,
@@ -257,42 +286,58 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListItemsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListItemsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListItemsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListItemsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListItemsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListItemsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
             },
             "post": {
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "新建物品",
                 "parameters": [
                     {
                         "description": "request body",
@@ -308,37 +353,49 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/item.Item"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -346,12 +403,17 @@ const docTemplate = `{
         },
         "/api/v1/admin/items/{id}": {
             "put": {
+                "description": "需提交全部字段; 修改名称不影响已有流水中的名称",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "修改物品",
                 "parameters": [
                     {
                         "type": "integer",
@@ -374,54 +436,68 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/item.Item"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
             },
             "delete": {
+                "description": "已持有的玩家背包保留该物品并变为占位物品, 物品 ID 不会被复用",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "删除物品",
                 "parameters": [
                     {
                         "type": "integer",
@@ -435,37 +511,49 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.DeleteItemResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.DeleteItemResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.DeleteItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.DeleteItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.DeleteItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.DeleteItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.DeleteItemResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -473,35 +561,49 @@ const docTemplate = `{
         },
         "/api/v1/admin/settings": {
             "get": {
+                "description": "包含表单描述和当前值, 密钥字段不返回明文",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "获取全部系统设置",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListSettingsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListSettingsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListSettingsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListSettingsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListSettingsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -509,12 +611,17 @@ const docTemplate = `{
         },
         "/api/v1/admin/settings/mail/test": {
             "post": {
+                "description": "使用已保存的邮件设置发送, 未启用邮件发送时也可以测试; 发送失败时返回 SMTP 的错误信息",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "发送测试邮件",
                 "parameters": [
                     {
                         "description": "request body",
@@ -530,37 +637,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.TestMailResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.TestMailResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.TestMailResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.TestMailResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.TestMailResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "502": {
                         "description": "Bad Gateway",
                         "schema": {
-                            "$ref": "#/definitions/admin.TestMailResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -568,12 +675,17 @@ const docTemplate = `{
         },
         "/api/v1/admin/settings/{key}": {
             "put": {
+                "description": "保存后立即生效",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "保存一个设置组",
                 "parameters": [
                     {
                         "type": "string",
@@ -596,37 +708,49 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateSettingResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/settings.GroupView"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateSettingResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateSettingResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateSettingResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateSettingResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateSettingResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -640,6 +764,7 @@ const docTemplate = `{
                 "tags": [
                     "admin"
                 ],
+                "summary": "获取用户列表",
                 "parameters": [
                     {
                         "minimum": 1,
@@ -681,31 +806,43 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUsersResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListUsersResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUsersResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUsersResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUsersResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUsersResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -713,12 +850,16 @@ const docTemplate = `{
         },
         "/api/v1/admin/users/{id}": {
             "patch": {
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "修改用户资料",
                 "parameters": [
                     {
                         "type": "integer",
@@ -741,43 +882,55 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateUserResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auth.BasicUserInfo"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -785,12 +938,17 @@ const docTemplate = `{
         },
         "/api/v1/admin/users/{id}/ban": {
             "put": {
+                "description": "封禁到指定时间, 并让其所有设备下线",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "封禁用户",
                 "parameters": [
                     {
                         "type": "integer",
@@ -813,37 +971,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.BanUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.BanUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.BanUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.BanUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.BanUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.BanUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -855,6 +1013,7 @@ const docTemplate = `{
                 "tags": [
                     "admin"
                 ],
+                "summary": "解除封禁",
                 "parameters": [
                     {
                         "type": "integer",
@@ -868,37 +1027,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.UnbanUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.UnbanUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.UnbanUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.UnbanUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.UnbanUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.UnbanUserResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -906,12 +1065,17 @@ const docTemplate = `{
         },
         "/api/v1/admin/users/{id}/disabled": {
             "put": {
+                "description": "停用时让其所有设备下线",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "停用或启用用户",
                 "parameters": [
                     {
                         "type": "integer",
@@ -934,37 +1098,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.SetUserDisabledResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.SetUserDisabledResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.SetUserDisabledResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.SetUserDisabledResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.SetUserDisabledResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.SetUserDisabledResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -978,6 +1142,7 @@ const docTemplate = `{
                 "tags": [
                     "admin"
                 ],
+                "summary": "获取指定用户背包中的物品",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1011,37 +1176,49 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUserInventoryResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListUserInventoryResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUserInventoryResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUserInventoryResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUserInventoryResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUserInventoryResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUserInventoryResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -1049,12 +1226,17 @@ const docTemplate = `{
         },
         "/api/v1/admin/users/{id}/inventory/adjust": {
             "post": {
+                "description": "写入一条 admin_adjust 流水, 不能给自己调整; 重复提交返回原流水",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "给用户发放或扣除物品",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1077,43 +1259,55 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserInventoryResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/inventory.Transaction"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserInventoryResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserInventoryResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserInventoryResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserInventoryResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserInventoryResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserInventoryResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -1121,12 +1315,17 @@ const docTemplate = `{
         },
         "/api/v1/admin/users/{id}/wallet/adjust": {
             "post": {
+                "description": "写入一条 admin_adjust 流水, 不能给自己调账; 重复提交返回原流水",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "给用户调账",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1149,43 +1348,55 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserBalanceResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wallet.Transaction"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserBalanceResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserBalanceResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserBalanceResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserBalanceResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserBalanceResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserBalanceResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -1193,12 +1404,14 @@ const docTemplate = `{
         },
         "/api/v1/admin/users/{id}/wallet/balances": {
             "get": {
+                "description": "包含已停用的货币",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "获取指定用户的各货币余额",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1212,37 +1425,49 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUserBalancesResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListUserBalancesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUserBalancesResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUserBalancesResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUserBalancesResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUserBalancesResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListUserBalancesResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -1250,35 +1475,49 @@ const docTemplate = `{
         },
         "/api/v1/admin/wallet/currencies": {
             "get": {
+                "description": "包含已停用的货币",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
+                "summary": "获取全部货币定义",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListCurrenciesResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListCurrenciesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListCurrenciesResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListCurrenciesResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListCurrenciesResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -1292,6 +1531,7 @@ const docTemplate = `{
                 "tags": [
                     "admin"
                 ],
+                "summary": "获取全部用户的余额流水",
                 "parameters": [
                     {
                         "maxLength": 64,
@@ -1351,31 +1591,43 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListWalletTransactionsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListWalletTransactionsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListWalletTransactionsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListWalletTransactionsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListWalletTransactionsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.ListWalletTransactionsResponse"
+                            "$ref": "#/definitions/admin.Response"
                         }
                     }
                 }
@@ -1383,12 +1635,17 @@ const docTemplate = `{
         },
         "/api/v1/auth/email/code": {
             "post": {
+                "description": "邮箱在验证通过前不会写入账号",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "auth"
                 ],
+                "summary": "向待绑定的邮箱发送验证码",
                 "parameters": [
                     {
                         "description": "request body",
@@ -1404,43 +1661,49 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.SendEmailCodeResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/auth.SendEmailCodeResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/auth.SendEmailCodeResponse"
+                            "$ref": "#/definitions/auth.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/auth.SendEmailCodeResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/auth.SendEmailCodeResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/auth.SendEmailCodeResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "$ref": "#/definitions/auth.SendEmailCodeResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     }
                 }
@@ -1448,12 +1711,16 @@ const docTemplate = `{
         },
         "/api/v1/auth/email/verify": {
             "post": {
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "auth"
                 ],
+                "summary": "校验邮箱验证码并绑定邮箱",
                 "parameters": [
                     {
                         "description": "request body",
@@ -1469,31 +1736,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.VerifyEmailResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/auth.VerifyEmailResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/auth.VerifyEmailResponse"
+                            "$ref": "#/definitions/auth.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/auth.VerifyEmailResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/auth.VerifyEmailResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     }
                 }
@@ -1501,12 +1774,17 @@ const docTemplate = `{
         },
         "/api/v1/auth/login": {
             "post": {
+                "description": "支持用户名或已验证的邮箱 + 密码登录, 邮箱登录需在设置中开启",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "auth"
                 ],
+                "summary": "用户名或邮箱登录",
                 "parameters": [
                     {
                         "description": "request body",
@@ -1522,31 +1800,43 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.LoginResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/auth.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auth.BasicUserInfo"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/auth.LoginResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/auth.LoginResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/auth.LoginResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/auth.LoginResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     }
                 }
@@ -1560,17 +1850,18 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
+                "summary": "退出登录",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.LogoutResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/auth.LogoutResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     }
                 }
@@ -1578,12 +1869,17 @@ const docTemplate = `{
         },
         "/api/v1/auth/password": {
             "put": {
+                "description": "未设置过密码(仅第三方登录)的用户无需提供原密码; 修改后当前设备保持登录, 其他设备下线",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "auth"
                 ],
+                "summary": "修改当前用户的密码",
                 "parameters": [
                     {
                         "description": "request body",
@@ -1599,25 +1895,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.ChangePasswordResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/auth.ChangePasswordResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/auth.ChangePasswordResponse"
+                            "$ref": "#/definitions/auth.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/auth.ChangePasswordResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     }
                 }
@@ -1625,12 +1927,17 @@ const docTemplate = `{
         },
         "/api/v1/auth/register": {
             "post": {
+                "description": "注册成功后直接登录; 系统中第一个注册的用户自动成为管理员, 且不受注册开关限制",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "auth"
                 ],
+                "summary": "注册新用户",
                 "parameters": [
                     {
                         "description": "request body",
@@ -1646,31 +1953,43 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/auth.RegisterResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/auth.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auth.BasicUserInfo"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/auth.RegisterResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/auth.RegisterResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/auth.RegisterResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/auth.RegisterResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     }
                 }
@@ -1684,28 +2003,57 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
+                "summary": "获取当前用户信息",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.UserInfoResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/auth.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auth.BasicUserInfo"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/auth.UserInfoResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     }
                 }
             },
             "patch": {
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "auth"
                 ],
+                "summary": "修改当前用户的昵称和头像",
                 "parameters": [
                     {
                         "description": "request body",
@@ -1721,25 +2069,43 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.UpdateUserInfoResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/auth.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auth.BasicUserInfo"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/auth.UpdateUserInfoResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/auth.UpdateUserInfoResponse"
+                            "$ref": "#/definitions/auth.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/auth.UpdateUserInfoResponse"
+                            "$ref": "#/definitions/auth.Response"
                         }
                     }
                 }
@@ -1753,11 +2119,12 @@ const docTemplate = `{
                 "tags": [
                     "health"
                 ],
+                "summary": "存活检查",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/health.HealthResponse"
+                            "$ref": "#/definitions/health.Response"
                         }
                     }
                 }
@@ -1765,12 +2132,14 @@ const docTemplate = `{
         },
         "/api/v1/inventory/items": {
             "get": {
+                "description": "只返回数量大于 0 的物品, 已删除的物品按占位物品返回",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "inventory"
                 ],
+                "summary": "获取当前用户背包中的物品",
                 "parameters": [
                     {
                         "minimum": 1,
@@ -1797,31 +2166,201 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/inventory.ListItemsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/inventory.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/inventory.ListItemsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/inventory.ListItemsResponse"
+                            "$ref": "#/definitions/inventory.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/inventory.ListItemsResponse"
+                            "$ref": "#/definitions/inventory.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/inventory.ListItemsResponse"
+                            "$ref": "#/definitions/inventory.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/inventory.ListItemsResponse"
+                            "$ref": "#/definitions/inventory.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/inventory/sell": {
+            "post": {
+                "description": "按物品当前的卖出价出售, 可以同时卖出多种物品, 全部成功或全部失败; 重复提交返回原出售单",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "出售背包中的物品",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/inventory.SellItemsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/inventory.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/inventory.SellOrderDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/inventory/sell-orders": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "获取当前用户的出售记录",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339, 不包含",
+                        "name": "end_time",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339, 包含",
+                        "name": "start_time",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/inventory.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/inventory.ListSellOrdersResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.Response"
                         }
                     }
                 }
@@ -1835,6 +2374,7 @@ const docTemplate = `{
                 "tags": [
                     "inventory"
                 ],
+                "summary": "获取当前用户的背包流水",
                 "parameters": [
                     {
                         "maxLength": 32,
@@ -1877,31 +2417,43 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/inventory.ListTransactionsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/inventory.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/inventory.ListTransactionsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/inventory.ListTransactionsResponse"
+                            "$ref": "#/definitions/inventory.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/inventory.ListTransactionsResponse"
+                            "$ref": "#/definitions/inventory.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/inventory.ListTransactionsResponse"
+                            "$ref": "#/definitions/inventory.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/inventory.ListTransactionsResponse"
+                            "$ref": "#/definitions/inventory.Response"
                         }
                     }
                 }
@@ -1909,17 +2461,25 @@ const docTemplate = `{
         },
         "/api/v1/ready": {
             "get": {
+                "description": "检查已启用的 PostgreSQL 和 Redis 是否可用",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "health"
                 ],
+                "summary": "就绪检查",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/health.ReadyResponse"
+                            "$ref": "#/definitions/health.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/health.Response"
                         }
                     }
                 }
@@ -1927,23 +2487,40 @@ const docTemplate = `{
         },
         "/api/v1/settings/public": {
             "get": {
+                "description": "如站点名称、是否开放注册, 无需登录; 返回 设置组 -\u003e 字段 -\u003e 值, 只包含公开字段",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "settings"
                 ],
+                "summary": "获取公开设置",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/settings.PublicSettingsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/settings.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/settings.PublicSettingsResponse"
+                            "$ref": "#/definitions/settings.Response"
                         }
                     }
                 }
@@ -1951,35 +2528,49 @@ const docTemplate = `{
         },
         "/api/v1/wallet/balances": {
             "get": {
+                "description": "没有余额行的货币按 0 返回, 已停用且没有余额的货币不返回",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "wallet"
                 ],
+                "summary": "获取当前用户的各货币余额",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/wallet.ListBalancesResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wallet.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wallet.ListBalancesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/wallet.ListBalancesResponse"
+                            "$ref": "#/definitions/wallet.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/wallet.ListBalancesResponse"
+                            "$ref": "#/definitions/wallet.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/wallet.ListBalancesResponse"
+                            "$ref": "#/definitions/wallet.Response"
                         }
                     }
                 }
@@ -1993,6 +2584,7 @@ const docTemplate = `{
                 "tags": [
                     "wallet"
                 ],
+                "summary": "获取当前用户的余额流水",
                 "parameters": [
                     {
                         "maxLength": 32,
@@ -2036,31 +2628,43 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/wallet.ListTransactionsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wallet.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wallet.ListTransactionsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/wallet.ListTransactionsResponse"
+                            "$ref": "#/definitions/wallet.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/wallet.ListTransactionsResponse"
+                            "$ref": "#/definitions/wallet.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/wallet.ListTransactionsResponse"
+                            "$ref": "#/definitions/wallet.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/wallet.ListTransactionsResponse"
+                            "$ref": "#/definitions/wallet.Response"
                         }
                     }
                 }
@@ -2096,17 +2700,6 @@ const docTemplate = `{
                 }
             }
         },
-        "admin.AdjustUserBalanceResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/wallet.Transaction"
-                },
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "admin.AdjustUserInventoryRequest": {
             "type": "object",
             "required": [
@@ -2130,17 +2723,6 @@ const docTemplate = `{
                 },
                 "remark": {
                     "description": "调整原因, 用户可在流水中看到",
-                    "type": "string"
-                }
-            }
-        },
-        "admin.AdjustUserInventoryResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/inventory.Transaction"
-                },
-                "error_msg": {
                     "type": "string"
                 }
             }
@@ -2197,26 +2779,6 @@ const docTemplate = `{
                 "reason": {
                     "type": "string",
                     "maxLength": 255
-                }
-            }
-        },
-        "admin.BanUserResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "admin.DeleteItemResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/admin.DeleteItemResponseData"
-                },
-                "error_msg": {
-                    "type": "string"
                 }
             }
         },
@@ -2396,28 +2958,6 @@ const docTemplate = `{
                 }
             }
         },
-        "admin.ItemResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/item.Item"
-                },
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "admin.ListAuditLogsResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/admin.ListAuditLogsResponseData"
-                },
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "admin.ListAuditLogsResponseData": {
             "type": "object",
             "properties": {
@@ -2432,17 +2972,6 @@ const docTemplate = `{
                 }
             }
         },
-        "admin.ListCurrenciesResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/admin.ListCurrenciesResponseData"
-                },
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "admin.ListCurrenciesResponseData": {
             "type": "object",
             "properties": {
@@ -2451,17 +2980,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/wallet.Currency"
                     }
-                }
-            }
-        },
-        "admin.ListInventoryTransactionsResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/admin.ListInventoryTransactionsResponseData"
-                },
-                "error_msg": {
-                    "type": "string"
                 }
             }
         },
@@ -2479,17 +2997,6 @@ const docTemplate = `{
                 }
             }
         },
-        "admin.ListItemsResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/admin.ListItemsResponseData"
-                },
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "admin.ListItemsResponseData": {
             "type": "object",
             "properties": {
@@ -2504,17 +3011,6 @@ const docTemplate = `{
                 }
             }
         },
-        "admin.ListSettingsResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/admin.ListSettingsResponseData"
-                },
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "admin.ListSettingsResponseData": {
             "type": "object",
             "properties": {
@@ -2526,17 +3022,6 @@ const docTemplate = `{
                 }
             }
         },
-        "admin.ListUserBalancesResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/admin.ListUserBalancesResponseData"
-                },
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "admin.ListUserBalancesResponseData": {
             "type": "object",
             "properties": {
@@ -2545,17 +3030,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/wallet.BalanceItem"
                     }
-                }
-            }
-        },
-        "admin.ListUserInventoryResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/admin.ListUserInventoryResponseData"
-                },
-                "error_msg": {
-                    "type": "string"
                 }
             }
         },
@@ -2573,17 +3047,6 @@ const docTemplate = `{
                 }
             }
         },
-        "admin.ListUsersResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/admin.ListUsersResponseData"
-                },
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "admin.ListUsersResponseData": {
             "type": "object",
             "properties": {
@@ -2595,17 +3058,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/auth.User"
                     }
-                }
-            }
-        },
-        "admin.ListWalletTransactionsResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/admin.ListWalletTransactionsResponseData"
-                },
-                "error_msg": {
-                    "type": "string"
                 }
             }
         },
@@ -2623,6 +3075,15 @@ const docTemplate = `{
                 }
             }
         },
+        "admin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
         "admin.SetUserDisabledRequest": {
             "type": "object",
             "required": [
@@ -2634,15 +3095,6 @@ const docTemplate = `{
                 }
             }
         },
-        "admin.SetUserDisabledResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "admin.TestMailRequest": {
             "type": "object",
             "required": [
@@ -2651,24 +3103,6 @@ const docTemplate = `{
             "properties": {
                 "to": {
                     "description": "收件人",
-                    "type": "string"
-                }
-            }
-        },
-        "admin.TestMailResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "admin.UnbanUserResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
                     "type": "string"
                 }
             }
@@ -2693,17 +3127,6 @@ const docTemplate = `{
                 }
             }
         },
-        "admin.UpdateSettingResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/settings.GroupView"
-                },
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "admin.UpdateUserRequest": {
             "type": "object",
             "properties": {
@@ -2717,15 +3140,6 @@ const docTemplate = `{
                 },
                 "username": {
                     "description": "不传表示不修改",
-                    "type": "string"
-                }
-            }
-        },
-        "admin.UpdateUserResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
                     "type": "string"
                 }
             }
@@ -2816,15 +3230,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "old_password": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.ChangePasswordResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
+                    "description": "未设置过密码时可不传",
                     "type": "string"
                 }
             }
@@ -2845,24 +3251,6 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.LoginResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.LogoutResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "auth.RegisterRequest": {
             "type": "object",
             "required": [
@@ -2878,7 +3266,7 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.RegisterResponse": {
+        "auth.Response": {
             "type": "object",
             "properties": {
                 "data": {},
@@ -2898,15 +3286,6 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.SendEmailCodeResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "auth.UpdateUserInfoRequest": {
             "type": "object",
             "properties": {
@@ -2916,15 +3295,6 @@ const docTemplate = `{
                 },
                 "nickname": {
                     "description": "不传表示不修改",
-                    "type": "string"
-                }
-            }
-        },
-        "auth.UpdateUserInfoResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
                     "type": "string"
                 }
             }
@@ -2973,17 +3343,6 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.UserInfoResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/auth.BasicUserInfo"
-                },
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "auth.VerifyEmailRequest": {
             "type": "object",
             "required": [
@@ -2999,39 +3358,10 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.VerifyEmailResponse": {
+        "health.Response": {
             "type": "object",
             "properties": {
                 "data": {},
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "health.HealthResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "health.ReadyResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "inventory.ListItemsResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/inventory.ListItemsResponseData"
-                },
                 "error_msg": {
                     "type": "string"
                 }
@@ -3051,14 +3381,17 @@ const docTemplate = `{
                 }
             }
         },
-        "inventory.ListTransactionsResponse": {
+        "inventory.ListSellOrdersResponseData": {
             "type": "object",
             "properties": {
-                "data": {
-                    "$ref": "#/definitions/inventory.ListTransactionsResponseData"
+                "orders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/inventory.SellOrderDetail"
+                    }
                 },
-                "error_msg": {
-                    "type": "string"
+                "total": {
+                    "type": "integer"
                 }
             }
         },
@@ -3073,6 +3406,139 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/inventory.TransactionItem"
                     }
+                }
+            }
+        },
+        "inventory.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "inventory.SellIncome": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "balance_after": {
+                    "description": "入账后的可用余额",
+                    "type": "integer"
+                },
+                "currency": {
+                    "type": "string"
+                }
+            }
+        },
+        "inventory.SellItemsRequest": {
+            "type": "object",
+            "required": [
+                "idempotency_key",
+                "items"
+            ],
+            "properties": {
+                "idempotency_key": {
+                    "description": "每次打开出售确认框生成一个, 重复提交只生效一次",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "items": {
+                    "description": "同一物品只能出现一次",
+                    "type": "array",
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/inventory.SellItemsRequestItem"
+                    }
+                }
+            }
+        },
+        "inventory.SellItemsRequestItem": {
+            "type": "object",
+            "required": [
+                "item_id",
+                "quantity",
+                "sell_currency",
+                "sell_price"
+            ],
+            "properties": {
+                "item_id": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": 1
+                },
+                "sell_currency": {
+                    "description": "背包中看到的卖出货币, 与当前不一致时拒绝出售",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "sell_price": {
+                    "description": "背包中看到的单价, 与当前不一致时拒绝出售",
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "inventory.SellOrderDetail": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "incomes": {
+                    "description": "按货币代码排序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/inventory.SellIncome"
+                    }
+                },
+                "items": {
+                    "description": "按物品 ID 排序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/inventory.SellOrderItem"
+                    }
+                }
+            }
+        },
+        "inventory.SellOrderItem": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "数量 × 单价",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "item_name": {
+                    "description": "出售时的物品名称",
+                    "type": "string"
+                },
+                "order_id": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "sell_currency": {
+                    "type": "string"
+                },
+                "sell_price": {
+                    "description": "出售时的单价",
+                    "type": "integer"
                 }
             }
         },
@@ -3326,17 +3792,10 @@ const docTemplate = `{
                 }
             }
         },
-        "settings.PublicSettingsResponse": {
+        "settings.Response": {
             "type": "object",
             "properties": {
-                "data": {
-                    "description": "设置组 -\u003e 字段 -\u003e 值, 只包含公开字段",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "object",
-                        "additionalProperties": true
-                    }
-                },
+                "data": {},
                 "error_msg": {
                     "type": "string"
                 }
@@ -3392,17 +3851,6 @@ const docTemplate = `{
                 }
             }
         },
-        "wallet.ListBalancesResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/wallet.ListBalancesResponseData"
-                },
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
         "wallet.ListBalancesResponseData": {
             "type": "object",
             "properties": {
@@ -3411,17 +3859,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/wallet.BalanceItem"
                     }
-                }
-            }
-        },
-        "wallet.ListTransactionsResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/wallet.ListTransactionsResponseData"
-                },
-                "error_msg": {
-                    "type": "string"
                 }
             }
         },
@@ -3436,6 +3873,15 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/wallet.TransactionItem"
                     }
+                }
+            }
+        },
+        "wallet.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
                 }
             }
         },

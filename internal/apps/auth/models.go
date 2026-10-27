@@ -31,51 +31,38 @@ import (
 	"gorm.io/gorm"
 )
 
+// User 用户账号, 用户名和邮箱(非空时)都不区分大小写唯一
 type User struct {
-	ID              uint64     `json:"id" gorm:"primaryKey"`
-	Username        string     `json:"username" gorm:"size:64;not null;index:uniq_users_username_lower,unique,expression:lower(username)"`
-	PasswordHash    string     `json:"-" gorm:"size:255;not null;default:''"`
-	Email           string     `json:"email" gorm:"size:255;not null;default:'';index:uniq_users_email_lower,unique,expression:lower(email),where:email <> ''"`
+	ID              uint64     `gorm:"primaryKey" json:"id"`
+	Username        string     `gorm:"size:64;not null;index:uniq_users_username_lower,unique,expression:lower(username)" json:"username"`
+	PasswordHash    string     `gorm:"size:255;not null;default:''" json:"-"`
+	Email           string     `gorm:"size:255;not null;default:'';index:uniq_users_email_lower,unique,expression:lower(email),where:email <> ''" json:"email"`
 	EmailVerifiedAt *time.Time `json:"email_verified_at"`
-	Nickname        string     `json:"nickname" gorm:"size:64;not null;default:''"`
-	AvatarURL       string     `json:"avatar_url" gorm:"size:1024;not null;default:''"`
-	IsDisabled      bool       `json:"is_disabled" gorm:"not null;default:false"`
-	IsAdmin         bool       `json:"is_admin" gorm:"not null;default:false"`
-	BannedUntil     *time.Time `json:"banned_until" gorm:"index"`
-	BanReason       string     `json:"ban_reason" gorm:"size:255;not null;default:''"`
-	LastLoginAt     *time.Time `json:"last_login_at" gorm:"index"`
-	CreatedAt       time.Time  `json:"created_at" gorm:"not null;default:now();autoCreateTime;index"`
-	UpdatedAt       time.Time  `json:"updated_at" gorm:"not null;default:now();autoUpdateTime"`
+	Nickname        string     `gorm:"size:64;not null;default:''" json:"nickname"`
+	AvatarURL       string     `gorm:"size:1024;not null;default:''" json:"avatar_url"`
+	IsDisabled      bool       `gorm:"not null;default:false" json:"is_disabled"`
+	IsAdmin         bool       `gorm:"not null;default:false" json:"is_admin"`
+	BannedUntil     *time.Time `gorm:"index" json:"banned_until"`
+	BanReason       string     `gorm:"size:255;not null;default:''" json:"ban_reason"`
+	LastLoginAt     *time.Time `gorm:"index" json:"last_login_at"`
+	CreatedAt       time.Time  `gorm:"not null;default:now();autoCreateTime;index" json:"created_at"`
+	UpdatedAt       time.Time  `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
 }
 
-func (u *User) TableName() string {
-	return "users"
-}
+// TableName 自定义表名
+func (User) TableName() string { return "users" }
 
-// HasPassword 是否设置了密码, 仅通过第三方登录注册的用户没有密码
-func (u *User) HasPassword() bool {
-	return u.PasswordHash != ""
-}
-
-// UserIdentity 用户绑定的外部身份(第三方登录), 一个用户可绑定多个
-type UserIdentity struct {
-	ID             uint64    `json:"id" gorm:"primaryKey"`
-	UserID         uint64    `json:"user_id" gorm:"not null;index"`
-	Provider       string    `json:"provider" gorm:"size:32;not null;uniqueIndex:uniq_user_identities_provider_uid"`
-	ProviderUserID string    `json:"provider_user_id" gorm:"size:255;not null;uniqueIndex:uniq_user_identities_provider_uid"`
-	CreatedAt      time.Time `json:"created_at" gorm:"not null;default:now();autoCreateTime"`
-	UpdatedAt      time.Time `json:"updated_at" gorm:"not null;default:now();autoUpdateTime"`
-}
-
-func (i *UserIdentity) TableName() string {
-	return "user_identities"
-}
-
+// Exact 按 ID 查询用户
 func (u *User) Exact(tx *gorm.DB, id uint64) error {
 	if err := tx.Where("id = ?", id).First(u).Error; err != nil {
 		return err
 	}
 	return nil
+}
+
+// HasPassword 是否设置了密码, 仅通过第三方登录注册的用户没有密码
+func (u *User) HasPassword() bool {
+	return u.PasswordHash != ""
 }
 
 // UpdateLastLogin 更新最后登录时间
@@ -110,3 +97,19 @@ func (u *User) IsBanned(now time.Time) bool {
 	}
 	return u.BannedUntil.After(now)
 }
+
+// UserIdentity 用户绑定的外部身份(第三方登录), 一个用户可绑定多个
+//
+// 联合索引：
+//   - uniq_user_identities_provider_uid (provider, provider_user_id)：同一个外部账号只能绑定一个用户
+type UserIdentity struct {
+	ID             uint64    `gorm:"primaryKey" json:"id"`
+	UserID         uint64    `gorm:"not null;index" json:"user_id"`
+	Provider       string    `gorm:"size:32;not null;uniqueIndex:uniq_user_identities_provider_uid" json:"provider"`
+	ProviderUserID string    `gorm:"size:255;not null;uniqueIndex:uniq_user_identities_provider_uid" json:"provider_user_id"`
+	CreatedAt      time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+	UpdatedAt      time.Time `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
+}
+
+// TableName 自定义表名
+func (UserIdentity) TableName() string { return "user_identities" }

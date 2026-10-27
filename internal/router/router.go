@@ -127,6 +127,8 @@ func Serve() {
 			{
 				inventoryRouter.GET("/items", inventory.ListItems)
 				inventoryRouter.GET("/transactions", inventory.ListTransactions)
+				inventoryRouter.POST("/sell", inventory.SellItems)
+				inventoryRouter.GET("/sell-orders", inventory.ListSellOrders)
 			}
 
 			// Admin

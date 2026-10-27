@@ -29,4 +29,8 @@ const (
 	InsufficientQuantity = "物品数量不足"
 	IdempotencyConflict  = "幂等键已被其他请求使用"
 	DuplicateRequest     = "请求正在处理, 请勿重复提交"
+	ItemNotSellable      = "物品不可出售"
+	SellItemDuplicated   = "同一物品只能提交一次"
+	SellPriceChanged     = "物品售价已变动, 请刷新后重试"
+	SellAmountExceeded   = "单次出售金额过大, 请分批出售"
 )

@@ -33,56 +33,53 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type HealthResponse struct {
+// Response 统一的 health 响应壳, 保持与其他 app 一致
+type Response struct {
 	ErrorMsg string      `json:"error_msg"`
 	Data     interface{} `json:"data"`
 }
 
-// Health godoc
+// Health
 // @Tags health
+// @Summary 存活检查
 // @Produce json
-// @Success 200 {object} HealthResponse
+// @Success 200 {object} Response
 // @Router /api/v1/health [get]
 func Health(c *gin.Context) {
-	c.JSON(http.StatusOK, HealthResponse{})
+	c.JSON(http.StatusOK, Response{})
 }
 
-type ReadyResponse struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
-
-// Ready godoc
+// Ready
 // @Tags health
+// @Summary 就绪检查
+// @Description 检查已启用的 PostgreSQL 和 Redis 是否可用
 // @Produce json
-// @Success 200 {object} ReadyResponse
+// @Success 200 {object} Response
+// @Failure 500 {object} Response
 // @Router /api/v1/ready [get]
 func Ready(c *gin.Context) {
-	// init
 	ctx := c.Request.Context()
 	// check postgres
 	if config.Config.Database.Enabled {
 		sqlDB, err := db.DB(ctx).DB()
 		if err != nil {
-			logger.ErrorF(c.Request.Context(), "[Ready] postgres check failed: %s", err.Error())
-			c.AbortWithStatusJSON(http.StatusInternalServerError, ReadyResponse{})
+			logger.ErrorF(ctx, "[Ready] postgres check failed: %v", err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, Response{})
 			return
 		}
 		if err := sqlDB.PingContext(ctx); err != nil {
-			logger.ErrorF(c.Request.Context(), "[Ready] postgres check failed: %s", err.Error())
-			c.AbortWithStatusJSON(http.StatusInternalServerError, ReadyResponse{})
+			logger.ErrorF(ctx, "[Ready] postgres check failed: %v", err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, Response{})
 			return
 		}
 	}
 	// check redis
 	if config.Config.Redis.Enabled {
 		if err := db.Redis.Ping(ctx).Err(); err != nil {
-			logger.ErrorF(c.Request.Context(), "[Ready] redis check failed: %s", err.Error())
-			c.AbortWithStatusJSON(http.StatusInternalServerError, ReadyResponse{})
+			logger.ErrorF(ctx, "[Ready] redis check failed: %v", err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, Response{})
 			return
 		}
 	}
-	// check clickhouse
-	// response
-	c.JSON(http.StatusOK, ReadyResponse{})
+	c.JSON(http.StatusOK, Response{})
 }

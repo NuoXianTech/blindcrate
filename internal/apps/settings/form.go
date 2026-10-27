@@ -33,15 +33,12 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"time"
 
-	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/go-playground/locales/zh"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	zhtranslations "github.com/go-playground/validator/v10/translations/zh"
-	"gorm.io/gorm/clause"
 )
 
 // Field 设置项的描述, 后台据此自动生成表单
@@ -56,25 +53,13 @@ type Field struct {
 	index  int
 }
 
+// group 设置组定义, 由 newGroup 根据结构体 tag 生成
 type group struct {
 	key         string
 	label       string
 	description string
 	fields      []Field
 	defaults    func() any // 返回指向默认值的指针
-}
-
-// GroupView 管理后台看到的设置组, 包含表单描述和当前值
-type GroupView struct {
-	Key           string                 `json:"key"`
-	Label         string                 `json:"label"`
-	Description   string                 `json:"description"`
-	Fields        []Field                `json:"fields"`
-	Value         map[string]interface{} `json:"value"`          // 密钥字段固定为空字符串
-	SecretsSet    map[string]bool        `json:"secrets_set"`    // 密钥字段是否已设置
-	SecretsBroken []string               `json:"secrets_broken"` // 无法解密的密钥字段, 需要重新填写或清空才能保存
-	UpdatedBy     uint64                 `json:"updated_by"`
-	UpdatedAt     *time.Time             `json:"updated_at"` // 未保存过为空
 }
 
 var (
@@ -138,6 +123,7 @@ func newGroup[T any](key, label, description string, defaults func() *T) *group 
 	return g
 }
 
+// findGroup 按 key 查找设置组, 不存在时返回 nil
 func findGroup(key string) *group {
 	for _, g := range groups {
 		if g.key == key {
@@ -147,6 +133,7 @@ func findGroup(key string) *group {
 	return nil
 }
 
+// field 按字段名查找字段, 不存在时返回 nil
 func (g *group) field(key string) *Field {
 	for i := range g.fields {
 		if g.fields[i].Key == key {
@@ -156,108 +143,7 @@ func (g *group) field(key string) *Field {
 	return nil
 }
 
-// get 读取一个设置组, 未保存过时返回默认值
-func get[T any](ctx context.Context, key string) (*T, error) {
-	var row Setting
-	if err := db.DB(ctx).Where("key = ?", key).Limit(1).Find(&row).Error; err != nil {
-		return nil, err
-	}
-	value, _ := findGroup(key).decode(ctx, &row)
-	return value.(*T), nil
-}
-
-// QueryGroups 获取全部设置组
-func QueryGroups(ctx context.Context) ([]GroupView, error) {
-	rows, err := queryRows(ctx)
-	if err != nil {
-		return nil, err
-	}
-	views := make([]GroupView, 0, len(groups))
-	for _, g := range groups {
-		value, broken := g.decode(ctx, rows[g.key])
-		views = append(views, g.view(rows[g.key], value, broken))
-	}
-	return views, nil
-}
-
-// QueryPublic 获取全部公开字段, 按设置组分组
-func QueryPublic(ctx context.Context) (map[string]map[string]interface{}, error) {
-	rows, err := queryRows(ctx)
-	if err != nil {
-		return nil, err
-	}
-	result := map[string]map[string]interface{}{}
-	for _, g := range groups {
-		value, _ := g.decode(ctx, rows[g.key])
-		if values := g.values(value, true); len(values) > 0 {
-			result[g.key] = values
-		}
-	}
-	return result, nil
-}
-
-// queryRows 读取全部设置组, 未保存过的设置组为空记录
-func queryRows(ctx context.Context) (map[string]*Setting, error) {
-	var rows []Setting
-	if err := db.DB(ctx).Find(&rows).Error; err != nil {
-		return nil, err
-	}
-	result := map[string]*Setting{}
-	for _, g := range groups {
-		result[g.key] = &Setting{}
-	}
-	for i := range rows {
-		result[rows[i].Key] = &rows[i]
-	}
-	return result, nil
-}
-
-// Update 保存一个设置组, 返回保存后的设置组和本次修改的字段
-//
-// 合并规则见 group.merge, 没有任何字段变化时不写库; 多人同时修改时以后保存的为准。
-// 返回的错误都可以直接展示: 数据库错误记录日志后返回 SaveFailed, 其余为 GroupNotFound 或校验失败。
-func Update(ctx context.Context, operatorID uint64, key string, raw json.RawMessage, clearSecrets []string) (*GroupView, map[string]interface{}, error) {
-	g := findGroup(key)
-	if g == nil {
-		return nil, nil, errors.New(GroupNotFound)
-	}
-
-	var row Setting
-	if err := db.DB(ctx).Where("key = ?", key).Limit(1).Find(&row).Error; err != nil {
-		logger.ErrorF(ctx, "[Settings] query %s failed: %s", key, err.Error())
-		return nil, nil, errors.New(SaveFailed)
-	}
-	cur, broken := g.decode(ctx, &row)
-	next, err := g.merge(cur, broken, raw, clearSecrets)
-	if err != nil {
-		return nil, nil, err
-	}
-	changes := g.diff(cur, broken, next)
-	if len(changes) == 0 {
-		view := g.view(&row, cur, broken)
-		return &view, changes, nil
-	}
-
-	stored, err := g.encode(next)
-	if err != nil {
-		if err.Error() == SecretKeyMissing {
-			return nil, nil, err
-		}
-		logger.ErrorF(ctx, "[Settings] encode %s failed: %s", key, err.Error())
-		return nil, nil, errors.New(SaveFailed)
-	}
-	row.Key, row.Value, row.UpdatedBy, row.UpdatedAt = key, stored, operatorID, time.Now()
-	if err = db.DB(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "key"}},
-		DoUpdates: clause.AssignmentColumns([]string{"value", "updated_by", "updated_at"}),
-	}).Create(&row).Error; err != nil {
-		logger.ErrorF(ctx, "[Settings] save %s failed: %s", key, err.Error())
-		return nil, nil, errors.New(SaveFailed)
-	}
-	view := g.view(&row, next, nil)
-	return &view, changes, nil
-}
-
+// view 生成管理后台看到的设置组
 func (g *group) view(row *Setting, value any, broken []string) GroupView {
 	view := GroupView{
 		Key:           g.key,
@@ -373,7 +259,7 @@ func (g *group) decode(ctx context.Context, row *Setting) (any, []string) {
 		return v, nil
 	}
 	if err := json.Unmarshal([]byte(row.Value), v); err != nil {
-		logger.ErrorF(ctx, "[Settings] decode %s failed: %s", g.key, err.Error())
+		logger.ErrorF(ctx, "[Settings] decode %s failed: %v", g.key, err)
 	}
 	var broken []string
 	rv := reflect.ValueOf(v).Elem()
@@ -384,7 +270,7 @@ func (g *group) decode(ctx context.Context, row *Setting) (any, []string) {
 		}
 		plaintext, err := decryptSecret(fv.String(), g.key+"."+f.Key)
 		if err != nil {
-			logger.ErrorF(ctx, "[Settings] decrypt %s.%s failed: %s", g.key, f.Key, err.Error())
+			logger.ErrorF(ctx, "[Settings] decrypt %s.%s failed: %v", g.key, f.Key, err)
 			broken = append(broken, f.Key)
 		}
 		fv.SetString(plaintext)

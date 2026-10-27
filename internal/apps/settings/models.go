@@ -24,10 +24,7 @@
 
 package settings
 
-import (
-	"context"
-	"time"
-)
+import "time"
 
 // 设置组的 key
 //
@@ -41,16 +38,15 @@ const (
 
 // Setting 一个设置组存一行, 内容为该组的 JSON, 未保存过的设置组没有记录, 使用代码中的默认值
 type Setting struct {
-	Key       string    `json:"key" gorm:"primaryKey;size:64"`
-	Value     string    `json:"value" gorm:"type:jsonb;not null;default:'{}'"` // 密钥字段为密文
-	UpdatedBy uint64    `json:"updated_by" gorm:"not null;default:0"`
-	CreatedAt time.Time `json:"created_at" gorm:"not null;default:now();autoCreateTime"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"not null;default:now();autoUpdateTime"`
+	Key       string    `gorm:"primaryKey;size:64" json:"key"`
+	Value     string    `gorm:"type:jsonb;not null;default:'{}'" json:"value"` // 密钥字段为密文
+	UpdatedBy uint64    `gorm:"not null;default:0" json:"updated_by"`
+	CreatedAt time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
 }
 
-func (s *Setting) TableName() string {
-	return "system_settings"
-}
+// TableName 自定义表名
+func (Setting) TableName() string { return "system_settings" }
 
 // 设置组定义, 新增字段只需在结构体中加一行, 后台表单自动生成
 //
@@ -99,19 +95,4 @@ type MailSettings struct {
 	Password    string `json:"password" label:"密码" binding:"max=255" secret:"true"`
 	FromName    string `json:"from_name" label:"发件人名称" help:"留空则使用站点名称" binding:"max=64"`
 	FromAddress string `json:"from_address" label:"发件人邮箱" binding:"required_if=Enabled true,omitempty,max=255,email"`
-}
-
-// Site 当前站点设置
-func Site(ctx context.Context) (*SiteSettings, error) {
-	return get[SiteSettings](ctx, KeySite)
-}
-
-// Auth 当前注册与登录设置
-func Auth(ctx context.Context) (*AuthSettings, error) {
-	return get[AuthSettings](ctx, KeyAuth)
-}
-
-// Mail 当前邮件设置
-func Mail(ctx context.Context) (*MailSettings, error) {
-	return get[MailSettings](ctx, KeyMail)
 }
