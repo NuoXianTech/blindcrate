@@ -38,6 +38,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
@@ -82,6 +83,13 @@ func doLogin(ctx context.Context, identifier, password string) (*User, error) {
 	var user User
 	query := db.DB(ctx)
 	if strings.Contains(identifier, "@") {
+		authSettings, err := settings.Auth(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if !authSettings.EmailLoginEnabled {
+			return nil, errors.New(EmailLoginDisabled)
+		}
 		query = query.Where("LOWER(email) = LOWER(?) AND email_verified_at IS NOT NULL", identifier)
 	} else {
 		query = query.Where("LOWER(username) = LOWER(?)", identifier)
@@ -153,6 +161,10 @@ func doRegister(ctx context.Context, username, password string) (*User, error) {
 		return nil, err
 	}
 
+	authSettings, err := settings.Auth(ctx)
+	if err != nil {
+		return nil, err
+	}
 	user := User{Username: username, PasswordHash: hash, Nickname: username}
 	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		// 事务级咨询锁: 并发注册时保证只有一个人成为第一个用户(管理员)
@@ -171,6 +183,10 @@ func doRegister(ctx context.Context, username, password string) (*User, error) {
 		var hasUser bool
 		if err := tx.Raw("SELECT EXISTS (SELECT 1 FROM users)").Scan(&hasUser).Error; err != nil {
 			return err
+		}
+		// 系统中还没有用户时不受注册开关限制, 保证总能创建出第一个管理员
+		if hasUser && !authSettings.RegisterEnabled {
+			return errors.New(RegisterClosed)
 		}
 		user.IsAdmin = !hasUser
 
@@ -276,6 +292,10 @@ func doSendEmailCode(ctx context.Context, userID uint64, rawEmail string) error 
 	if count > 0 {
 		return errors.New(EmailTaken)
 	}
+	site, err := settings.Site(ctx)
+	if err != nil {
+		return err
+	}
 
 	// 发送冷却
 	ok, err := db.Redis.SetNX(ctx, emailCodeCooldownKey(userID), 1, emailCodeCooldown).Result()
@@ -299,7 +319,7 @@ func doSendEmailCode(ctx context.Context, userID uint64, rawEmail string) error 
 		return err
 	}
 
-	subject := "BlindCrate 邮箱验证码"
+	subject := fmt.Sprintf("%s 邮箱验证码", site.Name)
 	body := fmt.Sprintf("您的验证码是 %s, %d 分钟内有效。\n如非本人操作, 请忽略此邮件。", code, int(emailCodeTTL.Minutes()))
 	if err = mail.Send(ctx, email, subject, body); err != nil {
 		logger.ErrorF(ctx, "[EmailCode] send to user %d failed: %s", userID, err.Error())

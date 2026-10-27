@@ -25,8 +25,10 @@
 package admin
 
 const (
-	Forbidden         = "无权限"
-	CannotOperateSelf = "不能对自己执行该操作"
-	BanUntilInvalid   = "封禁截止时间必须晚于当前时间"
-	RemarkInvalid     = "备注需为 1-255 个字符"
+	Forbidden          = "无权限"
+	CannotOperateSelf  = "不能对自己执行该操作"
+	BanUntilInvalid    = "封禁截止时间必须晚于当前时间"
+	RemarkInvalid      = "备注需为 1-255 个字符"
+	MailTestIncomplete = "请先保存 SMTP 服务器和发件人"
+	MailTestFailed     = "测试邮件发送失败"
 )

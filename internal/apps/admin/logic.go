@@ -34,9 +34,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/audit"
 	"github.com/NuoXianTech/blindcrate/internal/db"
+	"github.com/NuoXianTech/blindcrate/internal/mail"
 	"gorm.io/gorm"
 )
 
@@ -286,4 +288,22 @@ func doAdjustUserBalance(ctx context.Context, operatorID, userID uint64, req *Ad
 		return nil, false, err
 	}
 	return txn, replayed, nil
+}
+
+// prepareTestMail 校验测试邮件的收件人, 并取出已保存的邮件设置
+//
+// 只使用已保存的设置, 不接受草稿: 否则改掉 SMTP 服务器后沿用已保存的密码, 就能把密码发到任意服务器。
+func prepareTestMail(ctx context.Context, req *TestMailRequest) (string, *settings.MailSettings, error) {
+	to, err := mail.NormalizeAddress(req.To)
+	if err != nil {
+		return "", nil, errors.New(auth.EmailInvalid)
+	}
+	mailConfig, err := settings.Mail(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	if mailConfig.Host == "" || mailConfig.FromAddress == "" {
+		return "", nil, errors.New(MailTestIncomplete)
+	}
+	return to, mailConfig, nil
 }

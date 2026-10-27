@@ -100,6 +100,20 @@ definitions:
           $ref: '#/definitions/wallet.Currency'
         type: array
     type: object
+  admin.ListSettingsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/admin.ListSettingsResponseData'
+      error_msg:
+        type: string
+    type: object
+  admin.ListSettingsResponseData:
+    properties:
+      groups:
+        items:
+          $ref: '#/definitions/settings.GroupView'
+        type: array
+    type: object
   admin.ListUserBalancesResponse:
     properties:
       data:
@@ -159,9 +173,44 @@ definitions:
       error_msg:
         type: string
     type: object
+  admin.TestMailRequest:
+    properties:
+      to:
+        description: 收件人
+        type: string
+    required:
+    - to
+    type: object
+  admin.TestMailResponse:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
   admin.UnbanUserResponse:
     properties:
       data: {}
+      error_msg:
+        type: string
+    type: object
+  admin.UpdateSettingRequest:
+    properties:
+      clear_secrets:
+        description: 需要清空的密钥字段
+        items:
+          type: string
+        maxItems: 32
+        type: array
+      value:
+        description: 设置组的字段, 只需提交改动的字段, 没有提交的保持不变, 密钥字段留空表示不修改
+        type: object
+    required:
+    - value
+    type: object
+  admin.UpdateSettingResponse:
+    properties:
+      data:
+        $ref: '#/definitions/settings.GroupView'
       error_msg:
         type: string
     type: object
@@ -380,6 +429,68 @@ definitions:
       error_msg:
         type: string
     type: object
+  settings.Field:
+    properties:
+      help:
+        type: string
+      input:
+        description: text / textarea / password / switch / number
+        type: string
+      key:
+        type: string
+      label:
+        type: string
+      public:
+        type: boolean
+      secret:
+        type: boolean
+      type:
+        description: string / bool / int
+        type: string
+    type: object
+  settings.GroupView:
+    properties:
+      description:
+        type: string
+      fields:
+        items:
+          $ref: '#/definitions/settings.Field'
+        type: array
+      key:
+        type: string
+      label:
+        type: string
+      secrets_broken:
+        description: 无法解密的密钥字段, 需要重新填写或清空才能保存
+        items:
+          type: string
+        type: array
+      secrets_set:
+        additionalProperties:
+          type: boolean
+        description: 密钥字段是否已设置
+        type: object
+      updated_at:
+        description: 未保存过为空
+        type: string
+      updated_by:
+        type: integer
+      value:
+        additionalProperties: true
+        description: 密钥字段固定为空字符串
+        type: object
+    type: object
+  settings.PublicSettingsResponse:
+    properties:
+      data:
+        additionalProperties:
+          additionalProperties: true
+          type: object
+        description: 设置组 -> 字段 -> 值, 只包含公开字段
+        type: object
+      error_msg:
+        type: string
+    type: object
   wallet.BalanceItem:
     properties:
       balance:
@@ -563,6 +674,110 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/admin.ListAuditLogsResponse'
+      tags:
+      - admin
+  /api/v1/admin/settings:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ListSettingsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ListSettingsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ListSettingsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ListSettingsResponse'
+      tags:
+      - admin
+  /api/v1/admin/settings/{key}:
+    put:
+      parameters:
+      - description: setting group key
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.UpdateSettingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.UpdateSettingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.UpdateSettingResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.UpdateSettingResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.UpdateSettingResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.UpdateSettingResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.UpdateSettingResponse'
+      tags:
+      - admin
+  /api/v1/admin/settings/mail/test:
+    post:
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.TestMailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.TestMailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.TestMailResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.TestMailResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.TestMailResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.TestMailResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.TestMailResponse'
       tags:
       - admin
   /api/v1/admin/users:
@@ -1130,6 +1345,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/auth.RegisterResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.RegisterResponse'
         "409":
           description: Conflict
           schema:
@@ -1206,6 +1425,21 @@ paths:
             $ref: '#/definitions/health.ReadyResponse'
       tags:
       - health
+  /api/v1/settings/public:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/settings.PublicSettingsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/settings.PublicSettingsResponse'
+      tags:
+      - settings
   /api/v1/wallet/balances:
     get:
       produces:

@@ -25,14 +25,18 @@
 package admin
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/audit"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/mail"
 	"github.com/gin-gonic/gin"
 )
 
@@ -550,4 +554,149 @@ func AdjustUserBalance(c *gin.Context) {
 		logger.InfoF(c.Request.Context(), "[AdjustUserBalance] %d adjusted %d %s by %d, balance %d", operator.ID, userID, txn.Currency, txn.Amount, txn.BalanceAfter)
 	}
 	c.JSON(http.StatusOK, AdjustUserBalanceResponse{Data: txn})
+}
+
+type ListSettingsResponseData struct {
+	Groups []settings.GroupView `json:"groups"`
+}
+
+type ListSettingsResponse struct {
+	ErrorMsg string                    `json:"error_msg"`
+	Data     *ListSettingsResponseData `json:"data"`
+}
+
+// ListSettings 获取全部系统设置, 包含表单描述和当前值, 密钥字段不返回明文
+// @Tags admin
+// @Produce json
+// @Success 200 {object} ListSettingsResponse
+// @Failure 401 {object} ListSettingsResponse
+// @Failure 403 {object} ListSettingsResponse
+// @Failure 500 {object} ListSettingsResponse
+// @Router /api/v1/admin/settings [get]
+func ListSettings(c *gin.Context) {
+	// query
+	groups, err := settings.QueryGroups(c.Request.Context())
+	if err != nil {
+		logger.ErrorF(c.Request.Context(), "[ListSettings] query failed: %s", err.Error())
+		c.JSON(http.StatusInternalServerError, ListSettingsResponse{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, ListSettingsResponse{Data: &ListSettingsResponseData{Groups: groups}})
+}
+
+type UpdateSettingRequest struct {
+	Value        json.RawMessage `json:"value" binding:"required" swaggertype:"object"` // 设置组的字段, 只需提交改动的字段, 没有提交的保持不变, 密钥字段留空表示不修改
+	ClearSecrets []string        `json:"clear_secrets" binding:"max=32"`                // 需要清空的密钥字段
+}
+
+type UpdateSettingResponse struct {
+	ErrorMsg string              `json:"error_msg"`
+	Data     *settings.GroupView `json:"data"`
+}
+
+// UpdateSetting 保存一个设置组, 立即生效
+// @Tags admin
+// @Param key path string true "setting group key"
+// @Param request body UpdateSettingRequest true "request body"
+// @Produce json
+// @Success 200 {object} UpdateSettingResponse
+// @Failure 400 {object} UpdateSettingResponse
+// @Failure 401 {object} UpdateSettingResponse
+// @Failure 403 {object} UpdateSettingResponse
+// @Failure 404 {object} UpdateSettingResponse
+// @Failure 500 {object} UpdateSettingResponse
+// @Router /api/v1/admin/settings/{key} [put]
+func UpdateSetting(c *gin.Context) {
+	// init req
+	var req UpdateSettingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, UpdateSettingResponse{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, UpdateSettingResponse{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	// do update
+	group, changes, err := settings.Update(c.Request.Context(), operator.ID, c.Param("key"), req.Value, req.ClearSecrets)
+	if err != nil {
+		switch err.Error() {
+		case settings.GroupNotFound:
+			c.JSON(http.StatusNotFound, UpdateSettingResponse{ErrorMsg: err.Error()})
+		case settings.SaveFailed:
+			c.JSON(http.StatusInternalServerError, UpdateSettingResponse{ErrorMsg: err.Error()})
+		default:
+			// 其余均为设置内容校验失败, 提示可直接展示
+			c.JSON(http.StatusBadRequest, UpdateSettingResponse{ErrorMsg: err.Error()})
+		}
+		return
+	}
+	// 没有任何修改时不记录
+	if len(changes) > 0 {
+		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSettingsUpdate, audit.TargetSetting, 0, map[string]interface{}{
+			"key":     group.Key,
+			"changes": changes,
+		})
+		logger.InfoF(c.Request.Context(), "[UpdateSetting] %d updated %s", operator.ID, group.Key)
+	}
+	c.JSON(http.StatusOK, UpdateSettingResponse{Data: group})
+}
+
+type TestMailRequest struct {
+	To string `json:"to" binding:"required"` // 收件人
+}
+
+type TestMailResponse struct {
+	ErrorMsg string      `json:"error_msg"`
+	Data     interface{} `json:"data"`
+}
+
+// TestMail 使用已保存的邮件设置发送一封测试邮件, 未启用邮件发送时也可以测试
+// @Tags admin
+// @Param request body TestMailRequest true "request body"
+// @Produce json
+// @Success 200 {object} TestMailResponse
+// @Failure 400 {object} TestMailResponse
+// @Failure 401 {object} TestMailResponse
+// @Failure 403 {object} TestMailResponse
+// @Failure 500 {object} TestMailResponse
+// @Failure 502 {object} TestMailResponse
+// @Router /api/v1/admin/settings/mail/test [post]
+func TestMail(c *gin.Context) {
+	// init req
+	var req TestMailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, TestMailResponse{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, TestMailResponse{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	to, mailConfig, err := prepareTestMail(c.Request.Context(), &req)
+	if err != nil {
+		switch err.Error() {
+		case auth.EmailInvalid, MailTestIncomplete:
+			c.JSON(http.StatusBadRequest, TestMailResponse{ErrorMsg: err.Error()})
+		default:
+			logger.ErrorF(c.Request.Context(), "[TestMail] query settings failed: %s", err.Error())
+			c.JSON(http.StatusInternalServerError, TestMailResponse{ErrorMsg: auth.InternalError})
+		}
+		return
+	}
+	// do send, 发送失败时把 SMTP 返回的错误交给管理员排查
+	sendErr := mail.Deliver(c.Request.Context(), mailConfig, to, "测试邮件", "这是一封测试邮件, 收到说明邮件设置可用。")
+	detail := map[string]interface{}{"to": to, "host": mailConfig.Host, "port": mailConfig.Port, "success": sendErr == nil}
+	if sendErr != nil {
+		detail["error"] = sendErr.Error()
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionMailTest, audit.TargetSetting, 0, detail)
+	if sendErr != nil {
+		logger.WarnF(c.Request.Context(), "[TestMail] %d send to %s failed: %s", operator.ID, to, sendErr.Error())
+		c.JSON(http.StatusBadGateway, TestMailResponse{ErrorMsg: fmt.Sprintf("%s: %s", MailTestFailed, sendErr.Error())})
+		return
+	}
+	c.JSON(http.StatusOK, TestMailResponse{})
 }

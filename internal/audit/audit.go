@@ -44,7 +44,8 @@ const (
 
 // 操作对象类型
 const (
-	TargetUser = "user"
+	TargetUser    = "user"
+	TargetSetting = "setting" // target_id 固定为 0, 设置组见 detail.key
 )
 
 // 操作类型, 格式为 "模块.动作"
@@ -62,6 +63,8 @@ const (
 	ActionUserDisable    = "admin.user_disable"
 	ActionUserEnable     = "admin.user_enable"
 	ActionWalletAdjust   = "admin.wallet_adjust"
+	ActionSettingsUpdate = "admin.settings_update"
+	ActionMailTest       = "admin.mail_test"
 )
 
 type Log struct {

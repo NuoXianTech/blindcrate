@@ -34,6 +34,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
@@ -108,6 +109,9 @@ func Serve() {
 			apiV1Router.POST("/auth/email/code", auth.LoginRequired(), auth.SendEmailCode)
 			apiV1Router.POST("/auth/email/verify", auth.LoginRequired(), auth.VerifyEmail)
 
+			// Settings
+			apiV1Router.GET("/settings/public", settings.PublicSettings)
+
 			// Wallet
 			walletRouter := apiV1Router.Group("/wallet")
 			walletRouter.Use(auth.LoginRequired())
@@ -137,6 +141,14 @@ func Serve() {
 				{
 					walletAdminRouter.GET("/currencies", admin.ListCurrencies)
 					walletAdminRouter.GET("/transactions", admin.ListWalletTransactions)
+				}
+
+				// Settings
+				settingsAdminRouter := adminRouter.Group("/settings")
+				{
+					settingsAdminRouter.GET("", admin.ListSettings)
+					settingsAdminRouter.PUT("/:key", admin.UpdateSetting)
+					settingsAdminRouter.POST("/mail/test", admin.TestMail)
 				}
 
 				// Audit Log

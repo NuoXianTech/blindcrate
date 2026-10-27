@@ -13,6 +13,7 @@ app:
   session_secure: false
   session_http_only: false
   api_prefix: "/api"
+  secret_key: "<uniq string>" # encrypts secrets saved in admin settings (e.g. SMTP password), you can't change this after saving them
 
 # DB
 database:
@@ -44,15 +45,6 @@ redis:
   dial_timeout: 5
   read_timeout: 3
   write_timeout: 3
-
-# Mail (SMTP)
-mail:
-  enabled: false  # when disabled, development env prints mails to the log instead of sending
-  host: "smtp.example.com"
-  port: 465  # 465 = implicit TLS, others (e.g. 587) require STARTTLS
-  username: ""
-  password: ""
-  from: "BlindCrate <noreply@example.com>"
 
 # Log
 log:

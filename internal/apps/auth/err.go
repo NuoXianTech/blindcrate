@@ -42,4 +42,6 @@ const (
 	UserNotFound       = "用户不存在"
 	NicknameInvalid    = "昵称需为 1-32 个字符"
 	AvatarURLInvalid   = "头像地址需为 http(s) 链接, 且不超过 1024 个字符"
+	RegisterClosed     = "当前未开放注册"
+	EmailLoginDisabled = "当前未开放邮箱登录"
 )

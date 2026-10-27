@@ -75,6 +75,10 @@ func Login(c *gin.Context) {
 			c.JSON(http.StatusForbidden, LoginResponse{ErrorMsg: BannedAccount})
 			return
 		}
+		if err.Error() == EmailLoginDisabled {
+			c.JSON(http.StatusForbidden, LoginResponse{ErrorMsg: EmailLoginDisabled})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, LoginResponse{ErrorMsg: err.Error()})
 		return
 	}
@@ -125,6 +129,7 @@ type RegisterResponse struct {
 // @Produce json
 // @Success 201 {object} RegisterResponse
 // @Failure 400 {object} RegisterResponse
+// @Failure 403 {object} RegisterResponse
 // @Failure 409 {object} RegisterResponse
 // @Failure 500 {object} RegisterResponse
 // @Router /api/v1/auth/register [post]
@@ -141,6 +146,8 @@ func Register(c *gin.Context) {
 		switch err.Error() {
 		case UsernameInvalid, PasswordInvalid:
 			c.JSON(http.StatusBadRequest, RegisterResponse{ErrorMsg: err.Error()})
+		case RegisterClosed:
+			c.JSON(http.StatusForbidden, RegisterResponse{ErrorMsg: err.Error()})
 		case UsernameTaken:
 			c.JSON(http.StatusConflict, RegisterResponse{ErrorMsg: err.Error()})
 		default:
