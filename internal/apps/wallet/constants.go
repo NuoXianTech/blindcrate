@@ -33,6 +33,7 @@ const (
 // 业务类型, 每种会变动余额的业务一个
 const (
 	BizAdminAdjust = "admin_adjust" // 管理员调账
+	BizItemSell    = "item_sell"    // 出售物品入账, biz_id 为出售单 ID
 )
 
 // MaxAmount 单笔变动金额上限, 防止异常请求一次写入过大金额

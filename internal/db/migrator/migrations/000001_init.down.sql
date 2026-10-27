@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS inventory_sell_order_items;
+DROP TABLE IF EXISTS inventory_sell_orders;
 DROP TABLE IF EXISTS inventory_transactions;
 DROP TABLE IF EXISTS inventory_items;
 DROP TABLE IF EXISTS items;

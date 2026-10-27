@@ -661,6 +661,22 @@ definitions:
       total:
         type: integer
     type: object
+  inventory.ListSellOrdersResponse:
+    properties:
+      data:
+        $ref: '#/definitions/inventory.ListSellOrdersResponseData'
+      error_msg:
+        type: string
+    type: object
+  inventory.ListSellOrdersResponseData:
+    properties:
+      orders:
+        items:
+          $ref: '#/definitions/inventory.SellOrderDetail'
+        type: array
+      total:
+        type: integer
+    type: object
   inventory.ListTransactionsResponse:
     properties:
       data:
@@ -676,6 +692,101 @@ definitions:
         items:
           $ref: '#/definitions/inventory.TransactionItem'
         type: array
+    type: object
+  inventory.SellIncome:
+    properties:
+      amount:
+        type: integer
+      balance_after:
+        description: 入账后的可用余额
+        type: integer
+      currency:
+        type: string
+    type: object
+  inventory.SellItemsRequest:
+    properties:
+      idempotency_key:
+        description: 每次打开出售确认框生成一个, 重复提交只生效一次
+        maxLength: 64
+        type: string
+      items:
+        description: 同一物品只能出现一次
+        items:
+          $ref: '#/definitions/inventory.SellItemsRequestItem'
+        maxItems: 100
+        minItems: 1
+        type: array
+    required:
+    - idempotency_key
+    - items
+    type: object
+  inventory.SellItemsRequestItem:
+    properties:
+      item_id:
+        type: integer
+      quantity:
+        maximum: 1000000
+        minimum: 1
+        type: integer
+      sell_currency:
+        description: 背包中看到的卖出货币, 与当前不一致时拒绝出售
+        maxLength: 32
+        type: string
+      sell_price:
+        description: 背包中看到的单价, 与当前不一致时拒绝出售
+        minimum: 1
+        type: integer
+    required:
+    - item_id
+    - quantity
+    - sell_currency
+    - sell_price
+    type: object
+  inventory.SellItemsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/inventory.SellOrderDetail'
+      error_msg:
+        type: string
+    type: object
+  inventory.SellOrderDetail:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      incomes:
+        description: 按货币代码排序
+        items:
+          $ref: '#/definitions/inventory.SellIncome'
+        type: array
+      items:
+        description: 按物品 ID 排序
+        items:
+          $ref: '#/definitions/inventory.SellOrderItem'
+        type: array
+    type: object
+  inventory.SellOrderItem:
+    properties:
+      amount:
+        description: 数量 × 单价
+        type: integer
+      id:
+        type: integer
+      item_id:
+        type: integer
+      item_name:
+        description: 出售时的物品名称
+        type: string
+      order_id:
+        type: integer
+      quantity:
+        type: integer
+      sell_currency:
+        type: string
+      sell_price:
+        description: 出售时的单价
+        type: integer
     type: object
   inventory.Transaction:
     properties:
@@ -2151,6 +2262,89 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/inventory.ListItemsResponse'
+      tags:
+      - inventory
+  /api/v1/inventory/sell:
+    post:
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/inventory.SellItemsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/inventory.SellItemsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/inventory.SellItemsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/inventory.SellItemsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/inventory.SellItemsResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/inventory.SellItemsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/inventory.SellItemsResponse'
+      tags:
+      - inventory
+  /api/v1/inventory/sell-orders:
+    get:
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: RFC3339, 不包含
+        in: query
+        name: end_time
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - description: RFC3339, 包含
+        in: query
+        name: start_time
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/inventory.ListSellOrdersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/inventory.ListSellOrdersResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/inventory.ListSellOrdersResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/inventory.ListSellOrdersResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/inventory.ListSellOrdersResponse'
       tags:
       - inventory
   /api/v1/inventory/transactions:

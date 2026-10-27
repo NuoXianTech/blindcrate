@@ -107,6 +107,8 @@ func runAutoMigrate() {
 		&item.Item{},
 		&inventory.UserItem{},
 		&inventory.Transaction{},
+		&inventory.SellOrder{},
+		&inventory.SellOrderItem{},
 	); err != nil {
 		log.Fatalf("[PostgreSQL] auto migrate failed: %v\n", err)
 	}

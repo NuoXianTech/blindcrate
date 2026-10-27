@@ -1827,6 +1827,134 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/inventory/sell": {
+            "post": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/inventory.SellItemsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.SellItemsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.SellItemsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.SellItemsResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.SellItemsResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.SellItemsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.SellItemsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/inventory/sell-orders": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339, 不包含",
+                        "name": "end_time",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339, 包含",
+                        "name": "start_time",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.ListSellOrdersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.ListSellOrdersResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.ListSellOrdersResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.ListSellOrdersResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.ListSellOrdersResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/inventory/transactions": {
             "get": {
                 "produces": [
@@ -3051,6 +3179,31 @@ const docTemplate = `{
                 }
             }
         },
+        "inventory.ListSellOrdersResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/inventory.ListSellOrdersResponseData"
+                },
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "inventory.ListSellOrdersResponseData": {
+            "type": "object",
+            "properties": {
+                "orders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/inventory.SellOrderDetail"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "inventory.ListTransactionsResponse": {
             "type": "object",
             "properties": {
@@ -3073,6 +3226,141 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/inventory.TransactionItem"
                     }
+                }
+            }
+        },
+        "inventory.SellIncome": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "balance_after": {
+                    "description": "入账后的可用余额",
+                    "type": "integer"
+                },
+                "currency": {
+                    "type": "string"
+                }
+            }
+        },
+        "inventory.SellItemsRequest": {
+            "type": "object",
+            "required": [
+                "idempotency_key",
+                "items"
+            ],
+            "properties": {
+                "idempotency_key": {
+                    "description": "每次打开出售确认框生成一个, 重复提交只生效一次",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "items": {
+                    "description": "同一物品只能出现一次",
+                    "type": "array",
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/inventory.SellItemsRequestItem"
+                    }
+                }
+            }
+        },
+        "inventory.SellItemsRequestItem": {
+            "type": "object",
+            "required": [
+                "item_id",
+                "quantity",
+                "sell_currency",
+                "sell_price"
+            ],
+            "properties": {
+                "item_id": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": 1
+                },
+                "sell_currency": {
+                    "description": "背包中看到的卖出货币, 与当前不一致时拒绝出售",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "sell_price": {
+                    "description": "背包中看到的单价, 与当前不一致时拒绝出售",
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "inventory.SellItemsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/inventory.SellOrderDetail"
+                },
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "inventory.SellOrderDetail": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "incomes": {
+                    "description": "按货币代码排序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/inventory.SellIncome"
+                    }
+                },
+                "items": {
+                    "description": "按物品 ID 排序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/inventory.SellOrderItem"
+                    }
+                }
+            }
+        },
+        "inventory.SellOrderItem": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "数量 × 单价",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "item_name": {
+                    "description": "出售时的物品名称",
+                    "type": "string"
+                },
+                "order_id": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "sell_currency": {
+                    "type": "string"
+                },
+                "sell_price": {
+                    "description": "出售时的单价",
+                    "type": "integer"
                 }
             }
         },

@@ -62,3 +62,33 @@ type Transaction struct {
 func (t *Transaction) TableName() string {
 	return "inventory_transactions"
 }
+
+// SellOrder 出售单, 一次出售一行, 可以同时卖出多种物品
+//
+// 出售产生的背包流水和余额流水, biz_id 都是出售单 ID。
+type SellOrder struct {
+	ID             uint64    `json:"id" gorm:"primaryKey;index:idx_inventory_sell_orders_user_id,priority:2"`
+	UserID         uint64    `json:"user_id" gorm:"not null;index:idx_inventory_sell_orders_user_id,priority:1;index:uniq_inventory_sell_orders_idempotency_key,unique,priority:1"`
+	IdempotencyKey string    `json:"idempotency_key" gorm:"size:64;not null;index:uniq_inventory_sell_orders_idempotency_key,unique,priority:2"` // 同一用户内唯一
+	CreatedAt      time.Time `json:"created_at" gorm:"not null;default:now();autoCreateTime"`
+}
+
+func (o *SellOrder) TableName() string {
+	return "inventory_sell_orders"
+}
+
+// SellOrderItem 出售单明细, 每种物品一行, 记录出售时的物品名称和价格
+type SellOrderItem struct {
+	ID           uint64 `json:"id" gorm:"primaryKey"`
+	OrderID      uint64 `json:"order_id" gorm:"not null;index"`
+	ItemID       uint64 `json:"item_id" gorm:"not null;index"`
+	ItemName     string `json:"item_name" gorm:"size:64;not null"` // 出售时的物品名称
+	Quantity     int64  `json:"quantity" gorm:"not null;check:chk_inventory_sell_order_items_quantity,quantity > 0"`
+	SellCurrency string `json:"sell_currency" gorm:"size:32;not null"`
+	SellPrice    int64  `json:"sell_price" gorm:"not null;check:chk_inventory_sell_order_items_sell_price,sell_price > 0"` // 出售时的单价
+	Amount       int64  `json:"amount" gorm:"not null"`                                                                    // 数量 × 单价
+}
+
+func (i *SellOrderItem) TableName() string {
+	return "inventory_sell_order_items"
+}

@@ -187,3 +187,33 @@ CREATE INDEX IF NOT EXISTS idx_inventory_transactions_biz ON inventory_transacti
 CREATE INDEX IF NOT EXISTS idx_inventory_transactions_operator_id ON inventory_transactions (operator_id) WHERE operator_id <> 0;
 CREATE INDEX IF NOT EXISTS idx_inventory_transactions_created_at ON inventory_transactions (created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_inventory_transactions_idempotency_key ON inventory_transactions (idempotency_key) WHERE idempotency_key <> '';
+
+-- 出售单, 一次出售一行; 出售产生的背包流水和余额流水, biz_id 都是出售单 ID
+CREATE TABLE IF NOT EXISTS inventory_sell_orders
+(
+    id              BIGSERIAL PRIMARY KEY,
+    user_id         BIGINT      NOT NULL,
+    idempotency_key VARCHAR(64) NOT NULL, -- 幂等键, 同一用户内唯一
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_sell_orders_user_id ON inventory_sell_orders (user_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_inventory_sell_orders_idempotency_key ON inventory_sell_orders (user_id, idempotency_key);
+
+-- 出售单明细, 每种物品一行, 记录出售时的物品名称和价格
+CREATE TABLE IF NOT EXISTS inventory_sell_order_items
+(
+    id            BIGSERIAL PRIMARY KEY,
+    order_id      BIGINT      NOT NULL,
+    item_id       BIGINT      NOT NULL,
+    item_name     VARCHAR(64) NOT NULL, -- 出售时的物品名称
+    quantity      BIGINT      NOT NULL,
+    sell_currency VARCHAR(32) NOT NULL,
+    sell_price    BIGINT      NOT NULL, -- 出售时的单价
+    amount        BIGINT      NOT NULL, -- 数量 × 单价
+    CONSTRAINT chk_inventory_sell_order_items_quantity CHECK (quantity > 0),
+    CONSTRAINT chk_inventory_sell_order_items_sell_price CHECK (sell_price > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_sell_order_items_order_id ON inventory_sell_order_items (order_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_sell_order_items_item_id ON inventory_sell_order_items (item_id);
