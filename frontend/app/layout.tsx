@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Noto_Sans_SC } from "next/font/google";
 import { AuthProvider } from "@/components/common/auth/AuthProvider";
+import { SiteProvider } from "@/components/common/layout/Site";
 import { ThemeProvider } from "@/components/common/layout/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { DEFAULT_DESCRIPTION, getPublicSettings } from "@/lib/site";
 import "./globals.css";
 
 const inter = Inter({
@@ -25,15 +27,20 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: {
-    template: "%s - BlindCrate",
-    default: "BlindCrate",
-  },
-  description: "盲盒开箱 · 保险柜竞拍对战平台",
-};
+/** 站点名称和简介来自系统设置 */
+export async function generateMetadata(): Promise<Metadata> {
+  const { site } = await getPublicSettings();
+  return {
+    title: {
+      template: `%s - ${site.name}`,
+      default: site.name,
+    },
+    description: site.description || DEFAULT_DESCRIPTION,
+  };
+}
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const settings = await getPublicSettings();
   return (
     <html
       lang="zh-CN"
@@ -42,7 +49,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <SiteProvider settings={settings}>
+            <AuthProvider>{children}</AuthProvider>
+          </SiteProvider>
           <Toaster />
         </ThemeProvider>
       </body>

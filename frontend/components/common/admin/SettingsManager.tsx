@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Eraser, Globe, LoaderCircle, Send, TriangleAlert, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "cn";
@@ -16,6 +17,7 @@ import { check, useSubmit } from "@/components/common/form/use-submit";
 import { AdminService, type SettingField, type SettingGroup, type UpdateSettingRequest } from "@/lib/services/admin";
 import { toErrorMessage } from "@/lib/services/core";
 import { formatDateTime } from "@/lib/format";
+import { refreshPublicSettings } from "@/lib/site-actions";
 
 /** 表单里的值: 开关为布尔, 其余都按字符串编辑 */
 type FormValues = Record<string, string | boolean>;
@@ -81,6 +83,7 @@ export function SettingsManager() {
 }
 
 function SettingGroupCard({ group, onSaved }: { group: SettingGroup; onSaved: (group: SettingGroup) => void }) {
+  const router = useRouter();
   const { pending, submit } = useSubmit();
   const [values, setValues] = useState(() => toFormValues(group));
   // 要清空的密钥字段
@@ -116,6 +119,11 @@ function SettingGroupCard({ group, onSaved }: { group: SettingGroup; onSaved: (g
     toast.success(`已保存${group.label}设置`);
     reset(updated);
     onSaved(updated);
+    // 有公开字段时刷新站点缓存, 站点名称、公告等立即生效
+    if (group.fields.some((f) => f.public)) {
+      await refreshPublicSettings();
+      router.refresh();
+    }
   });
 
   return (
