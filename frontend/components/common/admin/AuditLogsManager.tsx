@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/components/common/auth/AuthProvider";
-import { Pagination } from "@/components/common/admin/Pagination";
+import { Pagination } from "@/components/common/layout/Pagination";
 import { AdminService, type AuditLog, type AuditScope } from "@/lib/services/admin";
 import { toErrorMessage } from "@/lib/services/core";
 import { formatDateTime } from "@/lib/format";

@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAuth } from "@/components/common/auth/AuthProvider";
 import { SubmitButton } from "@/components/common/form/SubmitButton";
 import { check, useSubmit } from "@/components/common/form/use-submit";
-import { Pagination } from "@/components/common/admin/Pagination";
+import { Pagination } from "@/components/common/layout/Pagination";
 import { UserAvatar } from "@/components/common/user/UserAvatar";
 import { AdminService, type AdminUser, type ListUsersParams } from "@/lib/services/admin";
 import { toErrorMessage } from "@/lib/services/core";
