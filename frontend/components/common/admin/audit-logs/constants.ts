@@ -1,0 +1,33 @@
+import type {AuditScope} from '@/lib/services/admin';
+
+/** 日志每页条数 */
+export const PAGE_SIZE = 20;
+
+/** 下拉框里的"全部"选项 */
+export const ALL = 'all';
+
+/** 操作名称, 与后端 internal/audit 的 Action 常量对应 */
+export const ACTION_LABELS: Record<string, string> = {
+  'auth.login': '登录',
+  'auth.login_failed': '登录失败',
+  'auth.register': '注册',
+  'auth.logout': '退出登录',
+  'auth.change_password': '修改密码',
+  'auth.verify_email': '绑定邮箱',
+  'auth.update_profile': '修改资料',
+  'admin.user_update': '修改用户资料',
+  'admin.user_ban': '封禁用户',
+  'admin.user_unban': '解除封禁',
+  'admin.user_disable': '停用用户',
+  'admin.user_enable': '启用用户',
+  'admin.wallet_adjust': '调整余额',
+  'admin.inventory_adjust': '调整背包',
+  'admin.item_create': '新建物品',
+  'admin.item_update': '修改物品',
+  'admin.item_delete': '删除物品',
+  'admin.settings_update': '修改系统设置',
+  'admin.mail_test': '发送测试邮件',
+};
+
+/** 日志来源名称 */
+export const SCOPE_LABELS: Record<AuditScope, string> = {user: '用户', admin: '管理员'};

@@ -1,9 +1,9 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { ROUTES, loginHref, requiresAuth } from "@/lib/access";
+import {NextResponse, type NextRequest} from 'next/server';
+import {ROUTES, loginHref, requiresAuth} from '@/lib/access';
 
 /** 与后端 app.session_cookie_name 一致 */
-const SESSION_COOKIE = process.env.SESSION_COOKIE_NAME ?? "blindcrate_session_id";
-const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN ?? "http://localhost:8000";
+const SESSION_COOKIE = process.env.SESSION_COOKIE_NAME ?? 'blindcrate_session_id';
+const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN ?? 'http://localhost:8000';
 
 /**
  * 在页面渲染前按登录状态分流, 避免先渲染再跳转的闪烁
@@ -12,7 +12,7 @@ const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN ?? "http://localhost:8000";
  * cookie 存在不代表会话有效(退出登录、被下线后 cookie 仍在), 失效的情况由客户端收到 401 后处理
  */
 export async function proxy(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
+  const {pathname, search} = request.nextUrl;
   const session = request.cookies.get(SESSION_COOKIE);
 
   if (requiresAuth(pathname)) {
@@ -32,8 +32,8 @@ export async function proxy(request: NextRequest) {
 async function hasValidSession(request: NextRequest) {
   try {
     const res = await fetch(`${BACKEND_ORIGIN}/api/v1/auth/user-info`, {
-      headers: { cookie: request.headers.get("cookie") ?? "" },
-      cache: "no-store",
+      headers: {cookie: request.headers.get('cookie') ?? ''},
+      cache: 'no-store',
       signal: AbortSignal.timeout(3000),
     });
     return res.ok;
@@ -44,5 +44,5 @@ async function hasValidSession(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/home/:path*", "/admin/:path*"],
+  matcher: ['/', '/home/:path*', '/wallet/:path*', '/inventory/:path*', '/admin/:path*'],
 };

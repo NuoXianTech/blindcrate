@@ -1,45 +1,29 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import { LoaderCircle, Search } from "lucide-react";
-import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useAuth } from "@/components/common/auth/AuthProvider";
-import { Pagination } from "@/components/common/admin/Pagination";
-import { AdminService, type AuditLog, type AuditScope } from "@/lib/services/admin";
-import { toErrorMessage } from "@/lib/services/core";
-import { formatDateTime } from "@/lib/format";
+import {useCallback, useEffect, useState} from 'react';
+import {Search} from 'lucide-react';
+import {toast} from 'sonner';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
+import {useAuth} from '@/components/common/auth';
+import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
+import services from '@/lib/services';
+import type {AuditLog, AuditScope} from '@/lib/services/admin';
+import {toErrorMessage} from '@/lib/services/core';
+import {formatDateTime} from '@/lib/utils';
+import {ACTION_LABELS, ALL, PAGE_SIZE, SCOPE_LABELS} from './constants';
 
-const PAGE_SIZE = 20;
-const ALL = "all";
-
-/** 操作名称, 与后端 internal/audit 的 Action 常量对应 */
-const ACTION_LABELS: Record<string, string> = {
-  "auth.login": "登录",
-  "auth.login_failed": "登录失败",
-  "auth.register": "注册",
-  "auth.logout": "退出登录",
-  "auth.change_password": "修改密码",
-  "auth.verify_email": "绑定邮箱",
-  "auth.update_profile": "修改资料",
-  "admin.user_update": "修改用户资料",
-  "admin.user_ban": "封禁用户",
-  "admin.user_unban": "解除封禁",
-  "admin.user_disable": "停用用户",
-  "admin.user_enable": "启用用户",
-};
-
-const SCOPE_LABELS: Record<AuditScope, string> = { user: "用户", admin: "管理员" };
-
-export function AuditLogsManager() {
+/**
+ * 操作日志: 按来源、操作和操作人筛选
+ */
+export function AuditLogsMain() {
   const isAdmin = !!useAuth().user?.is_admin;
   const [scope, setScope] = useState<string>(ALL);
   const [action, setAction] = useState<string>(ALL);
-  const [actorInput, setActorInput] = useState("");
+  const [actorInput, setActorInput] = useState('');
   const [actorID, setActorID] = useState<number | undefined>();
   const [current, setCurrent] = useState(1);
   const [data, setData] = useState<{ total: number; logs: AuditLog[] } | null>(null);
@@ -51,13 +35,13 @@ export function AuditLogsManager() {
     setLoading(true);
     try {
       setData(
-        await AdminService.listAuditLogs({
-          current,
-          size: PAGE_SIZE,
-          scope: scope === ALL ? undefined : (scope as AuditScope),
-          action: action === ALL ? undefined : action,
-          actor_id: actorID,
-        }),
+          await services.admin.listAuditLogs({
+            current,
+            size: PAGE_SIZE,
+            scope: scope === ALL ? undefined : (scope as AuditScope),
+            action: action === ALL ? undefined : action,
+            actor_id: actorID,
+          }),
       );
     } catch (err) {
       toast.error(toErrorMessage(err));
@@ -75,7 +59,7 @@ export function AuditLogsManager() {
     e.preventDefault();
     const value = actorInput.trim();
     if (value && !/^\d+$/.test(value)) {
-      toast.error("操作人 ID 只能填数字");
+      toast.error('操作人 ID 只能填数字');
       return;
     }
     setCurrent(1);
@@ -151,11 +135,7 @@ export function AuditLogsManager() {
           </TableHeader>
           <TableBody>
             {loading && !data ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
-                  <LoaderCircle className="mx-auto size-5 animate-spin text-primary" />
-                </TableCell>
-              </TableRow>
+              <TableSkeleton cols={6} />
             ) : data?.logs.length ? (
               data.logs.map((log) => (
                 <TableRow key={log.id}>
@@ -163,7 +143,7 @@ export function AuditLogsManager() {
                   <TableCell>
                     {log.actor_id ? (
                       <span>
-                        {log.actor_username || "已删除"}
+                        {log.actor_username || '已删除'}
                         <span className="ml-1 text-xs text-muted-foreground">#{log.actor_id}</span>
                       </span>
                     ) : (
@@ -172,14 +152,14 @@ export function AuditLogsManager() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Badge variant={log.scope === "admin" ? "default" : "secondary"}>{SCOPE_LABELS[log.scope]}</Badge>
-                      <span className={log.action === "auth.login_failed" ? "text-destructive" : undefined}>
+                      <Badge variant={log.scope === 'admin' ? 'default' : 'secondary'}>{SCOPE_LABELS[log.scope]}</Badge>
+                      <span className={log.action === 'auth.login_failed' ? 'text-destructive' : undefined}>
                         {ACTION_LABELS[log.action] ?? log.action}
                       </span>
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {log.target_type ? `${log.target_type} #${log.target_id}` : "-"}
+                    {log.target_type ? `${log.target_type} #${log.target_id}` : '-'}
                   </TableCell>
                   <TableCell className="max-w-64">
                     {log.detail && Object.keys(log.detail).length > 0 ? (
@@ -191,16 +171,12 @@ export function AuditLogsManager() {
                     )}
                   </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground" title={log.user_agent}>
-                    {log.ip || "-"}
+                    {log.ip || '-'}
                   </TableCell>
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  没有日志
-                </TableCell>
-              </TableRow>
+              <TableEmpty colSpan={6}>没有日志</TableEmpty>
             )}
           </TableBody>
         </Table>

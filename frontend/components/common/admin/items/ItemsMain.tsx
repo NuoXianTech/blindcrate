@@ -1,0 +1,194 @@
+'use client';
+
+import {useCallback, useEffect, useState} from 'react';
+import {Plus, Search} from 'lucide-react';
+import {toast} from 'sonner';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
+import {Table, TableBody, TableHead, TableHeader, TableRow} from '@/components/ui/table';
+import {useAuth} from '@/components/common/auth';
+import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
+import services from '@/lib/services';
+import type {AdminItem, Currency} from '@/lib/services/admin';
+import {toErrorMessage} from '@/lib/services/core';
+import {QUALITIES} from '@/lib/quality';
+import {DeleteItemDialog} from './DeleteItemDialog';
+import {ItemDialog} from './ItemDialog';
+import {ItemRow} from './ItemRow';
+import {PAGE_SIZE, STATUS_FILTERS, toRequest, type StatusFilter} from './constants';
+
+/**
+ * 物品管理: 搜索、品质和状态筛选, 新建、编辑、上下架、删除
+ */
+export function ItemsMain() {
+  const {user: me} = useAuth();
+  const isAdmin = !!me?.is_admin;
+  const [keywordInput, setKeywordInput] = useState('');
+  const [keyword, setKeyword] = useState('');
+  const [quality, setQuality] = useState('all');
+  const [status, setStatus] = useState<StatusFilter>('all');
+  const [current, setCurrent] = useState(1);
+  const [data, setData] = useState<{ total: number; items: AdminItem[] } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
+
+  // null: 关闭; "new": 新建; 物品: 编辑
+  const [editing, setEditing] = useState<AdminItem | 'new' | null>(null);
+  const [deleting, setDeleting] = useState<AdminItem | null>(null);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    services.admin.listCurrencies()
+        .then((data) => setCurrencies(data.currencies))
+        .catch((err) => toast.error(toErrorMessage(err)));
+  }, [isAdmin]);
+
+  const load = useCallback(async () => {
+    // 确认是管理员后再拉取, 否则 AdminGuard 会跳走
+    if (!isAdmin) return;
+    setLoading(true);
+    try {
+      setData(
+          await services.admin.listItems({
+            current,
+            size: PAGE_SIZE,
+            keyword: keyword || undefined,
+            quality: quality === 'all' ? undefined : Number(quality),
+            is_enabled: status === 'all' ? undefined : status === 'enabled',
+          }),
+      );
+    } catch (err) {
+      toast.error(toErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [current, keyword, quality, status, isAdmin]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 筛选条件变化时重新拉取
+    void load();
+  }, [load]);
+
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setCurrent(1);
+    setKeyword(keywordInput.trim());
+  };
+
+  // 上下架也走修改接口, 需提交全部字段
+  const toggleEnabled = async (item: AdminItem) => {
+    try {
+      await services.admin.updateItem(item.id, {...toRequest(item), is_enabled: !item.is_enabled});
+      toast.success(item.is_enabled ? `已下架 ${item.name}` : `已上架 ${item.name}`);
+      await load();
+    } catch (err) {
+      toast.error(toErrorMessage(err));
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold">物品管理</h1>
+        <Button onClick={() => setEditing('new')}>
+          <Plus />
+          新建物品
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <form onSubmit={handleSearch} className="flex flex-1 gap-2">
+          <Input
+            placeholder="物品名称"
+            value={keywordInput}
+            onChange={(e) => setKeywordInput(e.target.value)}
+            className="sm:max-w-xs"
+          />
+          <Button type="submit" variant="secondary">
+            <Search />
+            搜索
+          </Button>
+        </form>
+        <Select
+          value={quality}
+          onValueChange={(value) => {
+            setCurrent(1);
+            setQuality(value);
+          }}
+        >
+          <SelectTrigger className="sm:w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部品质</SelectItem>
+            {QUALITIES.map((q) => (
+              <SelectItem key={q.value} value={String(q.value)}>
+                <span className={q.text}>{q.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={status}
+          onValueChange={(value) => {
+            setCurrent(1);
+            setStatus(value as StatusFilter);
+          }}
+        >
+          <SelectTrigger className="sm:w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_FILTERS.map((f) => (
+              <SelectItem key={f.value} value={f.value}>
+                {f.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="rounded-xl border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>物品</TableHead>
+              <TableHead>品质</TableHead>
+              <TableHead className="text-right">回收价</TableHead>
+              <TableHead className="text-right">掉落权重</TableHead>
+              <TableHead>尺寸</TableHead>
+              <TableHead className="text-right">持有人数</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead>更新时间</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading && !data ? (
+              <TableSkeleton cols={9} />
+            ) : data?.items.length ? (
+              data.items.map((item) => (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  currency={currencies.find((c) => c.code === item.sell_currency)}
+                  onEdit={() => setEditing(item)}
+                  onToggle={() => toggleEnabled(item)}
+                  onDelete={() => setDeleting(item)}
+                />
+              ))
+            ) : (
+              <TableEmpty colSpan={9}>没有找到物品</TableEmpty>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Pagination current={current} size={PAGE_SIZE} total={data?.total ?? 0} onChange={setCurrent} />
+
+      <ItemDialog item={editing} currencies={currencies} onClose={() => setEditing(null)} onSaved={load} />
+      <DeleteItemDialog item={deleting} onClose={() => setDeleting(null)} onSaved={load} />
+    </div>
+  );
+}

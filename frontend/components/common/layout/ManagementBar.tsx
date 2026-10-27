@@ -1,22 +1,21 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
-import { Gamepad2, LogOut, Palette, ScrollText, Users } from "lucide-react";
-import { toast } from "sonner";
-import { FloatingDock, type DockEntry } from "@/components/ui/floating-dock";
-import { useAuth } from "@/components/common/auth/AuthProvider";
-import { ProfileDialog } from "@/components/common/user/ProfileDialog";
-import { UserAvatar } from "@/components/common/user/UserAvatar";
-import { ROUTES } from "@/lib/access";
-import { THEMES } from "@/lib/themes";
+import {useState} from 'react';
+import {usePathname} from 'next/navigation';
+import {useTheme} from 'next-themes';
+import {Backpack, Gamepad2, LogOut, Package, Palette, ReceiptText, ScrollText, Settings, Users, Wallet} from 'lucide-react';
+import {toast} from 'sonner';
+import {FloatingDock, type DockEntry} from '@/components/ui/floating-dock';
+import {useAuth} from '@/components/common/auth';
+import {ProfileDialog, UserAvatar} from '@/components/common/user';
+import {ROUTES} from '@/lib/access';
+import {THEMES} from '@/lib/themes';
 
 /** 底部悬浮导航: 桌面端居中, 移动端右下角 */
 export function ManagementBar() {
   const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const {theme, setTheme} = useTheme();
+  const {user, logout} = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
 
   const cycleTheme = () => {
@@ -29,32 +28,39 @@ export function ManagementBar() {
     try {
       await logout();
     } catch {
-      toast.error("退出登录失败, 请稍后再试");
+      toast.error('退出登录失败, 请稍后再试');
     }
   };
 
-  const items: DockEntry[] = [{ title: "大厅", icon: <Gamepad2 />, href: ROUTES.gameHome, active: pathname === ROUTES.gameHome }];
+  const items: DockEntry[] = [
+    {title: '大厅', icon: <Gamepad2 />, href: ROUTES.gameHome, active: pathname === ROUTES.gameHome},
+    {title: '背包', icon: <Backpack />, href: ROUTES.inventory, active: pathname.startsWith(ROUTES.inventory)},
+    {title: '钱包', icon: <Wallet />, href: ROUTES.wallet, active: pathname.startsWith(ROUTES.wallet)},
+  ];
 
   // 管理区域, 单独一组
   if (user?.is_admin) {
     items.push(
-      null,
-      { title: "用户管理", icon: <Users />, href: ROUTES.adminUsers, active: pathname.startsWith(ROUTES.adminUsers) },
-      { title: "操作日志", icon: <ScrollText />, href: ROUTES.adminAuditLogs, active: pathname.startsWith(ROUTES.adminAuditLogs) },
+        null,
+        {title: '用户管理', icon: <Users />, href: ROUTES.adminUsers, active: pathname.startsWith(ROUTES.adminUsers)},
+        {title: '物品管理', icon: <Package />, href: ROUTES.adminItems, active: pathname.startsWith(ROUTES.adminItems)},
+        {title: '流水查询', icon: <ReceiptText />, href: ROUTES.adminTransactions, active: pathname.startsWith(ROUTES.adminTransactions)},
+        {title: '操作日志', icon: <ScrollText />, href: ROUTES.adminAuditLogs, active: pathname.startsWith(ROUTES.adminAuditLogs)},
+        {title: '系统设置', icon: <Settings />, href: ROUTES.adminSettings, active: pathname.startsWith(ROUTES.adminSettings)},
     );
   }
 
   // 个人区域: 只有一个主题时不显示切换
   const personal: DockEntry[] = [];
-  if (THEMES.length > 1) personal.push({ title: "切换主题", icon: <Palette />, onClick: cycleTheme });
+  if (THEMES.length > 1) personal.push({title: '切换主题', icon: <Palette />, onClick: cycleTheme});
   if (user) {
     personal.push(
-      {
-        title: user.nickname,
-        icon: <UserAvatar user={user} className="text-sm" />,
-        onClick: () => setProfileOpen(true),
-      },
-      { title: "退出登录", icon: <LogOut />, onClick: handleLogout },
+        {
+          title: user.nickname,
+          icon: <UserAvatar user={user} className="text-sm" />,
+          onClick: () => setProfileOpen(true),
+        },
+        {title: '退出登录', icon: <LogOut />, onClick: handleLogout},
     );
   }
   if (personal.length) items.push(null, ...personal);

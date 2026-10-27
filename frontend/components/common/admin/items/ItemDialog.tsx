@@ -1,0 +1,229 @@
+'use client';
+
+import {useState} from 'react';
+import {toast} from 'sonner';
+import {Button} from '@/components/ui/button';
+import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
+import {Switch} from '@/components/ui/switch';
+import {Textarea} from '@/components/ui/textarea';
+import {SubmitButton} from '@/components/common/form';
+import {ItemImage} from '@/components/common/item';
+import {CurrencyIcon} from '@/components/common/wallet';
+import {check, useSubmit} from '@/hooks/use-submit';
+import services from '@/lib/services';
+import type {AdminItem, Currency, ItemRequest} from '@/lib/services/admin';
+import {QUALITIES} from '@/lib/quality';
+import {amountInput, parseAmount} from '@/lib/utils';
+import {MAX_SELL_PRICE, MAX_SIZE, MAX_WEIGHT} from './constants';
+
+/**
+ * 物品对话框的Props接口
+ */
+interface ItemDialogProps {
+  /** null: 关闭; "new": 新建; 物品: 编辑 */
+  item: AdminItem | 'new' | null;
+  /** 可选的回收货币 */
+  currencies: Currency[];
+  onClose: () => void;
+  /** 保存成功后刷新列表 */
+  onSaved: () => void;
+}
+
+/**
+ * 新建或编辑物品
+ */
+export function ItemDialog({item, currencies, onClose, onSaved}: ItemDialogProps) {
+  const editing = item && item !== 'new' ? item : null;
+  return (
+    <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{editing ? `编辑 ${editing.name}` : '新建物品'}</DialogTitle>
+          <DialogDescription>
+            {editing ? '修改名称不影响已有记录中的名称' : '上架后可以发放给玩家, 掉落权重大于 0 时参与掉落'}
+          </DialogDescription>
+        </DialogHeader>
+        {/* key 保证切换物品时表单重置 */}
+        {item && <ItemForm key={editing?.id ?? 'new'} item={editing} currencies={currencies} onClose={onClose} onSaved={onSaved} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * 物品表单, item 为 null 时新建
+ */
+function ItemForm({item, currencies, onClose, onSaved}: Omit<ItemDialogProps, 'item'> & { item: AdminItem | null }) {
+  const {pending, submit} = useSubmit();
+  const [name, setName] = useState(item?.name ?? '');
+  const [description, setDescription] = useState(item?.description ?? '');
+  const [quality, setQuality] = useState(String(item?.quality ?? 1));
+  const [imageURL, setImageURL] = useState(item?.image_url ?? '');
+  const [sellCurrency, setSellCurrency] = useState(item?.sell_currency ?? currencies[0]?.code ?? 'chip');
+  const currency = currencies.find((c) => c.code === sellCurrency);
+  const decimals = currency?.decimals ?? 0;
+  const [sellPrice, setSellPrice] = useState(item ? amountInput(item.sell_price, decimals) : '0');
+  const [weight, setWeight] = useState(String(item?.weight ?? 0));
+  const [width, setWidth] = useState(String(item?.width ?? 1));
+  const [height, setHeight] = useState(String(item?.height ?? 1));
+  const [enabled, setEnabled] = useState(item?.is_enabled ?? true);
+
+  const handleSubmit = submit(async () => {
+    const body: ItemRequest = {
+      name: name.trim(),
+      description: description.trim(),
+      quality: Number(quality),
+      image_url: imageURL.trim(),
+      sell_currency: sellCurrency,
+      sell_price: parseAmount(sellPrice, decimals) ?? -1,
+      weight: parseAmount(weight) ?? -1,
+      width: parseAmount(width) ?? 0,
+      height: parseAmount(height) ?? 0,
+      is_enabled: enabled,
+    };
+    check(body.name.length === 0 || [...body.name].length > 64 ? '物品名称需为 1-64 个字符' : null);
+    check([...body.description].length > 255 ? '描述最多 255 个字符' : null);
+    check(body.image_url && !/^https?:\/\/\S+$/.test(body.image_url) ? '图片地址需以 http:// 或 https:// 开头' : null);
+    check(body.sell_price < 0 || body.sell_price > MAX_SELL_PRICE ? '回收价格式不正确' : null);
+    check(body.weight < 0 || body.weight > MAX_WEIGHT ? `掉落权重需为 0-${MAX_WEIGHT} 的整数` : null);
+    check(
+      body.width < 1 || body.width > MAX_SIZE || body.height < 1 || body.height > MAX_SIZE ?
+        `宽和高需为 1-${MAX_SIZE} 的整数` :
+        null,
+    );
+    if (item) {
+      await services.admin.updateItem(item.id, body);
+      toast.success(`已保存 ${body.name}`);
+    } else {
+      await services.admin.createItem(body);
+      toast.success(`已新建 ${body.name}`);
+    }
+    onSaved();
+    onClose();
+  });
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+      <div className="grid grid-cols-[1fr_8rem] gap-3">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="item-name">名称</Label>
+          <Input id="item-name" maxLength={64} value={name} onChange={(e) => setName(e.target.value)} disabled={pending} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label>品质</Label>
+          <Select value={quality} onValueChange={setQuality} disabled={pending}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {QUALITIES.map((q) => (
+                <SelectItem key={q.value} value={String(q.value)}>
+                  <span className={q.text}>{q.label}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="item-description">描述</Label>
+        <Textarea
+          id="item-description"
+          maxLength={255}
+          placeholder="选填, 最多 255 个字符"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          disabled={pending}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="item-image">图片地址</Label>
+        <div className="flex gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background">
+            <ItemImage item={{name: name || '预览', image_url: imageURL.trim()}} />
+          </span>
+          <Input
+            id="item-image"
+            type="url"
+            placeholder="选填, 留空显示默认图标"
+            value={imageURL}
+            onChange={(e) => setImageURL(e.target.value)}
+            disabled={pending}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-[8rem_1fr] gap-3">
+        <div className="flex flex-col gap-2">
+          <Label>回收货币</Label>
+          <Select value={sellCurrency} onValueChange={setSellCurrency} disabled={pending}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {currencies.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  <CurrencyIcon currency={c.code} />
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="item-price">回收价</Label>
+          <Input
+            id="item-price"
+            inputMode={decimals > 0 ? 'decimal' : 'numeric'}
+            placeholder="0 表示不可出售"
+            value={sellPrice}
+            onChange={(e) => setSellPrice(e.target.value)}
+            disabled={pending}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="item-weight">掉落权重</Label>
+          <Input
+            id="item-weight"
+            inputMode="numeric"
+            placeholder="0 表示不掉落"
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+            disabled={pending}
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="item-width">宽(格)</Label>
+          <Input id="item-width" inputMode="numeric" value={width} onChange={(e) => setWidth(e.target.value)} disabled={pending} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="item-height">高(格)</Label>
+          <Input id="item-height" inputMode="numeric" value={height} onChange={(e) => setHeight(e.target.value)} disabled={pending} />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+        <div className="flex flex-col gap-0.5">
+          <Label htmlFor="item-enabled">上架</Label>
+          <span className="text-xs text-muted-foreground">下架后不会掉落, 也不能再发放, 玩家已有的保留</span>
+        </div>
+        <Switch id="item-enabled" checked={enabled} onCheckedChange={setEnabled} disabled={pending} />
+      </div>
+
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
+          取消
+        </Button>
+        <SubmitButton pending={pending}>{item ? '保存' : '新建'}</SubmitButton>
+      </DialogFooter>
+    </form>
+  );
+}

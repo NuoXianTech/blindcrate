@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
-import { AuditLogsManager } from "@/components/common/admin/AuditLogsManager";
+import type {Metadata} from 'next';
+import {AuditLogsMain} from '@/components/common/admin/audit-logs';
 
-export const metadata: Metadata = { title: "操作日志" };
+export const metadata: Metadata = {title: '操作日志'};
 
 export default function AdminAuditLogsPage() {
-  return <AuditLogsManager />;
+  return <AuditLogsMain />;
 }

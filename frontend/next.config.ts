@@ -1,7 +1,7 @@
-import type { NextConfig } from "next";
+import type {NextConfig} from 'next';
 
 // 后端地址只在 Node 侧读取, 不暴露给浏览器
-const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || "http://localhost:8000";
+const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || 'http://localhost:8000';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -12,9 +12,9 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   turbopack: {
     rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
+      '*.css': {
+        loaders: ['@tailwindcss/turbopack'],
+        as: '*.css',
       },
     },
   },
@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: "/api/:path*",
+        source: '/api/:path*',
         destination: `${BACKEND_ORIGIN}/api/:path*`,
       },
     ];
