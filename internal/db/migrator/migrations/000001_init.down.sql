@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS system_settings;
 DROP TABLE IF EXISTS wallet_transactions;
 DROP TABLE IF EXISTS wallet_balances;
 DROP TABLE IF EXISTS currencies;

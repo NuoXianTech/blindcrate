@@ -32,6 +32,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	gomail "github.com/wneessen/go-mail"
@@ -60,11 +61,14 @@ func NormalizeAddress(address string) (string, error) {
 	return strings.ToLower(address), nil
 }
 
-// Send 发送纯文本邮件
+// Send 按后台的邮件设置发送纯文本邮件
 //
 // 未启用邮件时: 开发环境把邮件内容打印到日志便于联调, 其他环境返回 ErrDisabled。
 func Send(ctx context.Context, to, subject, body string) error {
-	mailConfig := config.Config.Mail
+	mailConfig, err := settings.Mail(ctx)
+	if err != nil {
+		return err
+	}
 	if !mailConfig.Enabled {
 		if config.Config.App.Env == "development" {
 			logger.InfoF(ctx, "[Mail] disabled, dump mail to %s\nSubject: %s\n%s", to, subject, body)
@@ -72,9 +76,23 @@ func Send(ctx context.Context, to, subject, body string) error {
 		}
 		return ErrDisabled
 	}
+	return Deliver(ctx, mailConfig, to, subject, body)
+}
 
+// Deliver 按给定的 SMTP 配置发送纯文本邮件, 不检查是否启用, 用于发送测试邮件
+//
+// 发件人名称为空时使用站点名称。
+func Deliver(ctx context.Context, mailConfig *settings.MailSettings, to, subject, body string) error {
+	fromName := mailConfig.FromName
+	if fromName == "" {
+		site, err := settings.Site(ctx)
+		if err != nil {
+			return err
+		}
+		fromName = site.Name
+	}
 	msg := gomail.NewMsg()
-	if err := msg.From(mailConfig.From); err != nil {
+	if err := msg.FromFormat(fromName, mailConfig.FromAddress); err != nil {
 		return fmt.Errorf("set from: %w", err)
 	}
 	if err := msg.To(to); err != nil {

@@ -112,3 +112,13 @@ CREATE INDEX IF NOT EXISTS idx_wallet_transactions_biz ON wallet_transactions (b
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_operator_id ON wallet_transactions (operator_id) WHERE operator_id <> 0;
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_created_at ON wallet_transactions (created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_wallet_transactions_idempotency_key ON wallet_transactions (idempotency_key) WHERE idempotency_key <> '';
+
+-- 系统设置, 一个设置组一行, 未保存过的设置组没有记录, 使用代码中的默认值
+CREATE TABLE IF NOT EXISTS system_settings
+(
+    key        VARCHAR(64) PRIMARY KEY,
+    value      JSONB       NOT NULL DEFAULT '{}', -- 密钥字段为密文
+    updated_by BIGINT      NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

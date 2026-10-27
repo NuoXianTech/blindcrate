@@ -106,6 +106,167 @@
                 }
             }
         },
+        "/api/v1/admin/settings": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ListSettingsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ListSettingsResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ListSettingsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ListSettingsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/settings/mail/test": {
+            "post": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.TestMailRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.TestMailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.TestMailResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.TestMailResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.TestMailResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.TestMailResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.TestMailResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/settings/{key}": {
+            "put": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "setting group key",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.UpdateSettingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.UpdateSettingResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.UpdateSettingResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.UpdateSettingResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.UpdateSettingResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.UpdateSettingResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.UpdateSettingResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/users": {
             "get": {
                 "produces": [
@@ -980,6 +1141,12 @@
                             "$ref": "#/definitions/auth.RegisterResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/auth.RegisterResponse"
+                        }
+                    },
                     "409": {
                         "description": "Conflict",
                         "schema": {
@@ -1095,6 +1262,30 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/health.ReadyResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/settings/public": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/settings.PublicSettingsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/settings.PublicSettingsResponse"
                         }
                     }
                 }
@@ -1369,6 +1560,28 @@
                 }
             }
         },
+        "admin.ListSettingsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/admin.ListSettingsResponseData"
+                },
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "admin.ListSettingsResponseData": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/settings.GroupView"
+                    }
+                }
+            }
+        },
         "admin.ListUserBalancesResponse": {
             "type": "object",
             "properties": {
@@ -1461,10 +1674,62 @@
                 }
             }
         },
+        "admin.TestMailRequest": {
+            "type": "object",
+            "required": [
+                "to"
+            ],
+            "properties": {
+                "to": {
+                    "description": "收件人",
+                    "type": "string"
+                }
+            }
+        },
+        "admin.TestMailResponse": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
         "admin.UnbanUserResponse": {
             "type": "object",
             "properties": {
                 "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "admin.UpdateSettingRequest": {
+            "type": "object",
+            "required": [
+                "value"
+            ],
+            "properties": {
+                "clear_secrets": {
+                    "description": "需要清空的密钥字段",
+                    "type": "array",
+                    "maxItems": 32,
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "value": {
+                    "description": "设置组的字段, 只需提交改动的字段, 没有提交的保持不变, 密钥字段留空表示不修改",
+                    "type": "object"
+                }
+            }
+        },
+        "admin.UpdateSettingResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/settings.GroupView"
+                },
                 "error_msg": {
                     "type": "string"
                 }
@@ -1787,6 +2052,96 @@
             "type": "object",
             "properties": {
                 "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "settings.Field": {
+            "type": "object",
+            "properties": {
+                "help": {
+                    "type": "string"
+                },
+                "input": {
+                    "description": "text / textarea / password / switch / number",
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "public": {
+                    "type": "boolean"
+                },
+                "secret": {
+                    "type": "boolean"
+                },
+                "type": {
+                    "description": "string / bool / int",
+                    "type": "string"
+                }
+            }
+        },
+        "settings.GroupView": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/settings.Field"
+                    }
+                },
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "secrets_broken": {
+                    "description": "无法解密的密钥字段, 需要重新填写或清空才能保存",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "secrets_set": {
+                    "description": "密钥字段是否已设置",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "boolean"
+                    }
+                },
+                "updated_at": {
+                    "description": "未保存过为空",
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "integer"
+                },
+                "value": {
+                    "description": "密钥字段固定为空字符串",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "settings.PublicSettingsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "description": "设置组 -\u003e 字段 -\u003e 值, 只包含公开字段",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": true
+                    }
+                },
                 "error_msg": {
                     "type": "string"
                 }

@@ -27,6 +27,7 @@ package config
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -42,6 +43,8 @@ func init() {
 
 	// 设置配置文件
 	viper.SetConfigFile(configPath)
+	// 环境变量覆盖配置, 如 DATABASE_PASSWORD 覆盖 database.password
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	// 读取配置文件
