@@ -44,7 +44,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/mail"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -176,7 +175,7 @@ func doRegister(ctx context.Context, username, password string) (*User, error) {
 		user.IsAdmin = !hasUser
 
 		if err := tx.Create(&user).Error; err != nil {
-			if isUniqueViolation(err) {
+			if db.IsUniqueViolation(err) {
 				return errors.New(UsernameTaken)
 			}
 			return err
@@ -191,12 +190,6 @@ func doRegister(ctx context.Context, username, password string) (*User, error) {
 		logger.InfoF(ctx, "[Register] first user %d %s registered as admin", user.ID, user.Username)
 	}
 	return &user, nil
-}
-
-// isUniqueViolation 是否为唯一约束冲突
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 // doChangePassword 修改密码, 未设置过密码(仅第三方登录)的用户无需提供原密码
@@ -346,7 +339,7 @@ func doVerifyEmail(ctx context.Context, userID uint64, rawEmail, code string) er
 
 	if err = db.DB(ctx).Model(&User{}).Where("id = ?", userID).
 		Updates(map[string]interface{}{"email": email, "email_verified_at": time.Now()}).Error; err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			return errors.New(EmailTaken)
 		}
 		return err
@@ -430,7 +423,7 @@ func UpdateUserProfile(ctx context.Context, userID uint64, username, nickname, a
 			return nil
 		}
 		if err := tx.Model(&user).Updates(values).Error; err != nil {
-			if isUniqueViolation(err) {
+			if db.IsUniqueViolation(err) {
 				return errors.New(UsernameTaken)
 			}
 			return err

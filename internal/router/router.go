@@ -34,6 +34,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
+	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/gin-contrib/sessions"
@@ -107,6 +108,14 @@ func Serve() {
 			apiV1Router.POST("/auth/email/code", auth.LoginRequired(), auth.SendEmailCode)
 			apiV1Router.POST("/auth/email/verify", auth.LoginRequired(), auth.VerifyEmail)
 
+			// Wallet
+			walletRouter := apiV1Router.Group("/wallet")
+			walletRouter.Use(auth.LoginRequired())
+			{
+				walletRouter.GET("/balances", wallet.ListBalances)
+				walletRouter.GET("/transactions", wallet.ListTransactions)
+			}
+
 			// Admin
 			adminRouter := apiV1Router.Group("/admin")
 			adminRouter.Use(auth.LoginRequired(), admin.LoginAdminRequired())
@@ -119,6 +128,15 @@ func Serve() {
 					userAdminRouter.PUT("/:id/ban", admin.BanUser)
 					userAdminRouter.DELETE("/:id/ban", admin.UnbanUser)
 					userAdminRouter.PUT("/:id/disabled", admin.SetUserDisabled)
+					userAdminRouter.GET("/:id/wallet/balances", admin.ListUserBalances)
+					userAdminRouter.POST("/:id/wallet/adjust", admin.AdjustUserBalance)
+				}
+
+				// Wallet
+				walletAdminRouter := adminRouter.Group("/wallet")
+				{
+					walletAdminRouter.GET("/currencies", admin.ListCurrencies)
+					walletAdminRouter.GET("/transactions", admin.ListWalletTransactions)
 				}
 
 				// Audit Log

@@ -28,12 +28,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/audit"
 	"github.com/NuoXianTech/blindcrate/internal/db"
+	"gorm.io/gorm"
 )
 
 // likeEscaper 转义 LIKE 通配符, 用户名里常见的下划线也是通配符
@@ -164,4 +168,122 @@ func QueryAuditLogs(ctx context.Context, req *ListAuditLogsRequest) (int64, []Au
 	}
 
 	return total, logs, nil
+}
+
+type WalletTransactionItem struct {
+	ID               uint64    `json:"id"`
+	UserID           uint64    `json:"user_id"`
+	Username         string    `json:"username"` // 用户已不存在时为空
+	Currency         string    `json:"currency"`
+	Amount           int64     `json:"amount"`
+	FrozenAmount     int64     `json:"frozen_amount"`
+	BalanceAfter     int64     `json:"balance_after"`
+	FrozenAfter      int64     `json:"frozen_after"`
+	BizType          string    `json:"biz_type"`
+	BizID            string    `json:"biz_id"`
+	IdempotencyKey   string    `json:"idempotency_key"`
+	OperatorID       uint64    `json:"operator_id"`
+	OperatorUsername string    `json:"operator_username"` // 系统操作或用户已不存在时为空
+	Remark           string    `json:"remark"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+// QueryWalletTransactions 获取全部用户的余额流水
+func QueryWalletTransactions(ctx context.Context, req *ListWalletTransactionsRequest) (int64, []WalletTransactionItem, error) {
+	offset := (req.Current - 1) * req.Size
+
+	query := db.DB(ctx).Model(&wallet.Transaction{})
+	if req.UserID != nil {
+		query = query.Where("wallet_transactions.user_id = ?", *req.UserID)
+	}
+	if req.OperatorID != nil {
+		query = query.Where("wallet_transactions.operator_id = ?", *req.OperatorID)
+	}
+	if req.Currency != "" {
+		query = query.Where("wallet_transactions.currency = ?", req.Currency)
+	}
+	if req.BizType != "" {
+		query = query.Where("wallet_transactions.biz_type = ?", req.BizType)
+	}
+	if req.BizID != "" {
+		query = query.Where("wallet_transactions.biz_id = ?", req.BizID)
+	}
+	if req.StartTime != nil {
+		query = query.Where("wallet_transactions.created_at >= ?", *req.StartTime)
+	}
+	if req.EndTime != nil {
+		query = query.Where("wallet_transactions.created_at < ?", *req.EndTime)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return 0, nil, err
+	}
+
+	items := []WalletTransactionItem{}
+	if err := query.
+		Select("wallet_transactions.*, COALESCE(users.username, '') AS username, COALESCE(operators.username, '') AS operator_username").
+		Joins("LEFT JOIN users ON users.id = wallet_transactions.user_id").
+		Joins("LEFT JOIN users AS operators ON operators.id = wallet_transactions.operator_id").
+		Order("wallet_transactions.id DESC").Offset(offset).Limit(req.Size).
+		Scan(&items).Error; err != nil {
+		return 0, nil, err
+	}
+
+	return total, items, nil
+}
+
+// queryUserBalances 获取指定用户的各货币余额(含已停用货币)
+func queryUserBalances(ctx context.Context, userID uint64) ([]wallet.BalanceItem, error) {
+	var user auth.User
+	if err := user.Exact(db.DB(ctx), userID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New(auth.UserNotFound)
+		}
+		return nil, err
+	}
+	return wallet.QueryBalances(ctx, userID, true)
+}
+
+// doAdjustUserBalance 管理员给其他用户调账, 不允许给自己调账
+//
+// 幂等键由前端在每次打开调账表单时生成, 防止重复点击导致重复入账。
+func doAdjustUserBalance(ctx context.Context, operatorID, userID uint64, req *AdjustUserBalanceRequest) (*wallet.Transaction, bool, error) {
+	if operatorID == userID {
+		return nil, false, errors.New(CannotOperateSelf)
+	}
+	remark := strings.TrimSpace(req.Remark)
+	if n := utf8.RuneCountInString(remark); n < 1 || n > 255 || strings.ContainsRune(remark, 0) {
+		return nil, false, errors.New(RemarkInvalid)
+	}
+
+	var (
+		txn      *wallet.Transaction
+		replayed bool
+	)
+	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		var user auth.User
+		if err := user.Exact(tx, userID); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New(auth.UserNotFound)
+			}
+			return err
+		}
+
+		var err error
+		txn, replayed, err = wallet.Change(tx, &wallet.ChangeRequest{
+			UserID:         userID,
+			Currency:       req.Currency,
+			Amount:         req.Amount,
+			BizType:        wallet.BizAdminAdjust,
+			IdempotencyKey: fmt.Sprintf("%s:%d:%s", wallet.BizAdminAdjust, operatorID, req.IdempotencyKey),
+			OperatorID:     operatorID,
+			Remark:         remark,
+		})
+		return err
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	return txn, replayed, nil
 }

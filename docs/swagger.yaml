@@ -1,4 +1,32 @@
 definitions:
+  admin.AdjustUserBalanceRequest:
+    properties:
+      amount:
+        description: 正数加款, 负数扣款, 扣款后余额不能为负
+        type: integer
+      currency:
+        maxLength: 32
+        type: string
+      idempotency_key:
+        description: 每次打开调账表单生成一个, 重复提交只生效一次
+        maxLength: 64
+        type: string
+      remark:
+        description: 调账原因, 用户可在流水中看到
+        type: string
+    required:
+    - amount
+    - currency
+    - idempotency_key
+    - remark
+    type: object
+  admin.AdjustUserBalanceResponse:
+    properties:
+      data:
+        $ref: '#/definitions/wallet.Transaction'
+      error_msg:
+        type: string
+    type: object
   admin.AuditLogItem:
     properties:
       action:
@@ -58,6 +86,34 @@ definitions:
       total:
         type: integer
     type: object
+  admin.ListCurrenciesResponse:
+    properties:
+      data:
+        $ref: '#/definitions/admin.ListCurrenciesResponseData'
+      error_msg:
+        type: string
+    type: object
+  admin.ListCurrenciesResponseData:
+    properties:
+      currencies:
+        items:
+          $ref: '#/definitions/wallet.Currency'
+        type: array
+    type: object
+  admin.ListUserBalancesResponse:
+    properties:
+      data:
+        $ref: '#/definitions/admin.ListUserBalancesResponseData'
+      error_msg:
+        type: string
+    type: object
+  admin.ListUserBalancesResponseData:
+    properties:
+      balances:
+        items:
+          $ref: '#/definitions/wallet.BalanceItem'
+        type: array
+    type: object
   admin.ListUsersResponse:
     properties:
       data:
@@ -72,6 +128,22 @@ definitions:
       users:
         items:
           $ref: '#/definitions/auth.User'
+        type: array
+    type: object
+  admin.ListWalletTransactionsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/admin.ListWalletTransactionsResponseData'
+      error_msg:
+        type: string
+    type: object
+  admin.ListWalletTransactionsResponseData:
+    properties:
+      total:
+        type: integer
+      transactions:
+        items:
+          $ref: '#/definitions/admin.WalletTransactionItem'
         type: array
     type: object
   admin.SetUserDisabledRequest:
@@ -109,6 +181,41 @@ definitions:
     properties:
       data: {}
       error_msg:
+        type: string
+    type: object
+  admin.WalletTransactionItem:
+    properties:
+      amount:
+        type: integer
+      balance_after:
+        type: integer
+      biz_id:
+        type: string
+      biz_type:
+        type: string
+      created_at:
+        type: string
+      currency:
+        type: string
+      frozen_after:
+        type: integer
+      frozen_amount:
+        type: integer
+      id:
+        type: integer
+      idempotency_key:
+        type: string
+      operator_id:
+        type: integer
+      operator_username:
+        description: 系统操作或用户已不存在时为空
+        type: string
+      remark:
+        type: string
+      user_id:
+        type: integer
+      username:
+        description: 用户已不存在时为空
         type: string
     type: object
   auth.BasicUserInfo:
@@ -271,6 +378,121 @@ definitions:
     properties:
       data: {}
       error_msg:
+        type: string
+    type: object
+  wallet.BalanceItem:
+    properties:
+      balance:
+        type: integer
+      currency:
+        type: string
+      decimals:
+        type: integer
+      frozen:
+        type: integer
+      is_enabled:
+        type: boolean
+      name:
+        type: string
+    type: object
+  wallet.Currency:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      decimals:
+        description: 展示用小数位, 金额统一按最小单位的整数存储
+        type: integer
+      is_enabled:
+        type: boolean
+      name:
+        type: string
+      sort_order:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  wallet.ListBalancesResponse:
+    properties:
+      data:
+        $ref: '#/definitions/wallet.ListBalancesResponseData'
+      error_msg:
+        type: string
+    type: object
+  wallet.ListBalancesResponseData:
+    properties:
+      balances:
+        items:
+          $ref: '#/definitions/wallet.BalanceItem'
+        type: array
+    type: object
+  wallet.ListTransactionsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/wallet.ListTransactionsResponseData'
+      error_msg:
+        type: string
+    type: object
+  wallet.ListTransactionsResponseData:
+    properties:
+      total:
+        type: integer
+      transactions:
+        items:
+          $ref: '#/definitions/wallet.TransactionItem'
+        type: array
+    type: object
+  wallet.Transaction:
+    properties:
+      amount:
+        type: integer
+      balance_after:
+        type: integer
+      biz_id:
+        type: string
+      biz_type:
+        type: string
+      created_at:
+        type: string
+      currency:
+        type: string
+      frozen_after:
+        type: integer
+      frozen_amount:
+        type: integer
+      id:
+        type: integer
+      idempotency_key:
+        type: string
+      operator_id:
+        type: integer
+      remark:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  wallet.TransactionItem:
+    properties:
+      amount:
+        type: integer
+      balance_after:
+        type: integer
+      biz_id:
+        type: string
+      biz_type:
+        type: string
+      created_at:
+        type: string
+      currency:
+        type: string
+      frozen_after:
+        type: integer
+      frozen_amount:
+        type: integer
+      id:
+        type: integer
+      remark:
         type: string
     type: object
 info:
@@ -563,6 +785,176 @@ paths:
             $ref: '#/definitions/admin.SetUserDisabledResponse'
       tags:
       - admin
+  /api/v1/admin/users/{id}/wallet/adjust:
+    post:
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.AdjustUserBalanceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.AdjustUserBalanceResponse'
+      tags:
+      - admin
+  /api/v1/admin/users/{id}/wallet/balances:
+    get:
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ListUserBalancesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ListUserBalancesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ListUserBalancesResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ListUserBalancesResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ListUserBalancesResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ListUserBalancesResponse'
+      tags:
+      - admin
+  /api/v1/admin/wallet/currencies:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ListCurrenciesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ListCurrenciesResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ListCurrenciesResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ListCurrenciesResponse'
+      tags:
+      - admin
+  /api/v1/admin/wallet/transactions:
+    get:
+      parameters:
+      - in: query
+        maxLength: 64
+        name: biz_id
+        type: string
+      - in: query
+        maxLength: 32
+        name: biz_type
+        type: string
+      - in: query
+        maxLength: 32
+        name: currency
+        type: string
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: RFC3339, 不包含
+        in: query
+        name: end_time
+        type: string
+      - in: query
+        name: operator_id
+        type: integer
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - description: RFC3339, 包含
+        in: query
+        name: start_time
+        type: string
+      - in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ListWalletTransactionsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ListWalletTransactionsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ListWalletTransactionsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ListWalletTransactionsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ListWalletTransactionsResponse'
+      tags:
+      - admin
   /api/v1/auth/email/code:
     post:
       parameters:
@@ -814,4 +1206,80 @@ paths:
             $ref: '#/definitions/health.ReadyResponse'
       tags:
       - health
+  /api/v1/wallet/balances:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wallet.ListBalancesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wallet.ListBalancesResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wallet.ListBalancesResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wallet.ListBalancesResponse'
+      tags:
+      - wallet
+  /api/v1/wallet/transactions:
+    get:
+      parameters:
+      - in: query
+        maxLength: 32
+        name: biz_type
+        type: string
+      - in: query
+        maxLength: 32
+        name: currency
+        type: string
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: RFC3339, 不包含
+        in: query
+        name: end_time
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - description: RFC3339, 包含
+        in: query
+        name: start_time
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wallet.ListTransactionsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wallet.ListTransactionsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wallet.ListTransactionsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wallet.ListTransactionsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wallet.ListTransactionsResponse'
+      tags:
+      - wallet
 swagger: "2.0"

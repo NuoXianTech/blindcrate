@@ -61,6 +61,7 @@ const (
 	ActionUserUnban      = "admin.user_unban"
 	ActionUserDisable    = "admin.user_disable"
 	ActionUserEnable     = "admin.user_enable"
+	ActionWalletAdjust   = "admin.wallet_adjust"
 )
 
 type Log struct {
@@ -73,7 +74,7 @@ type Log struct {
 	Detail     string    `json:"detail" gorm:"type:jsonb;not null;default:'{}'"`
 	IP         string    `json:"ip" gorm:"size:64;not null;default:''"`
 	UserAgent  string    `json:"user_agent" gorm:"size:512;not null;default:''"`
-	CreatedAt  time.Time `json:"created_at" gorm:"not null;autoCreateTime;index;index:idx_audit_logs_actor_id_created_at,priority:2;index:idx_audit_logs_action_created_at,priority:2;index:idx_audit_logs_target,priority:3"`
+	CreatedAt  time.Time `json:"created_at" gorm:"not null;default:now();autoCreateTime;index;index:idx_audit_logs_actor_id_created_at,priority:2;index:idx_audit_logs_action_created_at,priority:2;index:idx_audit_logs_target,priority:3"`
 }
 
 func (l *Log) TableName() string {

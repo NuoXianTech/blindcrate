@@ -56,3 +56,59 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_id_created_at ON audit_logs (act
 CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs (target_type, target_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created_at ON audit_logs (action, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at);
+
+-- 货币定义, 新增货币只需插入一行
+CREATE TABLE IF NOT EXISTS currencies
+(
+    code       VARCHAR(32) PRIMARY KEY,               -- 货币代码, 如 chip / gold
+    name       VARCHAR(32) NOT NULL,
+    decimals   SMALLINT    NOT NULL DEFAULT 0,        -- 展示用小数位, 金额统一按最小单位的整数存储
+    sort_order INTEGER     NOT NULL DEFAULT 0,
+    is_enabled BOOLEAN     NOT NULL DEFAULT TRUE,     -- 停用后不能再变动余额, 已有余额保留
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO currencies (code, name, decimals, sort_order)
+VALUES ('chip', '筹码', 0, 10), -- 基础货币
+       ('gold', '金条', 0, 20)  -- 珍贵货币
+ON CONFLICT (code) DO NOTHING;
+
+-- 用户余额, 每个用户每种货币一行, 首次入账时创建
+CREATE TABLE IF NOT EXISTS wallet_balances
+(
+    user_id    BIGINT      NOT NULL,
+    currency   VARCHAR(32) NOT NULL,
+    balance    BIGINT      NOT NULL DEFAULT 0, -- 可用余额
+    frozen     BIGINT      NOT NULL DEFAULT 0, -- 冻结余额(如竞拍押金), 不计入可用
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, currency),
+    CONSTRAINT chk_wallet_balances_balance CHECK (balance >= 0),
+    CONSTRAINT chk_wallet_balances_frozen CHECK (frozen >= 0)
+);
+
+-- 余额流水, 只追加不修改; 每次余额变动对应一行
+CREATE TABLE IF NOT EXISTS wallet_transactions
+(
+    id              BIGSERIAL PRIMARY KEY,
+    user_id         BIGINT       NOT NULL,
+    currency        VARCHAR(32)  NOT NULL,
+    amount          BIGINT       NOT NULL DEFAULT 0,  -- 可用余额变动, 正数入账, 负数出账
+    frozen_amount   BIGINT       NOT NULL DEFAULT 0,  -- 冻结余额变动
+    balance_after   BIGINT       NOT NULL,            -- 变动后可用余额
+    frozen_after    BIGINT       NOT NULL,            -- 变动后冻结余额
+    biz_type        VARCHAR(32)  NOT NULL,            -- 业务类型, 如 admin_adjust
+    biz_id          VARCHAR(64)  NOT NULL DEFAULT '', -- 业务单号, 如保险柜 ID
+    idempotency_key VARCHAR(128) NOT NULL DEFAULT '', -- 幂等键, 非空时全局唯一
+    operator_id     BIGINT       NOT NULL DEFAULT 0,  -- 操作人, 0 表示系统
+    remark          VARCHAR(255) NOT NULL DEFAULT '',
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_wallet_transactions_nonzero CHECK (amount <> 0 OR frozen_amount <> 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_transactions_user_currency ON wallet_transactions (user_id, currency, id);
+CREATE INDEX IF NOT EXISTS idx_wallet_transactions_biz ON wallet_transactions (biz_type, biz_id);
+CREATE INDEX IF NOT EXISTS idx_wallet_transactions_operator_id ON wallet_transactions (operator_id) WHERE operator_id <> 0;
+CREATE INDEX IF NOT EXISTS idx_wallet_transactions_created_at ON wallet_transactions (created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_wallet_transactions_idempotency_key ON wallet_transactions (idempotency_key) WHERE idempotency_key <> '';
