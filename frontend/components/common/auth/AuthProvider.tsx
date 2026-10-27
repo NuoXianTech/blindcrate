@@ -2,9 +2,10 @@
 
 import {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
 import {usePathname, useRouter} from 'next/navigation';
+import {toast} from 'sonner';
 import services from '@/lib/services';
 import type {UserInfo} from '@/lib/services/auth';
-import {ApiError, UNAUTHORIZED_EVENT} from '@/lib/services/core';
+import {ApiError, UNAUTHORIZED_EVENT, wsClient} from '@/lib/services/core';
 import {ROUTES, loginHref, requiresAuth} from '@/lib/access';
 
 interface AuthContextValue {
@@ -23,8 +24,8 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 /**
- * 全局登录状态: 启动时获取一次当前用户
- * 任意接口返回 401 时清空用户, 当前页面需要登录则跳去登录页(规则见 lib/access.ts)
+ * 全局登录状态: 启动时获取一次当前用户, 登录期间保持 WebSocket 连接
+ * 任意接口返回 401 或 WebSocket 登录失效时清空用户, 当前页面需要登录则跳去登录页(规则见 lib/access.ts)
  */
 export function AuthProvider({children}: { children: React.ReactNode }) {
   const router = useRouter();
@@ -55,13 +56,23 @@ export function AuthProvider({children}: { children: React.ReactNode }) {
   }, [refresh]);
 
   useEffect(() => {
-    const onUnauthorized = () => {
+    const onUnauthorized = (e: Event) => {
+      // WebSocket 被服务端断开时带有原因, 如被强制下线
+      if (e instanceof CustomEvent && e.detail) toast.error(e.detail);
       setUser(null);
       if (requiresAuth(pathname)) router.replace(loginHref(pathname));
     };
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, [pathname, router]);
+
+  // 登录后保持 WebSocket 连接, 退出登录或登录失效时断开
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId) return;
+    wsClient.connect();
+    return () => wsClient.disconnect();
+  }, [userId]);
 
   const value = useMemo(() => ({user, loading, setUser, refresh, logout}), [user, loading, refresh, logout]);
 
