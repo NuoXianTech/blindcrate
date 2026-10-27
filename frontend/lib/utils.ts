@@ -29,7 +29,8 @@ export function formatAmount(amount: number, decimals = 0, {signed = false, comp
 /** 把输入的金额转成最小单位的整数, 格式不对或小数位超出时返回 null; 用于表单 */
 export function parseAmount(input: string, decimals = 0): number | null {
   const value = input.trim();
-  if (!new RegExp(decimals > 0 ? `^-?\d+(\.\d{1,${decimals}})?$` : '^-?\d+$').test(value)) return null;
+  const match = /^-?\d+(?:\.(\d+))?$/.exec(value);
+  if (!match || (match[1]?.length ?? 0) > decimals) return null;
   return Math.round(Number(value) * 10 ** decimals);
 }
 
