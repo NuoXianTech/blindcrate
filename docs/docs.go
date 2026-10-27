@@ -2669,6 +2669,44 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/v1/ws": {
+            "get": {
+                "description": "消息为 JSON 文本 {type, id, error_msg, data}, 每 15 秒 ping 一次; 关闭码 4001 表示登录已失效或被强制下线, 不要重连; 4029 表示连接数过多",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ws"
+                ],
+                "summary": "建立 WebSocket 连接",
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ws.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ws.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ws.Response"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -3960,6 +3998,15 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "remark": {
+                    "type": "string"
+                }
+            }
+        },
+        "ws.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
                     "type": "string"
                 }
             }

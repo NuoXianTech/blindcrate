@@ -204,6 +204,17 @@ func RevokeUserSessions(ctx context.Context, userID uint64, keepSessionID string
 	return err
 }
 
+// IsSessionActive session 是否仍然有效: 没有过期, 也没有因登出、改密码、封禁或停用被移除
+func IsSessionActive(ctx context.Context, userID uint64, sessionID string) (bool, error) {
+	pipe := db.Redis.Pipeline()
+	tracked := pipe.SIsMember(ctx, userSessionsKey(userID), sessionID)
+	exists := pipe.Exists(ctx, sessionKeyPrefix+sessionID)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return false, err
+	}
+	return tracked.Val() && exists.Val() > 0, nil
+}
+
 // doSendEmailCode 向待绑定的邮箱发送验证码
 //
 // 邮箱在验证通过前只暂存在 Redis, 不写入 users 表,

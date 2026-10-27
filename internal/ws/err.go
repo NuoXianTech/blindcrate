@@ -22,19 +22,13 @@
  * SOFTWARE.
  */
 
-// Package ws 提供 WebSocket 能力，底层使用 github.com/coder/websocket。
-//
-// 目前只保留依赖占位，等实时对战（竞拍阶段推进、出价广播）开始实现时在这里补上
-// 连接管理、心跳与事件分发。
 package ws
 
-import (
-	"net/http"
-
-	"github.com/coder/websocket"
+const (
+	MessageInvalid     = "消息格式不正确"
+	MessageTypeUnknown = "不支持的消息类型"
+	BinaryUnsupported  = "只支持文本消息"
+	TooManyConnections = "连接数过多, 请关闭其他页面后重试"
+	SessionExpired     = "登录已失效, 请重新登录"
+	ForcedOffline      = "已被强制下线"
 )
-
-// Accept 接受一个 WebSocket 连接。
-func Accept(w http.ResponseWriter, r *http.Request, opts *websocket.AcceptOptions) (*websocket.Conn, error) {
-	return websocket.Accept(w, r, opts)
-}
