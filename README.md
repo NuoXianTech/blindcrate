@@ -119,7 +119,7 @@ pnpm dev
 ### 6. 访问应用
 
 - **前端界面**: http://localhost:3000
-- **API 文档**: http://localhost:8000/swagger/index.html
+- **API 文档**: http://localhost:8000/api/swagger/index.html
 - **健康检查**: http://localhost:8000/api/v1/health
 - **就绪检查**: http://localhost:8000/api/v1/ready
 
@@ -130,6 +130,8 @@ pnpm dev
 | 配置项 | 说明 | 示例 |
 |--------|------|------|
 | `app.addr` | 后端服务监听地址 | `:8000` |
+| `database.host` | PostgreSQL 数据库地址 | `127.0.0.1` |
+| `redis.host` | Redis 服务器地址 | `127.0.0.1` |
 
 详细配置说明请参考 `config.example.yaml` 文件。
 
@@ -178,7 +180,7 @@ pnpm format
 API 文档通过 Swagger 自动生成，启动后端服务后可访问：
 
 ```
-http://localhost:8000/swagger/index.html
+http://localhost:8000/api/swagger/index.html
 ```
 
 ### 主要 API 端点

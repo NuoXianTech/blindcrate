@@ -34,12 +34,15 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
+	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/audit"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/mail"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // likeEscaper 转义 LIKE 通配符, 用户名里常见的下划线也是通配符
@@ -254,16 +257,16 @@ func doAdjustUserBalance(ctx context.Context, operatorID, userID uint64, req *Ad
 	if operatorID == userID {
 		return nil, false, errors.New(CannotOperateSelf)
 	}
-	remark := strings.TrimSpace(req.Remark)
-	if n := utf8.RuneCountInString(remark); n < 1 || n > 255 || strings.ContainsRune(remark, 0) {
-		return nil, false, errors.New(RemarkInvalid)
+	remark, err := normalizeRemark(req.Remark)
+	if err != nil {
+		return nil, false, err
 	}
 
 	var (
 		txn      *wallet.Transaction
 		replayed bool
 	)
-	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		var user auth.User
 		if err := user.Exact(tx, userID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -288,6 +291,305 @@ func doAdjustUserBalance(ctx context.Context, operatorID, userID uint64, req *Ad
 		return nil, false, err
 	}
 	return txn, replayed, nil
+}
+
+// normalizeRemark 去除首尾空白并校验调整备注, 用户可在流水中看到
+func normalizeRemark(remark string) (string, error) {
+	remark = strings.TrimSpace(remark)
+	if n := utf8.RuneCountInString(remark); n < 1 || n > 255 || strings.ContainsRune(remark, 0) {
+		return "", errors.New(RemarkInvalid)
+	}
+	return remark, nil
+}
+
+// holderCountSQL 持有某物品(数量大于 0)的用户数
+const holderCountSQL = "SELECT COUNT(*) FROM inventory_items WHERE inventory_items.item_id = items.id AND inventory_items.quantity > 0"
+
+type ItemListItem struct {
+	item.Item
+	HolderCount int64 `json:"holder_count"` // 持有该物品的用户数, 删除前用于提示
+}
+
+// QueryItems 获取未删除的物品列表
+func QueryItems(ctx context.Context, req *ListItemsRequest) (int64, []ItemListItem, error) {
+	offset := (req.Current - 1) * req.Size
+
+	query := db.DB(ctx).Model(&item.Item{})
+	if req.Keyword != "" {
+		query = query.Where("name ILIKE ?", "%"+likeEscaper.Replace(req.Keyword)+"%")
+	}
+	if req.Quality != nil {
+		query = query.Where("quality = ?", *req.Quality)
+	}
+	if req.IsEnabled != nil {
+		query = query.Where("is_enabled = ?", *req.IsEnabled)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return 0, nil, err
+	}
+
+	items := []ItemListItem{}
+	if err := query.Select("items.*, (" + holderCountSQL + ") AS holder_count").
+		Order("id DESC").Offset(offset).Limit(req.Size).
+		Scan(&items).Error; err != nil {
+		return 0, nil, err
+	}
+	return total, items, nil
+}
+
+// doCreateItem 新建物品
+func doCreateItem(ctx context.Context, req *ItemRequest) (*item.Item, error) {
+	target := &item.Item{}
+	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := applyItem(tx, target, req); err != nil {
+			return err
+		}
+		return tx.Create(target).Error
+	})
+	if err != nil {
+		if db.IsUniqueViolation(err) {
+			return nil, errors.New(item.ItemNameTaken)
+		}
+		return nil, err
+	}
+	return target, nil
+}
+
+// doUpdateItem 修改物品, 返回修改后的物品和本次修改的字段, 没有任何字段变化时不写库
+func doUpdateItem(ctx context.Context, itemID uint64, req *ItemRequest) (*item.Item, map[string]interface{}, error) {
+	var (
+		target  item.Item
+		changes map[string]interface{}
+	)
+	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockItem(tx, &target, itemID); err != nil {
+			return err
+		}
+		old := target
+		if err := applyItem(tx, &target, req); err != nil {
+			return err
+		}
+		changes = itemChanges(&old, &target)
+		if len(changes) == 0 {
+			return nil
+		}
+		return tx.Save(&target).Error
+	})
+	if err != nil {
+		if db.IsUniqueViolation(err) {
+			return nil, nil, errors.New(item.ItemNameTaken)
+		}
+		return nil, nil, err
+	}
+	return &target, changes, nil
+}
+
+// doDeleteItem 软删除物品, 返回被删除的物品和当时的持有人数
+//
+// 已持有的玩家背包保留该物品, 之后按占位物品展示和结算; 物品 ID 不会被新物品复用。
+func doDeleteItem(ctx context.Context, itemID uint64) (*item.Item, int64, error) {
+	var (
+		target  item.Item
+		holders int64
+	)
+	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockItem(tx, &target, itemID); err != nil {
+			return err
+		}
+		if err := tx.Model(&inventory.UserItem{}).Where("item_id = ? AND quantity > 0", itemID).Count(&holders).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&target).Error
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	return &target, holders, nil
+}
+
+// lockItem 锁定未删除的物品, 防止并发修改和删除互相覆盖
+func lockItem(tx *gorm.DB, target *item.Item, itemID uint64) error {
+	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), itemID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New(item.ItemNotFound)
+		}
+		return err
+	}
+	return nil
+}
+
+// applyItem 校验请求并写入物品字段, 卖出货币必须存在, 已停用的货币也可以选
+func applyItem(tx *gorm.DB, target *item.Item, req *ItemRequest) error {
+	name := strings.TrimSpace(req.Name)
+	if n := utf8.RuneCountInString(name); n < 1 || n > 64 {
+		return errors.New(item.ItemNameInvalid)
+	}
+	var currency wallet.Currency
+	if err := currency.Exact(tx, req.SellCurrency); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New(wallet.CurrencyNotFound)
+		}
+		return err
+	}
+
+	target.Name = name
+	target.Description = strings.TrimSpace(req.Description)
+	target.Quality = req.Quality
+	target.ImageURL = req.ImageURL
+	target.SellCurrency = req.SellCurrency
+	target.SellPrice = req.SellPrice
+	target.Weight = req.Weight
+	target.Width = req.Width
+	target.Height = req.Height
+	target.IsEnabled = req.IsEnabled
+	return nil
+}
+
+// itemFields 物品可修改的字段, 用于操作日志
+func itemFields(target *item.Item) map[string]interface{} {
+	return map[string]interface{}{
+		"name":          target.Name,
+		"description":   target.Description,
+		"quality":       target.Quality,
+		"image_url":     target.ImageURL,
+		"sell_currency": target.SellCurrency,
+		"sell_price":    target.SellPrice,
+		"weight":        target.Weight,
+		"width":         target.Width,
+		"height":        target.Height,
+		"is_enabled":    target.IsEnabled,
+	}
+}
+
+// itemChanges 本次修改了哪些字段, 用于操作日志
+func itemChanges(old, next *item.Item) map[string]interface{} {
+	changes := map[string]interface{}{}
+	nextFields := itemFields(next)
+	for key, oldValue := range itemFields(old) {
+		if newValue := nextFields[key]; oldValue != newValue {
+			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
+		}
+	}
+	return changes
+}
+
+// queryUserInventory 获取指定用户背包中的物品
+func queryUserInventory(ctx context.Context, userID uint64, req *inventory.ListItemsRequest) (int64, []inventory.UserItemDetail, error) {
+	var user auth.User
+	if err := user.Exact(db.DB(ctx), userID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, nil, errors.New(auth.UserNotFound)
+		}
+		return 0, nil, err
+	}
+	return inventory.QueryUserItems(ctx, userID, req)
+}
+
+// doAdjustUserInventory 管理员给其他用户发放或扣除物品, 不允许给自己调整
+//
+// 幂等键由前端在每次打开表单时生成, 防止重复点击导致重复发放。
+func doAdjustUserInventory(ctx context.Context, operatorID, userID uint64, req *AdjustUserInventoryRequest) (*inventory.Transaction, bool, error) {
+	if operatorID == userID {
+		return nil, false, errors.New(CannotOperateSelf)
+	}
+	remark, err := normalizeRemark(req.Remark)
+	if err != nil {
+		return nil, false, err
+	}
+
+	var (
+		txn      *inventory.Transaction
+		replayed bool
+	)
+	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		var user auth.User
+		if err := user.Exact(tx, userID); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New(auth.UserNotFound)
+			}
+			return err
+		}
+
+		var err error
+		txn, replayed, err = inventory.Change(tx, &inventory.ChangeRequest{
+			UserID:         userID,
+			ItemID:         req.ItemID,
+			Quantity:       req.Quantity,
+			BizType:        inventory.BizAdminAdjust,
+			IdempotencyKey: fmt.Sprintf("%s:%d:%s", inventory.BizAdminAdjust, operatorID, req.IdempotencyKey),
+			OperatorID:     operatorID,
+			Remark:         remark,
+		})
+		return err
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	return txn, replayed, nil
+}
+
+type InventoryTransactionItem struct {
+	ID               uint64    `json:"id"`
+	UserID           uint64    `json:"user_id"`
+	Username         string    `json:"username"` // 用户已不存在时为空
+	ItemID           uint64    `json:"item_id"`
+	ItemName         string    `json:"item_name"`
+	Quantity         int64     `json:"quantity"`
+	QuantityAfter    int64     `json:"quantity_after"`
+	BizType          string    `json:"biz_type"`
+	BizID            string    `json:"biz_id"`
+	IdempotencyKey   string    `json:"idempotency_key"`
+	OperatorID       uint64    `json:"operator_id"`
+	OperatorUsername string    `json:"operator_username"` // 系统操作或用户已不存在时为空
+	Remark           string    `json:"remark"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+// QueryInventoryTransactions 获取全部用户的背包流水
+func QueryInventoryTransactions(ctx context.Context, req *ListInventoryTransactionsRequest) (int64, []InventoryTransactionItem, error) {
+	offset := (req.Current - 1) * req.Size
+
+	query := db.DB(ctx).Model(&inventory.Transaction{})
+	if req.UserID != nil {
+		query = query.Where("inventory_transactions.user_id = ?", *req.UserID)
+	}
+	if req.OperatorID != nil {
+		query = query.Where("inventory_transactions.operator_id = ?", *req.OperatorID)
+	}
+	if req.ItemID != nil {
+		query = query.Where("inventory_transactions.item_id = ?", *req.ItemID)
+	}
+	if req.BizType != "" {
+		query = query.Where("inventory_transactions.biz_type = ?", req.BizType)
+	}
+	if req.BizID != "" {
+		query = query.Where("inventory_transactions.biz_id = ?", req.BizID)
+	}
+	if req.StartTime != nil {
+		query = query.Where("inventory_transactions.created_at >= ?", *req.StartTime)
+	}
+	if req.EndTime != nil {
+		query = query.Where("inventory_transactions.created_at < ?", *req.EndTime)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return 0, nil, err
+	}
+
+	items := []InventoryTransactionItem{}
+	if err := query.
+		Select("inventory_transactions.*, COALESCE(users.username, '') AS username, COALESCE(operators.username, '') AS operator_username").
+		Joins("LEFT JOIN users ON users.id = inventory_transactions.user_id").
+		Joins("LEFT JOIN users AS operators ON operators.id = inventory_transactions.operator_id").
+		Order("inventory_transactions.id DESC").Offset(offset).Limit(req.Size).
+		Scan(&items).Error; err != nil {
+		return 0, nil, err
+	}
+
+	return total, items, nil
 }
 
 // prepareTestMail 校验测试邮件的收件人, 并取出已保存的邮件设置

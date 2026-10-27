@@ -34,6 +34,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
+	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/config"
@@ -120,6 +121,14 @@ func Serve() {
 				walletRouter.GET("/transactions", wallet.ListTransactions)
 			}
 
+			// Inventory
+			inventoryRouter := apiV1Router.Group("/inventory")
+			inventoryRouter.Use(auth.LoginRequired())
+			{
+				inventoryRouter.GET("/items", inventory.ListItems)
+				inventoryRouter.GET("/transactions", inventory.ListTransactions)
+			}
+
 			// Admin
 			adminRouter := apiV1Router.Group("/admin")
 			adminRouter.Use(auth.LoginRequired(), admin.LoginAdminRequired())
@@ -134,6 +143,8 @@ func Serve() {
 					userAdminRouter.PUT("/:id/disabled", admin.SetUserDisabled)
 					userAdminRouter.GET("/:id/wallet/balances", admin.ListUserBalances)
 					userAdminRouter.POST("/:id/wallet/adjust", admin.AdjustUserBalance)
+					userAdminRouter.GET("/:id/inventory", admin.ListUserInventory)
+					userAdminRouter.POST("/:id/inventory/adjust", admin.AdjustUserInventory)
 				}
 
 				// Wallet
@@ -141,6 +152,21 @@ func Serve() {
 				{
 					walletAdminRouter.GET("/currencies", admin.ListCurrencies)
 					walletAdminRouter.GET("/transactions", admin.ListWalletTransactions)
+				}
+
+				// Item
+				itemAdminRouter := adminRouter.Group("/items")
+				{
+					itemAdminRouter.GET("", admin.ListItems)
+					itemAdminRouter.POST("", admin.CreateItem)
+					itemAdminRouter.PUT("/:id", admin.UpdateItem)
+					itemAdminRouter.DELETE("/:id", admin.DeleteItem)
+				}
+
+				// Inventory
+				inventoryAdminRouter := adminRouter.Group("/inventory")
+				{
+					inventoryAdminRouter.GET("/transactions", admin.ListInventoryTransactions)
 				}
 
 				// Settings

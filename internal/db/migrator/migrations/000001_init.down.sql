@@ -1,3 +1,6 @@
+DROP TABLE IF EXISTS inventory_transactions;
+DROP TABLE IF EXISTS inventory_items;
+DROP TABLE IF EXISTS items;
 DROP TABLE IF EXISTS system_settings;
 DROP TABLE IF EXISTS wallet_transactions;
 DROP TABLE IF EXISTS wallet_balances;

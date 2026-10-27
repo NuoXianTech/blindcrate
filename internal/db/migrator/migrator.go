@@ -31,6 +31,8 @@ import (
 	"log"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
+	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/audit"
@@ -102,6 +104,9 @@ func runAutoMigrate() {
 		&wallet.Balance{},
 		&wallet.Transaction{},
 		&settings.Setting{},
+		&item.Item{},
+		&inventory.UserItem{},
+		&inventory.Transaction{},
 	); err != nil {
 		log.Fatalf("[PostgreSQL] auto migrate failed: %v\n", err)
 	}
