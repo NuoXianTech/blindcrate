@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/audit"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -363,4 +364,190 @@ func ListAuditLogs(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, ListAuditLogsResponse{Data: &ListAuditLogsResponseData{Total: total, Logs: logs}})
+}
+
+type ListCurrenciesResponseData struct {
+	Currencies []wallet.Currency `json:"currencies"`
+}
+
+type ListCurrenciesResponse struct {
+	ErrorMsg string                      `json:"error_msg"`
+	Data     *ListCurrenciesResponseData `json:"data"`
+}
+
+// ListCurrencies 获取全部货币定义(含已停用)
+// @Tags admin
+// @Produce json
+// @Success 200 {object} ListCurrenciesResponse
+// @Failure 401 {object} ListCurrenciesResponse
+// @Failure 403 {object} ListCurrenciesResponse
+// @Failure 500 {object} ListCurrenciesResponse
+// @Router /api/v1/admin/wallet/currencies [get]
+func ListCurrencies(c *gin.Context) {
+	// query
+	currencies, err := wallet.QueryCurrencies(c.Request.Context())
+	if err != nil {
+		logger.ErrorF(c.Request.Context(), "[ListCurrencies] query failed: %s", err.Error())
+		c.JSON(http.StatusInternalServerError, ListCurrenciesResponse{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, ListCurrenciesResponse{Data: &ListCurrenciesResponseData{Currencies: currencies}})
+}
+
+type ListWalletTransactionsRequest struct {
+	Current    int        `json:"current" form:"current" binding:"min=1"`
+	Size       int        `json:"size" form:"size" binding:"min=1,max=100"`
+	UserID     *uint64    `json:"user_id" form:"user_id"`
+	OperatorID *uint64    `json:"operator_id" form:"operator_id"`
+	Currency   string     `json:"currency" form:"currency" binding:"max=32"`
+	BizType    string     `json:"biz_type" form:"biz_type" binding:"max=32"`
+	BizID      string     `json:"biz_id" form:"biz_id" binding:"max=64"`
+	StartTime  *time.Time `json:"start_time" form:"start_time" time_format:"2006-01-02T15:04:05Z07:00"` // RFC3339, 包含
+	EndTime    *time.Time `json:"end_time" form:"end_time" time_format:"2006-01-02T15:04:05Z07:00"`     // RFC3339, 不包含
+}
+
+type ListWalletTransactionsResponseData struct {
+	Total        int64                   `json:"total"`
+	Transactions []WalletTransactionItem `json:"transactions"`
+}
+
+type ListWalletTransactionsResponse struct {
+	ErrorMsg string                              `json:"error_msg"`
+	Data     *ListWalletTransactionsResponseData `json:"data"`
+}
+
+// ListWalletTransactions 获取全部用户的余额流水
+// @Tags admin
+// @Param request query ListWalletTransactionsRequest true "request query"
+// @Produce json
+// @Success 200 {object} ListWalletTransactionsResponse
+// @Failure 400 {object} ListWalletTransactionsResponse
+// @Failure 401 {object} ListWalletTransactionsResponse
+// @Failure 403 {object} ListWalletTransactionsResponse
+// @Failure 500 {object} ListWalletTransactionsResponse
+// @Router /api/v1/admin/wallet/transactions [get]
+func ListWalletTransactions(c *gin.Context) {
+	// init req
+	req := &ListWalletTransactionsRequest{}
+	if err := c.ShouldBindQuery(req); err != nil {
+		c.JSON(http.StatusBadRequest, ListWalletTransactionsResponse{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	// query
+	total, transactions, err := QueryWalletTransactions(c.Request.Context(), req)
+	if err != nil {
+		logger.ErrorF(c.Request.Context(), "[ListWalletTransactions] query failed: %s", err.Error())
+		c.JSON(http.StatusInternalServerError, ListWalletTransactionsResponse{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, ListWalletTransactionsResponse{Data: &ListWalletTransactionsResponseData{Total: total, Transactions: transactions}})
+}
+
+type ListUserBalancesResponseData struct {
+	Balances []wallet.BalanceItem `json:"balances"`
+}
+
+type ListUserBalancesResponse struct {
+	ErrorMsg string                        `json:"error_msg"`
+	Data     *ListUserBalancesResponseData `json:"data"`
+}
+
+// ListUserBalances 获取指定用户的各货币余额(含已停用货币)
+// @Tags admin
+// @Param id path int true "user id"
+// @Produce json
+// @Success 200 {object} ListUserBalancesResponse
+// @Failure 400 {object} ListUserBalancesResponse
+// @Failure 401 {object} ListUserBalancesResponse
+// @Failure 403 {object} ListUserBalancesResponse
+// @Failure 404 {object} ListUserBalancesResponse
+// @Failure 500 {object} ListUserBalancesResponse
+// @Router /api/v1/admin/users/{id}/wallet/balances [get]
+func ListUserBalances(c *gin.Context) {
+	// init req
+	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ListUserBalancesResponse{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	// query
+	balances, err := queryUserBalances(c.Request.Context(), userID)
+	if err != nil {
+		if err.Error() == auth.UserNotFound {
+			c.JSON(http.StatusNotFound, ListUserBalancesResponse{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(c.Request.Context(), "[ListUserBalances] query failed: %s", err.Error())
+		c.JSON(http.StatusInternalServerError, ListUserBalancesResponse{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, ListUserBalancesResponse{Data: &ListUserBalancesResponseData{Balances: balances}})
+}
+
+type AdjustUserBalanceRequest struct {
+	Currency       string `json:"currency" binding:"required,max=32"`
+	Amount         int64  `json:"amount" binding:"required"`                            // 正数加款, 负数扣款, 扣款后余额不能为负
+	Remark         string `json:"remark" binding:"required"`                            // 调账原因, 用户可在流水中看到
+	IdempotencyKey string `json:"idempotency_key" binding:"required,max=64,printascii"` // 每次打开调账表单生成一个, 重复提交只生效一次
+}
+
+type AdjustUserBalanceResponse struct {
+	ErrorMsg string              `json:"error_msg"`
+	Data     *wallet.Transaction `json:"data"`
+}
+
+// AdjustUserBalance 管理员给用户调账, 写入一条 admin_adjust 流水
+// @Tags admin
+// @Param id path int true "user id"
+// @Param request body AdjustUserBalanceRequest true "request body"
+// @Produce json
+// @Success 200 {object} AdjustUserBalanceResponse
+// @Failure 400 {object} AdjustUserBalanceResponse
+// @Failure 401 {object} AdjustUserBalanceResponse
+// @Failure 403 {object} AdjustUserBalanceResponse
+// @Failure 404 {object} AdjustUserBalanceResponse
+// @Failure 409 {object} AdjustUserBalanceResponse
+// @Failure 500 {object} AdjustUserBalanceResponse
+// @Router /api/v1/admin/users/{id}/wallet/adjust [post]
+func AdjustUserBalance(c *gin.Context) {
+	// init req
+	var req AdjustUserBalanceRequest
+	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || c.ShouldBindJSON(&req) != nil {
+		c.JSON(http.StatusBadRequest, AdjustUserBalanceResponse{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, AdjustUserBalanceResponse{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	// do adjust
+	txn, replayed, err := doAdjustUserBalance(c.Request.Context(), operator.ID, userID, &req)
+	if err != nil {
+		switch err.Error() {
+		case CannotOperateSelf, RemarkInvalid, wallet.AmountInvalid, wallet.CurrencyNotFound, wallet.CurrencyDisabled, wallet.InsufficientBalance:
+			c.JSON(http.StatusBadRequest, AdjustUserBalanceResponse{ErrorMsg: err.Error()})
+		case auth.UserNotFound:
+			c.JSON(http.StatusNotFound, AdjustUserBalanceResponse{ErrorMsg: err.Error()})
+		case wallet.IdempotencyConflict, wallet.DuplicateRequest:
+			c.JSON(http.StatusConflict, AdjustUserBalanceResponse{ErrorMsg: err.Error()})
+		default:
+			logger.ErrorF(c.Request.Context(), "[AdjustUserBalance] adjust failed: %s", err.Error())
+			c.JSON(http.StatusInternalServerError, AdjustUserBalanceResponse{ErrorMsg: auth.InternalError})
+		}
+		return
+	}
+	// 重复提交只返回原流水, 不重复记录
+	if !replayed {
+		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionWalletAdjust, audit.TargetUser, userID, map[string]interface{}{
+			"transaction_id": txn.ID,
+			"currency":       txn.Currency,
+			"amount":         txn.Amount,
+			"balance_after":  txn.BalanceAfter,
+			"remark":         txn.Remark,
+		})
+		logger.InfoF(c.Request.Context(), "[AdjustUserBalance] %d adjusted %d %s by %d, balance %d", operator.ID, userID, txn.Currency, txn.Amount, txn.BalanceAfter)
+	}
+	c.JSON(http.StatusOK, AdjustUserBalanceResponse{Data: txn})
 }

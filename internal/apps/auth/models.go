@@ -44,8 +44,8 @@ type User struct {
 	BannedUntil     *time.Time `json:"banned_until" gorm:"index"`
 	BanReason       string     `json:"ban_reason" gorm:"size:255;not null;default:''"`
 	LastLoginAt     *time.Time `json:"last_login_at" gorm:"index"`
-	CreatedAt       time.Time  `json:"created_at" gorm:"not null;autoCreateTime;index"`
-	UpdatedAt       time.Time  `json:"updated_at" gorm:"not null;autoUpdateTime"`
+	CreatedAt       time.Time  `json:"created_at" gorm:"not null;default:now();autoCreateTime;index"`
+	UpdatedAt       time.Time  `json:"updated_at" gorm:"not null;default:now();autoUpdateTime"`
 }
 
 func (u *User) TableName() string {
@@ -63,8 +63,8 @@ type UserIdentity struct {
 	UserID         uint64    `json:"user_id" gorm:"not null;index"`
 	Provider       string    `json:"provider" gorm:"size:32;not null;uniqueIndex:uniq_user_identities_provider_uid"`
 	ProviderUserID string    `json:"provider_user_id" gorm:"size:255;not null;uniqueIndex:uniq_user_identities_provider_uid"`
-	CreatedAt      time.Time `json:"created_at" gorm:"not null;autoCreateTime"`
-	UpdatedAt      time.Time `json:"updated_at" gorm:"not null;autoUpdateTime"`
+	CreatedAt      time.Time `json:"created_at" gorm:"not null;default:now();autoCreateTime"`
+	UpdatedAt      time.Time `json:"updated_at" gorm:"not null;default:now();autoUpdateTime"`
 }
 
 func (i *UserIdentity) TableName() string {
