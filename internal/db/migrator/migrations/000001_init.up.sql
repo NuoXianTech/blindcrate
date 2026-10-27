@@ -122,3 +122,68 @@ CREATE TABLE IF NOT EXISTS system_settings
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- 物品定义, 删除为软删除, ID 不会被新物品复用; 已删除的物品在玩家背包中按占位物品处理
+CREATE TABLE IF NOT EXISTS items
+(
+    id            BIGSERIAL PRIMARY KEY,
+    name          VARCHAR(64)   NOT NULL,
+    description   VARCHAR(255)  NOT NULL DEFAULT '',
+    quality       SMALLINT      NOT NULL DEFAULT 1,      -- 品质 1-7: 灰/绿/蓝/紫/金/红/炫彩
+    image_url     VARCHAR(1024) NOT NULL DEFAULT '',
+    sell_currency VARCHAR(32)   NOT NULL DEFAULT 'chip', -- 卖出得到的货币
+    sell_price    BIGINT        NOT NULL DEFAULT 0,      -- 卖出价格, 0 表示不可卖出
+    weight        INTEGER       NOT NULL DEFAULT 0,      -- 掉落权重, 0 表示不会掉落
+    width         SMALLINT      NOT NULL DEFAULT 1,      -- 在保险柜中占的格数
+    height        SMALLINT      NOT NULL DEFAULT 1,
+    is_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,  -- 下架后不会掉落, 也不能再发放, 已有的保留
+    created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    deleted_at    TIMESTAMPTZ,                           -- 软删除时间
+    CONSTRAINT chk_items_quality CHECK (quality BETWEEN 1 AND 7),
+    CONSTRAINT chk_items_sell_price CHECK (sell_price >= 0),
+    CONSTRAINT chk_items_weight CHECK (weight >= 0),
+    CONSTRAINT chk_items_width CHECK (width >= 1),
+    CONSTRAINT chk_items_height CHECK (height >= 1)
+);
+
+CREATE INDEX IF NOT EXISTS idx_items_deleted_at ON items (deleted_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_items_name ON items (name) WHERE deleted_at IS NULL; -- 已删除的物品不占用名称
+
+-- 用户背包, 每个用户每种物品一行, 首次获得时创建, 数量扣到 0 也保留
+CREATE TABLE IF NOT EXISTS inventory_items
+(
+    user_id    BIGINT      NOT NULL,
+    item_id    BIGINT      NOT NULL,
+    quantity   BIGINT      NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- 首次获得时间
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, item_id),
+    CONSTRAINT chk_inventory_items_quantity CHECK (quantity >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_items_item_id ON inventory_items (item_id) WHERE quantity > 0; -- 统计物品的持有人数
+
+-- 背包流水, 只追加不修改; 每次背包变动对应一行
+CREATE TABLE IF NOT EXISTS inventory_transactions
+(
+    id              BIGSERIAL PRIMARY KEY,
+    user_id         BIGINT       NOT NULL,
+    item_id         BIGINT       NOT NULL,
+    item_name       VARCHAR(64)  NOT NULL,            -- 变动时的物品名称
+    quantity        BIGINT       NOT NULL,            -- 正数获得, 负数消耗
+    quantity_after  BIGINT       NOT NULL,            -- 变动后数量
+    biz_type        VARCHAR(32)  NOT NULL,            -- 业务类型, 如 admin_adjust
+    biz_id          VARCHAR(64)  NOT NULL DEFAULT '', -- 业务单号
+    idempotency_key VARCHAR(128) NOT NULL DEFAULT '', -- 幂等键, 非空时全局唯一
+    operator_id     BIGINT       NOT NULL DEFAULT 0,  -- 操作人, 0 表示系统
+    remark          VARCHAR(255) NOT NULL DEFAULT '',
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_inventory_transactions_nonzero CHECK (quantity <> 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_transactions_user_item ON inventory_transactions (user_id, item_id, id);
+CREATE INDEX IF NOT EXISTS idx_inventory_transactions_biz ON inventory_transactions (biz_type, biz_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_transactions_operator_id ON inventory_transactions (operator_id) WHERE operator_id <> 0;
+CREATE INDEX IF NOT EXISTS idx_inventory_transactions_created_at ON inventory_transactions (created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_inventory_transactions_idempotency_key ON inventory_transactions (idempotency_key) WHERE idempotency_key <> '';

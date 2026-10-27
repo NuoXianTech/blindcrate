@@ -27,6 +27,33 @@ definitions:
       error_msg:
         type: string
     type: object
+  admin.AdjustUserInventoryRequest:
+    properties:
+      idempotency_key:
+        description: 每次打开表单生成一个, 重复提交只生效一次
+        maxLength: 64
+        type: string
+      item_id:
+        type: integer
+      quantity:
+        description: 正数发放, 负数扣除, 扣除后数量不能为负
+        type: integer
+      remark:
+        description: 调整原因, 用户可在流水中看到
+        type: string
+    required:
+    - idempotency_key
+    - item_id
+    - quantity
+    - remark
+    type: object
+  admin.AdjustUserInventoryResponse:
+    properties:
+      data:
+        $ref: '#/definitions/inventory.Transaction'
+      error_msg:
+        type: string
+    type: object
   admin.AuditLogItem:
     properties:
       action:
@@ -70,6 +97,147 @@ definitions:
       error_msg:
         type: string
     type: object
+  admin.DeleteItemResponse:
+    properties:
+      data:
+        $ref: '#/definitions/admin.DeleteItemResponseData'
+      error_msg:
+        type: string
+    type: object
+  admin.DeleteItemResponseData:
+    properties:
+      holder_count:
+        description: 删除时持有该物品的用户数
+        type: integer
+    type: object
+  admin.InventoryTransactionItem:
+    properties:
+      biz_id:
+        type: string
+      biz_type:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      idempotency_key:
+        type: string
+      item_id:
+        type: integer
+      item_name:
+        type: string
+      operator_id:
+        type: integer
+      operator_username:
+        description: 系统操作或用户已不存在时为空
+        type: string
+      quantity:
+        type: integer
+      quantity_after:
+        type: integer
+      remark:
+        type: string
+      user_id:
+        type: integer
+      username:
+        description: 用户已不存在时为空
+        type: string
+    type: object
+  admin.ItemListItem:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      height:
+        type: integer
+      holder_count:
+        description: 持有该物品的用户数, 删除前用于提示
+        type: integer
+      id:
+        type: integer
+      image_url:
+        type: string
+      is_enabled:
+        description: 下架后不会掉落, 也不能再发放
+        type: boolean
+      is_placeholder:
+        description: 是否为占位物品, 只由 Resolve 生成
+        type: boolean
+      name:
+        type: string
+      quality:
+        description: 见 constants.go
+        type: integer
+      sell_currency:
+        type: string
+      sell_price:
+        description: 0 表示不可卖出
+        type: integer
+      updated_at:
+        type: string
+      weight:
+        description: 掉落权重, 0 表示不会掉落
+        type: integer
+      width:
+        description: 在保险柜中占的格数
+        type: integer
+    type: object
+  admin.ItemRequest:
+    properties:
+      description:
+        maxLength: 255
+        type: string
+      height:
+        maximum: 10
+        minimum: 1
+        type: integer
+      image_url:
+        maxLength: 1024
+        type: string
+      is_enabled:
+        description: 下架后不会掉落, 也不能再发放, 已有的保留
+        type: boolean
+      name:
+        maxLength: 64
+        type: string
+      quality:
+        description: '1-7: 灰/绿/蓝/紫/金/红/炫彩'
+        maximum: 7
+        minimum: 1
+        type: integer
+      sell_currency:
+        maxLength: 32
+        type: string
+      sell_price:
+        description: 0 表示不可卖出
+        maximum: 1000000000000
+        minimum: 0
+        type: integer
+      weight:
+        description: 掉落权重, 0 表示不会掉落
+        maximum: 1000000
+        minimum: 0
+        type: integer
+      width:
+        description: 在保险柜中占的格数
+        maximum: 10
+        minimum: 1
+        type: integer
+    required:
+    - height
+    - name
+    - quality
+    - sell_currency
+    - width
+    type: object
+  admin.ItemResponse:
+    properties:
+      data:
+        $ref: '#/definitions/item.Item'
+      error_msg:
+        type: string
+    type: object
   admin.ListAuditLogsResponse:
     properties:
       data:
@@ -100,6 +268,38 @@ definitions:
           $ref: '#/definitions/wallet.Currency'
         type: array
     type: object
+  admin.ListInventoryTransactionsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/admin.ListInventoryTransactionsResponseData'
+      error_msg:
+        type: string
+    type: object
+  admin.ListInventoryTransactionsResponseData:
+    properties:
+      total:
+        type: integer
+      transactions:
+        items:
+          $ref: '#/definitions/admin.InventoryTransactionItem'
+        type: array
+    type: object
+  admin.ListItemsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/admin.ListItemsResponseData'
+      error_msg:
+        type: string
+    type: object
+  admin.ListItemsResponseData:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/admin.ItemListItem'
+        type: array
+      total:
+        type: integer
+    type: object
   admin.ListSettingsResponse:
     properties:
       data:
@@ -127,6 +327,22 @@ definitions:
         items:
           $ref: '#/definitions/wallet.BalanceItem'
         type: array
+    type: object
+  admin.ListUserInventoryResponse:
+    properties:
+      data:
+        $ref: '#/definitions/admin.ListUserInventoryResponseData'
+      error_msg:
+        type: string
+    type: object
+  admin.ListUserInventoryResponseData:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/inventory.UserItemDetail'
+        type: array
+      total:
+        type: integer
     type: object
   admin.ListUsersResponse:
     properties:
@@ -429,6 +645,157 @@ definitions:
       error_msg:
         type: string
     type: object
+  inventory.ListItemsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/inventory.ListItemsResponseData'
+      error_msg:
+        type: string
+    type: object
+  inventory.ListItemsResponseData:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/inventory.UserItemDetail'
+        type: array
+      total:
+        type: integer
+    type: object
+  inventory.ListTransactionsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/inventory.ListTransactionsResponseData'
+      error_msg:
+        type: string
+    type: object
+  inventory.ListTransactionsResponseData:
+    properties:
+      total:
+        type: integer
+      transactions:
+        items:
+          $ref: '#/definitions/inventory.TransactionItem'
+        type: array
+    type: object
+  inventory.Transaction:
+    properties:
+      biz_id:
+        type: string
+      biz_type:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      idempotency_key:
+        type: string
+      item_id:
+        type: integer
+      item_name:
+        description: 变动时的物品名称
+        type: string
+      operator_id:
+        type: integer
+      quantity:
+        type: integer
+      quantity_after:
+        type: integer
+      remark:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  inventory.TransactionItem:
+    properties:
+      biz_id:
+        type: string
+      biz_type:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      item_id:
+        type: integer
+      item_name:
+        type: string
+      quantity:
+        type: integer
+      quantity_after:
+        type: integer
+      remark:
+        type: string
+    type: object
+  inventory.UserItemDetail:
+    properties:
+      created_at:
+        description: 首次获得时间
+        type: string
+      description:
+        type: string
+      height:
+        type: integer
+      image_url:
+        type: string
+      is_enabled:
+        type: boolean
+      is_placeholder:
+        description: 物品已被删除, 按占位物品展示
+        type: boolean
+      item_id:
+        type: integer
+      name:
+        type: string
+      quality:
+        type: integer
+      quantity:
+        type: integer
+      sell_currency:
+        type: string
+      sell_price:
+        type: integer
+      updated_at:
+        type: string
+      width:
+        type: integer
+    type: object
+  item.Item:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      height:
+        type: integer
+      id:
+        type: integer
+      image_url:
+        type: string
+      is_enabled:
+        description: 下架后不会掉落, 也不能再发放
+        type: boolean
+      is_placeholder:
+        description: 是否为占位物品, 只由 Resolve 生成
+        type: boolean
+      name:
+        type: string
+      quality:
+        description: 见 constants.go
+        type: integer
+      sell_currency:
+        type: string
+      sell_price:
+        description: 0 表示不可卖出
+        type: integer
+      updated_at:
+        type: string
+      weight:
+        description: 掉落权重, 0 表示不会掉落
+        type: integer
+      width:
+        description: 在保险柜中占的格数
+        type: integer
+    type: object
   settings.Field:
     properties:
       help:
@@ -674,6 +1041,238 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/admin.ListAuditLogsResponse'
+      tags:
+      - admin
+  /api/v1/admin/inventory/transactions:
+    get:
+      parameters:
+      - in: query
+        maxLength: 64
+        name: biz_id
+        type: string
+      - in: query
+        maxLength: 32
+        name: biz_type
+        type: string
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: RFC3339, 不包含
+        in: query
+        name: end_time
+        type: string
+      - in: query
+        name: item_id
+        type: integer
+      - in: query
+        name: operator_id
+        type: integer
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - description: RFC3339, 包含
+        in: query
+        name: start_time
+        type: string
+      - in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ListInventoryTransactionsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ListInventoryTransactionsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ListInventoryTransactionsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ListInventoryTransactionsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ListInventoryTransactionsResponse'
+      tags:
+      - admin
+  /api/v1/admin/items:
+    get:
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - in: query
+        name: is_enabled
+        type: boolean
+      - description: 按名称搜索, 不区分大小写
+        in: query
+        maxLength: 64
+        name: keyword
+        type: string
+      - in: query
+        maximum: 7
+        minimum: 1
+        name: quality
+        type: integer
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ListItemsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ListItemsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ListItemsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ListItemsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ListItemsResponse'
+      tags:
+      - admin
+    post:
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.ItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
+      tags:
+      - admin
+  /api/v1/admin/items/{id}:
+    delete:
+      parameters:
+      - description: item id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.DeleteItemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.DeleteItemResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.DeleteItemResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.DeleteItemResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.DeleteItemResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.DeleteItemResponse'
+      tags:
+      - admin
+    put:
+      parameters:
+      - description: item id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.ItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ItemResponse'
       tags:
       - admin
   /api/v1/admin/settings:
@@ -998,6 +1597,104 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/admin.SetUserDisabledResponse'
+      tags:
+      - admin
+  /api/v1/admin/users/{id}/inventory:
+    get:
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - in: query
+        maximum: 7
+        minimum: 1
+        name: quality
+        type: integer
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ListUserInventoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ListUserInventoryResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ListUserInventoryResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ListUserInventoryResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ListUserInventoryResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ListUserInventoryResponse'
+      tags:
+      - admin
+  /api/v1/admin/users/{id}/inventory/adjust:
+    post:
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.AdjustUserInventoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.AdjustUserInventoryResponse'
       tags:
       - admin
   /api/v1/admin/users/{id}/wallet/adjust:
@@ -1414,6 +2111,100 @@ paths:
             $ref: '#/definitions/health.HealthResponse'
       tags:
       - health
+  /api/v1/inventory/items:
+    get:
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - in: query
+        maximum: 7
+        minimum: 1
+        name: quality
+        type: integer
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/inventory.ListItemsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/inventory.ListItemsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/inventory.ListItemsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/inventory.ListItemsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/inventory.ListItemsResponse'
+      tags:
+      - inventory
+  /api/v1/inventory/transactions:
+    get:
+      parameters:
+      - in: query
+        maxLength: 32
+        name: biz_type
+        type: string
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: RFC3339, 不包含
+        in: query
+        name: end_time
+        type: string
+      - in: query
+        name: item_id
+        type: integer
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - description: RFC3339, 包含
+        in: query
+        name: start_time
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/inventory.ListTransactionsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/inventory.ListTransactionsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/inventory.ListTransactionsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/inventory.ListTransactionsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/inventory.ListTransactionsResponse'
+      tags:
+      - inventory
   /api/v1/ready:
     get:
       produces:

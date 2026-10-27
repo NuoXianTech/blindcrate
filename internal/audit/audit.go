@@ -46,25 +46,30 @@ const (
 const (
 	TargetUser    = "user"
 	TargetSetting = "setting" // target_id 固定为 0, 设置组见 detail.key
+	TargetItem    = "item"
 )
 
 // 操作类型, 格式为 "模块.动作"
 const (
-	ActionLogin          = "auth.login"
-	ActionLoginFailed    = "auth.login_failed"
-	ActionRegister       = "auth.register"
-	ActionLogout         = "auth.logout"
-	ActionChangePassword = "auth.change_password"
-	ActionVerifyEmail    = "auth.verify_email"
-	ActionUpdateProfile  = "auth.update_profile"
-	ActionUserUpdate     = "admin.user_update"
-	ActionUserBan        = "admin.user_ban"
-	ActionUserUnban      = "admin.user_unban"
-	ActionUserDisable    = "admin.user_disable"
-	ActionUserEnable     = "admin.user_enable"
-	ActionWalletAdjust   = "admin.wallet_adjust"
-	ActionSettingsUpdate = "admin.settings_update"
-	ActionMailTest       = "admin.mail_test"
+	ActionLogin           = "auth.login"
+	ActionLoginFailed     = "auth.login_failed"
+	ActionRegister        = "auth.register"
+	ActionLogout          = "auth.logout"
+	ActionChangePassword  = "auth.change_password"
+	ActionVerifyEmail     = "auth.verify_email"
+	ActionUpdateProfile   = "auth.update_profile"
+	ActionUserUpdate      = "admin.user_update"
+	ActionUserBan         = "admin.user_ban"
+	ActionUserUnban       = "admin.user_unban"
+	ActionUserDisable     = "admin.user_disable"
+	ActionUserEnable      = "admin.user_enable"
+	ActionWalletAdjust    = "admin.wallet_adjust"
+	ActionItemCreate      = "admin.item_create"
+	ActionItemUpdate      = "admin.item_update"
+	ActionItemDelete      = "admin.item_delete"
+	ActionInventoryAdjust = "admin.inventory_adjust"
+	ActionSettingsUpdate  = "admin.settings_update"
+	ActionMailTest        = "admin.mail_test"
 )
 
 type Log struct {
