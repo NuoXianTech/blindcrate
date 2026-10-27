@@ -34,6 +34,8 @@ const ACTION_LABELS: Record<string, string> = {
   "admin.item_create": "新建物品",
   "admin.item_update": "修改物品",
   "admin.item_delete": "删除物品",
+  "admin.settings_update": "修改系统设置",
+  "admin.mail_test": "发送测试邮件",
 };
 
 const SCOPE_LABELS: Record<AuditScope, string> = { user: "用户", admin: "管理员" };

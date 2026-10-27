@@ -126,3 +126,40 @@ export type ItemRequest = Pick<
   Item,
   "name" | "description" | "quality" | "image_url" | "sell_currency" | "sell_price" | "weight" | "width" | "height" | "is_enabled"
 >;
+
+/** 设置项的描述, 后台据此生成表单, 对应后端 settings.Field */
+export interface SettingField {
+  key: string;
+  label: string;
+  help: string;
+  type: "string" | "bool" | "int";
+  input: "text" | "textarea" | "password" | "switch" | "number";
+  /** 密钥, 读取时不返回明文 */
+  secret: boolean;
+  /** 会通过公开接口返回给前端 */
+  public: boolean;
+}
+
+/** 一个设置组, 对应后端 settings.GroupView */
+export interface SettingGroup {
+  key: string;
+  label: string;
+  description: string;
+  fields: SettingField[];
+  /** 密钥字段固定为空字符串 */
+  value: Record<string, string | number | boolean>;
+  /** 密钥字段是否已设置 */
+  secrets_set: Record<string, boolean>;
+  /** 无法解密的密钥字段, 需要重新填写或清空才能保存 */
+  secrets_broken: string[] | null;
+  updated_by: number;
+  /** 未保存过为空 */
+  updated_at: string | null;
+}
+
+export interface UpdateSettingRequest {
+  /** 只需提交改动的字段, 密钥字段留空表示不修改 */
+  value: Record<string, string | number | boolean>;
+  /** 需要清空的密钥字段 */
+  clear_secrets?: string[];
+}

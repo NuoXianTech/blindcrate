@@ -10,6 +10,8 @@ import type {
   ListItemsParams,
   ListUsersData,
   ListUsersParams,
+  SettingGroup,
+  UpdateSettingRequest,
   UpdateUserRequest,
 } from "./types";
 
@@ -64,5 +66,19 @@ export class AdminService extends BaseService {
   /** 删除后已持有的玩家背包保留为占位物品, 返回删除时的持有人数 */
   static deleteItem(id: number) {
     return this.delete<{ holder_count: number }>(`/items/${id}`);
+  }
+
+  static listSettings() {
+    return this.get<{ groups: SettingGroup[] }>("/settings");
+  }
+
+  /** 保存一个设置组, 立即生效, 返回保存后的设置组 */
+  static updateSetting(key: string, body: UpdateSettingRequest) {
+    return this.put<SettingGroup>(`/settings/${key}`, body);
+  }
+
+  /** 用已保存的邮件设置发送测试邮件 */
+  static testMail(to: string) {
+    return this.post<null>("/settings/mail/test", { to });
   }
 }

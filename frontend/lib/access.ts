@@ -12,6 +12,7 @@ export const ROUTES = {
   register: "/register",
   adminUsers: "/admin/users",
   adminItems: "/admin/items",
+  adminSettings: "/admin/settings",
   adminAuditLogs: "/admin/audit-logs",
 } as const;
 
