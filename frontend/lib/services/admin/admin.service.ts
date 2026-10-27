@@ -1,8 +1,13 @@
 import { BaseService } from "../core";
 import type {
   AdminUser,
+  Currency,
+  Item,
+  ItemRequest,
   ListAuditLogsData,
   ListAuditLogsParams,
+  ListItemsData,
+  ListItemsParams,
   ListUsersData,
   ListUsersParams,
   UpdateUserRequest,
@@ -38,5 +43,26 @@ export class AdminService extends BaseService {
 
   static listAuditLogs(params: ListAuditLogsParams) {
     return this.get<ListAuditLogsData>("/audit-logs", { params });
+  }
+
+  static listCurrencies() {
+    return this.get<{ currencies: Currency[] }>("/wallet/currencies");
+  }
+
+  static listItems(params: ListItemsParams) {
+    return this.get<ListItemsData>("/items", { params });
+  }
+
+  static createItem(body: ItemRequest) {
+    return this.post<Item>("/items", body);
+  }
+
+  static updateItem(id: number, body: ItemRequest) {
+    return this.put<Item>(`/items/${id}`, body);
+  }
+
+  /** 删除后已持有的玩家背包保留为占位物品, 返回删除时的持有人数 */
+  static deleteItem(id: number) {
+    return this.delete<{ holder_count: number }>(`/items/${id}`);
   }
 }
