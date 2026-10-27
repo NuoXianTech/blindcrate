@@ -57,6 +57,16 @@ log:
   max_backups: 10
   compress: true
 
+# Schedule
+schedule:
+  port: 8002 # scheduler probe port
+  time_zone: "Asia/Shanghai" # cron expressions are evaluated in this time zone
+
+# Worker
+worker:
+  port: 8001 # worker probe port
+  concurrency: 10 # max tasks processed at the same time
+
 # OpenTelemetry
 otel:
   sampling_rate: 0.1
