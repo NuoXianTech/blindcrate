@@ -1,9 +1,17 @@
 import { BaseService } from "../core";
+import type { InventoryTransaction, ListUserItemsData, ListUserItemsParams } from "../inventory";
+import type { BalanceItem, WalletTransaction } from "../wallet";
 import type {
+  AdjustBalanceRequest,
+  AdjustInventoryRequest,
   AdminUser,
   Currency,
   Item,
   ItemRequest,
+  ListAdminInventoryTransactionsData,
+  ListAdminInventoryTransactionsParams,
+  ListAdminWalletTransactionsData,
+  ListAdminWalletTransactionsParams,
   ListAuditLogsData,
   ListAuditLogsParams,
   ListItemsData,
@@ -80,5 +88,30 @@ export class AdminService extends BaseService {
   /** 用已保存的邮件设置发送测试邮件 */
   static testMail(to: string) {
     return this.post<null>("/settings/mail/test", { to });
+  }
+
+  /** 指定用户的各货币余额, 含已停用货币 */
+  static listUserBalances(id: number) {
+    return this.get<{ balances: BalanceItem[] }>(`/users/${id}/wallet/balances`);
+  }
+
+  static adjustUserBalance(id: number, body: AdjustBalanceRequest) {
+    return this.post<WalletTransaction>(`/users/${id}/wallet/adjust`, body);
+  }
+
+  static listUserInventory(id: number, params: ListUserItemsParams) {
+    return this.get<ListUserItemsData>(`/users/${id}/inventory`, { params });
+  }
+
+  static adjustUserInventory(id: number, body: AdjustInventoryRequest) {
+    return this.post<InventoryTransaction>(`/users/${id}/inventory/adjust`, body);
+  }
+
+  static listWalletTransactions(params: ListAdminWalletTransactionsParams) {
+    return this.get<ListAdminWalletTransactionsData>("/wallet/transactions", { params });
+  }
+
+  static listInventoryTransactions(params: ListAdminInventoryTransactionsParams) {
+    return this.get<ListAdminInventoryTransactionsData>("/inventory/transactions", { params });
   }
 }

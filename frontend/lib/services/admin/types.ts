@@ -1,4 +1,6 @@
 import type { PageParams } from "../core";
+import type { InventoryTransaction } from "../inventory";
+import type { WalletTransaction } from "../wallet";
 
 /** 管理端看到的完整用户, 对应后端 auth.User */
 export interface AdminUser {
@@ -162,4 +164,67 @@ export interface UpdateSettingRequest {
   value: Record<string, string | number | boolean>;
   /** 需要清空的密钥字段 */
   clear_secrets?: string[];
+}
+
+export interface AdjustBalanceRequest {
+  currency: string;
+  /** 最小单位, 正数加款, 负数扣款, 扣款后余额不能为负 */
+  amount: number;
+  /** 调账原因, 用户可在流水中看到 */
+  remark: string;
+  /** 每次打开表单生成一个, 重复提交只生效一次 */
+  idempotency_key: string;
+}
+
+export interface AdjustInventoryRequest {
+  item_id: number;
+  /** 正数发放, 负数扣除, 扣除后数量不能为负 */
+  quantity: number;
+  remark: string;
+  idempotency_key: string;
+}
+
+/** 流水查询共用的筛选条件 */
+interface TransactionFilters extends PageParams {
+  user_id?: number;
+  operator_id?: number;
+  biz_type?: string;
+  biz_id?: string;
+  /** RFC3339, 包含 */
+  start_time?: string;
+  /** RFC3339, 不包含 */
+  end_time?: string;
+}
+
+/** 流水的用户和操作人, 用户已不存在或系统操作时用户名为空 */
+interface TransactionActors {
+  user_id: number;
+  username: string;
+  operator_id: number;
+  operator_username: string;
+  idempotency_key: string;
+}
+
+/** 全部用户的余额流水, 对应后端 admin.WalletTransactionItem */
+export type AdminWalletTransaction = WalletTransaction & TransactionActors;
+
+export interface ListAdminWalletTransactionsParams extends TransactionFilters {
+  currency?: string;
+}
+
+export interface ListAdminWalletTransactionsData {
+  total: number;
+  transactions: AdminWalletTransaction[];
+}
+
+/** 全部用户的背包流水, 对应后端 admin.InventoryTransactionItem */
+export type AdminInventoryTransaction = InventoryTransaction & TransactionActors;
+
+export interface ListAdminInventoryTransactionsParams extends TransactionFilters {
+  item_id?: number;
+}
+
+export interface ListAdminInventoryTransactionsData {
+  total: number;
+  transactions: AdminInventoryTransaction[];
 }

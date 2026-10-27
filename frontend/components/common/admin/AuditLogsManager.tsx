@@ -31,6 +31,8 @@ const ACTION_LABELS: Record<string, string> = {
   "admin.user_unban": "解除封禁",
   "admin.user_disable": "停用用户",
   "admin.user_enable": "启用用户",
+  "admin.wallet_adjust": "调整余额",
+  "admin.inventory_adjust": "调整背包",
   "admin.item_create": "新建物品",
   "admin.item_update": "修改物品",
   "admin.item_delete": "删除物品",

@@ -13,6 +13,7 @@ export const ROUTES = {
   adminUsers: "/admin/users",
   adminItems: "/admin/items",
   adminSettings: "/admin/settings",
+  adminTransactions: "/admin/transactions",
   adminAuditLogs: "/admin/audit-logs",
 } as const;
 

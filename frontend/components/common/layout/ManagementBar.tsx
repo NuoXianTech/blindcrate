@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Backpack, Gamepad2, LogOut, Package, Palette, ScrollText, Settings, Users, Wallet } from "lucide-react";
+import { Backpack, Gamepad2, LogOut, Package, Palette, ReceiptText, ScrollText, Settings, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { FloatingDock, type DockEntry } from "@/components/ui/floating-dock";
 import { useAuth } from "@/components/common/auth/AuthProvider";
@@ -45,6 +45,7 @@ export function ManagementBar() {
       null,
       { title: "用户管理", icon: <Users />, href: ROUTES.adminUsers, active: pathname.startsWith(ROUTES.adminUsers) },
       { title: "物品管理", icon: <Package />, href: ROUTES.adminItems, active: pathname.startsWith(ROUTES.adminItems) },
+      { title: "流水查询", icon: <ReceiptText />, href: ROUTES.adminTransactions, active: pathname.startsWith(ROUTES.adminTransactions) },
       { title: "操作日志", icon: <ScrollText />, href: ROUTES.adminAuditLogs, active: pathname.startsWith(ROUTES.adminAuditLogs) },
       { title: "系统设置", icon: <Settings />, href: ROUTES.adminSettings, active: pathname.startsWith(ROUTES.adminSettings) },
     );

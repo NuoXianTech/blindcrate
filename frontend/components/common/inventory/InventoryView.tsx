@@ -16,16 +16,12 @@ import { CurrencyIcon } from "@/components/common/wallet/CurrencyIcon";
 import { toErrorMessage } from "@/lib/services/core";
 import { InventoryService, type InventoryTransaction, type UserItem } from "@/lib/services/inventory";
 import { WalletService, type BalanceItem } from "@/lib/services/wallet";
+import { INVENTORY_BIZ_LABELS } from "@/lib/biz";
 import { formatAmount, formatDateTime } from "@/lib/format";
 import { QUALITIES, qualityOf } from "@/lib/quality";
 
 const ITEM_PAGE_SIZE = 24;
 const RECORD_PAGE_SIZE = 20;
-
-/** 业务类型名称, 与后端 internal/apps/inventory/constants.go 的 Biz 常量对应 */
-const INVENTORY_BIZ_LABELS: Record<string, string> = {
-  admin_adjust: "管理员调整",
-};
 
 /** 记录页只看某个物品时的筛选条件 */
 type ItemFilter = { id: number; name: string };

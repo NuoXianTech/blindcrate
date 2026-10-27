@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Ban, LoaderCircle, Pencil, Power, Search, ShieldCheck } from "lucide-react";
+import { Backpack, Ban, LoaderCircle, Pencil, Power, Search, ShieldCheck, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { UserInventoryDialog, UserWalletDialog } from "@/components/common/admin/UserAssetsDialogs";
 import { useAuth } from "@/components/common/auth/AuthProvider";
 import { SubmitButton } from "@/components/common/form/SubmitButton";
 import { check, useSubmit } from "@/components/common/form/use-submit";
@@ -73,6 +74,8 @@ export function UsersManager() {
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [banning, setBanning] = useState<AdminUser | null>(null);
   const [disabling, setDisabling] = useState<AdminUser | null>(null);
+  const [wallet, setWallet] = useState<AdminUser | null>(null);
+  const [inventory, setInventory] = useState<AdminUser | null>(null);
 
   const load = useCallback(async () => {
     // 确认是管理员后再拉取, 否则 AdminGuard 会跳走
@@ -207,9 +210,15 @@ export function UsersManager() {
                         <Button variant="ghost" size="icon" title="编辑资料" aria-label="编辑资料" onClick={() => setEditing(u)}>
                           <Pencil />
                         </Button>
-                        {/* 后端不允许管理员封禁或停用自己 */}
+                        {/* 后端不允许管理员封禁、停用自己, 也不能给自己调整钱包和背包 */}
                         {!self && (
                           <>
+                            <Button variant="ghost" size="icon" title="钱包" aria-label="钱包" onClick={() => setWallet(u)}>
+                              <Wallet />
+                            </Button>
+                            <Button variant="ghost" size="icon" title="背包" aria-label="背包" onClick={() => setInventory(u)}>
+                              <Backpack />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -259,6 +268,8 @@ export function UsersManager() {
       <EditUserDialog user={editing} onClose={() => setEditing(null)} onSaved={load} />
       <BanUserDialog user={banning} onClose={() => setBanning(null)} onSaved={load} />
       <DisableUserDialog user={disabling} onClose={() => setDisabling(null)} onSaved={load} />
+      <UserWalletDialog user={wallet} onClose={() => setWallet(null)} />
+      <UserInventoryDialog user={inventory} onClose={() => setInventory(null)} />
     </div>
   );
 }

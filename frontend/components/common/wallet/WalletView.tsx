@@ -12,15 +12,11 @@ import { Pagination } from "@/components/common/layout/Pagination";
 import { CurrencyIcon } from "@/components/common/wallet/CurrencyIcon";
 import { toErrorMessage } from "@/lib/services/core";
 import { WalletService, type BalanceItem, type WalletTransaction } from "@/lib/services/wallet";
+import { WALLET_BIZ_LABELS } from "@/lib/biz";
 import { formatAmount, formatDateTime } from "@/lib/format";
 
 const PAGE_SIZE = 20;
 const ALL = "all";
-
-/** 业务类型名称, 与后端 internal/apps/wallet/constants.go 的 Biz 常量对应 */
-const WALLET_BIZ_LABELS: Record<string, string> = {
-  admin_adjust: "管理员调整",
-};
 
 /** 钱包: 各货币余额 + 余额流水 */
 export function WalletView() {
