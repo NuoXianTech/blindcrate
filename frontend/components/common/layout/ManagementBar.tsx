@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Gamepad2, LogOut, Palette, ScrollText, Users, Wallet } from "lucide-react";
+import { Backpack, Gamepad2, LogOut, Palette, ScrollText, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { FloatingDock, type DockEntry } from "@/components/ui/floating-dock";
 import { useAuth } from "@/components/common/auth/AuthProvider";
@@ -35,6 +35,7 @@ export function ManagementBar() {
 
   const items: DockEntry[] = [
     { title: "大厅", icon: <Gamepad2 />, href: ROUTES.gameHome, active: pathname === ROUTES.gameHome },
+    { title: "背包", icon: <Backpack />, href: ROUTES.inventory, active: pathname.startsWith(ROUTES.inventory) },
     { title: "钱包", icon: <Wallet />, href: ROUTES.wallet, active: pathname.startsWith(ROUTES.wallet) },
   ];
 
