@@ -31,6 +31,8 @@ type configModel struct {
 	Database databaseConfig `mapstructure:"database"`
 	Redis    redisConfig    `mapstructure:"redis"`
 	Log      logConfig      `mapstructure:"log"`
+	Schedule scheduleConfig `mapstructure:"schedule"`
+	Worker   workerConfig   `mapstructure:"worker"`
 	Otel     otelConfig     `mapstructure:"otel"`
 }
 
@@ -92,6 +94,18 @@ type logConfig struct {
 	MaxAge     int    `mapstructure:"max_age"`
 	MaxBackups int    `mapstructure:"max_backups"`
 	Compress   bool   `mapstructure:"compress"`
+}
+
+// scheduleConfig 定时任务调度配置
+type scheduleConfig struct {
+	Port     int    `mapstructure:"port"`      // 探针端口
+	TimeZone string `mapstructure:"time_zone"` // cron 表达式按这个时区解析
+}
+
+// workerConfig 任务处理配置
+type workerConfig struct {
+	Port        int `mapstructure:"port"`        // 探针端口
+	Concurrency int `mapstructure:"concurrency"` // 同时处理的任务数
 }
 
 // otelConfig OpenTelemetry 配置
