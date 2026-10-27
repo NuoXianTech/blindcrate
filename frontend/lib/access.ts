@@ -4,39 +4,41 @@
  */
 
 export const ROUTES = {
-  landing: "/",
-  gameHome: "/home",
-  wallet: "/wallet",
-  inventory: "/inventory",
-  login: "/login",
-  register: "/register",
-  adminUsers: "/admin/users",
-  adminItems: "/admin/items",
-  adminSettings: "/admin/settings",
-  adminTransactions: "/admin/transactions",
-  adminAuditLogs: "/admin/audit-logs",
+  landing: '/',
+  gameHome: '/home',
+  wallet: '/wallet',
+  inventory: '/inventory',
+  login: '/login',
+  register: '/register',
+  adminUsers: '/admin/users',
+  adminItems: '/admin/items',
+  adminSettings: '/admin/settings',
+  adminTransactions: '/admin/transactions',
+  adminAuditLogs: '/admin/audit-logs',
 } as const;
 
 /** 需要登录的路径前缀 */
-const AUTH_PREFIXES = ["/home", "/wallet", "/inventory", "/admin"];
+const AUTH_PREFIXES = ['/home', '/wallet', '/inventory', '/admin'];
 /** 需要管理员的路径前缀 */
-const ADMIN_PREFIXES = ["/admin"];
+const ADMIN_PREFIXES = ['/admin'];
 
 function matches(pathname: string, prefixes: string[]) {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
+/** 是否需要登录才能访问 */
 export function requiresAuth(pathname: string) {
   return matches(pathname, AUTH_PREFIXES);
 }
 
+/** 是否需要管理员才能访问 */
 export function requiresAdmin(pathname: string) {
   return matches(pathname, ADMIN_PREFIXES);
 }
 
 /** 只允许站内相对路径, 防止开放重定向 */
 export function safeRedirect(target: string | null | undefined, fallback: string = ROUTES.gameHome): string {
-  if (!target || !target.startsWith("/") || target.startsWith("//") || target.startsWith("/\\")) {
+  if (!target || !target.startsWith('/') || target.startsWith('//') || target.startsWith('/\\')) {
     return fallback;
   }
   return target;

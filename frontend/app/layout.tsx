@@ -1,35 +1,39 @@
-import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Noto_Sans_SC } from "next/font/google";
-import { AuthProvider } from "@/components/common/auth/AuthProvider";
-import { SiteProvider } from "@/components/common/layout/Site";
-import { ThemeProvider } from "@/components/common/layout/ThemeProvider";
-import { Toaster } from "@/components/ui/sonner";
-import { DEFAULT_DESCRIPTION, getPublicSettings } from "@/lib/site";
-import "./globals.css";
+import type {Metadata} from 'next';
+// eslint-disable-next-line camelcase
+import {Inter, JetBrains_Mono, Noto_Sans_SC} from 'next/font/google';
+import {AuthProvider} from '@/components/common/auth';
+import {SiteProvider} from '@/components/common/site';
+import {ThemeProvider} from '@/components/common/layout';
+import {Toaster} from '@/components/ui/sonner';
+import {DEFAULT_DESCRIPTION, getPublicSettings} from '@/lib/site';
+import './globals.css';
 
+// eslint-disable-next-line new-cap
 const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
+  variable: '--font-inter',
+  subsets: ['latin'],
+  display: 'swap',
 });
 
+// eslint-disable-next-line new-cap
 const notoSansSC = Noto_Sans_SC({
-  variable: "--font-noto-sans-sc",
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["400", "500", "600", "700"],
+  variable: '--font-noto-sans-sc',
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
 });
 
 // 数字(价格、倒计时)用等宽字体, 跳动时不会左右晃
+// eslint-disable-next-line new-cap
 const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  display: "swap",
+  variable: '--font-jetbrains-mono',
+  subsets: ['latin'],
+  display: 'swap',
 });
 
 /** 站点名称和简介来自系统设置 */
 export async function generateMetadata(): Promise<Metadata> {
-  const { site } = await getPublicSettings();
+  const {site} = await getPublicSettings();
   return {
     title: {
       template: `%s - ${site.name}`,
@@ -39,7 +43,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({children}: LayoutProps<'/'>) {
   const settings = await getPublicSettings();
   return (
     <html

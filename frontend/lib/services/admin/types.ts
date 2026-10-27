@@ -1,6 +1,6 @@
-import type { PageParams } from "../core";
-import type { InventoryTransaction } from "../inventory";
-import type { WalletTransaction } from "../wallet";
+import type {PageParams} from '../core';
+import type {InventoryTransaction} from '../inventory';
+import type {WalletTransaction} from '../wallet';
 
 /** 管理端看到的完整用户, 对应后端 auth.User */
 export interface AdminUser {
@@ -38,7 +38,7 @@ export interface UpdateUserRequest {
   avatar_url?: string;
 }
 
-export type AuditScope = "user" | "admin";
+export type AuditScope = 'user' | 'admin';
 
 export interface AuditLog {
   id: number;
@@ -126,7 +126,7 @@ export interface ListItemsData {
 /** 新建或修改物品, 修改时也需提交全部字段 */
 export type ItemRequest = Pick<
   Item,
-  "name" | "description" | "quality" | "image_url" | "sell_currency" | "sell_price" | "weight" | "width" | "height" | "is_enabled"
+  'name' | 'description' | 'quality' | 'image_url' | 'sell_currency' | 'sell_price' | 'weight' | 'width' | 'height' | 'is_enabled'
 >;
 
 /** 设置项的描述, 后台据此生成表单, 对应后端 settings.Field */
@@ -134,8 +134,8 @@ export interface SettingField {
   key: string;
   label: string;
   help: string;
-  type: "string" | "bool" | "int";
-  input: "text" | "textarea" | "password" | "switch" | "number";
+  type: 'string' | 'bool' | 'int';
+  input: 'text' | 'textarea' | 'password' | 'switch' | 'number';
   /** 密钥, 读取时不返回明文 */
   secret: boolean;
   /** 会通过公开接口返回给前端 */

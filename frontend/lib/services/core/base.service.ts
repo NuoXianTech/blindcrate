@@ -1,6 +1,6 @@
-import type { AxiosRequestConfig } from "axios";
-import { apiClient } from "./api-client";
-import type { ApiResponse } from "./types";
+import type {AxiosRequestConfig} from 'axios';
+import {apiClient} from './api-client';
+import type {ApiResponse} from './types';
 
 /**
  * 服务基类, 各模块的 service 继承它
@@ -8,7 +8,7 @@ import type { ApiResponse } from "./types";
  */
 export class BaseService {
   /** 模块路径前缀, 如 "/auth" */
-  protected static readonly basePath: string = "";
+  protected static readonly basePath: string = '';
 
   protected static url(path: string): string {
     return `${this.basePath}${path}`;

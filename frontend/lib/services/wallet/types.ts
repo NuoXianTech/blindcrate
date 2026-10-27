@@ -1,4 +1,4 @@
-import type { PageParams } from "../core";
+import type {PageParams} from '../core';
 
 /** 某种货币的余额, 对应后端 wallet.BalanceItem */
 export interface BalanceItem {

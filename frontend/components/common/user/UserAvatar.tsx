@@ -1,19 +1,19 @@
-import { cn } from "cn";
-import type { UserInfo } from "@/lib/services/auth";
+import {cn} from 'cn';
+import type {UserInfo} from '@/lib/services/auth';
 
 /** 用户头像, 未设置头像时显示昵称首字 */
 export function UserAvatar({
   user,
   className,
 }: {
-  user: Pick<UserInfo, "nickname" | "avatar_url">;
+  user: Pick<UserInfo, 'nickname' | 'avatar_url'>;
   className?: string;
 }) {
   return (
     <span
       className={cn(
-        "flex size-full shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/20 font-bold text-primary uppercase",
-        className,
+          'flex size-full shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/20 font-bold text-primary uppercase',
+          className,
       )}
     >
       {user.avatar_url ? (

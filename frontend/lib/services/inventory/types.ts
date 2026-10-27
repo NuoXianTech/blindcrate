@@ -1,4 +1,4 @@
-import type { PageParams } from "../core";
+import type {PageParams} from '../core';
 
 /** 背包中的一种物品, 对应后端 inventory.UserItemDetail */
 export interface UserItem {

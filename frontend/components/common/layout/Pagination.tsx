@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {ChevronLeft, ChevronRight} from 'lucide-react';
+import {Button} from '@/components/ui/button';
 
 /** 简单分页: 共几条 + 上一页/下一页 */
 export function Pagination({

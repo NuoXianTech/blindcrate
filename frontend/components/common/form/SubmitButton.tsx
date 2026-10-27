@@ -1,5 +1,5 @@
-import { LoaderCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {LoaderCircle} from 'lucide-react';
+import {Button} from '@/components/ui/button';
 
 /** 表单提交按钮, 提交中禁用并转圈 */
 export function SubmitButton({

@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
-import { Package } from "lucide-react";
+import type {Metadata} from 'next';
+import {Package} from 'lucide-react';
 
-export const metadata: Metadata = { title: "游戏大厅" };
+export const metadata: Metadata = {title: '游戏大厅'};
 
 /** 游戏大厅, 玩法开发中 */
 export default function GameHomePage() {
