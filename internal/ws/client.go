@@ -35,10 +35,12 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
+	"github.com/NuoXianTech/blindcrate/internal/ratelimit"
 	"github.com/coder/websocket"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/time/rate"
 )
 
 // Client 一个 WebSocket 连接, 同一用户可以同时有多个连接(多个页面或设备)
@@ -49,6 +51,7 @@ type Client struct {
 	sendCh    chan []byte               // 待发送的消息, 由 writeLoop 依次写出
 	closeCh   chan websocket.CloseError // 其他 goroutine 发起的关闭, 由 writeLoop 完成关闭握手
 	cancel    context.CancelFunc        // 取消后连接立即断开
+	limiter   *rate.Limiter             // 限制交给处理函数的消息频率
 	kickOnce  sync.Once
 }
 
@@ -60,6 +63,7 @@ func newClient(userID uint64, sessionID string, conn *websocket.Conn, cancel con
 		sendCh:    make(chan []byte, sendQueueSize),
 		closeCh:   make(chan websocket.CloseError, 1),
 		cancel:    cancel,
+		limiter:   rate.NewLimiter(messageRate, messageBurst),
 	}
 }
 
@@ -196,6 +200,12 @@ func (c *Client) handle(ctx context.Context, raw []byte) {
 	handler, ok := handlers[msg.Type]
 	if !ok {
 		c.reply(ctx, Message{Type: msg.Type, ID: msg.ID, ErrorMsg: MessageTypeUnknown}, nil)
+		return
+	}
+
+	// 处理函数可能读写数据库, 限制单个连接的处理频率; ping 和无法处理的消息不计入
+	if !c.limiter.Allow() {
+		c.reply(ctx, Message{Type: msg.Type, ID: msg.ID, ErrorMsg: ratelimit.TooManyRequests}, nil)
 		return
 	}
 

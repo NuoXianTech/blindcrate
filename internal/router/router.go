@@ -39,6 +39,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
+	"github.com/NuoXianTech/blindcrate/internal/ratelimit"
 	"github.com/NuoXianTech/blindcrate/internal/ws"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
@@ -59,6 +60,11 @@ func Serve() {
 	// 初始化路由
 	r := gin.New()
 	r.Use(gin.Recovery())
+
+	// 只采信可信代理转发的 X-Forwarded-For, 否则客户端可以伪造 IP 绕过按 IP 的限流
+	if err := r.SetTrustedProxies(config.Config.App.TrustedProxies); err != nil {
+		log.Fatalf("[API] set trusted proxies failed: %v\n", err)
+	}
 
 	// Session
 	sessionStore, err := redis.NewStoreWithDB(
@@ -102,13 +108,13 @@ func Serve() {
 			apiV1Router.GET("/ready", health.Ready)
 
 			// Auth
-			apiV1Router.POST("/auth/login", auth.Login)
-			apiV1Router.POST("/auth/register", auth.Register)
+			apiV1Router.POST("/auth/login", ratelimit.ByIP("auth:login", ratelimit.PerMinute(10)), auth.Login)
+			apiV1Router.POST("/auth/register", ratelimit.ByIP("auth:register", ratelimit.PerHour(10)), auth.Register)
 			apiV1Router.POST("/auth/logout", auth.Logout)
 			apiV1Router.GET("/auth/user-info", auth.LoginRequired(), auth.UserInfo)
 			apiV1Router.PATCH("/auth/user-info", auth.LoginRequired(), auth.UpdateUserInfo)
-			apiV1Router.PUT("/auth/password", auth.LoginRequired(), auth.ChangePassword)
-			apiV1Router.POST("/auth/email/code", auth.LoginRequired(), auth.SendEmailCode)
+			apiV1Router.PUT("/auth/password", auth.LoginRequired(), ratelimit.ByUser("auth:change_password", ratelimit.PerHour(10)), auth.ChangePassword)
+			apiV1Router.POST("/auth/email/code", auth.LoginRequired(), ratelimit.ByUser("auth:send_email_code", ratelimit.PerHour(10)), auth.SendEmailCode)
 			apiV1Router.POST("/auth/email/verify", auth.LoginRequired(), auth.VerifyEmail)
 
 			// Settings
@@ -180,7 +186,7 @@ func Serve() {
 				{
 					settingsAdminRouter.GET("", admin.ListSettings)
 					settingsAdminRouter.PUT("/:key", admin.UpdateSetting)
-					settingsAdminRouter.POST("/mail/test", admin.TestMail)
+					settingsAdminRouter.POST("/mail/test", ratelimit.ByUser("admin:mail_test", ratelimit.PerMinute(5)), admin.TestMail)
 				}
 
 				// Audit Log

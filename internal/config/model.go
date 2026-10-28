@@ -39,17 +39,18 @@ type configModel struct {
 
 // appConfig 应用基本配置
 type appConfig struct {
-	AppName           string `mapstructure:"app_name"`
-	Env               string `mapstructure:"env"`
-	Addr              string `mapstructure:"addr"`
-	SessionCookieName string `mapstructure:"session_cookie_name"`
-	SessionSecret     string `mapstructure:"session_secret"`
-	SessionDomain     string `mapstructure:"session_domain"`
-	SessionAge        int    `mapstructure:"session_age"`
-	SessionHttpOnly   bool   `mapstructure:"session_http_only"`
-	SessionSecure     bool   `mapstructure:"session_secure"`
-	APIPrefix         string `mapstructure:"api_prefix"`
-	SecretKey         string `mapstructure:"secret_key"` // 加密存在数据库中的密钥, 如 SMTP 密码
+	AppName           string   `mapstructure:"app_name"`
+	Env               string   `mapstructure:"env"`
+	Addr              string   `mapstructure:"addr"`
+	TrustedProxies    []string `mapstructure:"trusted_proxies"` // 可信的反向代理 IP 或网段, 只采信它们转发的 X-Forwarded-For, 为空时客户端 IP 取连接的对端地址
+	SessionCookieName string   `mapstructure:"session_cookie_name"`
+	SessionSecret     string   `mapstructure:"session_secret"`
+	SessionDomain     string   `mapstructure:"session_domain"`
+	SessionAge        int      `mapstructure:"session_age"`
+	SessionHttpOnly   bool     `mapstructure:"session_http_only"`
+	SessionSecure     bool     `mapstructure:"session_secure"`
+	APIPrefix         string   `mapstructure:"api_prefix"`
+	SecretKey         string   `mapstructure:"secret_key"` // 加密存在数据库中的密钥, 如 SMTP 密码
 }
 
 // databaseConfig 数据库配置

@@ -130,6 +130,7 @@ pnpm dev
 | 配置项 | 说明 | 示例 |
 |--------|------|------|
 | `app.addr` | 后端服务监听地址 | `:8000` |
+| `app.trusted_proxies` | 可信的反向代理, 用于识别客户端 IP 和按 IP 限流 | `["127.0.0.1", "::1"]` |
 | `worker.port` | Worker 探针端口 | `8001` |
 | `schedule.port` | Scheduler 探针端口 | `8002` |
 | `ws.origin_patterns` | WebSocket 连接域名 | `["localhost:3000"]` |

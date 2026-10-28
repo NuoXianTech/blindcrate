@@ -1344,6 +1344,10 @@ paths:
           description: Forbidden
           schema:
             $ref: '#/definitions/admin.Response'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -2037,6 +2041,10 @@ paths:
           description: Forbidden
           schema:
             $ref: '#/definitions/auth.Response'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/auth.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -2091,6 +2099,10 @@ paths:
           description: Forbidden
           schema:
             $ref: '#/definitions/auth.Response'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/auth.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -2132,6 +2144,10 @@ paths:
             $ref: '#/definitions/auth.Response'
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/auth.Response'
+        "429":
+          description: Too Many Requests
           schema:
             $ref: '#/definitions/auth.Response'
         "500":

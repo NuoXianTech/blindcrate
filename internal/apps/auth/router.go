@@ -67,6 +67,7 @@ type LoginRequest struct {
 // @Failure 400 {object} Response
 // @Failure 401 {object} Response
 // @Failure 403 {object} Response
+// @Failure 429 {object} Response
 // @Failure 500 {object} Response
 // @Router /api/v1/auth/login [post]
 func Login(c *gin.Context) {
@@ -143,6 +144,7 @@ type RegisterRequest struct {
 // @Failure 400 {object} Response
 // @Failure 403 {object} Response
 // @Failure 409 {object} Response
+// @Failure 429 {object} Response
 // @Failure 500 {object} Response
 // @Router /api/v1/auth/register [post]
 func Register(c *gin.Context) {
@@ -241,6 +243,7 @@ type ChangePasswordRequest struct {
 // @Failure 400 {object} Response
 // @Failure 401 {object} Response
 // @Failure 403 {object} Response
+// @Failure 429 {object} Response
 // @Failure 500 {object} Response
 // @Router /api/v1/auth/password [put]
 func ChangePassword(c *gin.Context) {
