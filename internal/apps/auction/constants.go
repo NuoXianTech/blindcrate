@@ -43,6 +43,9 @@ const (
 	PhaseReveal  = "reveal"  // 开箱, 已结算
 )
 
+// MetricBidWon 统计指标: 成交次数, 成交者结算时累加
+const MetricBidWon = "bid_won"
+
 // 结算结果
 const (
 	OutcomeSold      = "sold"      // 成交

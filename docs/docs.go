@@ -5054,7 +5054,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "width": {
-                    "description": "在保险柜中占的格数",
+                    "description": "在仓库中占的格数",
                     "type": "integer"
                 }
             }
@@ -5107,7 +5107,7 @@ const docTemplate = `{
                     "minimum": 0
                 },
                 "width": {
-                    "description": "在保险柜中占的格数",
+                    "description": "在仓库中占的格数",
                     "type": "integer",
                     "maximum": 10,
                     "minimum": 1
@@ -6124,7 +6124,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "input": {
-                    "description": "text / switch / number, 或选择器 currency / item / scope",
+                    "description": "text / switch / number, 或选择器 currency / item / scope / metric",
                     "type": "string"
                 },
                 "key": {
@@ -6133,8 +6133,26 @@ const docTemplate = `{
                 "label": {
                     "type": "string"
                 },
+                "options": {
+                    "description": "选择器 metric 的可选值",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Option"
+                    }
+                },
                 "type": {
                     "description": "string / bool / int",
+                    "type": "string"
+                }
+            }
+        },
+        "condition.Option": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "value": {
                     "type": "string"
                 }
             }
@@ -6548,7 +6566,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "width": {
-                    "description": "在保险柜中占的格数",
+                    "description": "在仓库中占的格数",
                     "type": "integer"
                 }
             }

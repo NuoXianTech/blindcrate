@@ -69,6 +69,7 @@ export function newConditionDraft(type: ConditionType, currencies: Currency[]): 
     if (field.type === 'bool') params[field.key] = false;
     else if (field.input === 'currency') params[field.key] = currencies[0]?.code ?? '';
     else if (field.input === 'scope') params[field.key] = 'all';
+    else if (field.input === 'metric') params[field.key] = field.options?.[0]?.value ?? '';
     else if (field.input === 'item') params[field.key] = '';
     else params[field.key] = field.type === 'int' ? '1' : '';
   }

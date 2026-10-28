@@ -97,7 +97,7 @@ export interface Item {
   sell_currency: string;
   /** 官方回收价, 最小单位; 0 表示不可卖出 */
   sell_price: number;
-  /** 在保险柜中占的格数 */
+  /** 在仓库中占的格数 */
   width: number;
   height: number;
   /** 下架后不会掉落, 也不能再发放, 已有的保留 */
@@ -372,8 +372,16 @@ export interface ConditionField {
   label: string;
   help: string;
   type: 'string' | 'bool' | 'int';
-  /** text / switch / number, 或选择器 currency / item / scope */
-  input: 'text' | 'switch' | 'number' | 'currency' | 'item' | 'scope';
+  /** text / switch / number, 或选择器 currency / item / scope / metric */
+  input: 'text' | 'switch' | 'number' | 'currency' | 'item' | 'scope' | 'metric';
+  /** 选择器 metric 的可选值 */
+  options?: ConditionOption[];
+}
+
+/** 条件参数选择器的一个可选值 */
+export interface ConditionOption {
+  value: string;
+  label: string;
 }
 
 /** 条件类型, 对应后端 condition.TypeView */

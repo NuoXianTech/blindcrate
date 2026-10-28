@@ -162,7 +162,24 @@ function ParamField({id, field, value, onChange, items, currencies, scopeListID,
   }
 
   let control: React.ReactNode;
-  if (field.input === 'currency') {
+  if (field.input === 'metric') {
+    const options = field.options ?? [];
+    control = (
+      <Select value={text} onValueChange={onChange} disabled={disabled}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue placeholder="选择统计数据" />
+        </SelectTrigger>
+        <SelectContent>
+          {text && !options.some((o) => o.value === text) && <SelectItem value={text}>未知统计数据 {text}</SelectItem>}
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  } else if (field.input === 'currency') {
     control = (
       <Select value={text} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger id={id} className="w-full">

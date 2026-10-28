@@ -39,12 +39,11 @@ import (
 
 func init() {
 	Register(TypeMinBalance, "最低余额", "可用余额不少于指定金额, 只检查不扣除; 入场费请配置为入场代价", checkMinBalance)
-	Register(TypeMinMatches, "完成局数", "在统计范围内完成的对局数不少于指定局数", checkMinMatches)
-	Register(TypeMinWins, "胜利次数", "在统计范围内的胜利次数不少于指定次数, 胜利指名次为第 1", checkMinWins)
+	Register(TypeMinStat, "统计数据", "在统计范围内累计的统计数据不少于指定值, 如完成 10 局排位、胜利 3 次", checkMinStat)
 	Register(TypeHasItem, "持有物品", "背包中持有的指定物品不少于指定数量, 只检查不消耗; 需要消耗时请配置为入场代价", checkHasItem)
 	Register(TypeAccountAge, "注册天数", "注册满指定天数", checkAccountAge)
 	Register(TypeEmailVerified, "验证邮箱", "已验证邮箱", checkEmailVerified)
-	Register(TypeDailyLimit, "每日局数上限", "今天在统计范围内的对局数少于指定局数", checkDailyLimit)
+	Register(TypeDailyLimit, "每日上限", "今天在统计范围内的统计数据少于指定值, 如每天最多 5 局", checkDailyLimit)
 }
 
 // minBalanceParams 最低余额的参数
@@ -83,51 +82,28 @@ func checkMinBalance(tx *gorm.DB, userID uint64, p *minBalanceParams) (*Progress
 	}, nil
 }
 
-// minMatchesParams 完成局数的参数
-type minMatchesParams struct {
-	Scope string `json:"scope" label:"统计范围" help:"all 为全部对局, mode:<模式> 为某种模式, venue:<地图> 为某张地图, venue:<地图>:<模式> 为某张地图的某种模式" binding:"required,max=64" input:"scope"`
-	Count int64  `json:"count" label:"局数" binding:"min=1,max=1000000"`
+// minStatParams 统计数据的参数
+type minStatParams struct {
+	Metric string `json:"metric" label:"统计数据" binding:"required,max=64" input:"metric"`
+	Scope  string `json:"scope" label:"统计范围" help:"all 为全部对局, mode:<模式> 为某种模式, venue:<地图> 为某张地图, venue:<地图>:<模式> 为某张地图的某种模式" binding:"required,max=64" input:"scope"`
+	Count  int64  `json:"count" label:"不少于" binding:"min=1,max=1000000"`
 }
 
-// Validate 统计范围的格式必须正确
-func (p *minMatchesParams) Validate(*gorm.DB) (string, error) {
-	return validateScope(p.Scope), nil
+// Validate 指标必须已注册, 统计范围的格式必须正确
+func (p *minStatParams) Validate(*gorm.DB) (string, error) {
+	return validateStat(p.Metric, p.Scope), nil
 }
 
-func checkMinMatches(tx *gorm.DB, userID uint64, p *minMatchesParams) (*Progress, error) {
-	stat, name, err := scopeStat(tx, userID, p.Scope, stats.PeriodTotal)
+func checkMinStat(tx *gorm.DB, userID uint64, p *minStatParams) (*Progress, error) {
+	value, name, err := scopeStat(tx, userID, p.Scope, stats.PeriodTotal, p.Metric)
 	if err != nil {
 		return nil, err
 	}
 	return &Progress{
-		Met:     stat.Matches >= p.Count,
-		Current: stat.Matches,
+		Met:     value >= p.Count,
+		Current: value,
 		Target:  p.Count,
-		Text:    fmt.Sprintf("完成 %d 局%s(%d/%d)", p.Count, name, stat.Matches, p.Count),
-	}, nil
-}
-
-// minWinsParams 胜利次数的参数
-type minWinsParams struct {
-	Scope string `json:"scope" label:"统计范围" help:"all 为全部对局, mode:<模式> 为某种模式, venue:<地图> 为某张地图, venue:<地图>:<模式> 为某张地图的某种模式" binding:"required,max=64" input:"scope"`
-	Count int64  `json:"count" label:"次数" binding:"min=1,max=1000000"`
-}
-
-// Validate 统计范围的格式必须正确
-func (p *minWinsParams) Validate(*gorm.DB) (string, error) {
-	return validateScope(p.Scope), nil
-}
-
-func checkMinWins(tx *gorm.DB, userID uint64, p *minWinsParams) (*Progress, error) {
-	stat, name, err := scopeStat(tx, userID, p.Scope, stats.PeriodTotal)
-	if err != nil {
-		return nil, err
-	}
-	return &Progress{
-		Met:     stat.Wins >= p.Count,
-		Current: stat.Wins,
-		Target:  p.Count,
-		Text:    fmt.Sprintf("%s胜利 %d 次(%d/%d)", name, p.Count, stat.Wins, p.Count),
+		Text:    fmt.Sprintf("%s%s达到 %d(%d/%d)", name, metricLabel(p.Metric), p.Count, value, p.Count),
 	}, nil
 }
 
@@ -197,47 +173,59 @@ func checkEmailVerified(tx *gorm.DB, userID uint64, _ *emailVerifiedParams) (*Pr
 	return &Progress{Met: user.EmailVerifiedAt != nil, Text: "已验证邮箱"}, nil
 }
 
-// dailyLimitParams 每日局数上限的参数
+// dailyLimitParams 每日上限的参数
 type dailyLimitParams struct {
-	Scope string `json:"scope" label:"统计范围" help:"all 为全部对局, mode:<模式> 为某种模式, venue:<地图> 为某张地图, venue:<地图>:<模式> 为某张地图的某种模式" binding:"required,max=64" input:"scope"`
-	Count int64  `json:"count" label:"每天最多局数" binding:"min=1,max=1000000"`
+	Metric string `json:"metric" label:"统计数据" binding:"required,max=64" input:"metric"`
+	Scope  string `json:"scope" label:"统计范围" help:"all 为全部对局, mode:<模式> 为某种模式, venue:<地图> 为某张地图, venue:<地图>:<模式> 为某张地图的某种模式" binding:"required,max=64" input:"scope"`
+	Count  int64  `json:"count" label:"每天最多" binding:"min=1,max=1000000"`
 }
 
-// Validate 统计范围的格式必须正确
+// Validate 指标必须已注册, 统计范围的格式必须正确
 func (p *dailyLimitParams) Validate(*gorm.DB) (string, error) {
-	return validateScope(p.Scope), nil
+	return validateStat(p.Metric, p.Scope), nil
 }
 
 func checkDailyLimit(tx *gorm.DB, userID uint64, p *dailyLimitParams) (*Progress, error) {
-	stat, name, err := scopeStat(tx, userID, p.Scope, stats.PeriodDay(time.Now()))
+	value, name, err := scopeStat(tx, userID, p.Scope, stats.PeriodDay(time.Now()), p.Metric)
 	if err != nil {
 		return nil, err
 	}
 	return &Progress{
-		Met:     stat.Matches < p.Count,
-		Current: stat.Matches,
+		Met:     value < p.Count,
+		Current: value,
 		Target:  p.Count,
-		Text:    fmt.Sprintf("%s每天最多 %d 局(今天 %d/%d)", name, p.Count, stat.Matches, p.Count),
+		Text:    fmt.Sprintf("%s每天%s最多 %d(今天 %d/%d)", name, metricLabel(p.Metric), p.Count, value, p.Count),
 	}, nil
 }
 
-// validateScope 统计范围的格式不正确时返回原因
-func validateScope(scope string) string {
+// validateStat 指标未注册或统计范围的格式不正确时返回原因
+func validateStat(metric, scope string) string {
+	if stats.FindMetric(metric) == nil {
+		return MetricNotFound
+	}
 	if !stats.ValidScope(scope) {
 		return ScopeInvalid
 	}
 	return ""
 }
 
-// scopeStat 获取用户在统计范围内的统计和范围的展示名称
-func scopeStat(tx *gorm.DB, userID uint64, scope, period string) (*stats.UserStat, string, error) {
-	stat, err := stats.Get(tx, userID, scope, period)
+// metricLabel 指标的展示名称, 指标已不再注册时展示 key
+func metricLabel(metric string) string {
+	if m := stats.FindMetric(metric); m != nil {
+		return m.Label
+	}
+	return metric
+}
+
+// scopeStat 获取用户在统计范围内的一个指标和范围的展示名称
+func scopeStat(tx *gorm.DB, userID uint64, scope, period, metric string) (int64, string, error) {
+	value, err := stats.Get(tx, userID, scope, period, metric)
 	if err != nil {
-		return nil, "", err
+		return 0, "", err
 	}
 	name, err := scopeName(tx, scope)
 	if err != nil {
-		return nil, "", err
+		return 0, "", err
 	}
-	return stat, name, nil
+	return value, name, nil
 }

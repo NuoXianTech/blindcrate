@@ -43,11 +43,18 @@ type Progress struct {
 
 // Field 条件参数的描述, 后台据此自动生成表单
 type Field struct {
-	Key   string `json:"key"`
+	Key     string   `json:"key"`
+	Label   string   `json:"label"`
+	Help    string   `json:"help"`
+	Type    string   `json:"type"`              // string / bool / int
+	Input   string   `json:"input"`             // text / switch / number, 或选择器 currency / item / scope / metric
+	Options []Option `json:"options,omitempty"` // 选择器 metric 的可选值
+}
+
+// Option 选择器的一个可选值
+type Option struct {
+	Value string `json:"value"`
 	Label string `json:"label"`
-	Help  string `json:"help"`
-	Type  string `json:"type"`  // string / bool / int
-	Input string `json:"input"` // text / switch / number, 或选择器 currency / item / scope
 }
 
 // TypeView 后台看到的条件类型

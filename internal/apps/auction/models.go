@@ -36,7 +36,6 @@ import (
 type Match struct {
 	MatchID     uint64     `gorm:"primaryKey;autoIncrement:false" json:"match_id"`
 	VenueID     uint64     `gorm:"not null" json:"venue_id"`
-	Mode        string     `gorm:"size:16;not null" json:"mode"`                                       // pve 或 ranked
 	Venue       Snapshot   `gorm:"type:jsonb;serializer:json;not null" json:"venue"`                   // 开局时的地图配置, 之后修改地图不影响这一局
 	Value       int64      `gorm:"not null" json:"value"`                                              // 仓库价值, 出价货币的回收价之和
 	PieceCount  int32      `gorm:"not null" json:"piece_count"`                                        // 藏品件数, 开局时公开
@@ -76,8 +75,7 @@ type Player struct {
 	ID         uint64        `gorm:"primaryKey" json:"id"`
 	MatchID    uint64        `gorm:"not null;index:idx_auction_players_match_id" json:"match_id"`
 	Seat       int16         `gorm:"not null;default:0" json:"seat"`
-	UserID     uint64        `gorm:"not null;default:0" json:"user_id"` // 人机为 0
-	BotLevel   int16         `gorm:"not null;default:0" json:"bot_level"`
+	UserID     uint64        `gorm:"not null;default:0" json:"user_id"`                                  // 人机为 0
 	IsPractice bool          `gorm:"not null;default:false" json:"is_practice"`                          // 练习局, 准入时决定, 之后不再变化
 	EntryCost  reward.Bundle `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"entry_cost"` // 实际扣除的入场代价, 练习局和人机为空
 	Carry      int64         `gorm:"not null;default:0" json:"carry"`                                    // 带入资金, 出价的上限
