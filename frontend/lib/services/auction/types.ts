@@ -89,6 +89,22 @@ export interface AuctionPiece {
   sell_currency: string;
   /** 开局时的回收价 */
   sell_price: number;
+  /** 开箱时扫描的顺序, 从 1 开始 */
+  scan_order: number;
+  /** 扫描这件的时长, 毫秒 */
+  scan_ms: number;
+}
+
+/** 一件藏品在仓库中占的格子, 出价时就公开, 不包含名称和回收价 */
+export interface Footprint {
+  /** 开箱时扫描的顺序, 从 1 开始 */
+  scan_order: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** 已公开品质时为品质, 否则为 0 */
+  quality: number;
 }
 
 /** 开箱后公开的一个座位的出价 */
@@ -108,9 +124,12 @@ export interface AuctionResult {
   value: number;
   /** 自己的盈亏, 已扣除入场代价; 练习局按正式局计算 */
   profit: number;
+  /** 按扫描顺序 */
   pieces: AuctionPiece[];
   /** 按座位号排序 */
   seats: SeatResult[];
+  /** 开始扫描的时间, 即结算时间 */
+  scan_from: string | null;
 }
 
 /** 玩家看到的一局暗拍, 对应后端 auction.AuctionView */
@@ -125,6 +144,8 @@ export interface AuctionView {
   version: number;
   venue: AuctionVenue;
   piece_count: number;
+  /** 全部藏品占的格子, 按扫描顺序 */
+  footprints: Footprint[];
   /** 第 N 轮公开前 N 件藏品的品质 */
   revealed: RevealedPiece[];
   /** 加轮时可以出价的座位, 为空表示所有人 */

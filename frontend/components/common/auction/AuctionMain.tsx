@@ -119,11 +119,17 @@ export function AuctionMain({matchId}: { matchId: number }) {
       <AuctionHeader view={view} finished={finished} remaining={remaining} />
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto grid w-full max-w-6xl gap-6 p-4 lg:grid-cols-[1fr_380px]">
-          <Warehouse view={view} decimals={decimals} />
+          <Warehouse view={view} decimals={decimals} finished={finished} />
           <div className="flex flex-col gap-4">
             <SeatList view={view} players={match.players} decimals={decimals} />
             {view.result ? (
-              <ResultPanel view={view} players={match.players} decimals={decimals} finished={finished} />
+              <ResultPanel
+                view={view}
+                players={match.players}
+                decimals={decimals}
+                finished={finished}
+                released={finished || !!match.released_at}
+              />
             ) : (
               <BidPanel
                 key={view.round}

@@ -17,14 +17,16 @@ import type {MatchPlayer} from '@/lib/services/match';
 import {formatAmount} from '@/lib/utils';
 
 /**
- * 结算结果: 成交价、仓库价值和自己的盈亏; 对局结束后可以返回大厅或再来一局
+ * 结算结果: 成交价、仓库价值和自己的盈亏; 结算后对局随即释放, 开箱时就可以离开或再来一局
  */
-export function ResultPanel({view, players, decimals, finished}: {
+export function ResultPanel({view, players, decimals, finished, released}: {
   view: AuctionView;
   players: MatchPlayer[];
   decimals: number;
-  /** 开箱阶段结束, 对局已结束, 这时才能再来一局 */
+  /** 开箱阶段结束, 对局已结束 */
   finished: boolean;
+  /** 对局已释放, 可以离开去排下一局 */
+  released: boolean;
 }) {
   const router = useRouter();
   const [joining, setJoining] = useState(false);
@@ -95,15 +97,20 @@ export function ResultPanel({view, players, decimals, finished}: {
         </span>
       </div>
 
-      {finished ? (
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" asChild>
-            <Link href={ROUTES.gameHome}>返回大厅</Link>
-          </Button>
-          <Button disabled={joining} onClick={again}>
-            {joining ? <LoaderCircle className="animate-spin" /> : <RotateCcw />}
-            再来一局
-          </Button>
+      {released ? (
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" asChild>
+              <Link href={ROUTES.gameHome}>{finished ? '返回大厅' : '离开'}</Link>
+            </Button>
+            <Button disabled={joining} onClick={again}>
+              {joining ? <LoaderCircle className="animate-spin" /> : <RotateCcw />}
+              再来一局
+            </Button>
+          </div>
+          {!finished && (
+            <span className="text-center text-xs text-muted-foreground">已结算, 可以留下看完开箱, 也可以直接离开</span>
+          )}
         </div>
       ) : (
         <span className="text-center text-xs text-muted-foreground">开箱中, 稍后可以再来一局</span>
