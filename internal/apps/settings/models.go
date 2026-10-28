@@ -28,7 +28,7 @@ import "time"
 
 // 分类, 后台按分类分页展示设置组
 const (
-	CategorySystem = "system" // 系统: 站点、注册登录、邮件等
+	CategorySystem = "system" // 系统: 站点、注册登录、邮件、数据统计等
 	CategoryGame   = "game"   // 游戏: 经济、对局等玩法参数
 )
 
@@ -49,6 +49,7 @@ const (
 	KeyAuth    = "auth"
 	KeyMail    = "mail"
 	KeyEconomy = "economy"
+	KeyStats   = "stats"
 )
 
 // Setting 一个设置组存一行, 内容为该组的 JSON, 未保存过的设置组没有记录, 使用代码中的默认值
@@ -119,6 +120,14 @@ var (
 		Sort:        30,
 		Defaults:    func() *MailSettings { return &MailSettings{Port: 465} },
 	})
+	Stats = Register(Group[StatsSettings]{
+		Key:         KeyStats,
+		Label:       "数据统计",
+		Description: "玩家统计数据的保存时间",
+		Category:    CategorySystem,
+		Sort:        40,
+		Defaults:    func() *StatsSettings { return &StatsSettings{DayRetention: 60} },
+	})
 	Economy = Register(Group[EconomySettings]{
 		Key:         KeyEconomy,
 		Label:       "经济",
@@ -157,6 +166,11 @@ type MailSettings struct {
 	Password    string `json:"password" label:"密码" binding:"max=255" secret:"true"`
 	FromName    string `json:"from_name" label:"发件人名称" help:"留空则使用站点名称" binding:"max=64"`
 	FromAddress string `json:"from_address" label:"发件人邮箱" binding:"required_if=Enabled true,omitempty,max=255,email"`
+}
+
+// StatsSettings 数据统计
+type StatsSettings struct {
+	DayRetention int `json:"day_retention" label:"按天统计保留天数" help:"含今天, 更早的按天统计每天定时清理, 累计统计不受影响; 个人数据页展示最近 7 天, 因此不能少于 7 天" binding:"min=7,max=3650"`
 }
 
 // EconomySettings 经济: 基础货币、出售手续费、新手资金和人机模式的收益上限

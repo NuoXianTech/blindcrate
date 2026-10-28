@@ -38,13 +38,16 @@ const ScopeAll = "all"
 // PeriodTotal 统计周期: 累计
 const PeriodTotal = "total"
 
+// periodDayPrefix 按天统计周期的前缀, 见 PeriodDay
+const periodDayPrefix = "day:"
+
 // 通用的计数指标, 所有玩法结算时都会写入
 const (
 	MetricMatches = "matches" // 完成的对局数
 	MetricWins    = "wins"    // 胜利次数, 名次为第 1 的对局数
 )
 
-// RecentDays 个人数据中按天展示的天数, 含今天
+// RecentDays 个人数据中按天展示的天数, 含今天; 不能超过 settings.StatsSettings.DayRetention 的下限
 const RecentDays = 7
 
 const (
@@ -52,4 +55,6 @@ const (
 	maxScopeLength = 64
 	// maxMetricLength 指标的最大长度, 与 stats.metric 一致
 	maxMetricLength = 64
+	// cleanupBatch 清理按天统计时每批删除的行数
+	cleanupBatch = 5000
 )
