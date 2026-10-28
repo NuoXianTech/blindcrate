@@ -326,3 +326,78 @@ CREATE TABLE IF NOT EXISTS venues
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_venues_code ON venues (code);
 CREATE INDEX IF NOT EXISTS idx_venues_deleted_at ON venues (deleted_at);
+
+-- 暗拍的对局级数据, 与 matches 一一对应, 开局时创建
+CREATE TABLE IF NOT EXISTS auction_matches
+(
+    match_id     BIGINT PRIMARY KEY,
+    venue_id     BIGINT      NOT NULL,
+    mode         VARCHAR(16) NOT NULL,              -- pve 或 ranked
+    venue        JSONB       NOT NULL,              -- 开局时的地图配置快照
+    value        BIGINT      NOT NULL,              -- 仓库价值, 出价货币的回收价之和
+    piece_count  INTEGER     NOT NULL,              -- 藏品件数
+    contenders   JSONB       NOT NULL DEFAULT '[]', -- 加轮时可以出价的座位, 为空表示所有人
+    extra_rounds INTEGER     NOT NULL DEFAULT 0,    -- 已加的轮数
+    outcome      VARCHAR(16) NOT NULL DEFAULT '',   -- 结算前为空, 之后为 sold、unsold 或 cancelled
+    winner_seat  SMALLINT    NOT NULL DEFAULT 0,    -- 成交者的座位, 没有成交时为 0
+    price        BIGINT      NOT NULL DEFAULT 0,    -- 成交价
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    settled_at   TIMESTAMPTZ                        -- 结算或取消的时间
+);
+
+-- 暗拍中的座位, 真人在准入时创建(此时座位号为 0), 人机在开局时创建
+CREATE TABLE IF NOT EXISTS auction_players
+(
+    id          BIGSERIAL PRIMARY KEY,
+    match_id    BIGINT      NOT NULL,
+    seat        SMALLINT    NOT NULL DEFAULT 0,
+    user_id     BIGINT      NOT NULL DEFAULT 0,     -- 人机为 0
+    bot_level   SMALLINT    NOT NULL DEFAULT 0,
+    is_practice BOOLEAN     NOT NULL DEFAULT FALSE, -- 练习局, 不扣入场代价、不冻结资金、不发藏品、不写统计
+    entry_cost  JSONB       NOT NULL DEFAULT '{}',  -- 实际扣除的入场代价
+    carry       BIGINT      NOT NULL DEFAULT 0,     -- 带入资金, 出价的上限
+    frozen      BIGINT      NOT NULL DEFAULT 0,     -- 冻结的带入资金
+    estimate    BIGINT      NOT NULL DEFAULT 0,     -- 人机对仓库价值的估值
+    bid         BIGINT      NOT NULL DEFAULT 0,     -- 当前出价
+    bid_at      TIMESTAMPTZ,                        -- 当前出价的提交时间
+    feedback    JSONB       NOT NULL DEFAULT '[]',  -- 每轮结束后的反馈
+    profit      BIGINT      NOT NULL DEFAULT 0,     -- 结算后的盈亏
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_auction_players_match_id ON auction_players (match_id);
+
+-- 暗拍每轮的出价, 每人每轮一条, 0 表示不加价
+CREATE TABLE IF NOT EXISTS auction_bids
+(
+    id         BIGSERIAL PRIMARY KEY,
+    match_id   BIGINT      NOT NULL,
+    round      INTEGER     NOT NULL,
+    seat       SMALLINT    NOT NULL,
+    amount     BIGINT      NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_bids_match_id_round_seat ON auction_bids (match_id, round, seat);
+
+-- 暗拍仓库里的藏品, 开局时快照名称和回收价
+CREATE TABLE IF NOT EXISTS auction_warehouse_items
+(
+    id            BIGSERIAL PRIMARY KEY,
+    match_id      BIGINT        NOT NULL,
+    reveal_order  INTEGER       NOT NULL, -- 公开品质的顺序, 从 1 开始, 第 N 轮公开前 N 件
+    item_id       BIGINT        NOT NULL,
+    name          VARCHAR(64)   NOT NULL,
+    image_url     VARCHAR(1024) NOT NULL DEFAULT '',
+    quality       SMALLINT      NOT NULL,
+    width         SMALLINT      NOT NULL,
+    height        SMALLINT      NOT NULL,
+    x             SMALLINT      NOT NULL,
+    y             SMALLINT      NOT NULL,
+    sell_currency VARCHAR(32)   NOT NULL,
+    sell_price    BIGINT        NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_warehouse_items_match_id_reveal_order ON auction_warehouse_items (match_id, reveal_order);

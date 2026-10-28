@@ -1,3 +1,7 @@
+DROP TABLE IF EXISTS auction_warehouse_items;
+DROP TABLE IF EXISTS auction_bids;
+DROP TABLE IF EXISTS auction_players;
+DROP TABLE IF EXISTS auction_matches;
 DROP TABLE IF EXISTS venues;
 DROP TABLE IF EXISTS user_stats;
 DROP TABLE IF EXISTS match_players;

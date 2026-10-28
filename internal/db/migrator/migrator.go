@@ -30,6 +30,7 @@ import (
 	"errors"
 	"log"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/auction"
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
@@ -119,6 +120,10 @@ func runAutoMigrate() {
 		&match.Player{},
 		&stats.UserStat{},
 		&venue.Venue{},
+		&auction.Match{},
+		&auction.Player{},
+		&auction.Bid{},
+		&auction.WarehouseItem{},
 	); err != nil {
 		log.Fatalf("[PostgreSQL] auto migrate failed: %v\n", err)
 	}

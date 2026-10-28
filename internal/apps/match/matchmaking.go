@@ -71,7 +71,7 @@ return 0
 
 // popScript 凑够一局时取出最早加入的 ARGV[1] 人; 不够一局但至少有 ARGV[2] 人且最早加入的人已等到补位时间时全部取出, 由人机补齐
 //
-// KEYS[1] 队列, KEYS[2] 用户所在的队列; ARGV[1] 每局人数, ARGV[2] 开局至少需要的真人数,
+// KEYS[1] 队列, KEYS[2] 用户所在的队列; ARGV[1] 每局最多的真人数, ARGV[2] 开局至少需要的真人数,
 // ARGV[3] 加入时间不晚于它的人可以补位, 为空表示不补位, ARGV[4] 玩法。
 // 返回 {用户 ID, 加入时间, ...}。取出和移出队列是原子的, 多个实例同时组局也不会把同一个人放进两局。
 var popScript = redis.NewScript(`
@@ -244,7 +244,7 @@ func Form(ctx context.Context, modeCode string) error {
 	if err != nil {
 		return err
 	}
-	count := mode.PlayerCount()
+	count := mode.MaxHumans()
 	keys := []string{queueKeyPrefix + modeCode, queueUsersKey}
 	for {
 		cutoff := ""
@@ -284,6 +284,7 @@ func Form(ctx context.Context, modeCode string) error {
 			return nil
 		}
 		afterChange(ctx, nil, result.Match, result.Players)
+		result.Hooks.run(ctx)
 		if len(queued) < count {
 			return nil
 		}
@@ -344,6 +345,7 @@ type formResult struct {
 	Players  []Player
 	Rejected []rejectedUser // 被 Admit 拒绝的用户, 已移出队列
 	Requeue  []queuedUser   // 没有开局时需要放回队列的用户
+	Hooks    *commitHooks   // 开局时玩法登记的提交后回调
 }
 
 // errNotEnough 准入后真人不够 MinHumans, 回滚已创建的对局和准入时的写入
@@ -355,7 +357,8 @@ var errNotEnough = errors.New("match: not enough humans")
 func createMatch(ctx context.Context, mode Mode, queued []queuedUser) (*formResult, error) {
 	result := &formResult{}
 	var admitted []queuedUser
-	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	txCtx, hooks := withCommitHooks(ctx)
+	err := db.DB(txCtx).Transaction(func(tx *gorm.DB) error {
 		userIDs := make([]uint64, len(queued))
 		for i, user := range queued {
 			userIDs[i] = user.UserID
@@ -384,13 +387,15 @@ func createMatch(ctx context.Context, mode Mode, queued []queuedUser) (*formResu
 			return err
 		}
 		for _, user := range candidates {
-			// 每个人在自己的保存点中准入, 被拒绝时只撤销该玩家的写入
+			// 每个人在自己的保存点中准入, 被拒绝时只撤销该玩家的写入和登记的回调
+			registered := hooks.len()
 			err := tx.Transaction(func(tx *gorm.DB) error {
 				return mode.Admit(tx, m, user.UserID)
 			})
 			var rejected *RejectedError
 			switch {
 			case errors.As(err, &rejected):
+				hooks.truncate(registered)
 				result.Rejected = append(result.Rejected, rejectedUser{UserID: user.UserID, Reason: rejected.Reason})
 			case err != nil:
 				return err
@@ -427,7 +432,7 @@ func createMatch(ctx context.Context, mode Mode, queued []queuedUser) (*formResu
 		if err := tx.Where("match_id = ?", m.ID).Order("seat").Find(&players).Error; err != nil {
 			return err
 		}
-		result.Match, result.Players = m, players
+		result.Match, result.Players, result.Hooks = m, players, hooks
 		return nil
 	})
 	if errors.Is(err, errNotEnough) {

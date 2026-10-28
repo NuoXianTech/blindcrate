@@ -70,7 +70,7 @@ var groups = []*group{
 		return &MailSettings{Port: 465}
 	}),
 	newGroup(KeyEconomy, "经济", "货币的产出和回收, 用于控制筹码总量、避免贬值", func() *EconomySettings {
-		return &EconomySettings{SellFeeRate: 500, SignupGrant: 5000}
+		return &EconomySettings{SellFeeRate: 500, SignupGrant: 5000, PveDailyProfitCap: 5000}
 	}),
 }
 
@@ -101,8 +101,9 @@ type MailSettings struct {
 	FromAddress string `json:"from_address" label:"发件人邮箱" binding:"required_if=Enabled true,omitempty,max=255,email"`
 }
 
-// EconomySettings 经济: 出售手续费和新手资金
+// EconomySettings 经济: 出售手续费、新手资金和人机模式的收益上限
 type EconomySettings struct {
-	SellFeeRate int `json:"sell_fee_rate" label:"出售手续费率" help:"卖出物品时按卖出金额扣除的比例, 单位为基点(万分之一), 500 即 5%, 最高 2000 即 20%" binding:"min=0,max=2000" public:"true"`
-	SignupGrant int `json:"signup_grant" label:"新手资金" help:"新用户注册时发放的筹码, 0 表示不发放" binding:"min=0,max=1000000000" public:"true"`
+	SellFeeRate       int `json:"sell_fee_rate" label:"出售手续费率" help:"卖出物品时按卖出金额扣除的比例, 单位为基点(万分之一), 500 即 5%, 最高 2000 即 20%" binding:"min=0,max=2000" public:"true"`
+	SignupGrant       int `json:"signup_grant" label:"新手资金" help:"新用户注册时发放的筹码, 0 表示不发放" binding:"min=0,max=1000000000" public:"true"`
+	PveDailyProfitCap int `json:"pve_daily_profit_cap" label:"人机每日收益上限" help:"玩家当天在人机模式的净收益达到上限后, 当天剩下的人机对局变为练习局, 不扣入场费也不发藏品; 0 表示不限制, 地图可以单独设置更低的上限" binding:"min=0,max=1000000000" public:"true"`
 }

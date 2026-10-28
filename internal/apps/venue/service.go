@@ -224,6 +224,14 @@ func validateRules(v *Venue) error {
 	return nil
 }
 
+// ModeName 模式的展示名称, 如 "排位"; 未知的模式返回代码本身
+func ModeName(mode string) string {
+	if name, ok := modeNames[mode]; ok {
+		return name
+	}
+	return mode
+}
+
 // modeScopeName 统计范围 mode:<模式> 的展示名称, 如 "排位"
 func modeScopeName(_ *gorm.DB, scope string) (string, error) {
 	return modeNames[strings.TrimPrefix(scope, "mode:")], nil
@@ -243,11 +251,7 @@ func venueScopeName(tx *gorm.DB, scope string) (string, error) {
 	}
 	name := venues[0].Name
 	if hasMode {
-		modeName := modeNames[mode]
-		if modeName == "" {
-			modeName = mode
-		}
-		name += "·" + modeName
+		name += "·" + ModeName(mode)
 	}
 	return name, nil
 }

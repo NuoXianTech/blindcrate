@@ -28,6 +28,7 @@ import (
 	"context"
 	"time"
 
+	_ "github.com/NuoXianTech/blindcrate/internal/apps/auction" // 注册暗拍玩法, 阶段超时时调用
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
