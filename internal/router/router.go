@@ -39,6 +39,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
@@ -147,6 +148,14 @@ func Serve() {
 			// Loot
 			apiV1Router.GET("/loot-pools/:code/odds", auth.LoginRequired(), loot.GetPoolOdds)
 
+			// Venue
+			venueRouter := apiV1Router.Group("/venues")
+			venueRouter.Use(auth.LoginRequired())
+			{
+				venueRouter.GET("", venue.ListVenues)
+				venueRouter.GET("/:code", venue.GetVenue)
+			}
+
 			// Match
 			matchmakingRouter := apiV1Router.Group("/matchmaking")
 			matchmakingRouter.Use(auth.LoginRequired())
@@ -206,6 +215,16 @@ func Serve() {
 					lootPoolAdminRouter.DELETE("/:id", admin.DeleteLootPool)
 					lootPoolAdminRouter.GET("/:id/entries", admin.ListLootPoolEntries)
 					lootPoolAdminRouter.PUT("/:id/entries", admin.ReplaceLootPoolEntries)
+				}
+
+				// Venue
+				venueAdminRouter := adminRouter.Group("/venues")
+				{
+					venueAdminRouter.GET("", admin.ListVenues)
+					venueAdminRouter.POST("", admin.CreateVenue)
+					venueAdminRouter.POST("/simulate", ratelimit.ByUser("admin:venue_simulate", ratelimit.PerMinute(30)), admin.SimulateVenue)
+					venueAdminRouter.PUT("/:id", admin.UpdateVenue)
+					venueAdminRouter.DELETE("/:id", admin.DeleteVenue)
 				}
 
 				// Condition

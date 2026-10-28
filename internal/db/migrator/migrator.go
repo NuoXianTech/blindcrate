@@ -38,6 +38,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
+	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -117,6 +118,7 @@ func runAutoMigrate() {
 		&match.Match{},
 		&match.Player{},
 		&stats.UserStat{},
+		&venue.Venue{},
 	); err != nil {
 		log.Fatalf("[PostgreSQL] auto migrate failed: %v\n", err)
 	}

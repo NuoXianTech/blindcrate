@@ -298,3 +298,31 @@ CREATE TABLE IF NOT EXISTS user_stats
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (user_id, scope, period)
 );
+
+-- 地图(拍卖场), 每张地图有人机和排位两种玩法; 软删除, 代码在已删除的地图中也唯一
+CREATE TABLE IF NOT EXISTS venues
+(
+    id             BIGSERIAL PRIMARY KEY,
+    code           VARCHAR(32)   NOT NULL,                -- 拼进玩法代码和统计范围, 创建后不能修改
+    name           VARCHAR(64)   NOT NULL,
+    description    VARCHAR(255)  NOT NULL DEFAULT '',
+    image_url      VARCHAR(1024) NOT NULL DEFAULT '',
+    sort_order     INTEGER       NOT NULL DEFAULT 0,      -- 大厅中从小到大排列
+    is_enabled     BOOLEAN       NOT NULL DEFAULT FALSE,  -- 停用后不能加入队列, 进行中的对局照常打完
+    pve_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,
+    ranked_enabled BOOLEAN       NOT NULL DEFAULT FALSE,
+    bid_currency   VARCHAR(32)   NOT NULL DEFAULT 'chip', -- 出价和计算仓库价值的货币
+    entry_cost     JSONB         NOT NULL DEFAULT '{}',   -- 入场代价 reward.Bundle, 数量为正数
+    requirements   JSONB         NOT NULL DEFAULT '[]',   -- 入场条件 []condition.Condition
+    warehouse      JSONB         NOT NULL DEFAULT '{}',   -- 仓库生成规则
+    auction        JSONB         NOT NULL DEFAULT '{}',   -- 拍卖参数
+    bots           JSONB         NOT NULL DEFAULT '{}',   -- 人机参数
+    pve            JSONB         NOT NULL DEFAULT '{}',   -- 人机模式防刷参数
+    simulation     JSONB         NOT NULL DEFAULT '{}',   -- 保存时的模拟结果
+    created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    deleted_at     TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_venues_code ON venues (code);
+CREATE INDEX IF NOT EXISTS idx_venues_deleted_at ON venues (deleted_at);
