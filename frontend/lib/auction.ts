@@ -48,3 +48,25 @@ export const BASIS_POINTS = 10000;
 export function formatRatio(bp: number) {
   return (bp / BASIS_POINTS).toFixed(1);
 }
+
+/** 开箱扫描的进度 */
+export interface ScanProgress {
+  /** 已扫描完的件数, 按扫描顺序前这么多件已公开 */
+  done: number;
+  /** 正在扫描的这件已扫过的比例, 0 到 1; 全部扫完时为 1 */
+  fraction: number;
+}
+
+/**
+ * 按开始扫描后过去的毫秒算出进度, durations 为按扫描顺序的每件扫描时长
+ * 没有扫描时长的旧对局视为一开始就全部扫完
+ */
+export function scanProgress(durations: number[], elapsed: number): ScanProgress {
+  let start = 0;
+  for (let i = 0; i < durations.length; i++) {
+    const end = start + durations[i];
+    if (elapsed < end) return {done: i, fraction: Math.max(0, elapsed - start) / durations[i]};
+    start = end;
+  }
+  return {done: durations.length, fraction: 1};
+}
