@@ -1,6 +1,9 @@
 import {AdminService} from './admin';
+import {AuctionService} from './auction';
 import {AuthService} from './auth';
 import {InventoryService} from './inventory';
+import {MatchService} from './match';
+import {VenueService} from './venue';
 import {WalletService} from './wallet';
 
 /**
@@ -30,6 +33,12 @@ const services = {
   wallet: WalletService,
   /** 背包物品和记录 */
   inventory: InventoryService,
+  /** 地图 */
+  venue: VenueService,
+  /** 匹配和对局 */
+  match: MatchService,
+  /** 仓库暗拍 */
+  auction: AuctionService,
   /** 管理后台 */
   admin: AdminService,
 };

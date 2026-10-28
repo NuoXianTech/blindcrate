@@ -1,0 +1,1 @@
+export {AuctionMain} from './AuctionMain';

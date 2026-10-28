@@ -1,7 +1,7 @@
 'use client';
 
 import {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
-import {usePathname, useRouter} from 'next/navigation';
+import {useRouter} from 'next/navigation';
 import {toast} from 'sonner';
 import services from '@/lib/services';
 import type {UserInfo} from '@/lib/services/auth';
@@ -29,7 +29,6 @@ const AuthContext = createContext<AuthContextValue | null>(null);
  */
 export function AuthProvider({children}: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -60,11 +59,13 @@ export function AuthProvider({children}: { children: React.ReactNode }) {
       // WebSocket 被服务端断开时带有原因, 如被强制下线
       if (e instanceof CustomEvent && e.detail) toast.error(e.detail);
       setUser(null);
+      // 事件发生时再读地址, 不用 usePathname, 动态路由才能预渲染外壳
+      const {pathname} = window.location;
       if (requiresAuth(pathname)) router.replace(loginHref(pathname));
     };
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
-  }, [pathname, router]);
+  }, [router]);
 
   // 登录后保持 WebSocket 连接, 退出登录或登录失效时断开
   const userId = user?.id;
