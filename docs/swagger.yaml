@@ -171,6 +171,9 @@ definitions:
     type: object
   admin.ItemListItem:
     properties:
+      category:
+        description: 类别代码, 见 RegisterCategory
+        type: string
       created_at:
         type: string
       description:
@@ -208,6 +211,10 @@ definitions:
     type: object
   admin.ItemRequest:
     properties:
+      category:
+        description: 类别代码, 必须已注册
+        maxLength: 32
+        type: string
       description:
         maxLength: 255
         type: string
@@ -242,6 +249,7 @@ definitions:
         minimum: 1
         type: integer
     required:
+    - category
     - height
     - name
     - quality
@@ -322,6 +330,13 @@ definitions:
       transactions:
         items:
           $ref: '#/definitions/admin.InventoryTransactionItem'
+        type: array
+    type: object
+  admin.ListItemCategoriesResponseData:
+    properties:
+      categories:
+        items:
+          $ref: '#/definitions/item.Category'
         type: array
     type: object
   admin.ListItemsResponseData:
@@ -1427,6 +1442,9 @@ definitions:
     type: object
   inventory.UserItemDetail:
     properties:
+      category:
+        description: 类别代码, 见 item.RegisterCategory
+        type: string
       created_at:
         description: 首次获得时间
         type: string
@@ -1458,8 +1476,19 @@ definitions:
       width:
         type: integer
     type: object
+  item.Category:
+    properties:
+      code:
+        type: string
+      label:
+        description: 后台展示的名称, 如 "藏品"
+        type: string
+    type: object
   item.Item:
     properties:
+      category:
+        description: 类别代码, 见 RegisterCategory
+        type: string
       created_at:
         type: string
       description:
@@ -2825,6 +2854,11 @@ paths:
     get:
       description: 包含已下架的物品, 不包含已删除的物品
       parameters:
+      - description: 类别代码
+        in: query
+        maxLength: 32
+        name: category
+        type: string
       - in: query
         minimum: 1
         name: current
@@ -3020,6 +3054,32 @@ paths:
           schema:
             $ref: '#/definitions/admin.Response'
       summary: 修改物品
+      tags:
+      - admin
+  /api/v1/admin/items/categories:
+    get:
+      description: 由代码注册的全部物品类别, 按注册顺序
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListItemCategoriesResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取物品类别
       tags:
       - admin
   /api/v1/admin/leaderboards:

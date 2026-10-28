@@ -11,7 +11,7 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useQualities} from '@/components/common/site';
 import services from '@/lib/services';
-import type {AdminItem, Currency} from '@/lib/services/admin';
+import type {AdminItem, Currency, ItemCategory} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
 import {DeleteItemDialog} from './DeleteItemDialog';
 import {ItemDialog} from './ItemDialog';
@@ -19,7 +19,7 @@ import {ItemRow} from './ItemRow';
 import {PAGE_SIZE, STATUS_FILTERS, toRequest, type StatusFilter} from './constants';
 
 /**
- * 物品管理: 搜索、品质和状态筛选, 新建、编辑、上下架、删除
+ * 物品管理: 搜索、品质、类别和状态筛选, 新建、编辑、上下架、删除
  */
 export function ItemsMain() {
   const {user: me} = useAuth();
@@ -28,11 +28,13 @@ export function ItemsMain() {
   const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
   const [quality, setQuality] = useState('all');
+  const [category, setCategory] = useState('all');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [current, setCurrent] = useState(1);
   const [data, setData] = useState<{ total: number; items: AdminItem[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [categories, setCategories] = useState<ItemCategory[]>([]);
 
   // null: 关闭; "new": 新建; 物品: 编辑
   const [editing, setEditing] = useState<AdminItem | 'new' | null>(null);
@@ -40,8 +42,11 @@ export function ItemsMain() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    services.admin.listCurrencies()
-        .then((data) => setCurrencies(data.currencies))
+    Promise.all([services.admin.listCurrencies(), services.admin.listItemCategories()])
+        .then(([currencyData, categoryData]) => {
+          setCurrencies(currencyData.currencies);
+          setCategories(categoryData.categories);
+        })
         .catch((err) => toast.error(toErrorMessage(err)));
   }, [isAdmin]);
 
@@ -56,6 +61,7 @@ export function ItemsMain() {
             size: PAGE_SIZE,
             keyword: keyword || undefined,
             quality: quality === 'all' ? undefined : Number(quality),
+            category: category === 'all' ? undefined : category,
             is_enabled: status === 'all' ? undefined : status === 'enabled',
           }),
       );
@@ -64,7 +70,7 @@ export function ItemsMain() {
     } finally {
       setLoading(false);
     }
-  }, [current, keyword, quality, status, isAdmin]);
+  }, [current, keyword, quality, category, status, isAdmin]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 筛选条件变化时重新拉取
@@ -131,6 +137,25 @@ export function ItemsMain() {
           </SelectContent>
         </Select>
         <Select
+          value={category}
+          onValueChange={(value) => {
+            setCurrent(1);
+            setCategory(value);
+          }}
+        >
+          <SelectTrigger className="sm:w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部类别</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c.code} value={c.code}>
+                {c.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
           value={status}
           onValueChange={(value) => {
             setCurrent(1);
@@ -156,6 +181,7 @@ export function ItemsMain() {
             <TableRow>
               <TableHead>物品</TableHead>
               <TableHead>品质</TableHead>
+              <TableHead>类别</TableHead>
               <TableHead className="text-right">回收价</TableHead>
               <TableHead>尺寸</TableHead>
               <TableHead className="text-right">持有人数</TableHead>
@@ -166,20 +192,21 @@ export function ItemsMain() {
           </TableHeader>
           <TableBody>
             {loading && !data ? (
-              <TableSkeleton cols={8} />
+              <TableSkeleton cols={9} />
             ) : data?.items.length ? (
               data.items.map((item) => (
                 <ItemRow
                   key={item.id}
                   item={item}
                   currency={currencies.find((c) => c.code === item.sell_currency)}
+                  category={categories.find((c) => c.code === item.category)}
                   onEdit={() => setEditing(item)}
                   onToggle={() => toggleEnabled(item)}
                   onDelete={() => setDeleting(item)}
                 />
               ))
             ) : (
-              <TableEmpty colSpan={8}>没有找到物品</TableEmpty>
+              <TableEmpty colSpan={9}>没有找到物品</TableEmpty>
             )}
           </TableBody>
         </Table>
@@ -187,7 +214,13 @@ export function ItemsMain() {
 
       <Pagination current={current} size={PAGE_SIZE} total={data?.total ?? 0} onChange={setCurrent} />
 
-      <ItemDialog item={editing} currencies={currencies} onClose={() => setEditing(null)} onSaved={load} />
+      <ItemDialog
+        item={editing}
+        currencies={currencies}
+        categories={categories}
+        onClose={() => setEditing(null)}
+        onSaved={load}
+      />
       <DeleteItemDialog item={deleting} onClose={() => setDeleting(null)} onSaved={load} />
     </div>
   );

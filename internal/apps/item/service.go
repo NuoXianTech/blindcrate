@@ -29,6 +29,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
@@ -43,6 +44,7 @@ func Placeholder(id uint64) *Item {
 		ID:            id,
 		Name:          placeholderName(id),
 		Quality:       PlaceholderQuality,
+		Category:      CategoryCollectible,
 		SellCurrency:  wallet.CurrencyChip,
 		SellPrice:     PlaceholderSellPrice,
 		Width:         1,
@@ -81,11 +83,42 @@ func Resolve(tx *gorm.DB, ids []uint64) (map[uint64]*Item, error) {
 }
 
 var (
-	// qualityCodePattern 品质代码, 小写字母、数字和下划线
-	qualityCodePattern = regexp.MustCompile(`^[a-z0-9_]{1,32}$`)
+	// codePattern 品质和类别的代码, 小写字母、数字和下划线
+	codePattern = regexp.MustCompile(`^[a-z0-9_]{1,32}$`)
 	// qualityColorPattern 品质颜色, 统一为小写的 #rrggbb
 	qualityColorPattern = regexp.MustCompile(`^#[0-9a-f]{6}$`)
+
+	// categories 已注册的物品类别, 按注册顺序, 只在启动前写入
+	categories = []Category{
+		{Code: CategoryCollectible, Label: "藏品"},
+	}
 )
+
+// RegisterCategory 注册一个物品类别, 如道具、门票, 需要在启动前调用; 代码格式不正确或重复时 panic
+func RegisterCategory(code, label string) {
+	if !codePattern.MatchString(code) {
+		panic(fmt.Sprintf("item: invalid category %q", code))
+	}
+	if FindCategory(code) != nil {
+		panic(fmt.Sprintf("item: category %s already registered", code))
+	}
+	categories = append(categories, Category{Code: code, Label: label})
+}
+
+// Categories 全部物品类别, 按注册顺序
+func Categories() []Category {
+	return slices.Clone(categories)
+}
+
+// FindCategory 按代码查找物品类别, 没有注册时返回 nil
+func FindCategory(code string) *Category {
+	for i := range categories {
+		if categories[i].Code == code {
+			return &categories[i]
+		}
+	}
+	return nil
+}
 
 // QueryQualities 获取全部品质, 按排序值和等级排列
 func QueryQualities(ctx context.Context) ([]Quality, error) {
@@ -98,7 +131,7 @@ func QueryQualities(ctx context.Context) ([]Quality, error) {
 
 // ValidateQuality 校验品质的代码、名称、颜色和特效
 func ValidateQuality(q *Quality) error {
-	if !qualityCodePattern.MatchString(q.Code) {
+	if !codePattern.MatchString(q.Code) {
 		return errors.New(QualityCodeInvalid)
 	}
 	if n := utf8.RuneCountInString(q.Name); n < 1 || n > 32 {

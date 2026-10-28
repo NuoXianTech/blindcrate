@@ -6,7 +6,7 @@ import {TableCell, TableRow} from '@/components/ui/table';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
-import type {AdminItem, Currency} from '@/lib/services/admin';
+import type {AdminItem, Currency, ItemCategory} from '@/lib/services/admin';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 
 /**
@@ -16,6 +16,8 @@ interface ItemRowProps {
   item: AdminItem;
   /** 回收货币, 用于展示名称和小数位 */
   currency?: Currency;
+  /** 物品类别, 未注册的类别按代码展示 */
+  category?: ItemCategory;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
@@ -24,7 +26,7 @@ interface ItemRowProps {
 /**
  * 物品列表的一行: 物品信息和操作按钮
  */
-export function ItemRow({item, currency, onEdit, onToggle, onDelete}: ItemRowProps) {
+export function ItemRow({item, currency, category, onEdit, onToggle, onDelete}: ItemRowProps) {
   const q = useQualities().qualityOf(item.quality);
   return (
     <TableRow>
@@ -45,6 +47,9 @@ export function ItemRow({item, currency, onEdit, onToggle, onDelete}: ItemRowPro
       </TableCell>
       <TableCell>
         <span className={q.text}>{q.name}</span>
+      </TableCell>
+      <TableCell>
+        <Badge variant="outline">{category?.label ?? item.category}</Badge>
       </TableCell>
       <TableCell className="text-right">
         {item.sell_price > 0 ? (

@@ -561,6 +561,7 @@ type ListItemsRequest struct {
 	Size      int    `json:"size" form:"size" binding:"min=1,max=100"`
 	Keyword   string `json:"keyword" form:"keyword" binding:"max=64"`          // 按名称搜索, 不区分大小写
 	Quality   *int16 `json:"quality" form:"quality" binding:"omitempty,min=1"` // 品质等级
+	Category  string `json:"category" form:"category" binding:"max=32"`        // 类别代码
 	IsEnabled *bool  `json:"is_enabled" form:"is_enabled"`
 }
 
@@ -602,7 +603,8 @@ func ListItems(c *gin.Context) {
 type ItemRequest struct {
 	Name         string `json:"name" binding:"required,max=64"`
 	Description  string `json:"description" binding:"max=255"`
-	Quality      int16  `json:"quality" binding:"required,min=1"` // 品质等级, 必须存在
+	Quality      int16  `json:"quality" binding:"required,min=1"`   // 品质等级, 必须存在
+	Category     string `json:"category" binding:"required,max=32"` // 类别代码, 必须已注册
 	ImageURL     string `json:"image_url" binding:"omitempty,max=1024,http_url"`
 	SellCurrency string `json:"sell_currency" binding:"required,max=32"`
 	SellPrice    int64  `json:"sell_price" binding:"min=0,max=1000000000000"` // 0 表示不可卖出
@@ -639,7 +641,7 @@ func CreateItem(c *gin.Context) {
 	created, err := doCreateItem(ctx, &req)
 	if err != nil {
 		switch err.Error() {
-		case item.ItemNameInvalid, item.QualityNotFound, wallet.CurrencyNotFound:
+		case item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
 		case item.ItemNameTaken:
 			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
@@ -686,7 +688,7 @@ func UpdateItem(c *gin.Context) {
 	updated, changes, err := doUpdateItem(ctx, itemID, &req)
 	if err != nil {
 		switch err.Error() {
-		case item.ItemNameInvalid, item.QualityNotFound, wallet.CurrencyNotFound:
+		case item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
 		case item.ItemNotFound:
 			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
@@ -751,6 +753,24 @@ func DeleteItem(c *gin.Context) {
 	})
 	logger.InfoF(ctx, "[DeleteItem] %d deleted item %d %s, %d holders", operator.ID, deleted.ID, deleted.Name, holders)
 	c.JSON(http.StatusOK, Response{Data: DeleteItemResponseData{HolderCount: holders}})
+}
+
+// ListItemCategoriesResponseData 物品类别列表
+type ListItemCategoriesResponseData struct {
+	Categories []item.Category `json:"categories"`
+}
+
+// ListItemCategories
+// @Tags admin
+// @Summary 获取物品类别
+// @Description 由代码注册的全部物品类别, 按注册顺序
+// @Produce json
+// @Success 200 {object} Response{data=ListItemCategoriesResponseData}
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Router /api/v1/admin/items/categories [get]
+func ListItemCategories(c *gin.Context) {
+	c.JSON(http.StatusOK, Response{Data: ListItemCategoriesResponseData{Categories: item.Categories()}})
 }
 
 // ListQualitiesResponseData 品质列表

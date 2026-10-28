@@ -294,6 +294,13 @@ const docTemplate = `{
                 "summary": "获取物品列表",
                 "parameters": [
                     {
+                        "maxLength": 32,
+                        "type": "string",
+                        "description": "类别代码",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
                         "minimum": 1,
                         "type": "integer",
                         "name": "current",
@@ -438,6 +445,50 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/items/categories": {
+            "get": {
+                "description": "由代码注册的全部物品类别, 按注册顺序",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取物品类别",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListItemCategoriesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/admin.Response"
                         }
@@ -6015,6 +6066,10 @@ const docTemplate = `{
         "admin.ItemListItem": {
             "type": "object",
             "properties": {
+                "category": {
+                    "description": "类别代码, 见 RegisterCategory",
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -6068,6 +6123,7 @@ const docTemplate = `{
         "admin.ItemRequest": {
             "type": "object",
             "required": [
+                "category",
                 "height",
                 "name",
                 "quality",
@@ -6075,6 +6131,11 @@ const docTemplate = `{
                 "width"
             ],
             "properties": {
+                "category": {
+                    "description": "类别代码, 必须已注册",
+                    "type": "string",
+                    "maxLength": 32
+                },
                 "description": {
                     "type": "string",
                     "maxLength": 255
@@ -6222,6 +6283,17 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/admin.InventoryTransactionItem"
+                    }
+                }
+            }
+        },
+        "admin.ListItemCategoriesResponseData": {
+            "type": "object",
+            "properties": {
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/item.Category"
                     }
                 }
             }
@@ -7843,6 +7915,10 @@ const docTemplate = `{
         "inventory.UserItemDetail": {
             "type": "object",
             "properties": {
+                "category": {
+                    "description": "类别代码, 见 item.RegisterCategory",
+                    "type": "string"
+                },
                 "created_at": {
                     "description": "首次获得时间",
                     "type": "string"
@@ -7889,9 +7965,25 @@ const docTemplate = `{
                 }
             }
         },
+        "item.Category": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "label": {
+                    "description": "后台展示的名称, 如 \"藏品\"",
+                    "type": "string"
+                }
+            }
+        },
         "item.Item": {
             "type": "object",
             "properties": {
+                "category": {
+                    "description": "类别代码, 见 RegisterCategory",
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },

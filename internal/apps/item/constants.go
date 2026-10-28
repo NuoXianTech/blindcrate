@@ -24,6 +24,11 @@
 
 package item
 
+// 物品类别, 其他类别由各模块用 RegisterCategory 注册
+const (
+	CategoryCollectible = "collectible" // 藏品: 仓库只抽藏品
+)
+
 // PlaceholderQuality 占位物品的品质等级, 对应最低一档品质
 const PlaceholderQuality int16 = 1
 

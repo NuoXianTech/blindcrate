@@ -30,6 +30,8 @@ const (
 	ItemNameInvalid = "物品名称需为 1-64 个字符"
 	ItemNameTaken   = "物品名称已存在"
 
+	CategoryNotFound = "物品类别不存在"
+
 	QualityNotFound      = "品质不存在"
 	QualityCodeInvalid   = "品质代码需为 1-32 个小写字母、数字或下划线"
 	QualityNameInvalid   = "品质名称需为 1-32 个字符"

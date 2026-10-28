@@ -13,6 +13,7 @@ import type {
   CreateQualityRequest,
   Currency,
   Item,
+  ItemCategory,
   ItemRequest,
   LeaderboardRequest,
   AdminLeaderboard,
@@ -97,6 +98,11 @@ export class AdminService extends BaseService {
 
   static updateItem(id: number, body: ItemRequest) {
     return this.put<Item>(`/items/${id}`, body);
+  }
+
+  /** 由后端代码注册的物品类别, 按注册顺序 */
+  static listItemCategories() {
+    return this.get<{ categories: ItemCategory[] }>('/items/categories');
   }
 
   /** 删除后已持有的玩家背包保留为占位物品, 返回删除时的持有人数 */

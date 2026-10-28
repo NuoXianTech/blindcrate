@@ -22,6 +22,7 @@ export function toRequest(item: AdminItem): ItemRequest {
     name: item.name,
     description: item.description,
     quality: item.quality,
+    category: item.category,
     image_url: item.image_url,
     sell_currency: item.sell_currency,
     sell_price: item.sell_price,

@@ -95,6 +95,8 @@ export interface Item {
   description: string;
   /** 品质等级, 见 useQualities */
   quality: number;
+  /** 类别代码, 见 ItemCategory */
+  category: string;
   image_url: string;
   sell_currency: string;
   /** 官方回收价, 最小单位; 0 表示不可卖出 */
@@ -106,6 +108,12 @@ export interface Item {
   is_enabled: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/** 物品类别, 由后端代码注册, 对应后端 item.Category */
+export interface ItemCategory {
+  code: string;
+  label: string;
 }
 
 /** 管理端品质列表项, 附带使用该品质的物品数 */
@@ -131,6 +139,7 @@ export interface ListItemsParams extends PageParams {
   /** 按名称搜索, 不区分大小写 */
   keyword?: string;
   quality?: number;
+  category?: string;
   is_enabled?: boolean;
 }
 
@@ -142,7 +151,16 @@ export interface ListItemsData {
 /** 新建或修改物品, 修改时也需提交全部字段 */
 export type ItemRequest = Pick<
   Item,
-  'name' | 'description' | 'quality' | 'image_url' | 'sell_currency' | 'sell_price' | 'width' | 'height' | 'is_enabled'
+  | 'name'
+  | 'description'
+  | 'quality'
+  | 'category'
+  | 'image_url'
+  | 'sell_currency'
+  | 'sell_price'
+  | 'width'
+  | 'height'
+  | 'is_enabled'
 >;
 
 /** 设置项的值: 整数列表为数组 */

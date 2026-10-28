@@ -7,6 +7,8 @@ export interface UserItem {
   description: string;
   /** 品质等级, 见 useQualities */
   quality: number;
+  /** 类别代码, 如 collectible 藏品 */
+  category: string;
   image_url: string;
   sell_currency: string;
   /** 0 表示不可卖出 */

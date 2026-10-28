@@ -39,6 +39,7 @@ const (
 	SlotRangeInvalid   = "第 %d 档: 最多次数不能少于最少次数"
 	SlotPoolInvalid    = "第 %d 档: %s"
 	SlotPoolHasMoney   = "掉落池中有货币条目, 仓库只能放物品"
+	SlotNotCollectible = "第 %d 档: 掉落池中的 %s 不是藏品, 仓库只抽藏品"
 	SlotsEmpty         = "仓库至少要能抽出一件藏品"
 	WarehouseNotFit    = "仓库摆不下抽到的藏品"
 	FailureRateTooHigh = "仓库摆放失败率为 %.2f%%, 不能超过 1%%, 请加大格子或减少件数"
