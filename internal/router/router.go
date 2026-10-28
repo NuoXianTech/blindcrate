@@ -207,6 +207,12 @@ func Serve() {
 					lootPoolAdminRouter.PUT("/:id/entries", admin.ReplaceLootPoolEntries)
 				}
 
+				// Condition
+				conditionAdminRouter := adminRouter.Group("/conditions")
+				{
+					conditionAdminRouter.GET("/types", admin.ListConditionTypes)
+				}
+
 				// Match
 				matchAdminRouter := adminRouter.Group("/matches")
 				{

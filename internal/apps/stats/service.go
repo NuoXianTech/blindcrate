@@ -26,6 +26,7 @@ package stats
 
 import (
 	"errors"
+	"regexp"
 	"slices"
 	"time"
 
@@ -47,6 +48,14 @@ func ScopeVenue(venue string) string {
 // ScopeVenueMode 统计范围: 某张地图某种模式的对局, 如 venue:dock:ranked
 func ScopeVenueMode(venue, mode string) string {
 	return "venue:" + venue + ":" + mode
+}
+
+// scopePattern 统计范围的格式, 模式和地图代码只能包含小写字母、数字和下划线
+var scopePattern = regexp.MustCompile(`^(all|mode:[a-z0-9_]+|venue:[a-z0-9_]+(:[a-z0-9_]+)?)$`)
+
+// ValidScope 统计范围的格式是否正确, 用于校验配置中填写的范围
+func ValidScope(scope string) bool {
+	return len(scope) <= maxScopeLength && scopePattern.MatchString(scope)
 }
 
 // MatchScopes 一局对局需要累加的全部统计范围

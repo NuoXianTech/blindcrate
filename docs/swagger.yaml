@@ -219,6 +219,13 @@ definitions:
       total:
         type: integer
     type: object
+  admin.ListConditionTypesResponseData:
+    properties:
+      types:
+        items:
+          $ref: '#/definitions/condition.TypeView'
+        type: array
+    type: object
   admin.ListCurrenciesResponseData:
     properties:
       currencies:
@@ -581,6 +588,34 @@ definitions:
     required:
     - code
     - email
+    type: object
+  condition.Field:
+    properties:
+      help:
+        type: string
+      input:
+        description: text / switch / number, 或选择器 currency / item / scope
+        type: string
+      key:
+        type: string
+      label:
+        type: string
+      type:
+        description: string / bool / int
+        type: string
+    type: object
+  condition.TypeView:
+    properties:
+      description:
+        type: string
+      fields:
+        items:
+          $ref: '#/definitions/condition.Field'
+        type: array
+      label:
+        type: string
+      type:
+        type: string
     type: object
   health.Response:
     properties:
@@ -1328,6 +1363,32 @@ paths:
           schema:
             $ref: '#/definitions/admin.Response'
       summary: 获取操作日志列表
+      tags:
+      - admin
+  /api/v1/admin/conditions/types:
+    get:
+      description: 包含每种条件的参数表单描述, 用于条件编辑器; input 为 currency、item、scope 的字段需要用选择器填写
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListConditionTypesResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取全部条件类型
       tags:
       - admin
   /api/v1/admin/inventory/transactions:

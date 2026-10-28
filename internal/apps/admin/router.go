@@ -33,6 +33,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
@@ -1036,6 +1037,24 @@ func ReplaceLootPoolEntries(c *gin.Context) {
 	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLootPoolEntriesUpdate, audit.TargetLootPool, pool.ID, changes)
 	logger.InfoF(ctx, "[ReplaceLootPoolEntries] %d replaced loot pool %d %s with %d entries", operator.ID, pool.ID, pool.Code, len(entries))
 	c.JSON(http.StatusOK, Response{Data: LootPoolEntriesResponseData{Pool: *pool, Entries: entries}})
+}
+
+// ListConditionTypesResponseData 全部条件类型
+type ListConditionTypesResponseData struct {
+	Types []condition.TypeView `json:"types"`
+}
+
+// ListConditionTypes
+// @Tags admin
+// @Summary 获取全部条件类型
+// @Description 包含每种条件的参数表单描述, 用于条件编辑器; input 为 currency、item、scope 的字段需要用选择器填写
+// @Produce json
+// @Success 200 {object} Response{data=ListConditionTypesResponseData}
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Router /api/v1/admin/conditions/types [get]
+func ListConditionTypes(c *gin.Context) {
+	c.JSON(http.StatusOK, Response{Data: ListConditionTypesResponseData{Types: condition.Types()}})
 }
 
 // ListMatchesRequest 对局列表查询参数

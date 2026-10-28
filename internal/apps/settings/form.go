@@ -193,14 +193,24 @@ func (g *group) merge(cur any, broken []string, raw json.RawMessage, clearSecret
 		}
 	}
 
-	if err := validate.Struct(next); err != nil {
-		var errs validator.ValidationErrors
-		if errors.As(err, &errs) {
-			return nil, errors.New(errs[0].Translate(trans))
-		}
+	if err := ValidateStruct(next); err != nil {
 		return nil, err
 	}
 	return next, nil
+}
+
+// ValidateStruct 按字段的 binding 规则校验结构体, 校验失败时返回第一个错误的中文提示, 提示中使用字段的 label
+//
+// 其他模块的 JSONB 配置(如条件参数)也用它校验, 规则写法与设置组一致。
+func ValidateStruct(v any) error {
+	if err := validate.Struct(v); err != nil {
+		var errs validator.ValidationErrors
+		if errors.As(err, &errs) {
+			return errors.New(errs[0].Translate(trans))
+		}
+		return err
+	}
+	return nil
 }
 
 // diff 本次修改了哪些字段, 用于操作日志, 密钥字段不记录内容
