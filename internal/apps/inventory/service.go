@@ -36,6 +36,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -320,27 +321,36 @@ func QueryUserTransactions(ctx context.Context, userID uint64, req *ListTransact
 	return total, items, nil
 }
 
-// SellIncome 出售单在一种货币上的入账
+// SellIncome 出售单在一种货币上的入账, 实际到账为 Amount - Fee
 type SellIncome struct {
 	Currency     string `json:"currency"`
-	Amount       int64  `json:"amount"`
-	BalanceAfter int64  `json:"balance_after"` // 入账后的可用余额
+	Amount       int64  `json:"amount"`        // 卖出金额, 未扣手续费
+	Fee          int64  `json:"fee"`           // 手续费, 按卖出金额乘手续费率向下取整
+	BalanceAfter int64  `json:"balance_after"` // 扣除手续费后的可用余额
 }
 
 // SellOrderDetail 出售单, 附带明细和各货币的入账
 type SellOrderDetail struct {
 	ID        uint64          `json:"id"`
-	Items     []SellOrderItem `json:"items"`   // 按物品 ID 排序
-	Incomes   []SellIncome    `json:"incomes"` // 按货币代码排序
+	FeeRate   int32           `json:"fee_rate"` // 出售时的手续费率, 单位为基点
+	Items     []SellOrderItem `json:"items"`    // 按物品 ID 排序
+	Incomes   []SellIncome    `json:"incomes"`  // 按货币代码排序
 	CreatedAt time.Time       `json:"created_at"`
 }
 
 // doSellItems 按物品当前的卖出价出售背包中的物品, 一次可以卖出多种物品, 全部成功或全部失败
 //
 // 请求需带上背包中看到的卖出货币和单价, 与当前不一致时返回 SellPriceChanged, 避免改价后按非预期的价格成交;
-// 已删除的物品按占位物品的价格出售, 已下架的物品照常出售。
+// 已删除的物品按占位物品的价格出售, 已下架的物品照常出售; 按经济设置中当前的手续费率扣除手续费,
+// 请求带上手续费率时与当前不一致返回 SellFeeRateChanged。
 // 幂等键在同一用户内只生效一次, 重复提交返回原出售单且 replayed 为 true, 内容不同时返回 IdempotencyConflict。
 func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*SellOrderDetail, bool, error) {
+	economy, err := settings.Economy(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	feeRate := int32(economy.SellFeeRate)
+
 	// 按物品 ID 排序, 同一用户的并发出售按相同顺序锁背包行, 不会互相死锁
 	lines := slices.Clone(req.Items)
 	slices.SortFunc(lines, func(a, b SellItemsRequestItem) int {
@@ -358,7 +368,7 @@ func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*Se
 		itemTxns   []*Transaction
 		walletTxns []*wallet.Transaction
 	)
-	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		// 幂等: 同一个 key 的并发请求在咨询锁上排队, 后到的能看到先到的已提交出售单
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", fmt.Sprintf("blindcrate:inventory_sell:%d:%s", userID, req.IdempotencyKey)).Error; err != nil {
 			return err
@@ -378,9 +388,13 @@ func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*Se
 			detail, replayed = &details[0], true
 			return nil
 		}
+		// 重放时返回原出售单, 不比较手续费率
+		if req.FeeRate != nil && *req.FeeRate != feeRate {
+			return errors.New(SellFeeRateChanged)
+		}
 
 		var err error
-		detail, itemTxns, walletTxns, err = sell(tx, userID, req.IdempotencyKey, lines)
+		detail, itemTxns, walletTxns, err = sell(tx, userID, req.IdempotencyKey, feeRate, lines)
 		return err
 	})
 	if err != nil {
@@ -391,10 +405,10 @@ func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*Se
 	return detail, replayed, nil
 }
 
-// sell 创建出售单, 扣除物品后按货币汇总入账, lines 需已按物品 ID 排序且不重复
+// sell 创建出售单, 扣除物品后按货币汇总入账, 再按手续费率扣除手续费, lines 需已按物品 ID 排序且不重复
 //
 // 返回出售单以及产生的背包流水和余额流水, 流水用于提交后推送。
-func sell(tx *gorm.DB, userID uint64, idempotencyKey string, lines []SellItemsRequestItem) (*SellOrderDetail, []*Transaction, []*wallet.Transaction, error) {
+func sell(tx *gorm.DB, userID uint64, idempotencyKey string, feeRate int32, lines []SellItemsRequestItem) (*SellOrderDetail, []*Transaction, []*wallet.Transaction, error) {
 	ids := make([]uint64, len(lines))
 	for i := range lines {
 		ids[i] = lines[i].ItemID
@@ -406,7 +420,7 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, lines []SellItemsRe
 		return nil, nil, nil, err
 	}
 
-	order := &SellOrder{UserID: userID, IdempotencyKey: idempotencyKey}
+	order := &SellOrder{UserID: userID, IdempotencyKey: idempotencyKey, FeeRate: feeRate}
 	if err := tx.Create(order).Error; err != nil {
 		// 咨询锁之外的兜底, 正常不会走到
 		if db.IsUniqueViolation(err) {
@@ -463,9 +477,9 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, lines []SellItemsRe
 		return nil, nil, nil, err
 	}
 
-	// 按货币代码顺序入账, 与背包行同理, 固定加锁顺序
-	detail := &SellOrderDetail{ID: order.ID, Items: orderItems, CreatedAt: order.CreatedAt}
-	walletTxns := make([]*wallet.Transaction, 0, len(incomes))
+	// 按货币代码顺序入账, 与背包行同理, 固定加锁顺序; 手续费单独记一条流水, 便于统计回收的金额
+	detail := &SellOrderDetail{ID: order.ID, FeeRate: feeRate, Items: orderItems, CreatedAt: order.CreatedAt}
+	walletTxns := make([]*wallet.Transaction, 0, len(incomes)*2)
 	for _, currency := range slices.Sorted(maps.Keys(incomes)) {
 		txn, _, err := wallet.Change(tx, &wallet.ChangeRequest{
 			UserID:   userID,
@@ -478,7 +492,24 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, lines []SellItemsRe
 			return nil, nil, nil, err
 		}
 		walletTxns = append(walletTxns, txn)
-		detail.Incomes = append(detail.Incomes, SellIncome{Currency: txn.Currency, Amount: txn.Amount, BalanceAfter: txn.BalanceAfter})
+		income := SellIncome{Currency: currency, Amount: txn.Amount, BalanceAfter: txn.BalanceAfter}
+
+		// 金额不超过 wallet.MaxAmount, 乘以费率不会溢出
+		if income.Fee = incomes[currency] * int64(feeRate) / 10000; income.Fee > 0 {
+			feeTxn, _, err := wallet.Change(tx, &wallet.ChangeRequest{
+				UserID:   userID,
+				Currency: currency,
+				Amount:   -income.Fee,
+				BizType:  wallet.BizItemSellFee,
+				BizID:    bizID,
+			})
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			walletTxns = append(walletTxns, feeTxn)
+			income.BalanceAfter = feeTxn.BalanceAfter
+		}
+		detail.Incomes = append(detail.Incomes, income)
 	}
 	return detail, itemTxns, walletTxns, nil
 }
@@ -503,7 +534,7 @@ func loadSellOrders(tx *gorm.DB, orders []SellOrder) ([]SellOrderDetail, error) 
 	ids := make([]uint64, len(orders))
 	bizIDs := make([]string, len(orders))
 	for i := range orders {
-		details[i] = SellOrderDetail{ID: orders[i].ID, Items: []SellOrderItem{}, Incomes: []SellIncome{}, CreatedAt: orders[i].CreatedAt}
+		details[i] = SellOrderDetail{ID: orders[i].ID, FeeRate: orders[i].FeeRate, Items: []SellOrderItem{}, Incomes: []SellIncome{}, CreatedAt: orders[i].CreatedAt}
 		byID[orders[i].ID] = &details[i]
 		ids[i] = orders[i].ID
 		bizIDs[i] = strconv.FormatUint(orders[i].ID, 10)
@@ -518,14 +549,20 @@ func loadSellOrders(tx *gorm.DB, orders []SellOrder) ([]SellOrderDetail, error) 
 		detail.Items = append(detail.Items, orderItem)
 	}
 
+	// 每种货币的手续费流水紧跟在入账流水之后, 按 ID 顺序合并到同一条入账上
 	var txns []wallet.Transaction
-	if err := tx.Where("biz_type = ? AND biz_id IN ?", wallet.BizItemSell, bizIDs).Order("id").Find(&txns).Error; err != nil {
+	if err := tx.Where("biz_type IN ? AND biz_id IN ?", []string{wallet.BizItemSell, wallet.BizItemSellFee}, bizIDs).Order("id").Find(&txns).Error; err != nil {
 		return nil, err
 	}
 	for _, txn := range txns {
 		orderID, _ := strconv.ParseUint(txn.BizID, 10, 64)
 		detail := byID[orderID]
-		detail.Incomes = append(detail.Incomes, SellIncome{Currency: txn.Currency, Amount: txn.Amount, BalanceAfter: txn.BalanceAfter})
+		if txn.BizType == wallet.BizItemSell {
+			detail.Incomes = append(detail.Incomes, SellIncome{Currency: txn.Currency, Amount: txn.Amount, BalanceAfter: txn.BalanceAfter})
+			continue
+		}
+		income := &detail.Incomes[len(detail.Incomes)-1]
+		income.Fee, income.BalanceAfter = -txn.Amount, txn.BalanceAfter
 	}
 	return details, nil
 }

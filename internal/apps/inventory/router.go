@@ -146,12 +146,13 @@ type SellItemsRequestItem struct {
 type SellItemsRequest struct {
 	Items          []SellItemsRequestItem `json:"items" binding:"required,min=1,max=100,dive"`          // 同一物品只能出现一次
 	IdempotencyKey string                 `json:"idempotency_key" binding:"required,max=64,printascii"` // 每次打开出售确认框生成一个, 重复提交只生效一次
+	FeeRate        *int32                 `json:"fee_rate" binding:"omitempty,min=0,max=10000"`         // 出售确认框中看到的手续费率(基点), 传入时与当前不一致则拒绝出售
 }
 
 // SellItems
 // @Tags inventory
 // @Summary 出售背包中的物品
-// @Description 按物品当前的卖出价出售, 可以同时卖出多种物品, 全部成功或全部失败; 重复提交返回原出售单
+// @Description 按物品当前的卖出价出售并扣除手续费, 可以同时卖出多种物品, 全部成功或全部失败; 重复提交返回原出售单
 // @Accept json
 // @Produce json
 // @Param request body SellItemsRequest true "request body"
@@ -179,7 +180,7 @@ func SellItems(c *gin.Context) {
 		switch err.Error() {
 		case SellItemDuplicated, ItemNotSellable, SellAmountExceeded, QuantityInvalid, InsufficientQuantity, wallet.CurrencyNotFound, wallet.CurrencyDisabled:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case SellPriceChanged, IdempotencyConflict, DuplicateRequest:
+		case SellPriceChanged, SellFeeRateChanged, IdempotencyConflict, DuplicateRequest:
 			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
 		default:
 			logger.ErrorF(ctx, "[SellItems] sell failed: %v", err)

@@ -32,8 +32,10 @@ const (
 
 // 业务类型, 每种会变动余额的业务一个
 const (
-	BizAdminAdjust = "admin_adjust" // 管理员调账
-	BizItemSell    = "item_sell"    // 出售物品入账, biz_id 为出售单 ID
+	BizAdminAdjust = "admin_adjust"  // 管理员调账
+	BizItemSell    = "item_sell"     // 出售物品入账, biz_id 为出售单 ID
+	BizItemSellFee = "item_sell_fee" // 出售物品的手续费, 入账后扣除, biz_id 为出售单 ID
+	BizSignupGrant = "signup_grant"  // 新用户注册时发放的新手资金, biz_id 为用户 ID
 )
 
 // 推送给客户端的消息类型

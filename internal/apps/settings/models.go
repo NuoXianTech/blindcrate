@@ -31,9 +31,10 @@ import "time"
 // 这里只放运行中可以随时修改、改完立即生效的配置;
 // 数据库、Redis、会话、监听地址和各类密钥(app.secret_key 等)始终留在 config.yaml。
 const (
-	KeySite = "site"
-	KeyAuth = "auth"
-	KeyMail = "mail"
+	KeySite    = "site"
+	KeyAuth    = "auth"
+	KeyMail    = "mail"
+	KeyEconomy = "economy"
 )
 
 // Setting 一个设置组存一行, 内容为该组的 JSON, 未保存过的设置组没有记录, 使用代码中的默认值
@@ -68,6 +69,9 @@ var groups = []*group{
 	newGroup(KeyMail, "邮件", "SMTP 发信配置, 用于发送邮箱验证码等", func() *MailSettings {
 		return &MailSettings{Port: 465}
 	}),
+	newGroup(KeyEconomy, "经济", "货币的产出和回收, 用于控制筹码总量、避免贬值", func() *EconomySettings {
+		return &EconomySettings{SellFeeRate: 500, SignupGrant: 5000}
+	}),
 }
 
 // SiteSettings 站点展示信息
@@ -95,4 +99,10 @@ type MailSettings struct {
 	Password    string `json:"password" label:"密码" binding:"max=255" secret:"true"`
 	FromName    string `json:"from_name" label:"发件人名称" help:"留空则使用站点名称" binding:"max=64"`
 	FromAddress string `json:"from_address" label:"发件人邮箱" binding:"required_if=Enabled true,omitempty,max=255,email"`
+}
+
+// EconomySettings 经济: 出售手续费和新手资金
+type EconomySettings struct {
+	SellFeeRate int `json:"sell_fee_rate" label:"出售手续费率" help:"卖出物品时按卖出金额扣除的比例, 单位为基点(万分之一), 500 即 5%, 最高 2000 即 20%" binding:"min=0,max=2000" public:"true"`
+	SignupGrant int `json:"signup_grant" label:"新手资金" help:"新用户注册时发放的筹码, 0 表示不发放" binding:"min=0,max=1000000000" public:"true"`
 }

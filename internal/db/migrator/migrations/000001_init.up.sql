@@ -193,7 +193,8 @@ CREATE TABLE IF NOT EXISTS inventory_sell_orders
 (
     id              BIGSERIAL PRIMARY KEY,
     user_id         BIGINT      NOT NULL,
-    idempotency_key VARCHAR(64) NOT NULL, -- 幂等键, 同一用户内唯一
+    idempotency_key VARCHAR(64) NOT NULL,           -- 幂等键, 同一用户内唯一
+    fee_rate        INTEGER     NOT NULL DEFAULT 0, -- 出售时的手续费率, 单位为基点
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

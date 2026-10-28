@@ -63,6 +63,11 @@ func Mail(ctx context.Context) (*MailSettings, error) {
 	return get[MailSettings](ctx, KeyMail)
 }
 
+// Economy 当前经济设置
+func Economy(ctx context.Context) (*EconomySettings, error) {
+	return get[EconomySettings](ctx, KeyEconomy)
+}
+
 // get 读取一个设置组, 未保存过时返回默认值
 func get[T any](ctx context.Context, key string) (*T, error) {
 	var row Setting
