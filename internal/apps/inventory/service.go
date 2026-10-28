@@ -345,11 +345,11 @@ type SellOrderDetail struct {
 // 请求带上手续费率时与当前不一致返回 SellFeeRateChanged。
 // 幂等键在同一用户内只生效一次, 重复提交返回原出售单且 replayed 为 true, 内容不同时返回 IdempotencyConflict。
 func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*SellOrderDetail, bool, error) {
-	economy, err := settings.Economy(ctx)
+	economySettings, err := settings.Economy.Get(ctx)
 	if err != nil {
 		return nil, false, err
 	}
-	feeRate := int32(economy.SellFeeRate)
+	feeRate := int32(economySettings.SellFeeRate)
 
 	// 按物品 ID 排序, 同一用户的并发出售按相同顺序锁背包行, 不会互相死锁
 	lines := slices.Clone(req.Items)

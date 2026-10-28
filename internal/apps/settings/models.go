@@ -26,6 +26,20 @@ package settings
 
 import "time"
 
+// 分类, 后台按分类分页展示设置组
+const (
+	CategorySystem = "system" // 系统: 站点、注册登录、邮件等
+	CategoryGame   = "game"   // 游戏: 经济、对局等玩法参数
+)
+
+// 版本的来源
+const (
+	RevisionUpdate   = "update"   // 保存
+	RevisionRollback = "rollback" // 回滚到某个旧版本
+	RevisionReset    = "reset"    // 恢复默认值
+	RevisionBaseline = "baseline" // 启用版本记录前已保存的内容, 第一次保存时补记为版本 0
+)
+
 // 设置组的 key
 //
 // 这里只放运行中可以随时修改、改完立即生效的配置;
@@ -41,15 +55,32 @@ const (
 type Setting struct {
 	Key       string    `gorm:"primaryKey;size:64" json:"key"`
 	Value     string    `gorm:"type:jsonb;not null;default:'{}'" json:"value"` // 密钥字段为密文
+	Version   int64     `gorm:"not null;default:0" json:"version"`             // 每次保存加 1, 保存时校验, 防止覆盖别人的修改
 	UpdatedBy uint64    `gorm:"not null;default:0" json:"updated_by"`
 	CreatedAt time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
 }
 
 // TableName 自定义表名
-func (Setting) TableName() string { return "system_settings" }
+func (Setting) TableName() string { return "settings" }
 
-// 设置组定义, 新增字段只需在结构体中加一行, 后台表单自动生成
+// Revision 设置组的一个版本, 每次保存写入一条, 用于查看历史和回滚
+type Revision struct {
+	ID          uint64                 `gorm:"primaryKey" json:"id"`
+	Key         string                 `gorm:"size:64;not null;uniqueIndex:uniq_setting_revisions_key_version,priority:1" json:"key"`
+	Version     int64                  `gorm:"not null;uniqueIndex:uniq_setting_revisions_key_version,priority:2" json:"version"`
+	Value       string                 `gorm:"type:jsonb;not null;default:'{}'" json:"-"`                       // 保存后的完整内容, 密钥字段为密文
+	Changes     map[string]interface{} `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"changes"` // 相对上一个版本改动的字段, 格式同操作日志
+	Action      string                 `gorm:"size:16;not null" json:"action"`
+	FromVersion int64                  `gorm:"not null;default:0" json:"from_version"` // 回滚时为回滚到的版本, 其他为 0
+	UpdatedBy   uint64                 `gorm:"not null;default:0" json:"updated_by"`
+	CreatedAt   time.Time              `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+}
+
+// TableName 自定义表名
+func (Revision) TableName() string { return "setting_revisions" }
+
+// 全部设置组, 新增设置组时在这里注册
 //
 // 字段 tag 说明:
 //   - json:    字段名, 改名会丢失已保存的值
@@ -57,22 +88,48 @@ func (Setting) TableName() string { return "system_settings" }
 //   - help:    字段说明
 //   - binding: 校验规则, 即 go-playground/validator 的规则, 与请求参数的写法一致
 //   - input:   字符串的输入方式, 默认 text, 可选 textarea
+//   - options: 字符串的可选值, 如 "a:选项 A,b:选项 B", 后台显示为下拉框, 保存时校验
+//   - unit:    整数的单位, 可选 bp(基点, 后台按百分比输入)、second、millisecond
 //   - secret:  "true" 表示密钥, 加密存储, 读取时不返回明文, 只支持字符串
 //   - public:  "true" 表示通过公开接口返回给前端
-var groups = []*group{
-	newGroup(KeySite, "站点", "站点名称、简介和公告等展示信息", func() *SiteSettings {
-		return &SiteSettings{Name: "BlindCrate"}
-	}),
-	newGroup(KeyAuth, "注册与登录", "控制新用户注册和登录方式", func() *AuthSettings {
-		return &AuthSettings{RegisterEnabled: true, EmailLoginEnabled: true}
-	}),
-	newGroup(KeyMail, "邮件", "SMTP 发信配置, 用于发送邮箱验证码等", func() *MailSettings {
-		return &MailSettings{Port: 465}
-	}),
-	newGroup(KeyEconomy, "经济", "货币的产出和回收, 用于控制筹码总量、避免贬值", func() *EconomySettings {
-		return &EconomySettings{SellFeeRate: 500, SignupGrant: 5000, PveDailyProfitCap: 5000}
-	}),
-}
+//
+// 字段类型支持 string、bool、int / int32 / int64 和它们的切片(整数列表)。
+var (
+	Site = Register(Group[SiteSettings]{
+		Key:         KeySite,
+		Label:       "站点",
+		Description: "站点名称、简介和公告等展示信息",
+		Category:    CategorySystem,
+		Sort:        10,
+		Defaults:    func() *SiteSettings { return &SiteSettings{Name: "BlindCrate"} },
+	})
+	Auth = Register(Group[AuthSettings]{
+		Key:         KeyAuth,
+		Label:       "注册与登录",
+		Description: "控制新用户注册和登录方式",
+		Category:    CategorySystem,
+		Sort:        20,
+		Defaults:    func() *AuthSettings { return &AuthSettings{RegisterEnabled: true, EmailLoginEnabled: true} },
+	})
+	Mail = Register(Group[MailSettings]{
+		Key:         KeyMail,
+		Label:       "邮件",
+		Description: "SMTP 发信配置, 用于发送邮箱验证码等",
+		Category:    CategorySystem,
+		Sort:        30,
+		Defaults:    func() *MailSettings { return &MailSettings{Port: 465} },
+	})
+	Economy = Register(Group[EconomySettings]{
+		Key:         KeyEconomy,
+		Label:       "经济",
+		Description: "货币的产出和回收, 用于控制筹码总量、避免贬值",
+		Category:    CategoryGame,
+		Sort:        10,
+		Defaults: func() *EconomySettings {
+			return &EconomySettings{SellFeeRate: 500, SignupGrant: 5000, PveDailyProfitCap: 5000}
+		},
+	})
+)
 
 // SiteSettings 站点展示信息
 type SiteSettings struct {
@@ -103,7 +160,7 @@ type MailSettings struct {
 
 // EconomySettings 经济: 出售手续费、新手资金和人机模式的收益上限
 type EconomySettings struct {
-	SellFeeRate       int `json:"sell_fee_rate" label:"出售手续费率" help:"卖出物品时按卖出金额扣除的比例, 单位为基点(万分之一), 500 即 5%, 最高 2000 即 20%" binding:"min=0,max=2000" public:"true"`
+	SellFeeRate       int `json:"sell_fee_rate" label:"出售手续费率" help:"卖出物品时按卖出金额扣除的比例, 最高 20%" binding:"min=0,max=2000" unit:"bp" public:"true"`
 	SignupGrant       int `json:"signup_grant" label:"新手资金" help:"新用户注册时发放的筹码, 0 表示不发放" binding:"min=0,max=1000000000" public:"true"`
 	PveDailyProfitCap int `json:"pve_daily_profit_cap" label:"人机每日收益上限" help:"玩家当天在人机模式的净收益达到上限后, 当天剩下的人机对局变为练习局, 不扣入场费也不发藏品; 0 表示不限制, 地图可以单独设置更低的上限" binding:"min=0,max=1000000000" public:"true"`
 }

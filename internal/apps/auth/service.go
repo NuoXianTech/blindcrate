@@ -59,7 +59,7 @@ func doLogin(ctx context.Context, identifier, password string) (*User, error) {
 	var user User
 	query := db.DB(ctx)
 	if strings.Contains(identifier, "@") {
-		authSettings, err := settings.Auth(ctx)
+		authSettings, err := settings.Auth.Get(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -118,7 +118,7 @@ func doRegister(ctx context.Context, username, password string) (*User, error) {
 		return nil, err
 	}
 
-	authSettings, err := settings.Auth(ctx)
+	authSettings, err := settings.Auth.Get(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +253,7 @@ func doSendEmailCode(ctx context.Context, userID uint64, rawEmail string) error 
 	if count > 0 {
 		return errors.New(EmailTaken)
 	}
-	site, err := settings.Site(ctx)
+	site, err := settings.Site.Get(ctx)
 	if err != nil {
 		return err
 	}

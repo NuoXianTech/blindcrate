@@ -1232,14 +1232,26 @@
         },
         "/api/v1/admin/settings": {
             "get": {
-                "description": "包含表单描述和当前值, 密钥字段不返回明文",
+                "description": "包含表单描述和当前值, 密钥字段不返回明文; 可以按分类筛选",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
-                "summary": "获取全部系统设置",
+                "summary": "获取设置组",
+                "parameters": [
+                    {
+                        "enum": [
+                            "system",
+                            "game"
+                        ],
+                        "type": "string",
+                        "description": "为空时返回全部",
+                        "name": "category",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1257,6 +1269,12 @@
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
                         }
                     },
                     "401": {
@@ -1351,8 +1369,70 @@
             }
         },
         "/api/v1/admin/settings/{key}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取一个设置组",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "setting group key",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/settings.GroupView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
             "put": {
-                "description": "保存后立即生效",
+                "description": "保存后立即生效, 并生成一个新版本",
                 "consumes": [
                     "application/json"
                 ],
@@ -1420,6 +1500,352 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/settings/{key}/reset": {
+            "post": {
+                "description": "恢复为代码中的默认值并生成一个新版本, 密钥字段会被清空",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "恢复设置组的默认值",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "setting group key",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.ResetSettingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/settings.GroupView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/settings/{key}/revisions": {
+            "get": {
+                "description": "按版本从新到旧排列, 不含快照内容",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取设置组的历史版本",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "setting group key",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListSettingRevisionsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/settings/{key}/revisions/{version}": {
+            "get": {
+                "description": "密钥字段不返回明文, 只返回是否已设置",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取设置组某个版本的快照",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "setting group key",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version",
+                        "name": "version",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/settings.RevisionView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/settings/{key}/rollback": {
+            "post": {
+                "description": "用旧版本的快照生成一个新版本, 立即生效; 快照中的密钥无法解密时不能回滚",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "回滚设置组",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "setting group key",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.RollbackSettingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/settings.GroupView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/admin.Response"
                         }
@@ -4771,9 +5197,29 @@
                 }
             }
         },
+        "admin.ListSettingRevisionsResponseData": {
+            "type": "object",
+            "properties": {
+                "revisions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/admin.SettingRevisionItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "admin.ListSettingsResponseData": {
             "type": "object",
             "properties": {
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/settings.Category"
+                    }
+                },
                 "groups": {
                     "type": "array",
                     "items": {
@@ -4973,12 +5419,44 @@
                 }
             }
         },
+        "admin.ResetSettingRequest": {
+            "type": "object",
+            "required": [
+                "version"
+            ],
+            "properties": {
+                "version": {
+                    "description": "当前版本, 已被别人修改时返回 409",
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
         "admin.Response": {
             "type": "object",
             "properties": {
                 "data": {},
                 "error_msg": {
                     "type": "string"
+                }
+            }
+        },
+        "admin.RollbackSettingRequest": {
+            "type": "object",
+            "required": [
+                "target",
+                "version"
+            ],
+            "properties": {
+                "target": {
+                    "description": "回滚到的版本",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "version": {
+                    "description": "当前版本, 已被别人修改时返回 409",
+                    "type": "integer",
+                    "minimum": 0
                 }
             }
         },
@@ -4990,6 +5468,34 @@
             "properties": {
                 "disabled": {
                     "type": "boolean"
+                }
+            }
+        },
+        "admin.SettingRevisionItem": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "changes": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "from_version": {
+                    "type": "integer"
+                },
+                "updated_by": {
+                    "type": "integer"
+                },
+                "updated_by_username": {
+                    "description": "系统操作或用户已不存在时为空",
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
                 }
             }
         },
@@ -5008,7 +5514,8 @@
         "admin.UpdateSettingRequest": {
             "type": "object",
             "required": [
-                "value"
+                "value",
+                "version"
             ],
             "properties": {
                 "clear_secrets": {
@@ -5022,6 +5529,11 @@
                 "value": {
                     "description": "设置组的字段, 只需提交改动的字段, 没有提交的保持不变, 密钥字段留空表示不修改",
                     "type": "object"
+                },
+                "version": {
+                    "description": "读取时的版本, 已被别人修改时返回 409",
+                    "type": "integer",
+                    "minimum": 0
                 }
             }
         },
@@ -6444,6 +6956,17 @@
                 }
             }
         },
+        "settings.Category": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
         "settings.Field": {
             "type": "object",
             "properties": {
@@ -6451,7 +6974,7 @@
                     "type": "string"
                 },
                 "input": {
-                    "description": "text / textarea / password / switch / number",
+                    "description": "text / textarea / password / select / switch / number / list",
                     "type": "string"
                 },
                 "key": {
@@ -6460,6 +6983,13 @@
                 "label": {
                     "type": "string"
                 },
+                "options": {
+                    "description": "下拉框的可选值",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/settings.Option"
+                    }
+                },
                 "public": {
                     "type": "boolean"
                 },
@@ -6467,7 +6997,11 @@
                     "type": "boolean"
                 },
                 "type": {
-                    "description": "string / bool / int",
+                    "description": "string / bool / int / int_list",
+                    "type": "string"
+                },
+                "unit": {
+                    "description": "整数的单位: bp / second / millisecond",
                     "type": "string"
                 }
             }
@@ -6475,6 +7009,9 @@
         "settings.GroupView": {
             "type": "object",
             "properties": {
+                "category": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -6515,6 +7052,21 @@
                     "description": "密钥字段固定为空字符串",
                     "type": "object",
                     "additionalProperties": true
+                },
+                "version": {
+                    "description": "保存时原样提交, 未保存过为 0",
+                    "type": "integer"
+                }
+            }
+        },
+        "settings.Option": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
                 }
             }
         },
@@ -6524,6 +7076,57 @@
                 "data": {},
                 "error_msg": {
                     "type": "string"
+                }
+            }
+        },
+        "settings.RevisionView": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "changes": {
+                    "description": "相对上一个版本改动的字段, 格式同操作日志",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "from_version": {
+                    "description": "回滚时为回滚到的版本, 其他为 0",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "secrets_broken": {
+                    "description": "无法解密的密钥字段, 有这类字段时不能回滚到此版本",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "secrets_set": {
+                    "description": "密钥字段是否已设置",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "boolean"
+                    }
+                },
+                "updated_by": {
+                    "type": "integer"
+                },
+                "value": {
+                    "description": "密钥字段固定为空字符串",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "version": {
+                    "type": "integer"
                 }
             }
         },

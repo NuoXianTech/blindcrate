@@ -109,6 +109,7 @@ func runAutoMigrate() {
 		&wallet.Balance{},
 		&wallet.Transaction{},
 		&settings.Setting{},
+		&settings.Revision{},
 		&item.Item{},
 		&inventory.UserItem{},
 		&inventory.Transaction{},

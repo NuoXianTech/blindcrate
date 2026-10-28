@@ -26,6 +26,8 @@ export const ACTION_LABELS: Record<string, string> = {
   'admin.item_update': '修改物品',
   'admin.item_delete': '删除物品',
   'admin.settings_update': '修改系统设置',
+  'admin.settings_rollback': '回滚系统设置',
+  'admin.settings_reset': '恢复系统设置默认值',
   'admin.mail_test': '发送测试邮件',
 };
 

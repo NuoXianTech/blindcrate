@@ -68,5 +68,7 @@ const (
 	ActionVenueDelete           = "admin.venue_delete"
 	ActionMatchCancel           = "admin.match_cancel"
 	ActionSettingsUpdate        = "admin.settings_update"
+	ActionSettingsRollback      = "admin.settings_rollback"
+	ActionSettingsReset         = "admin.settings_reset"
 	ActionMailTest              = "admin.mail_test"
 )

@@ -44,7 +44,7 @@ func init() {
 // 新用户还没有连接, 不推送余额变动。
 func grantSignup(tx *gorm.DB, user *auth.User) error {
 	ctx := tx.Statement.Context
-	economy, err := settings.Economy(ctx)
+	economy, err := settings.Economy.Get(ctx)
 	if err != nil {
 		logger.ErrorF(ctx, "[Economy] grant signup to %d failed: %v", user.ID, err)
 		return nil
