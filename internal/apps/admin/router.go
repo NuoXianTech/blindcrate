@@ -995,6 +995,7 @@ type TestMailRequest struct {
 // @Failure 400 {object} Response
 // @Failure 401 {object} Response
 // @Failure 403 {object} Response
+// @Failure 429 {object} Response
 // @Failure 500 {object} Response
 // @Failure 502 {object} Response
 // @Router /api/v1/admin/settings/mail/test [post]

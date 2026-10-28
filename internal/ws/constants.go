@@ -34,6 +34,8 @@
 // 因此 worker 等其他进程也可以推送。推送不保证送达, 用户不在线或断线期间的消息直接丢弃, 客户端重连后需要重新拉取数据。
 //
 // 新增一种客户端消息: 在对应 app 的 ws.go 中实现 HandlerFunc, 并在 router.Serve 中调用 Handle 注册。
+// 每个连接每秒最多把 messageRate 条消息交给处理函数, 超出的直接回复 ratelimit.TooManyRequests;
+// 需要按用户或更严格的限制时, 在处理函数中调用 ratelimit.Allow。
 package ws
 
 import (
@@ -73,6 +75,10 @@ const (
 	sendQueueSize = 256
 	// maxConnsPerUser 同一用户在单个 API 实例上的最大连接数
 	maxConnsPerUser = 10
+	// messageRate 每个连接每秒最多交给处理函数的消息数
+	messageRate = 10
+	// messageBurst 每个连接允许连续交给处理函数的消息数, 之后按 messageRate 恢复
+	messageBurst = 20
 )
 
 // eventChannel 各 API 实例订阅的 Redis 频道, 推送和断开连接的事件经它转发到连接所在的实例

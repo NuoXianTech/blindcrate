@@ -6,6 +6,7 @@ app:
   app_name: "blindcrate"
   env: "development"
   addr: ":8000"
+  trusted_proxies: ["127.0.0.1", "::1"] # proxies whose X-Forwarded-For gives the client IP; Next.js forwards the browser's header as is, so in production put nginx or a CDN that sets the header in front of it
   session_cookie_name: "blindcrate_session_id" # change this in local dev env
   session_secret: "<uniq string>" # you can't change this after first time start
   session_domain: ".blindcrate.com"
