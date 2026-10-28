@@ -55,7 +55,7 @@ type Generator struct {
 
 // NewGenerator 读取仓库规则引用的掉落池和物品, 使用 crypto/rand 抽取
 //
-// 掉落池不存在、已停用、没有可抽取的条目或有货币条目时返回 *InvalidError。
+// 掉落池不存在、已停用、没有可抽取的条目, 有货币条目或不是藏品的物品时返回 *InvalidError。
 func NewGenerator(tx *gorm.DB, rule WarehouseRule, bidCurrency string) (*Generator, error) {
 	g := &Generator{rule: rule, currency: bidCurrency, slots: make([]slotPool, len(rule.Slots)), randN: loot.RandInt64N}
 	var itemIDs []uint64
@@ -81,6 +81,14 @@ func NewGenerator(tx *gorm.DB, rule WarehouseRule, bidCurrency string) (*Generat
 	items, err := item.Resolve(tx, itemIDs)
 	if err != nil {
 		return nil, err
+	}
+	// 仓库只抽藏品, 道具等其他类别只能通过奖励和商城获得
+	for i, sp := range g.slots {
+		for _, entry := range sp.entries {
+			if target := items[entry.ItemID]; target.Category != item.CategoryCollectible {
+				return nil, invalid(SlotNotCollectible, i+1, target.Name)
+			}
+		}
 	}
 	g.items = items
 	return g, nil

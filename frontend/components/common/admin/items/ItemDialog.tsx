@@ -15,7 +15,7 @@ import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem, Currency, ItemRequest} from '@/lib/services/admin';
+import type {AdminItem, Currency, ItemCategory, ItemRequest} from '@/lib/services/admin';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {MAX_SELL_PRICE, MAX_SIZE} from './constants';
 
@@ -27,6 +27,8 @@ interface ItemDialogProps {
   item: AdminItem | 'new' | null;
   /** 可选的回收货币 */
   currencies: Currency[];
+  /** 可选的物品类别 */
+  categories: ItemCategory[];
   onClose: () => void;
   /** 保存成功后刷新列表 */
   onSaved: () => void;
@@ -35,10 +37,10 @@ interface ItemDialogProps {
 /**
  * 新建或编辑物品
  */
-export function ItemDialog({item, currencies, onClose, onSaved}: ItemDialogProps) {
+export function ItemDialog({item, ...props}: ItemDialogProps) {
   const editing = item && item !== 'new' ? item : null;
   return (
-    <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={!!item} onOpenChange={(open) => !open && props.onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{editing ? `编辑 ${editing.name}` : '新建物品'}</DialogTitle>
@@ -47,7 +49,7 @@ export function ItemDialog({item, currencies, onClose, onSaved}: ItemDialogProps
           </DialogDescription>
         </DialogHeader>
         {/* key 保证切换物品时表单重置 */}
-        {item && <ItemForm key={editing?.id ?? 'new'} item={editing} currencies={currencies} onClose={onClose} onSaved={onSaved} />}
+        {item && <ItemForm key={editing?.id ?? 'new'} item={editing} {...props} />}
       </DialogContent>
     </Dialog>
   );
@@ -56,12 +58,15 @@ export function ItemDialog({item, currencies, onClose, onSaved}: ItemDialogProps
 /**
  * 物品表单, item 为 null 时新建
  */
-function ItemForm({item, currencies, onClose, onSaved}: Omit<ItemDialogProps, 'item'> & { item: AdminItem | null }) {
+function ItemForm({item, currencies, categories, onClose, onSaved}: Omit<ItemDialogProps, 'item'> & {
+  item: AdminItem | null;
+}) {
   const {pending, submit} = useSubmit();
   const {qualities} = useQualities();
   const [name, setName] = useState(item?.name ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
   const [quality, setQuality] = useState(String(item?.quality ?? qualities[0]?.level ?? 1));
+  const [category, setCategory] = useState(item?.category ?? categories[0]?.code ?? 'collectible');
   const [imageURL, setImageURL] = useState(item?.image_url ?? '');
   const [sellCurrency, setSellCurrency] = useState(item?.sell_currency ?? currencies[0]?.code ?? 'chip');
   const currency = currencies.find((c) => c.code === sellCurrency);
@@ -76,6 +81,7 @@ function ItemForm({item, currencies, onClose, onSaved}: Omit<ItemDialogProps, 'i
       name: name.trim(),
       description: description.trim(),
       quality: Number(quality),
+      category,
       image_url: imageURL.trim(),
       sell_currency: sellCurrency,
       sell_price: parseAmount(sellPrice, decimals) ?? -1,
@@ -105,7 +111,7 @@ function ItemForm({item, currencies, onClose, onSaved}: Omit<ItemDialogProps, 'i
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-      <div className="grid grid-cols-[1fr_8rem] gap-3">
+      <div className="grid grid-cols-[1fr_7rem_7rem] gap-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="item-name">名称</Label>
           <Input id="item-name" maxLength={64} value={name} onChange={(e) => setName(e.target.value)} disabled={pending} />
@@ -125,7 +131,23 @@ function ItemForm({item, currencies, onClose, onSaved}: Omit<ItemDialogProps, 'i
             </SelectContent>
           </Select>
         </div>
+        <div className="flex flex-col gap-2">
+          <Label>类别</Label>
+          <Select value={category} onValueChange={setCategory} disabled={pending}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+      <span className="-mt-2 text-xs text-muted-foreground">仓库只抽藏品, 其他类别的物品通过奖励、商城等获得</span>
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="item-description">描述</Label>

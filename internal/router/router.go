@@ -226,6 +226,7 @@ func Serve() {
 				itemAdminRouter := adminRouter.Group("/items")
 				{
 					itemAdminRouter.GET("", admin.ListItems)
+					itemAdminRouter.GET("/categories", admin.ListItemCategories)
 					itemAdminRouter.POST("", admin.CreateItem)
 					itemAdminRouter.PUT("/:id", admin.UpdateItem)
 					itemAdminRouter.DELETE("/:id", admin.DeleteItem)

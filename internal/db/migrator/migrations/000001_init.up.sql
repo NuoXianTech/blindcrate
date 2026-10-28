@@ -171,16 +171,17 @@ CREATE TABLE IF NOT EXISTS items
     id            BIGSERIAL PRIMARY KEY,
     name          VARCHAR(64)   NOT NULL,
     description   VARCHAR(255)  NOT NULL DEFAULT '',
-    quality       SMALLINT      NOT NULL DEFAULT 1,      -- 品质等级, 见 qualities
+    quality       SMALLINT      NOT NULL DEFAULT 1,             -- 品质等级, 见 qualities
+    category      VARCHAR(32)   NOT NULL DEFAULT 'collectible', -- 类别代码, 由代码注册; 仓库只抽藏品
     image_url     VARCHAR(1024) NOT NULL DEFAULT '',
-    sell_currency VARCHAR(32)   NOT NULL DEFAULT 'chip', -- 卖出得到的货币
-    sell_price    BIGINT        NOT NULL DEFAULT 0,      -- 卖出价格, 0 表示不可卖出
-    width         SMALLINT      NOT NULL DEFAULT 1,      -- 在仓库中占的格数
+    sell_currency VARCHAR(32)   NOT NULL DEFAULT 'chip',        -- 卖出得到的货币
+    sell_price    BIGINT        NOT NULL DEFAULT 0,             -- 卖出价格, 0 表示不可卖出
+    width         SMALLINT      NOT NULL DEFAULT 1,             -- 在仓库中占的格数
     height        SMALLINT      NOT NULL DEFAULT 1,
-    is_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,  -- 下架后不会掉落, 也不能再发放, 已有的保留
+    is_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,         -- 下架后不会掉落, 也不能再发放, 已有的保留
     created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    deleted_at    TIMESTAMPTZ,                           -- 软删除时间
+    deleted_at    TIMESTAMPTZ,                                  -- 软删除时间
     CONSTRAINT chk_items_sell_price CHECK (sell_price >= 0),
     CONSTRAINT chk_items_width CHECK (width >= 1),
     CONSTRAINT chk_items_height CHECK (height >= 1)

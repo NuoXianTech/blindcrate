@@ -209,6 +209,7 @@ type UserItemDetail struct {
 	Name          string    `json:"name"`
 	Description   string    `json:"description"`
 	Quality       int16     `json:"quality"`
+	Category      string    `json:"category"` // 类别代码, 见 item.RegisterCategory
 	ImageURL      string    `json:"image_url"`
 	SellCurrency  string    `json:"sell_currency"`
 	SellPrice     int64     `json:"sell_price"`
@@ -263,6 +264,7 @@ func QueryUserItems(ctx context.Context, userID uint64, req *ListItemsRequest) (
 			Name:          target.Name,
 			Description:   target.Description,
 			Quality:       target.Quality,
+			Category:      target.Category,
 			ImageURL:      target.ImageURL,
 			SellCurrency:  target.SellCurrency,
 			SellPrice:     target.SellPrice,

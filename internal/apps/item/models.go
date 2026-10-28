@@ -37,7 +37,8 @@ type Item struct {
 	ID            uint64         `gorm:"primaryKey" json:"id"`
 	Name          string         `gorm:"size:64;not null;uniqueIndex:uniq_items_name,where:deleted_at IS NULL" json:"name"`
 	Description   string         `gorm:"size:255;not null;default:''" json:"description"`
-	Quality       int16          `gorm:"not null;default:1" json:"quality"` // 品质等级, 见 Quality
+	Quality       int16          `gorm:"not null;default:1" json:"quality"`                      // 品质等级, 见 Quality
+	Category      string         `gorm:"size:32;not null;default:'collectible'" json:"category"` // 类别代码, 见 RegisterCategory
 	ImageURL      string         `gorm:"size:1024;not null;default:''" json:"image_url"`
 	SellCurrency  string         `gorm:"size:32;not null;default:'chip'" json:"sell_currency"`
 	SellPrice     int64          `gorm:"not null;default:0;check:chk_items_sell_price,sell_price >= 0" json:"sell_price"` // 0 表示不可卖出
@@ -59,6 +60,12 @@ func (i *Item) Exact(tx *gorm.DB, id uint64) error {
 		return err
 	}
 	return nil
+}
+
+// Category 物品类别, 由代码注册, 见 RegisterCategory
+type Category struct {
+	Code  string `json:"code"`
+	Label string `json:"label"` // 后台展示的名称, 如 "藏品"
 }
 
 // Quality 物品品质, 新增品质只需插入一行

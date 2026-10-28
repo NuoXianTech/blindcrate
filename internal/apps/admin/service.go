@@ -332,6 +332,9 @@ func QueryItems(ctx context.Context, req *ListItemsRequest) (int64, []ItemListIt
 	if req.Quality != nil {
 		query = query.Where("quality = ?", *req.Quality)
 	}
+	if req.Category != "" {
+		query = query.Where("category = ?", req.Category)
+	}
 	if req.IsEnabled != nil {
 		query = query.Where("is_enabled = ?", *req.IsEnabled)
 	}
@@ -431,7 +434,7 @@ func lockItem(tx *gorm.DB, target *item.Item, itemID uint64) error {
 	return nil
 }
 
-// applyItem 校验请求并写入物品字段, 品质和卖出货币必须存在, 已停用的货币也可以选
+// applyItem 校验请求并写入物品字段, 品质、类别和卖出货币必须存在, 已停用的货币也可以选
 func applyItem(tx *gorm.DB, target *item.Item, req *ItemRequest) error {
 	name := strings.TrimSpace(req.Name)
 	if n := utf8.RuneCountInString(name); n < 1 || n > 64 {
@@ -439,6 +442,9 @@ func applyItem(tx *gorm.DB, target *item.Item, req *ItemRequest) error {
 	}
 	if err := item.CheckQuality(tx, req.Quality); err != nil {
 		return err
+	}
+	if item.FindCategory(req.Category) == nil {
+		return errors.New(item.CategoryNotFound)
 	}
 	var currency wallet.Currency
 	if err := currency.Exact(tx, req.SellCurrency); err != nil {
@@ -451,6 +457,7 @@ func applyItem(tx *gorm.DB, target *item.Item, req *ItemRequest) error {
 	target.Name = name
 	target.Description = strings.TrimSpace(req.Description)
 	target.Quality = req.Quality
+	target.Category = req.Category
 	target.ImageURL = req.ImageURL
 	target.SellCurrency = req.SellCurrency
 	target.SellPrice = req.SellPrice
@@ -466,6 +473,7 @@ func itemFields(target *item.Item) map[string]interface{} {
 		"name":          target.Name,
 		"description":   target.Description,
 		"quality":       target.Quality,
+		"category":      target.Category,
 		"image_url":     target.ImageURL,
 		"sell_currency": target.SellCurrency,
 		"sell_price":    target.SellPrice,
