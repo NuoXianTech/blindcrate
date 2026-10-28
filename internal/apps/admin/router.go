@@ -404,6 +404,121 @@ func ListCurrencies(c *gin.Context) {
 	c.JSON(http.StatusOK, Response{Data: ListCurrenciesResponseData{Currencies: currencies}})
 }
 
+// CurrencyRequest 修改货币请求体, 代码创建后不能修改
+type CurrencyRequest struct {
+	Name      string `json:"name" binding:"required,max=32"`
+	Decimals  int16  `json:"decimals" binding:"min=0,max=6"`                // 展示用小数位, 已被使用的货币不能修改
+	SortOrder int32  `json:"sort_order" binding:"min=-1000000,max=1000000"` // 余额和下拉框中从小到大排列
+	IsEnabled bool   `json:"is_enabled"`                                    // 停用后不能再入账或扣款, 基础货币不能停用
+}
+
+// CreateCurrencyRequest 新建货币请求体
+type CreateCurrencyRequest struct {
+	Code string `json:"code" binding:"required,max=32"` // 自然键, 小写字母、数字和下划线
+	CurrencyRequest
+}
+
+// currencyErrorStatus 货币配置错误对应的状态码, 不是配置错误时返回 0
+func currencyErrorStatus(err error) int {
+	switch err.Error() {
+	case wallet.CurrencyCodeInvalid, wallet.CurrencyNameInvalid:
+		return http.StatusBadRequest
+	case wallet.CurrencyNotFound:
+		return http.StatusNotFound
+	case wallet.CurrencyTaken, wallet.CurrencyInUse, wallet.CurrencyIsBase:
+		return http.StatusConflict
+	}
+	return 0
+}
+
+// CreateCurrency
+// @Tags admin
+// @Summary 新建货币
+// @Accept json
+// @Produce json
+// @Param request body CreateCurrencyRequest true "request body"
+// @Success 200 {object} Response{data=wallet.Currency}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 409 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/wallet/currencies [post]
+func CreateCurrency(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req CreateCurrencyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	created, err := doCreateCurrency(ctx, &req)
+	if err != nil {
+		if status := currencyErrorStatus(err); status != 0 {
+			c.JSON(status, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[CreateCurrency] create failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionCurrencyCreate, audit.TargetCurrency, 0, currencyFields(created))
+	logger.InfoF(ctx, "[CreateCurrency] %d created currency %s", operator.ID, created.Code)
+	c.JSON(http.StatusOK, Response{Data: created})
+}
+
+// UpdateCurrency
+// @Tags admin
+// @Summary 修改货币
+// @Description 需提交全部字段, 代码不能修改; 已被余额、物品、地图或掉落池使用的货币不能修改小数位, 基础货币不能停用
+// @Accept json
+// @Produce json
+// @Param code path string true "currency code"
+// @Param request body CurrencyRequest true "request body"
+// @Success 200 {object} Response{data=wallet.Currency}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 404 {object} Response
+// @Failure 409 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/wallet/currencies/{code} [put]
+func UpdateCurrency(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req CurrencyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	updated, changes, err := doUpdateCurrency(ctx, c.Param("code"), &req)
+	if err != nil {
+		if status := currencyErrorStatus(err); status != 0 {
+			c.JSON(status, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[UpdateCurrency] update failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	if len(changes) > 0 {
+		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionCurrencyUpdate, audit.TargetCurrency, 0, map[string]interface{}{
+			"code":    updated.Code,
+			"changes": changes,
+		})
+		logger.InfoF(ctx, "[UpdateCurrency] %d updated currency %s", operator.ID, updated.Code)
+	}
+	c.JSON(http.StatusOK, Response{Data: updated})
+}
+
 // ListWalletTransactionsRequest 余额流水查询参数
 type ListWalletTransactionsRequest struct {
 	Current    int        `json:"current" form:"current" binding:"min=1"`

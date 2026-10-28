@@ -28,6 +28,8 @@ export const ACTION_LABELS: Record<string, string> = {
   'admin.quality_create': '新建品质',
   'admin.quality_update': '修改品质',
   'admin.quality_delete': '删除品质',
+  'admin.currency_create': '新建货币',
+  'admin.currency_update': '修改货币',
   'admin.loot_pool_create': '新建掉落池',
   'admin.loot_pool_update': '修改掉落池',
   'admin.loot_pool_delete': '删除掉落池',

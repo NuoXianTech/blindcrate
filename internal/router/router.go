@@ -219,6 +219,8 @@ func Serve() {
 				walletAdminRouter := adminRouter.Group("/wallet")
 				{
 					walletAdminRouter.GET("/currencies", admin.ListCurrencies)
+					walletAdminRouter.POST("/currencies", admin.CreateCurrency)
+					walletAdminRouter.PUT("/currencies/:code", admin.UpdateCurrency)
 					walletAdminRouter.GET("/transactions", admin.ListWalletTransactions)
 				}
 

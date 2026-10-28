@@ -27,6 +27,11 @@ package wallet
 const (
 	CurrencyNotFound    = "货币不存在"
 	CurrencyDisabled    = "货币已停用"
+	CurrencyCodeInvalid = "货币代码需为 1-32 个小写字母、数字或下划线"
+	CurrencyNameInvalid = "货币名称需为 1-32 个字符"
+	CurrencyTaken       = "货币代码已存在"
+	CurrencyInUse       = "货币已被余额、物品、地图或掉落池使用, 不能修改小数位"
+	CurrencyIsBase      = "基础货币不能停用, 请先在系统设置中更换基础货币"
 	AmountInvalid       = "金额不合法"
 	InsufficientBalance = "余额不足"
 	InsufficientFrozen  = "冻结余额不足"

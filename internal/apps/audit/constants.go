@@ -39,7 +39,8 @@ const (
 	TargetMatch       = "match"
 	TargetVenue       = "venue"
 	TargetLeaderboard = "leaderboard"
-	TargetQuality     = "quality" // target_id 为品质等级
+	TargetQuality     = "quality"  // target_id 为品质等级
+	TargetCurrency    = "currency" // target_id 固定为 0, 货币代码见 detail.code
 )
 
 // 操作类型, 格式为 "模块.动作"
@@ -75,6 +76,8 @@ const (
 	ActionQualityCreate         = "admin.quality_create"
 	ActionQualityUpdate         = "admin.quality_update"
 	ActionQualityDelete         = "admin.quality_delete"
+	ActionCurrencyCreate        = "admin.currency_create"
+	ActionCurrencyUpdate        = "admin.currency_update"
 	ActionSettingsUpdate        = "admin.settings_update"
 	ActionSettingsRollback      = "admin.settings_rollback"
 	ActionSettingsReset         = "admin.settings_reset"

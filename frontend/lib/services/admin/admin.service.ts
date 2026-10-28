@@ -10,8 +10,10 @@ import type {
   AdminQuality,
   AdminVenue,
   ConditionType,
+  CreateCurrencyRequest,
   CreateQualityRequest,
   Currency,
+  CurrencyRequest,
   Item,
   ItemCategory,
   ItemRequest,
@@ -86,6 +88,15 @@ export class AdminService extends BaseService {
 
   static listCurrencies() {
     return this.get<{ currencies: Currency[] }>('/wallet/currencies');
+  }
+
+  static createCurrency(body: CreateCurrencyRequest) {
+    return this.post<Currency>('/wallet/currencies', body);
+  }
+
+  /** 已被使用的货币不能修改小数位, 基础货币不能停用 */
+  static updateCurrency(code: string, body: CurrencyRequest) {
+    return this.put<Currency>(`/wallet/currencies/${encodeURIComponent(code)}`, body);
   }
 
   static listItems(params: ListItemsParams) {
