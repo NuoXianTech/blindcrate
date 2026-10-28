@@ -30,6 +30,7 @@ import (
 
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/auction" // 注册暗拍玩法, 阶段超时时调用
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
+	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/NuoXianTech/blindcrate/internal/task"
@@ -64,6 +65,7 @@ func StartWorker() error {
 	mux.HandleFunc(task.TypeMatchPhaseTimeout, match.HandlePhaseTimeout)
 	mux.HandleFunc(task.TypeMatchBotFill, match.HandleBotFill)
 	mux.HandleFunc(task.TypeMatchSweep, match.HandleSweep)
+	mux.HandleFunc(task.TypeStatsCleanup, stats.HandleCleanup)
 
 	// 启动服务
 	return asynqServer.Run(mux)

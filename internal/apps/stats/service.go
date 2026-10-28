@@ -78,7 +78,7 @@ func MatchScopes(venue, mode string) []string {
 
 // PeriodDay 统计周期: t 所在的那一天, 如 day:2026-10-28
 func PeriodDay(t time.Time) string {
-	return "day:" + t.In(schedule.Location).Format(time.DateOnly)
+	return periodDayPrefix + t.In(schedule.Location).Format(time.DateOnly)
 }
 
 // MetricProfit 指标: 以某种货币计的净收益, 如 profit:chip; 不同货币的收益不能相加, 所以按货币分开
@@ -197,7 +197,7 @@ func QueryUserStats(tx *gorm.DB, userID uint64, scope string, now time.Time) (*U
 	for i := range result.Days {
 		at := now.AddDate(0, 0, i-RecentDays+1)
 		period := PeriodDay(at)
-		result.Days[i] = DayValues{Day: strings.TrimPrefix(period, "day:"), Values: Values{}}
+		result.Days[i] = DayValues{Day: strings.TrimPrefix(period, periodDayPrefix), Values: Values{}}
 		days[period] = &result.Days[i]
 		periods = append(periods, period)
 	}

@@ -100,9 +100,10 @@ type logConfig struct {
 
 // scheduleConfig 定时任务调度配置
 type scheduleConfig struct {
-	Port       int    `mapstructure:"port"`        // 探针端口
-	TimeZone   string `mapstructure:"time_zone"`   // cron 表达式按这个时区解析
-	MatchSweep string `mapstructure:"match_sweep"` // 巡检到期未推进的对局和排队的 cron 表达式
+	Port         int    `mapstructure:"port"`          // 探针端口
+	TimeZone     string `mapstructure:"time_zone"`     // cron 表达式按这个时区解析
+	MatchSweep   string `mapstructure:"match_sweep"`   // 巡检到期未推进的对局和排队的 cron 表达式
+	StatsCleanup string `mapstructure:"stats_cleanup"` // 清理过期的按天统计的 cron 表达式, 留空时不清理
 }
 
 // workerConfig 任务处理配置

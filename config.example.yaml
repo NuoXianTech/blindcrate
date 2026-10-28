@@ -63,6 +63,7 @@ schedule:
   port: 8002 # scheduler probe port
   time_zone: "Asia/Shanghai" # cron expressions are evaluated in this time zone
   match_sweep: "@every 30s" # recover overdue match phases and stuck matchmaking queues
+  stats_cleanup: "0 4 * * *" # delete day stats older than the retention in settings; leave empty to keep them
 
 # Worker
 worker:

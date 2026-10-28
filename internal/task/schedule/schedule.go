@@ -84,6 +84,14 @@ func StartScheduler() error {
 			return
 		}
 
+		// 清理过期的按天统计, 可以重复执行, 失败时重试几次; 未配置时不清理
+		if cron := config.Config.Schedule.StatsCleanup; cron == "" {
+			logger.WarnF(context.Background(), "[Scheduler] schedule.stats_cleanup is empty, day stats will not be cleaned up")
+		} else if _, err = scheduler.Register(cron, asynq.NewTask(task.TypeStatsCleanup, nil), asynq.Queue(task.QueueLow), asynq.MaxRetry(3)); err != nil {
+			err = fmt.Errorf("register %s failed: %w", task.TypeStatsCleanup, err)
+			return
+		}
+
 		// 启动调度器
 		err = scheduler.Run()
 	})
