@@ -2159,6 +2159,379 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/venues": {
+            "get": {
+                "description": "按排序值和 ID 排列, 不含已删除的地图",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取地图列表",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "name": "is_enabled",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 64,
+                        "type": "string",
+                        "description": "按代码或名称搜索, 不区分大小写",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListVenuesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "保存前模拟 10000 个仓库, 摆放失败率超过 1% 时拒绝; 模拟结果写入 simulation",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "新建地图",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.VenueRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/venue.Venue"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/venues/simulate": {
+            "post": {
+                "description": "按保存时的规则校验并模拟 10000 个仓库, 返回价值分布, 不保存",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "试算地图",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.VenueRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/venue.Simulation"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/venues/{id}": {
+            "put": {
+                "description": "需提交全部字段, 代码不能修改; 每次保存都会重新模拟仓库; 进行中的对局使用开局时的快照, 不受影响",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "修改地图",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "venue id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.VenueRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/venue.Venue"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "软删除, 代码不能再被新地图使用; 排队中的玩家开局时被拒绝, 进行中的对局照常打完",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "删除地图",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "venue id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/wallet/currencies": {
             "get": {
                 "description": "包含已停用的货币",
@@ -3660,6 +4033,121 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/venues": {
+            "get": {
+                "description": "按排序值排列, 附带当前用户对每个入场条件的达成情况和仓库价值区间; 价值区间为保存地图时的模拟结果",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "venue"
+                ],
+                "summary": "获取启用的地图",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/venue.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/venue.ListVenuesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/venue.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/venue.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/venue.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/venues/{code}": {
+            "get": {
+                "description": "在列表的基础上附带仓库各档位掉落池的公示概率; 掉落池不可用时该档位的 odds 为 null",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "venue"
+                ],
+                "summary": "获取地图详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "venue code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/venue.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/venue.VenueDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/venue.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/venue.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/venue.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/venue.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/wallet/balances": {
             "get": {
                 "description": "没有余额行的货币按 0 返回, 已停用且没有余额的货币不返回",
@@ -4271,6 +4759,20 @@ const docTemplate = `{
                 }
             }
         },
+        "admin.ListVenuesResponseData": {
+            "type": "object",
+            "properties": {
+                "total": {
+                    "type": "integer"
+                },
+                "venues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.Venue"
+                    }
+                }
+            }
+        },
         "admin.ListWalletTransactionsResponseData": {
             "type": "object",
             "properties": {
@@ -4475,6 +4977,78 @@ const docTemplate = `{
                 "username": {
                     "description": "不传表示不修改",
                     "type": "string"
+                }
+            }
+        },
+        "admin.VenueRequest": {
+            "type": "object",
+            "required": [
+                "bid_currency",
+                "code",
+                "name"
+            ],
+            "properties": {
+                "auction": {
+                    "$ref": "#/definitions/venue.AuctionRule"
+                },
+                "bid_currency": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "bots": {
+                    "$ref": "#/definitions/venue.BotRule"
+                },
+                "code": {
+                    "description": "小写字母、数字和下划线, 创建后不能修改",
+                    "type": "string",
+                    "maxLength": 24
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "entry_cost": {
+                    "description": "数量为正数, 开局时扣除",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "image_url": {
+                    "type": "string",
+                    "maxLength": 1024
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "pve": {
+                    "$ref": "#/definitions/venue.PveRule"
+                },
+                "pve_enabled": {
+                    "type": "boolean"
+                },
+                "ranked_enabled": {
+                    "type": "boolean"
+                },
+                "requirements": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "sort_order": {
+                    "description": "大厅中从小到大排列",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
+                },
+                "warehouse": {
+                    "$ref": "#/definitions/venue.WarehouseRule"
                 }
             }
         },
@@ -4692,6 +5266,19 @@ const docTemplate = `{
                 }
             }
         },
+        "condition.Condition": {
+            "type": "object",
+            "properties": {
+                "params": {
+                    "description": "参数, 结构由条件类型决定",
+                    "type": "object"
+                },
+                "type": {
+                    "description": "条件类型, 见 constants.go",
+                    "type": "string"
+                }
+            }
+        },
         "condition.Field": {
             "type": "object",
             "properties": {
@@ -4710,6 +5297,29 @@ const docTemplate = `{
                 },
                 "type": {
                     "description": "string / bool / int",
+                    "type": "string"
+                }
+            }
+        },
+        "condition.Progress": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "description": "当前值, 如已玩局数; 没有进度的条件为 0",
+                    "type": "integer"
+                },
+                "met": {
+                    "type": "boolean"
+                },
+                "target": {
+                    "description": "目标值; 没有进度的条件为 0",
+                    "type": "integer"
+                },
+                "text": {
+                    "description": "展示给玩家的描述, 如 \"完成 10 局排位(3/10)\"",
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 }
             }
@@ -5476,6 +6086,47 @@ const docTemplate = `{
                 }
             }
         },
+        "reward.Bundle": {
+            "type": "object",
+            "properties": {
+                "currencies": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.CurrencyLine"
+                    }
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.ItemLine"
+                    }
+                }
+            }
+        },
+        "reward.CurrencyLine": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "正数入账, 负数出账",
+                    "type": "integer"
+                },
+                "currency": {
+                    "type": "string"
+                }
+            }
+        },
+        "reward.ItemLine": {
+            "type": "object",
+            "properties": {
+                "item_id": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "description": "正数获得, 负数消耗",
+                    "type": "integer"
+                }
+            }
+        },
         "settings.Field": {
             "type": "object",
             "properties": {
@@ -5556,6 +6207,586 @@ const docTemplate = `{
                 "data": {},
                 "error_msg": {
                     "type": "string"
+                }
+            }
+        },
+        "venue.AuctionRule": {
+            "type": "object",
+            "properties": {
+                "max_carry": {
+                    "description": "开局时冻结 min(可用余额, 上限), 出价不能超过它",
+                    "type": "integer",
+                    "maximum": 1000000000000,
+                    "minimum": 1
+                },
+                "max_extra_rounds": {
+                    "description": "最后一轮最高价并列时加轮, 之后按先出价的人成交",
+                    "type": "integer",
+                    "maximum": 5,
+                    "minimum": 0
+                },
+                "quick_win": {
+                    "description": "前 Rounds-1 轮的速胜倍率, 基点; 第一名不低于第二名的这么多倍时直接成交",
+                    "type": "array",
+                    "maxItems": 9,
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "reveal_seconds": {
+                    "type": "integer",
+                    "maximum": 60,
+                    "minimum": 3
+                },
+                "round_seconds": {
+                    "type": "integer",
+                    "maximum": 120,
+                    "minimum": 5
+                },
+                "rounds": {
+                    "type": "integer",
+                    "maximum": 10,
+                    "minimum": 1
+                },
+                "start_price": {
+                    "type": "integer",
+                    "maximum": 1000000000000,
+                    "minimum": 1
+                }
+            }
+        },
+        "venue.BotRule": {
+            "type": "object",
+            "properties": {
+                "bluff_chance": {
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 0
+                },
+                "bluff_factor": {
+                    "description": "诈唬时按估值 × 诈唬系数出价",
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 100
+                },
+                "bluff_rounds": {
+                    "description": "只在前几轮诈唬",
+                    "type": "integer",
+                    "maximum": 10,
+                    "minimum": 0
+                },
+                "estimate_errors": {
+                    "description": "低、中、高三个等级的估值误差, 估值 = 仓库价值 × (1 ± 误差)",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "jitter": {
+                    "description": "出价在 ± 浮动内随机",
+                    "type": "integer",
+                    "maximum": 5000,
+                    "minimum": 0
+                },
+                "level_weights": {
+                    "description": "低、中、高三个等级的权重",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "max_factor": {
+                    "description": "出价不超过估值 × 上限系数",
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 100
+                },
+                "round_factors": {
+                    "description": "每轮出价 = 估值 × 系数, 轮数更多时沿用最后一个",
+                    "type": "array",
+                    "maxItems": 12,
+                    "minItems": 1,
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "venue.CostLine": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "货币金额或物品数量",
+                    "type": "integer"
+                },
+                "currency": {
+                    "description": "与 item_id 二选一",
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "venue.Grid": {
+            "type": "object",
+            "properties": {
+                "height": {
+                    "type": "integer",
+                    "maximum": 16,
+                    "minimum": 1
+                },
+                "width": {
+                    "type": "integer",
+                    "maximum": 16,
+                    "minimum": 1
+                }
+            }
+        },
+        "venue.ListVenuesResponseData": {
+            "type": "object",
+            "properties": {
+                "venues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.VenueView"
+                    }
+                }
+            }
+        },
+        "venue.PveRule": {
+            "type": "object",
+            "properties": {
+                "daily_profit_cap": {
+                    "description": "当天人机模式的净收益达到上限后转为练习局, 0 表示沿用全局设置, 只能比全局设置更低",
+                    "type": "integer",
+                    "maximum": 1000000000000,
+                    "minimum": 0
+                },
+                "practice_only": {
+                    "description": "人机模式只能打练习局",
+                    "type": "boolean"
+                },
+                "value_factor": {
+                    "description": "人机模式按这个系数缩放各档位的抽取次数",
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 1000
+                }
+            }
+        },
+        "venue.PveView": {
+            "type": "object",
+            "properties": {
+                "practice_only": {
+                    "type": "boolean"
+                },
+                "value_factor": {
+                    "description": "仓库价值系数, 基点",
+                    "type": "integer"
+                },
+                "value_range": {
+                    "$ref": "#/definitions/venue.ValueRange"
+                }
+            }
+        },
+        "venue.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "venue.Simulation": {
+            "type": "object",
+            "properties": {
+                "pve": {
+                    "description": "人机模式, 按仓库价值系数缩放抽取次数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.ValueStats"
+                        }
+                    ]
+                },
+                "ranked": {
+                    "description": "排位模式, 不缩放抽取次数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.ValueStats"
+                        }
+                    ]
+                },
+                "runs": {
+                    "type": "integer"
+                },
+                "simulated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "venue.Slot": {
+            "type": "object",
+            "required": [
+                "pool"
+            ],
+            "properties": {
+                "chance": {
+                    "description": "这一档出现的概率, 基点, 10000 表示一定出现",
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 1
+                },
+                "max": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "min": {
+                    "description": "抽取次数在 [Min, Max] 内均匀随机",
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "pool": {
+                    "description": "掉落池代码, 只能有物品条目",
+                    "type": "string",
+                    "maxLength": 64
+                }
+            }
+        },
+        "venue.SlotOdds": {
+            "type": "object",
+            "required": [
+                "pool"
+            ],
+            "properties": {
+                "chance": {
+                    "description": "这一档出现的概率, 基点, 10000 表示一定出现",
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 1
+                },
+                "max": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "min": {
+                    "description": "抽取次数在 [Min, Max] 内均匀随机",
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "odds": {
+                    "description": "掉落池不可用时为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/loot.PoolOdds"
+                        }
+                    ]
+                },
+                "pool": {
+                    "description": "掉落池代码, 只能有物品条目",
+                    "type": "string",
+                    "maxLength": 64
+                }
+            }
+        },
+        "venue.ValueRange": {
+            "type": "object",
+            "properties": {
+                "p10": {
+                    "type": "integer"
+                },
+                "p50": {
+                    "type": "integer"
+                },
+                "p90": {
+                    "type": "integer"
+                }
+            }
+        },
+        "venue.ValueStats": {
+            "type": "object",
+            "properties": {
+                "failure_rate": {
+                    "description": "摆放失败率, 基点",
+                    "type": "integer"
+                },
+                "max": {
+                    "type": "integer"
+                },
+                "mean": {
+                    "type": "integer"
+                },
+                "mean_pieces": {
+                    "description": "平均藏品件数, 向下取整",
+                    "type": "integer"
+                },
+                "p10": {
+                    "type": "integer"
+                },
+                "p50": {
+                    "type": "integer"
+                },
+                "p90": {
+                    "type": "integer"
+                }
+            }
+        },
+        "venue.Venue": {
+            "type": "object",
+            "properties": {
+                "auction": {
+                    "description": "拍卖参数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.AuctionRule"
+                        }
+                    ]
+                },
+                "bid_currency": {
+                    "description": "出价和计算仓库价值的货币",
+                    "type": "string"
+                },
+                "bots": {
+                    "description": "人机参数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.BotRule"
+                        }
+                    ]
+                },
+                "code": {
+                    "description": "拼进玩法代码和统计范围, 创建后不能修改",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "entry_cost": {
+                    "description": "入场代价, 数量为正数, 开局时扣除",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "is_enabled": {
+                    "description": "停用后不能加入队列, 进行中的对局照常打完",
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pve": {
+                    "description": "人机模式防刷参数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.PveRule"
+                        }
+                    ]
+                },
+                "pve_enabled": {
+                    "type": "boolean"
+                },
+                "ranked_enabled": {
+                    "type": "boolean"
+                },
+                "requirements": {
+                    "description": "入场条件, 需要全部满足",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "simulation": {
+                    "description": "保存时的模拟结果, 掉落池或物品改动后需要重新保存才会更新",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.Simulation"
+                        }
+                    ]
+                },
+                "sort_order": {
+                    "description": "大厅中从小到大排列",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "warehouse": {
+                    "description": "仓库生成规则",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.WarehouseRule"
+                        }
+                    ]
+                }
+            }
+        },
+        "venue.VenueDetail": {
+            "type": "object",
+            "properties": {
+                "auction": {
+                    "$ref": "#/definitions/venue.AuctionRule"
+                },
+                "bid_currency": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "eligible": {
+                    "description": "满足全部入场条件",
+                    "type": "boolean"
+                },
+                "entry_cost": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.CostLine"
+                    }
+                },
+                "grid": {
+                    "$ref": "#/definitions/venue.Grid"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pve": {
+                    "$ref": "#/definitions/venue.PveView"
+                },
+                "pve_enabled": {
+                    "type": "boolean"
+                },
+                "ranked_enabled": {
+                    "type": "boolean"
+                },
+                "requirements": {
+                    "description": "每个入场条件的达成情况",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Progress"
+                    }
+                },
+                "slots": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.SlotOdds"
+                    }
+                },
+                "value_range": {
+                    "description": "排位模式的仓库价值区间, 保存地图时模拟",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.ValueRange"
+                        }
+                    ]
+                }
+            }
+        },
+        "venue.VenueView": {
+            "type": "object",
+            "properties": {
+                "auction": {
+                    "$ref": "#/definitions/venue.AuctionRule"
+                },
+                "bid_currency": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "eligible": {
+                    "description": "满足全部入场条件",
+                    "type": "boolean"
+                },
+                "entry_cost": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.CostLine"
+                    }
+                },
+                "grid": {
+                    "$ref": "#/definitions/venue.Grid"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pve": {
+                    "$ref": "#/definitions/venue.PveView"
+                },
+                "pve_enabled": {
+                    "type": "boolean"
+                },
+                "ranked_enabled": {
+                    "type": "boolean"
+                },
+                "requirements": {
+                    "description": "每个入场条件的达成情况",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Progress"
+                    }
+                },
+                "value_range": {
+                    "description": "排位模式的仓库价值区间, 保存地图时模拟",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.ValueRange"
+                        }
+                    ]
+                }
+            }
+        },
+        "venue.WarehouseRule": {
+            "type": "object",
+            "properties": {
+                "grid": {
+                    "$ref": "#/definitions/venue.Grid"
+                },
+                "max_rerolls": {
+                    "description": "超过后开局失败",
+                    "type": "integer",
+                    "maximum": 50,
+                    "minimum": 0
+                },
+                "slots": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/venue.Slot"
+                    }
                 }
             }
         },

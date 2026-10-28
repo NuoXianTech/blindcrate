@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS venues;
 DROP TABLE IF EXISTS user_stats;
 DROP TABLE IF EXISTS match_players;
 DROP TABLE IF EXISTS matches;

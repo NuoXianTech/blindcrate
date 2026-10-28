@@ -102,8 +102,10 @@ func QueryEntries(tx *gorm.DB, poolID uint64) ([]EntryDetail, error) {
 	return details, nil
 }
 
-// availablePool 按代码获取已启用的掉落池和其中可抽取的条目
-func availablePool(tx *gorm.DB, code string) (*Pool, []EntryDetail, error) {
+// QueryAvailable 按代码获取已启用的掉落池和其中可抽取的条目, 概率与 Roll 一致
+//
+// 需要多次抽取时(如仓库生成)先读出条目再在内存中抽取, 避免每次抽取都查库。
+func QueryAvailable(tx *gorm.DB, code string) (*Pool, []EntryDetail, error) {
 	var pool Pool
 	if err := pool.ExactCode(tx, code); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -155,7 +157,7 @@ func Roll(tx *gorm.DB, code string, times int) (*RollResult, error) {
 	if times < 1 || times > MaxRollTimes {
 		return nil, errors.New(RollTimesInvalid)
 	}
-	pool, entries, err := availablePool(tx, code)
+	pool, entries, err := QueryAvailable(tx, code)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +194,7 @@ type PoolOdds struct {
 
 // QueryOdds 获取已启用的掉落池中可抽取的条目和概率, 用于向玩家公示
 func QueryOdds(ctx context.Context, code string) (*PoolOdds, error) {
-	pool, entries, err := availablePool(db.DB(ctx), code)
+	pool, entries, err := QueryAvailable(db.DB(ctx), code)
 	if err != nil {
 		return nil, err
 	}

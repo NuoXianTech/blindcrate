@@ -37,6 +37,7 @@ const (
 	TargetItem     = "item"
 	TargetLootPool = "loot_pool"
 	TargetMatch    = "match"
+	TargetVenue    = "venue"
 )
 
 // 操作类型, 格式为 "模块.动作"
@@ -62,6 +63,9 @@ const (
 	ActionLootPoolUpdate        = "admin.loot_pool_update"
 	ActionLootPoolDelete        = "admin.loot_pool_delete"
 	ActionLootPoolEntriesUpdate = "admin.loot_pool_entries_update"
+	ActionVenueCreate           = "admin.venue_create"
+	ActionVenueUpdate           = "admin.venue_update"
+	ActionVenueDelete           = "admin.venue_delete"
 	ActionMatchCancel           = "admin.match_cancel"
 	ActionSettingsUpdate        = "admin.settings_update"
 	ActionMailTest              = "admin.mail_test"
