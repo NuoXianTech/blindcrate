@@ -353,8 +353,10 @@ func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*Se
 	}
 
 	var (
-		detail   *SellOrderDetail
-		replayed bool
+		detail     *SellOrderDetail
+		replayed   bool
+		itemTxns   []*Transaction
+		walletTxns []*wallet.Transaction
 	)
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		// 幂等: 同一个 key 的并发请求在咨询锁上排队, 后到的能看到先到的已提交出售单
@@ -378,17 +380,21 @@ func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*Se
 		}
 
 		var err error
-		detail, err = sell(tx, userID, req.IdempotencyKey, lines)
+		detail, itemTxns, walletTxns, err = sell(tx, userID, req.IdempotencyKey, lines)
 		return err
 	})
 	if err != nil {
 		return nil, false, err
 	}
+	PushChanges(ctx, itemTxns...)
+	wallet.PushChanges(ctx, walletTxns...)
 	return detail, replayed, nil
 }
 
 // sell 创建出售单, 扣除物品后按货币汇总入账, lines 需已按物品 ID 排序且不重复
-func sell(tx *gorm.DB, userID uint64, idempotencyKey string, lines []SellItemsRequestItem) (*SellOrderDetail, error) {
+//
+// 返回出售单以及产生的背包流水和余额流水, 流水用于提交后推送。
+func sell(tx *gorm.DB, userID uint64, idempotencyKey string, lines []SellItemsRequestItem) (*SellOrderDetail, []*Transaction, []*wallet.Transaction, error) {
 	ids := make([]uint64, len(lines))
 	for i := range lines {
 		ids[i] = lines[i].ItemID
@@ -397,49 +403,52 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, lines []SellItemsRe
 	// 以共享锁读取当前售价, 与修改、删除物品的行锁互斥, 避免按刚被修改的价格成交
 	items, err := item.Resolve(tx.Clauses(clause.Locking{Strength: "SHARE"}), ids)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	order := &SellOrder{UserID: userID, IdempotencyKey: idempotencyKey}
 	if err := tx.Create(order).Error; err != nil {
 		// 咨询锁之外的兜底, 正常不会走到
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(DuplicateRequest)
+			return nil, nil, nil, errors.New(DuplicateRequest)
 		}
-		return nil, err
+		return nil, nil, nil, err
 	}
 	bizID := strconv.FormatUint(order.ID, 10)
 
 	orderItems := make([]SellOrderItem, len(lines))
+	itemTxns := make([]*Transaction, 0, len(lines))
 	incomes := map[string]int64{}
 	for i, line := range lines {
 		target := items[line.ItemID]
 		if target.SellPrice <= 0 {
-			return nil, errors.New(ItemNotSellable)
+			return nil, nil, nil, errors.New(ItemNotSellable)
 		}
 		if target.SellCurrency != line.SellCurrency || target.SellPrice != line.SellPrice {
-			return nil, errors.New(SellPriceChanged)
+			return nil, nil, nil, errors.New(SellPriceChanged)
 		}
 
 		// 先比较再相乘, 避免数量乘单价溢出
 		if line.Quantity > wallet.MaxAmount/target.SellPrice {
-			return nil, errors.New(SellAmountExceeded)
+			return nil, nil, nil, errors.New(SellAmountExceeded)
 		}
 		amount := line.Quantity * target.SellPrice
 		if incomes[target.SellCurrency] > wallet.MaxAmount-amount {
-			return nil, errors.New(SellAmountExceeded)
+			return nil, nil, nil, errors.New(SellAmountExceeded)
 		}
 		incomes[target.SellCurrency] += amount
 
-		if _, _, err := Change(tx, &ChangeRequest{
+		itemTxn, _, err := Change(tx, &ChangeRequest{
 			UserID:   userID,
 			ItemID:   line.ItemID,
 			Quantity: -line.Quantity,
 			BizType:  BizItemSell,
 			BizID:    bizID,
-		}); err != nil {
-			return nil, err
+		})
+		if err != nil {
+			return nil, nil, nil, err
 		}
+		itemTxns = append(itemTxns, itemTxn)
 		orderItems[i] = SellOrderItem{
 			OrderID:      order.ID,
 			ItemID:       line.ItemID,
@@ -451,11 +460,12 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, lines []SellItemsRe
 		}
 	}
 	if err := tx.Create(&orderItems).Error; err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	// 按货币代码顺序入账, 与背包行同理, 固定加锁顺序
 	detail := &SellOrderDetail{ID: order.ID, Items: orderItems, CreatedAt: order.CreatedAt}
+	walletTxns := make([]*wallet.Transaction, 0, len(incomes))
 	for _, currency := range slices.Sorted(maps.Keys(incomes)) {
 		txn, _, err := wallet.Change(tx, &wallet.ChangeRequest{
 			UserID:   userID,
@@ -465,11 +475,12 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, lines []SellItemsRe
 			BizID:    bizID,
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
+		walletTxns = append(walletTxns, txn)
 		detail.Incomes = append(detail.Incomes, SellIncome{Currency: txn.Currency, Amount: txn.Amount, BalanceAfter: txn.BalanceAfter})
 	}
-	return detail, nil
+	return detail, itemTxns, walletTxns, nil
 }
 
 // sameItems 幂等键重放时校验出售内容一致, lines 已按物品 ID 排序

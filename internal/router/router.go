@@ -35,6 +35,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
+	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/config"
@@ -141,6 +142,9 @@ func Serve() {
 				inventoryRouter.GET("/sell-orders", inventory.ListSellOrders)
 			}
 
+			// Loot
+			apiV1Router.GET("/loot-pools/:code/odds", auth.LoginRequired(), loot.GetPoolOdds)
+
 			// Admin
 			adminRouter := apiV1Router.Group("/admin")
 			adminRouter.Use(auth.LoginRequired(), admin.LoginAdminRequired())
@@ -173,6 +177,17 @@ func Serve() {
 					itemAdminRouter.POST("", admin.CreateItem)
 					itemAdminRouter.PUT("/:id", admin.UpdateItem)
 					itemAdminRouter.DELETE("/:id", admin.DeleteItem)
+				}
+
+				// Loot
+				lootPoolAdminRouter := adminRouter.Group("/loot-pools")
+				{
+					lootPoolAdminRouter.GET("", admin.ListLootPools)
+					lootPoolAdminRouter.POST("", admin.CreateLootPool)
+					lootPoolAdminRouter.PUT("/:id", admin.UpdateLootPool)
+					lootPoolAdminRouter.DELETE("/:id", admin.DeleteLootPool)
+					lootPoolAdminRouter.GET("/:id/entries", admin.ListLootPoolEntries)
+					lootPoolAdminRouter.PUT("/:id/entries", admin.ReplaceLootPoolEntries)
 				}
 
 				// Inventory

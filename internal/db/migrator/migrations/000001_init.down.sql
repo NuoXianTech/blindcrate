@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS loot_pool_entries;
+DROP TABLE IF EXISTS loot_pools;
 DROP TABLE IF EXISTS inventory_sell_order_items;
 DROP TABLE IF EXISTS inventory_sell_orders;
 DROP TABLE IF EXISTS inventory_transactions;

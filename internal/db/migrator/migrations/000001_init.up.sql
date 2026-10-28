@@ -217,3 +217,35 @@ CREATE TABLE IF NOT EXISTS inventory_sell_order_items
 
 CREATE INDEX IF NOT EXISTS idx_inventory_sell_order_items_order_id ON inventory_sell_order_items (order_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_sell_order_items_item_id ON inventory_sell_order_items (item_id);
+
+-- 掉落池, 玩法按代码引用, 如开箱、转盘; 删除时连同条目一起删除
+CREATE TABLE IF NOT EXISTS loot_pools
+(
+    id          BIGSERIAL PRIMARY KEY,
+    code        VARCHAR(64)  NOT NULL,               -- 玩法中引用的代码, 如 crate_basic
+    name        VARCHAR(64)  NOT NULL,
+    description VARCHAR(255) NOT NULL DEFAULT '',
+    is_enabled  BOOLEAN      NOT NULL DEFAULT FALSE, -- 停用后不能再抽取
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_loot_pools_code ON loot_pools (code);
+
+-- 掉落池条目, 每行掉落一种物品或货币; 修改时整池替换
+CREATE TABLE IF NOT EXISTS loot_pool_entries
+(
+    id           BIGSERIAL PRIMARY KEY,
+    pool_id      BIGINT      NOT NULL,
+    item_id      BIGINT      NOT NULL DEFAULT 0,  -- 掉落的物品, 与 currency 二选一
+    currency     VARCHAR(32) NOT NULL DEFAULT '', -- 掉落的货币
+    weight       INTEGER     NOT NULL,            -- 抽中的概率为权重 / 池中可抽取条目的权重之和
+    min_quantity BIGINT      NOT NULL DEFAULT 1,  -- 每次掉落的数量在该范围内均匀随机, 货币为金额
+    max_quantity BIGINT      NOT NULL DEFAULT 1,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_loot_pool_entries_target CHECK ((item_id <> 0) <> (currency <> '')),
+    CONSTRAINT chk_loot_pool_entries_weight CHECK (weight > 0),
+    CONSTRAINT chk_loot_pool_entries_quantity CHECK (min_quantity >= 1 AND max_quantity >= min_quantity)
+);
+
+CREATE INDEX IF NOT EXISTS idx_loot_pool_entries_pool_id ON loot_pool_entries (pool_id);
