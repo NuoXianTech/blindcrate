@@ -45,6 +45,7 @@ type AdvanceFunc func(tx *gorm.DB, m *Match, players []Player) (*Phase, error)
 // 对局不存在时返回 MatchNotFound, 不在进行中时返回 MatchNotPlaying, 都不调用 fn。
 // 同一局的 Advance 在对局行锁上排队, fn 中看到的总是最新状态。
 // 切换阶段后, 提交后设置新阶段的超时任务并推送 MessageUpdated; 推送和设置超时失败只记录日志, 超时任务由巡检补上。
+// fn 中用 AfterCommit 登记的回调在提交后执行, 在 MessageUpdated 之后。
 func Advance(ctx context.Context, matchID uint64, fn AdvanceFunc) (*Match, error) {
 	var (
 		m        Match
@@ -52,7 +53,8 @@ func Advance(ctx context.Context, matchID uint64, fn AdvanceFunc) (*Match, error
 		previous Match
 		changed  bool
 	)
-	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	txCtx, hooks := withCommitHooks(ctx)
+	err := db.DB(txCtx).Transaction(func(tx *gorm.DB) error {
 		if err := lockMatch(tx, &m, matchID); err != nil {
 			return err
 		}
@@ -84,6 +86,7 @@ func Advance(ctx context.Context, matchID uint64, fn AdvanceFunc) (*Match, error
 	if changed {
 		afterChange(ctx, &previous, &m, players)
 	}
+	hooks.run(ctx)
 	return &m, nil
 }
 
@@ -96,7 +99,8 @@ func Cancel(ctx context.Context, matchID uint64) (*Match, error) {
 		players  []Player
 		previous Match
 	)
-	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	txCtx, hooks := withCommitHooks(ctx)
+	err := db.DB(txCtx).Transaction(func(tx *gorm.DB) error {
 		if err := lockMatch(tx, &m, matchID); err != nil {
 			return err
 		}
@@ -135,6 +139,7 @@ func Cancel(ctx context.Context, matchID uint64) (*Match, error) {
 		return nil, err
 	}
 	afterChange(ctx, &previous, &m, players)
+	hooks.run(ctx)
 	return &m, nil
 }
 
@@ -146,6 +151,46 @@ func SetRanks(tx *gorm.DB, matchID uint64, ranks map[int16]int16) error {
 		}
 	}
 	return nil
+}
+
+// commitHooksKey 对局事务的 context 中提交后回调的 key
+type commitHooksKey struct{}
+
+// commitHooks 对局事务提交后要执行的回调
+type commitHooks struct {
+	fns []func(ctx context.Context)
+}
+
+// withCommitHooks 返回带有回调列表的 context, 在它上面开启的事务中可以调用 AfterCommit
+func withCommitHooks(ctx context.Context) (context.Context, *commitHooks) {
+	hooks := &commitHooks{}
+	return context.WithValue(ctx, commitHooksKey{}, hooks), hooks
+}
+
+func (h *commitHooks) len() int { return len(h.fns) }
+
+// truncate 撤销保存点回滚前登记的回调
+func (h *commitHooks) truncate(n int) { h.fns = h.fns[:n] }
+
+// run 按登记顺序执行回调, 需要在事务提交后调用
+func (h *commitHooks) run(ctx context.Context) {
+	for _, fn := range h.fns {
+		fn(ctx)
+	}
+}
+
+// AfterCommit 登记对局事务提交后执行的回调, 如 reward.Result.Push 和玩法自己的推送; 事务回滚时不执行
+//
+// 只能在 Mode 的钩子和 AdvanceFunc 中调用, 回调在推送 MessageUpdated 之后按登记顺序执行;
+// Admit 拒绝玩家时, 该玩家准入时登记的回调一起撤销。在其他事务中调用时回调被丢弃并记录日志。
+func AfterCommit(tx *gorm.DB, fn func(ctx context.Context)) {
+	ctx := tx.Statement.Context
+	hooks, ok := ctx.Value(commitHooksKey{}).(*commitHooks)
+	if !ok {
+		logger.ErrorF(ctx, "[Match] AfterCommit called outside a match transaction")
+		return
+	}
+	hooks.fns = append(hooks.fns, fn)
 }
 
 // lockMatch 锁定对局, 同一局的推进、超时和取消互斥

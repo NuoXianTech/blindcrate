@@ -45,7 +45,7 @@ type Phase struct {
 // Mode 一种对战玩法
 //
 // 钩子都在锁定对局的事务内调用, 可以写入玩法自己的表和调用 reward.Apply, 返回错误时整个事务回滚;
-// 钩子不要修改 m 和 players, 对局状态由返回的 Phase 决定, 名次用 SetRanks 写入。
+// 钩子不要修改 m 和 players, 对局状态由返回的 Phase 决定, 名次用 SetRanks 写入; 推送等提交后才能做的事用 AfterCommit 登记。
 type Mode interface {
 	// Code 玩法代码, 匹配时按它选择玩法, 最长 32
 	Code() string
@@ -53,7 +53,9 @@ type Mode interface {
 	PlayerCount() int
 	// MinHumans 开局至少需要的真人数, 1 到 PlayerCount; 等于 PlayerCount 时不用人机
 	MinHumans() int
-	// BotFillAfter 真人不够一局时, 排队至少 MinHumans 人且最早加入的人等满这个时间后用人机补齐, 0 表示立即补齐
+	// MaxHumans 每局最多的真人数, MinHumans 到 PlayerCount; 小于 PlayerCount 时其余座位总是人机, 如 1 个真人和 3 个人机
+	MaxHumans() int
+	// BotFillAfter 排队不够 MaxHumans 人时, 至少有 MinHumans 人且最早加入的人等满这个时间后用人机补齐, 0 表示立即补齐
 	BotFillAfter() time.Duration
 	// BotLevel 开局时为每个人机座位调用一次, 返回该人机的等级, BotLevelLow 到 BotLevelHigh
 	BotLevel() int16
@@ -165,6 +167,9 @@ func validateMode(mode Mode) error {
 	}
 	if n := mode.MinHumans(); n < 1 || n > mode.PlayerCount() {
 		return fmt.Errorf("match: invalid min humans %d of mode %s", n, code)
+	}
+	if n := mode.MaxHumans(); n < mode.MinHumans() || n > mode.PlayerCount() {
+		return fmt.Errorf("match: invalid max humans %d of mode %s", n, code)
 	}
 	if mode.BotFillAfter() < 0 {
 		return fmt.Errorf("match: invalid bot fill delay of mode %s", code)

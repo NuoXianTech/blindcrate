@@ -32,6 +32,7 @@ import (
 
 	_ "github.com/NuoXianTech/blindcrate/docs"
 	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/auction"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/economy" // 注册时发放新手资金
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
@@ -170,6 +171,13 @@ func Serve() {
 				matchRouter.GET("", match.ListMatches)
 				matchRouter.GET("/current", match.GetCurrentMatch)
 				matchRouter.GET("/:id", match.GetMatch)
+			}
+
+			// Auction
+			auctionRouter := apiV1Router.Group("/auctions")
+			auctionRouter.Use(auth.LoginRequired())
+			{
+				auctionRouter.GET("/:match_id", auction.GetAuction)
 			}
 
 			// Admin

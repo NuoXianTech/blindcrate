@@ -2692,6 +2692,77 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/auctions/{match_id}": {
+            "get": {
+                "description": "进行中时只公开已公开品质的藏品和自己的出价与反馈, 结算后公开全部藏品和每个座位的出价; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auction"
+                ],
+                "summary": "获取当前用户参与的一局暗拍",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "match id",
+                        "name": "match_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/auction.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auction.AuctionView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/email/code": {
             "post": {
                 "description": "邮箱在验证通过前不会写入账号",
@@ -5104,6 +5175,261 @@ const docTemplate = `{
                 }
             }
         },
+        "auction.AuctionView": {
+            "type": "object",
+            "properties": {
+                "contenders": {
+                    "description": "加轮时可以出价的座位, 为空表示所有人",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "match_id": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "phase": {
+                    "type": "string"
+                },
+                "phase_ends_at": {
+                    "type": "string"
+                },
+                "piece_count": {
+                    "type": "integer"
+                },
+                "result": {
+                    "description": "结算后才有",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/auction.ResultView"
+                        }
+                    ]
+                },
+                "revealed": {
+                    "description": "已公开品质的藏品, 第 N 轮公开前 N 件",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.RevealedPiece"
+                    }
+                },
+                "round": {
+                    "type": "integer"
+                },
+                "self": {
+                    "$ref": "#/definitions/auction.SelfView"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "venue": {
+                    "$ref": "#/definitions/auction.VenueInfo"
+                },
+                "version": {
+                    "description": "与对局的 version 一致, 客户端只采用 version 更大的推送",
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.Feedback": {
+            "type": "object",
+            "properties": {
+                "hint": {
+                    "description": "见 constants.go 的 Hint",
+                    "type": "string"
+                },
+                "rank": {
+                    "description": "自己的出价在出过价的人中排第几, 并列算同一名, 没出过价为 0",
+                    "type": "integer"
+                },
+                "round": {
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.PieceView": {
+            "type": "object",
+            "properties": {
+                "height": {
+                    "type": "integer"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "quality": {
+                    "type": "integer"
+                },
+                "sell_currency": {
+                    "type": "string"
+                },
+                "sell_price": {
+                    "description": "开局时的回收价",
+                    "type": "integer"
+                },
+                "width": {
+                    "type": "integer"
+                },
+                "x": {
+                    "type": "integer"
+                },
+                "y": {
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "auction.ResultView": {
+            "type": "object",
+            "properties": {
+                "outcome": {
+                    "description": "sold、unsold 或 cancelled",
+                    "type": "string"
+                },
+                "pieces": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.PieceView"
+                    }
+                },
+                "price": {
+                    "type": "integer"
+                },
+                "profit": {
+                    "description": "自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算",
+                    "type": "integer"
+                },
+                "seats": {
+                    "description": "按座位号排序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.SeatResult"
+                    }
+                },
+                "value": {
+                    "description": "仓库价值",
+                    "type": "integer"
+                },
+                "winner_seat": {
+                    "description": "没有成交时为 0",
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.RevealedPiece": {
+            "type": "object",
+            "properties": {
+                "order": {
+                    "description": "公开顺序, 从 1 开始",
+                    "type": "integer"
+                },
+                "quality": {
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.SeatResult": {
+            "type": "object",
+            "properties": {
+                "bid": {
+                    "description": "最后的出价, 0 表示没出过价",
+                    "type": "integer"
+                },
+                "seat": {
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.SelfView": {
+            "type": "object",
+            "properties": {
+                "bid": {
+                    "description": "当前出价, 0 表示还没出过价",
+                    "type": "integer"
+                },
+                "can_bid": {
+                    "description": "现在是否可以出价",
+                    "type": "boolean"
+                },
+                "carry": {
+                    "description": "带入资金, 出价的上限",
+                    "type": "integer"
+                },
+                "entry_cost": {
+                    "description": "实际扣除的入场代价",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "feedback": {
+                    "description": "每轮结束后的反馈",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.Feedback"
+                    }
+                },
+                "is_practice": {
+                    "type": "boolean"
+                },
+                "seat": {
+                    "type": "integer"
+                },
+                "submitted": {
+                    "description": "本轮是否已出价",
+                    "type": "boolean"
+                }
+            }
+        },
+        "auction.VenueInfo": {
+            "type": "object",
+            "properties": {
+                "bid_currency": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "grid": {
+                    "$ref": "#/definitions/venue.Grid"
+                },
+                "max_extra_rounds": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "quick_win": {
+                    "description": "前 Rounds-1 轮的速胜倍率, 基点",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "rounds": {
+                    "type": "integer"
+                },
+                "start_price": {
+                    "type": "integer"
+                }
+            }
+        },
         "auth.BasicUserInfo": {
             "type": "object",
             "properties": {
@@ -6364,7 +6690,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "daily_profit_cap": {
-                    "description": "当天人机模式的净收益达到上限后转为练习局, 0 表示沿用全局设置, 只能比全局设置更低",
+                    "description": "当天在这张地图人机模式的净收益达到上限后转为练习局, 0 表示不单独限制; 全局的人机每日收益上限另外生效",
                     "type": "integer",
                     "maximum": 1000000000000,
                     "minimum": 0

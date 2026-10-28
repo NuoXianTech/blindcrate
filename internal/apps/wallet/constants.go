@@ -36,6 +36,13 @@ const (
 	BizItemSell    = "item_sell"     // 出售物品入账, biz_id 为出售单 ID
 	BizItemSellFee = "item_sell_fee" // 出售物品的手续费, 入账后扣除, biz_id 为出售单 ID
 	BizSignupGrant = "signup_grant"  // 新用户注册时发放的新手资金, biz_id 为用户 ID
+
+	BizMatchEntryFee     = "match_entry_fee"     // 对局的入场代价, biz_id 为对局 ID
+	BizMatchCarryFreeze  = "match_carry_freeze"  // 开局时冻结带入资金, biz_id 为对局 ID
+	BizMatchCarryRelease = "match_carry_release" // 结算或取消时解冻剩余的带入资金, biz_id 为对局 ID
+	BizMatchBidSettle    = "match_bid_settle"    // 成交时从冻结的带入资金中扣除成交价, biz_id 为对局 ID
+	BizMatchRefund       = "match_refund"        // 流拍或取消时退还入场代价, biz_id 为对局 ID
+	BizMatchReward       = "match_reward"        // 成交者获得的藏品, 已下架的藏品按回收价折成货币, biz_id 为对局 ID
 )
 
 // 推送给客户端的消息类型

@@ -135,7 +135,7 @@ type BotRule struct {
 // PveRule 人机模式的防刷参数
 type PveRule struct {
 	PracticeOnly   bool  `json:"practice_only" label:"只能练习"`                                        // 人机模式只能打练习局
-	DailyProfitCap int64 `json:"daily_profit_cap" label:"每日收益上限" binding:"min=0,max=1000000000000"` // 当天人机模式的净收益达到上限后转为练习局, 0 表示沿用全局设置, 只能比全局设置更低
+	DailyProfitCap int64 `json:"daily_profit_cap" label:"每日收益上限" binding:"min=0,max=1000000000000"` // 当天在这张地图人机模式的净收益达到上限后转为练习局, 0 表示不单独限制; 全局的人机每日收益上限另外生效
 	ValueFactor    int32 `json:"value_factor" label:"仓库价值系数" binding:"min=1000,max=10000"`          // 人机模式按这个系数缩放各档位的抽取次数
 }
 
