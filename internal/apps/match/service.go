@@ -439,12 +439,7 @@ func QueryUserMatches(ctx context.Context, userID uint64, req *ListMatchesReques
 	if req.Status != "" {
 		query = query.Where("status = ?", req.Status)
 	}
-	if req.Prefix != "" {
-		query = query.Where("starts_with(mode, ?)", req.Prefix+":")
-	}
-	if req.Suffix != "" {
-		query = query.Where("strpos(mode, ':') > 0 AND substr(mode, strpos(mode, ':') + 1) = ?", req.Suffix)
-	}
+	query = FilterMode(query, req.Prefix, req.Suffix)
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
@@ -467,6 +462,17 @@ func QueryUserMatches(ctx context.Context, userID uint64, req *ListMatchesReques
 		return 0, nil, err
 	}
 	return total, views, nil
+}
+
+// FilterMode 按玩法代码筛选对局: prefix 为冒号前的部分, 如 pve; suffix 为冒号后的部分, 如地图代码; 为空时不筛选
+func FilterMode(query *gorm.DB, prefix, suffix string) *gorm.DB {
+	if prefix != "" {
+		query = query.Where("starts_with(mode, ?)", prefix+":")
+	}
+	if suffix != "" {
+		query = query.Where("strpos(mode, ':') > 0 AND substr(mode, strpos(mode, ':') + 1) = ?", suffix)
+	}
+	return query
 }
 
 // attachSummaries 按玩法代码的前缀找到实现了 Summarizer 的提供者, 为对局附带摘要

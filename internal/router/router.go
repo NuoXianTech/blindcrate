@@ -258,6 +258,7 @@ func Serve() {
 				matchAdminRouter := adminRouter.Group("/matches")
 				{
 					matchAdminRouter.GET("", admin.ListMatches)
+					matchAdminRouter.GET("/:id/auction", admin.GetMatchAuction)
 					matchAdminRouter.POST("/:id/cancel", admin.CancelMatch)
 				}
 

@@ -34,6 +34,12 @@ export const HINTS: Record<string, { label: string; className: string }> = {
   far_behind: {label: '落后较多', className: 'text-quality-red'},
 };
 
+/** 暗拍阶段的名称 */
+export const PHASES: Record<string, string> = {
+  bidding: '出价',
+  reveal: '开箱',
+};
+
 /** 结算结果的名称 */
 export const OUTCOMES: Record<string, string> = {
   sold: '成交',

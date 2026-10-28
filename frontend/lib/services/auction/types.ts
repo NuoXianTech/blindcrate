@@ -122,7 +122,7 @@ export interface AuctionResult {
   price: number;
   /** 仓库价值 */
   value: number;
-  /** 自己的盈亏, 已扣除入场代价; 练习局按正式局计算 */
+  /** 自己的盈亏, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0 */
   profit: number;
   /** 按扫描顺序 */
   pieces: AuctionPiece[];
@@ -132,8 +132,8 @@ export interface AuctionResult {
   scan_from: string | null;
 }
 
-/** 玩家看到的一局暗拍, 对应后端 auction.AuctionView */
-export interface AuctionView {
+/** 一局暗拍中所有人都看得到的部分, 对应后端 auction.PublicView */
+export interface AuctionPublicView {
   match_id: number;
   mode: string;
   status: string;
@@ -150,9 +150,40 @@ export interface AuctionView {
   revealed: RevealedPiece[];
   /** 加轮时可以出价的座位, 为空表示所有人 */
   contenders: number[];
-  self: AuctionSelf;
   /** 结算后才有 */
   result: AuctionResult | null;
+}
+
+/** 玩家看到的一局暗拍, 对应后端 auction.AuctionView */
+export interface AuctionView extends AuctionPublicView {
+  self: AuctionSelf;
+}
+
+/** 管理员看到的一个座位的暗拍数据, 对应后端 auction.Player */
+export interface AuctionPlayer {
+  seat: number;
+  /** 人机为 0 */
+  user_id: number;
+  is_practice: boolean;
+  /** 实际扣除的入场代价, 练习局和人机为空 */
+  entry_cost: Bundle;
+  /** 带入资金, 出价的上限 */
+  carry: number;
+  /** 冻结的带入资金, 练习局和人机为 0 */
+  frozen: number;
+  /** 人机对仓库价值的估值, 真人为 0 */
+  estimate: number;
+  /** 当前出价, 0 表示还没出过价 */
+  bid: number;
+  /** 结算后的盈亏; 练习局按正式局计算 */
+  profit: number;
+  feedback: Feedback[];
+}
+
+/** 管理员看到的一局暗拍, 对应后端 auction.AdminView */
+export interface AuctionAdminView extends AuctionPublicView {
+  /** 按座位号排序 */
+  players: AuctionPlayer[];
 }
 
 /** 出价请求 */

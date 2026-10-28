@@ -8,6 +8,7 @@ import {Button} from '@/components/ui/button';
 import {ROUTES} from '@/lib/access';
 import {modeLabel} from '@/lib/auction';
 import {AUCTION_PHASE, type AuctionView} from '@/lib/services/auction';
+import {MATCH_STATUS} from '@/lib/services/match';
 
 /** 剩余这么多毫秒时倒计时变红 */
 const URGENT_MS = 5000;
@@ -27,7 +28,7 @@ export function AuctionHeader({view, finished, remaining}: {
 
   let stage: string;
   if (finished) {
-    stage = '已结束';
+    stage = view.status === MATCH_STATUS.cancelled ? '已取消' : '已结束';
   } else if (view.phase === AUCTION_PHASE.reveal) {
     stage = '开箱';
   } else if (extra > 0) {

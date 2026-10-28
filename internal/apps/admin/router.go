@@ -30,8 +30,10 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/auction"
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
@@ -1300,7 +1302,8 @@ func ListConditionTypes(c *gin.Context) {
 type ListMatchesRequest struct {
 	Current int     `json:"current" form:"current" binding:"min=1"`
 	Size    int     `json:"size" form:"size" binding:"min=1,max=100"`
-	Mode    string  `json:"mode" form:"mode" binding:"max=32"`
+	Prefix  string  `json:"prefix" form:"prefix" binding:"max=32"` // 玩法代码冒号前的部分, 如 pve
+	Suffix  string  `json:"suffix" form:"suffix" binding:"max=32"` // 玩法代码冒号后的部分, 如地图代码
 	Status  string  `json:"status" form:"status" binding:"omitempty,oneof=playing finished cancelled"`
 	UserID  *uint64 `json:"user_id" form:"user_id"` // 只看该用户参与的对局
 }
@@ -1339,12 +1342,52 @@ func ListMatches(c *gin.Context) {
 	c.JSON(http.StatusOK, Response{Data: ListMatchesResponseData{Total: total, Matches: matches}})
 }
 
+// GetMatchAuction
+// @Tags admin
+// @Summary 获取一局暗拍的详情
+// @Description 与玩家看到的公开部分相同, 附带每个座位的带入资金、出价、估值和盈亏
+// @Produce json
+// @Param id path int true "match id"
+// @Success 200 {object} Response{data=auction.AdminView}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 404 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/matches/{id}/auction [get]
+func GetMatchAuction(c *gin.Context) {
+	ctx := c.Request.Context()
+	matchID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	view, err := auction.QueryAdminAuction(ctx, matchID)
+	if err != nil {
+		if err.Error() == match.MatchNotFound {
+			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[GetMatchAuction] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: view})
+}
+
+// CancelMatchRequest 取消对局请求体
+type CancelMatchRequest struct {
+	Reason string `json:"reason" binding:"required,max=255"` // 记录在操作日志中
+}
+
 // CancelMatch
 // @Tags admin
 // @Summary 取消进行中的对局
 // @Description 用于对局卡住等异常情况; 玩法会退还入场费等, 玩法已下线时需要手动处理
+// @Accept json
 // @Produce json
 // @Param id path int true "match id"
+// @Param request body CancelMatchRequest true "request body"
 // @Success 200 {object} Response{data=match.Match}
 // @Failure 400 {object} Response
 // @Failure 401 {object} Response
@@ -1355,8 +1398,9 @@ func ListMatches(c *gin.Context) {
 // @Router /api/v1/admin/matches/{id}/cancel [post]
 func CancelMatch(c *gin.Context) {
 	ctx := c.Request.Context()
+	var req CancelMatchRequest
 	matchID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
+	if err != nil || c.ShouldBindJSON(&req) != nil || strings.TrimSpace(req.Reason) == "" {
 		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
 		return
 	}
@@ -1379,9 +1423,10 @@ func CancelMatch(c *gin.Context) {
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionMatchCancel, audit.TargetMatch, cancelled.ID, map[string]interface{}{
-		"mode":  cancelled.Mode,
-		"phase": cancelled.Phase,
-		"round": cancelled.Round,
+		"mode":   cancelled.Mode,
+		"phase":  cancelled.Phase,
+		"round":  cancelled.Round,
+		"reason": strings.TrimSpace(req.Reason),
 	})
 	logger.InfoF(ctx, "[CancelMatch] %d cancelled match %d %s", operator.ID, cancelled.ID, cancelled.Mode)
 	c.JSON(http.StatusOK, Response{Data: cancelled})

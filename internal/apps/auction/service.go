@@ -934,14 +934,14 @@ type ResultView struct {
 	WinnerSeat int16        `json:"winner_seat"` // 没有成交时为 0
 	Price      int64        `json:"price"`
 	Value      int64        `json:"value"`     // 仓库价值
-	Profit     int64        `json:"profit"`    // 自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算
+	Profit     int64        `json:"profit"`    // 自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0
 	Pieces     []PieceView  `json:"pieces"`    // 按扫描顺序
 	Seats      []SeatResult `json:"seats"`     // 按座位号排序
 	ScanFrom   *time.Time   `json:"scan_from"` // 开始扫描的时间, 即结算时间; 按已过去的时间和每件的扫描时长算出扫描进度
 }
 
-// AuctionView 玩家看到的一局暗拍
-type AuctionView struct {
+// PublicView 一局暗拍中所有人都看得到的部分
+type PublicView struct {
 	MatchID     uint64          `json:"match_id"`
 	Mode        string          `json:"mode"`
 	Status      string          `json:"status"`
@@ -954,8 +954,19 @@ type AuctionView struct {
 	Footprints  []Footprint     `json:"footprints"` // 全部藏品占的格子, 按扫描顺序
 	Revealed    []RevealedPiece `json:"revealed"`   // 已公开品质的藏品, 第 N 轮公开前 N 件
 	Contenders  []int16         `json:"contenders"` // 加轮时可以出价的座位, 为空表示所有人
-	Self        SelfView        `json:"self"`
-	Result      *ResultView     `json:"result"` // 结算后才有
+	Result      *ResultView     `json:"result"`     // 结算后才有
+}
+
+// AuctionView 玩家看到的一局暗拍
+type AuctionView struct {
+	PublicView
+	Self SelfView `json:"self"`
+}
+
+// AdminView 管理员看到的一局暗拍: 公开部分和每个座位的暗拍数据, 结算结果中的 profit 为 0, 以 players 中的为准
+type AdminView struct {
+	PublicView
+	Players []Player `json:"players"` // 按座位号排序
 }
 
 // view 以 viewerID 的视角查看, 不是这局的真人玩家时返回 nil
@@ -970,9 +981,31 @@ func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
 		return nil
 	}
 	m, a := st.match, &st.auction
-	rule := &a.Venue.Auction
 	submitted := st.submitted[self.Seat]
 	view := &AuctionView{
+		PublicView: st.publicView(items),
+		Self: SelfView{
+			Seat:       self.Seat,
+			IsPractice: self.IsPractice,
+			EntryCost:  self.EntryCost,
+			Carry:      self.Carry,
+			Bid:        self.Bid,
+			Submitted:  submitted,
+			CanBid:     m.Status == match.StatusPlaying && m.Phase == PhaseBidding && a.CanBid(self.Seat) && !submitted,
+			Feedback:   self.Feedback,
+		},
+	}
+	if view.Result != nil {
+		view.Result.Profit = self.Profit
+	}
+	return view
+}
+
+// publicView 所有人都看得到的部分, 结算结果中不含盈亏
+func (st *state) publicView(items []WarehouseItem) PublicView {
+	m, a := st.match, &st.auction
+	rule := &a.Venue.Auction
+	view := PublicView{
 		MatchID:     m.ID,
 		Mode:        m.Mode,
 		Status:      m.Status,
@@ -994,16 +1027,6 @@ func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
 		Footprints: make([]Footprint, len(items)),
 		Revealed:   []RevealedPiece{},
 		Contenders: a.Contenders,
-		Self: SelfView{
-			Seat:       self.Seat,
-			IsPractice: self.IsPractice,
-			EntryCost:  self.EntryCost,
-			Carry:      self.Carry,
-			Bid:        self.Bid,
-			Submitted:  submitted,
-			CanBid:     m.Status == match.StatusPlaying && m.Phase == PhaseBidding && a.CanBid(self.Seat) && !submitted,
-			Feedback:   self.Feedback,
-		},
 	}
 
 	revealed := min(m.Round, a.PieceCount)
@@ -1027,7 +1050,6 @@ func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
 		WinnerSeat: a.WinnerSeat,
 		Price:      a.Price,
 		Value:      a.Value,
-		Profit:     self.Profit,
 		Pieces:     make([]PieceView, len(items)),
 		Seats:      make([]SeatResult, len(st.players)),
 		ScanFrom:   a.SettledAt,
@@ -1064,24 +1086,33 @@ func loadItems(tx *gorm.DB, matchID uint64) ([]WarehouseItem, error) {
 	return items, nil
 }
 
-// QueryAuction 获取用户参与的一局暗拍, 对局不存在、不是暗拍或用户不是该局的真人玩家时返回 match.MatchNotFound
-func QueryAuction(ctx context.Context, userID, matchID uint64) (*AuctionView, error) {
+// queryState 读出一局暗拍的状态和藏品, 对局不存在或不是暗拍时返回 match.MatchNotFound
+func queryState(ctx context.Context, matchID uint64) (*state, []WarehouseItem, error) {
 	tx := db.DB(ctx)
 	var m match.Match
 	if err := m.Exact(tx, matchID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(match.MatchNotFound)
+			return nil, nil, errors.New(match.MatchNotFound)
 		}
-		return nil, err
+		return nil, nil, err
 	}
 	st, err := loadState(tx, &m)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errors.New(match.MatchNotFound)
+		return nil, nil, errors.New(match.MatchNotFound)
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	items, err := loadItems(tx, matchID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return st, items, nil
+}
+
+// QueryAuction 获取用户参与的一局暗拍, 对局不存在、不是暗拍或用户不是该局的真人玩家时返回 match.MatchNotFound
+func QueryAuction(ctx context.Context, userID, matchID uint64) (*AuctionView, error) {
+	st, items, err := queryState(ctx, matchID)
 	if err != nil {
 		return nil, err
 	}
@@ -1090,4 +1121,13 @@ func QueryAuction(ctx context.Context, userID, matchID uint64) (*AuctionView, er
 		return nil, errors.New(match.MatchNotFound)
 	}
 	return view, nil
+}
+
+// QueryAdminAuction 管理员查看一局暗拍, 对局不存在或不是暗拍时返回 match.MatchNotFound
+func QueryAdminAuction(ctx context.Context, matchID uint64) (*AdminView, error) {
+	st, items, err := queryState(ctx, matchID)
+	if err != nil {
+		return nil, err
+	}
+	return &AdminView{PublicView: st.publicView(items), Players: st.players}, nil
 }
