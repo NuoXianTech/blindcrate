@@ -75,3 +75,50 @@ export interface Venue {
   value_range: ValueRange;
   pve: PveView;
 }
+
+/** 仓库的一个档位, 对应后端 venue.Slot */
+export interface Slot {
+  /** 掉落池代码 */
+  pool: string;
+  /** 抽取次数在 [min, max] 内均匀随机 */
+  min: number;
+  max: number;
+  /** 这一档出现的概率, 基点, 10000 表示一定出现 */
+  chance: number;
+}
+
+/** 掉落池中可抽取的一个条目, 对应后端 loot.EntryDetail */
+export interface OddsEntry {
+  id: number;
+  /** 掉落的物品, 与 currency 二选一 */
+  item_id: number;
+  currency: string;
+  /** 每次掉落的数量范围, 货币为金额 */
+  min_quantity: number;
+  max_quantity: number;
+  name: string;
+  /** 物品品质, 货币为 0 */
+  quality: number;
+  image_url: string;
+  /** 每次抽中的概率 */
+  probability: number;
+}
+
+/** 掉落池的公示概率, 对应后端 loot.PoolOdds */
+export interface PoolOdds {
+  code: string;
+  name: string;
+  description: string;
+  entries: OddsEntry[];
+}
+
+/** 档位和它的掉落概率, 对应后端 venue.SlotOdds */
+export interface SlotOdds extends Slot {
+  /** 掉落池不可用时为 null */
+  odds: PoolOdds | null;
+}
+
+/** 玩家看到的地图详情, 对应后端 venue.VenueDetail */
+export interface VenueDetail extends Venue {
+  slots: SlotOdds[];
+}

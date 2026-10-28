@@ -22,9 +22,10 @@ import {
 import type {Venue} from '@/lib/services/venue';
 import {MatchmakingBar} from './MatchmakingBar';
 import {VenueCard} from './VenueCard';
+import {VenueDetailDialog} from './VenueDetailDialog';
 
 /**
- * 游戏大厅: 地图列表和匹配
+ * 游戏大厅: 地图列表、地图详情和匹配
  * 加入后凑够一局时直接进入对局; 排队时等待 match:updated 推送, 被拒绝或开局失败时提示
  * 推送不保证送达, 连上 WebSocket 后重新拉取匹配状态
  */
@@ -37,6 +38,7 @@ export function LobbyMain() {
   const [status, setStatus] = useState<MatchmakingStatus | null>(null);
   const [joining, setJoining] = useState<{ venue: string; kind: ModeKind } | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const [viewing, setViewing] = useState<Venue | null>(null);
 
   const loadStatus = useCallback(async () => {
     if (!user) return;
@@ -141,6 +143,7 @@ export function LobbyMain() {
               queued={queued?.venue === v.code ? queued.kind : null}
               disabled={busy || joining !== null}
               onJoin={(kind) => join(v, kind)}
+              onDetail={() => setViewing(v)}
             />
           ))}
         </div>
@@ -150,6 +153,12 @@ export function LobbyMain() {
           <span className="text-sm">还没有开放的地图, 请稍后再来</span>
         </div>
       )}
+
+      <VenueDetailDialog
+        venue={viewing}
+        decimals={viewing ? decimals[viewing.bid_currency] ?? 0 : 0}
+        onClose={() => setViewing(null)}
+      />
     </div>
   );
 }
