@@ -33,6 +33,7 @@ import (
 	_ "github.com/NuoXianTech/blindcrate/docs"
 	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	_ "github.com/NuoXianTech/blindcrate/internal/apps/economy" // 注册时发放新手资金
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"

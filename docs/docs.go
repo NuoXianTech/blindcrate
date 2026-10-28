@@ -2914,7 +2914,7 @@ const docTemplate = `{
         },
         "/api/v1/inventory/sell": {
             "post": {
-                "description": "按物品当前的卖出价出售, 可以同时卖出多种物品, 全部成功或全部失败; 重复提交返回原出售单",
+                "description": "按物品当前的卖出价出售并扣除手续费, 可以同时卖出多种物品, 全部成功或全部失败; 重复提交返回原出售单",
                 "consumes": [
                     "application/json"
                 ],
@@ -4808,14 +4808,19 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "amount": {
+                    "description": "卖出金额, 未扣手续费",
                     "type": "integer"
                 },
                 "balance_after": {
-                    "description": "入账后的可用余额",
+                    "description": "扣除手续费后的可用余额",
                     "type": "integer"
                 },
                 "currency": {
                     "type": "string"
+                },
+                "fee": {
+                    "description": "手续费, 按卖出金额乘手续费率向下取整",
+                    "type": "integer"
                 }
             }
         },
@@ -4826,6 +4831,12 @@ const docTemplate = `{
                 "items"
             ],
             "properties": {
+                "fee_rate": {
+                    "description": "出售确认框中看到的手续费率(基点), 传入时与当前不一致则拒绝出售",
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 0
+                },
                 "idempotency_key": {
                     "description": "每次打开出售确认框生成一个, 重复提交只生效一次",
                     "type": "string",
@@ -4876,6 +4887,10 @@ const docTemplate = `{
             "properties": {
                 "created_at": {
                     "type": "string"
+                },
+                "fee_rate": {
+                    "description": "出售时的手续费率, 单位为基点",
+                    "type": "integer"
                 },
                 "id": {
                     "type": "integer"

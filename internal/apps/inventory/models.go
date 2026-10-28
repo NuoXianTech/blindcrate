@@ -76,6 +76,7 @@ type SellOrder struct {
 	ID             uint64    `gorm:"primaryKey;index:idx_inventory_sell_orders_user_id,priority:2" json:"id"`
 	UserID         uint64    `gorm:"not null;index:idx_inventory_sell_orders_user_id,priority:1;index:uniq_inventory_sell_orders_idempotency_key,unique,priority:1" json:"user_id"`
 	IdempotencyKey string    `gorm:"size:64;not null;index:uniq_inventory_sell_orders_idempotency_key,unique,priority:2" json:"idempotency_key"` // 同一用户内唯一
+	FeeRate        int32     `gorm:"not null;default:0" json:"fee_rate"`                                                                         // 出售时的手续费率, 单位为基点
 	CreatedAt      time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 }
 

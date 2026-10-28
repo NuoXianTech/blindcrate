@@ -40,6 +40,19 @@ import (
 	"gorm.io/gorm"
 )
 
+// RegisterHook 在注册的事务内、创建用户之后执行, 返回错误时注册失败并回滚
+type RegisterHook func(tx *gorm.DB, user *User) error
+
+// registerHooks 已注册的注册钩子, 只在服务启动前写入
+var registerHooks []RegisterHook
+
+// OnRegister 添加注册钩子, 需要在服务启动前调用, 按添加顺序执行
+//
+// 其他模块依赖 auth, auth 不能反过来依赖它们, 注册时要做的事通过钩子接入。
+func OnRegister(hook RegisterHook) {
+	registerHooks = append(registerHooks, hook)
+}
+
 // doLogin 用户名或已验证邮箱 + 密码登录
 func doLogin(ctx context.Context, identifier, password string) (*User, error) {
 	// query user, 用户名不允许包含 "@", 据此区分邮箱
@@ -139,6 +152,11 @@ func doRegister(ctx context.Context, username, password string) (*User, error) {
 				return errors.New(UsernameTaken)
 			}
 			return err
+		}
+		for _, hook := range registerHooks {
+			if err := hook(tx, &user); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
