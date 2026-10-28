@@ -40,6 +40,25 @@ export interface MatchPlayer {
   is_self: boolean;
 }
 
+/** 对局记录中暗拍的摘要, 金额为出价货币的最小单位, 对应后端 auction.Summary */
+export interface MatchSummary {
+  /** 地图代码 */
+  venue: string;
+  /** 开局时的地图名称 */
+  venue_name: string;
+  bid_currency: string;
+  /** 结算前为空, 之后为 sold、unsold 或 cancelled */
+  outcome: string;
+  /** 成交价, 没有成交时为 0 */
+  price: number;
+  /** 是否由自己成交 */
+  won: boolean;
+  /** 自己的盈亏, 结算前为 0 */
+  profit: number;
+  /** 自己打的是否为练习局 */
+  is_practice: boolean;
+}
+
 /** 玩家看到的对局, 对应后端 match.MatchView */
 export interface MatchView {
   id: number;
@@ -57,6 +76,23 @@ export interface MatchView {
   players: MatchPlayer[];
   created_at: string;
   finished_at: string | null;
+  /** 玩法提供的摘要, 只在对局记录中返回 */
+  summary?: MatchSummary;
+}
+
+export interface ListMatchesParams {
+  current: number;
+  size: number;
+  status?: string;
+  /** 玩法代码冒号前的部分, 即模式, 如 pve */
+  prefix?: string;
+  /** 玩法代码冒号后的部分, 即地图代码 */
+  suffix?: string;
+}
+
+export interface ListMatchesData {
+  total: number;
+  matches: MatchView[];
 }
 
 export interface MatchmakingFailedMessage {

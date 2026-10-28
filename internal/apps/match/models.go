@@ -63,12 +63,12 @@ func (m *Match) Exact(tx *gorm.DB, id uint64) error {
 // 唯一索引 uniq_match_players_match_id_seat 保证同一局的座位不重复。
 type Player struct {
 	ID        uint64    `gorm:"primaryKey" json:"id"`
-	MatchID   uint64    `gorm:"not null;uniqueIndex:uniq_match_players_match_id_seat,priority:1" json:"match_id"`
-	Seat      int16     `gorm:"not null;uniqueIndex:uniq_match_players_match_id_seat,priority:2" json:"seat"`                                                  // 座位号, 从 1 开始, 随机分配
-	UserID    uint64    `gorm:"not null;default:0;index:idx_match_players_user_id;check:chk_match_players_bot,(user_id = 0) = (bot_level > 0)" json:"user_id"` // 人机为 0
-	BotName   string    `gorm:"size:32;not null;default:''" json:"bot_name"`                                                                                   // 人机的昵称
-	BotLevel  int16     `gorm:"not null;default:0" json:"bot_level"`                                                                                           // 人机等级, 真人为 0
-	Rank      int16     `gorm:"not null;default:0" json:"rank"`                                                                                                // 结束时的名次, 从 1 开始, 0 表示没有名次
+	MatchID   uint64    `gorm:"not null;uniqueIndex:uniq_match_players_match_id_seat,priority:1;index:idx_match_players_user_id_match_id,priority:2,sort:desc" json:"match_id"`
+	Seat      int16     `gorm:"not null;uniqueIndex:uniq_match_players_match_id_seat,priority:2" json:"seat"`                                                                      // 座位号, 从 1 开始, 随机分配
+	UserID    uint64    `gorm:"not null;default:0;index:idx_match_players_user_id_match_id,priority:1;check:chk_match_players_bot,(user_id = 0) = (bot_level > 0)" json:"user_id"` // 人机为 0
+	BotName   string    `gorm:"size:32;not null;default:''" json:"bot_name"`                                                                                                       // 人机的昵称
+	BotLevel  int16     `gorm:"not null;default:0" json:"bot_level"`                                                                                                               // 人机等级, 真人为 0
+	Rank      int16     `gorm:"not null;default:0" json:"rank"`                                                                                                                    // 结束时的名次, 从 1 开始, 0 表示没有名次
 	CreatedAt time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 }
 

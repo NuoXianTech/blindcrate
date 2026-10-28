@@ -7,6 +7,7 @@ import {
   Backpack,
   Dices,
   Gamepad2,
+  History,
   LogOut,
   Medal,
   Package,
@@ -49,6 +50,7 @@ export function ManagementBar() {
 
   const items: DockEntry[] = [
     {title: '大厅', icon: <Gamepad2 />, href: ROUTES.gameHome, active: pathname === ROUTES.gameHome},
+    {title: '战绩', icon: <History />, href: ROUTES.matches, active: pathname.startsWith(ROUTES.matches)},
     {title: '背包', icon: <Backpack />, href: ROUTES.inventory, active: pathname.startsWith(ROUTES.inventory)},
     {title: '钱包', icon: <Wallet />, href: ROUTES.wallet, active: pathname.startsWith(ROUTES.wallet)},
     {title: '排行榜', icon: <Trophy />, href: ROUTES.leaderboard, active: pathname.startsWith(ROUTES.leaderboard)},

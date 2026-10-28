@@ -27,6 +27,7 @@ package match
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
@@ -355,6 +356,7 @@ type MatchView struct {
 	Players     []PlayerView `json:"players"`       // 按座位号排序
 	CreatedAt   time.Time    `json:"created_at"`
 	FinishedAt  *time.Time   `json:"finished_at"`
+	Summary     any          `json:"summary,omitempty" swaggertype:"object"` // 玩法提供的摘要, 只在对局记录中返回, 见 Summarizer
 }
 
 // View 以 viewerID 的视角查看对局
@@ -428,7 +430,7 @@ func QueryUserMatch(ctx context.Context, userID, matchID uint64) (*MatchView, er
 	return &view, nil
 }
 
-// QueryUserMatches 获取用户参与过的对局, 按开始时间从新到旧
+// QueryUserMatches 获取用户参与过的对局, 按开始时间从新到旧, 附带玩法的摘要
 func QueryUserMatches(ctx context.Context, userID uint64, req *ListMatchesRequest) (int64, []MatchView, error) {
 	offset := (req.Current - 1) * req.Size
 
@@ -436,6 +438,12 @@ func QueryUserMatches(ctx context.Context, userID uint64, req *ListMatchesReques
 		Where("id IN (SELECT match_id FROM match_players WHERE user_id = ?)", userID)
 	if req.Status != "" {
 		query = query.Where("status = ?", req.Status)
+	}
+	if req.Prefix != "" {
+		query = query.Where("starts_with(mode, ?)", req.Prefix+":")
+	}
+	if req.Suffix != "" {
+		query = query.Where("strpos(mode, ':') > 0 AND substr(mode, strpos(mode, ':') + 1) = ?", req.Suffix)
 	}
 
 	var total int64
@@ -455,5 +463,34 @@ func QueryUserMatches(ctx context.Context, userID uint64, req *ListMatchesReques
 	for i := range details {
 		views[i] = details[i].View(userID)
 	}
+	if err := attachSummaries(ctx, userID, views); err != nil {
+		return 0, nil, err
+	}
 	return total, views, nil
+}
+
+// attachSummaries 按玩法代码的前缀找到实现了 Summarizer 的提供者, 为对局附带摘要
+func attachSummaries(ctx context.Context, viewerID uint64, views []MatchView) error {
+	ids := make(map[string][]uint64)
+	for _, view := range views {
+		if prefix, _, ok := strings.Cut(view.Mode, ":"); ok {
+			ids[prefix] = append(ids[prefix], view.ID)
+		}
+	}
+	for prefix, matchIDs := range ids {
+		summarizer, ok := providers[prefix].(Summarizer)
+		if !ok {
+			continue
+		}
+		summaries, err := summarizer.Summaries(ctx, viewerID, matchIDs)
+		if err != nil {
+			return err
+		}
+		for i := range views {
+			if summary, ok := summaries[views[i].ID]; ok {
+				views[i].Summary = summary
+			}
+		}
+	}
+	return nil
 }
