@@ -36,6 +36,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
+	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
@@ -1035,6 +1036,97 @@ func ReplaceLootPoolEntries(c *gin.Context) {
 	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLootPoolEntriesUpdate, audit.TargetLootPool, pool.ID, changes)
 	logger.InfoF(ctx, "[ReplaceLootPoolEntries] %d replaced loot pool %d %s with %d entries", operator.ID, pool.ID, pool.Code, len(entries))
 	c.JSON(http.StatusOK, Response{Data: LootPoolEntriesResponseData{Pool: *pool, Entries: entries}})
+}
+
+// ListMatchesRequest 对局列表查询参数
+type ListMatchesRequest struct {
+	Current int     `json:"current" form:"current" binding:"min=1"`
+	Size    int     `json:"size" form:"size" binding:"min=1,max=100"`
+	Mode    string  `json:"mode" form:"mode" binding:"max=32"`
+	Status  string  `json:"status" form:"status" binding:"omitempty,oneof=playing finished cancelled"`
+	UserID  *uint64 `json:"user_id" form:"user_id"` // 只看该用户参与的对局
+}
+
+// ListMatchesResponseData 对局列表分页结果
+type ListMatchesResponseData struct {
+	Total   int64               `json:"total"`
+	Matches []match.MatchDetail `json:"matches"`
+}
+
+// ListMatches
+// @Tags admin
+// @Summary 获取对局列表
+// @Description 包含每个座位是真人还是人机, 按开始时间从新到旧
+// @Produce json
+// @Param request query ListMatchesRequest true "request query"
+// @Success 200 {object} Response{data=ListMatchesResponseData}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/matches [get]
+func ListMatches(c *gin.Context) {
+	ctx := c.Request.Context()
+	req := &ListMatchesRequest{}
+	if err := c.ShouldBindQuery(req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	total, matches, err := QueryMatches(ctx, req)
+	if err != nil {
+		logger.ErrorF(ctx, "[ListMatches] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: ListMatchesResponseData{Total: total, Matches: matches}})
+}
+
+// CancelMatch
+// @Tags admin
+// @Summary 取消进行中的对局
+// @Description 用于对局卡住等异常情况; 玩法会退还入场费等, 玩法已下线时需要手动处理
+// @Produce json
+// @Param id path int true "match id"
+// @Success 200 {object} Response{data=match.Match}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 404 {object} Response
+// @Failure 409 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/matches/{id}/cancel [post]
+func CancelMatch(c *gin.Context) {
+	ctx := c.Request.Context()
+	matchID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	cancelled, err := match.Cancel(ctx, matchID)
+	if err != nil {
+		switch err.Error() {
+		case match.MatchNotFound:
+			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
+		case match.MatchNotPlaying:
+			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
+		default:
+			logger.ErrorF(ctx, "[CancelMatch] cancel failed: %v", err)
+			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		}
+		return
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionMatchCancel, audit.TargetMatch, cancelled.ID, map[string]interface{}{
+		"mode":  cancelled.Mode,
+		"phase": cancelled.Phase,
+		"round": cancelled.Round,
+	})
+	logger.InfoF(ctx, "[CancelMatch] %d cancelled match %d %s", operator.ID, cancelled.ID, cancelled.Mode)
+	c.JSON(http.StatusOK, Response{Data: cancelled})
 }
 
 // ListUserInventoryResponseData 指定用户背包物品分页结果

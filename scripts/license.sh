@@ -6,7 +6,7 @@ LICENSE_FILE="LICENSE"
 FAILED_FILES=()
 
 # 要排除的目录列表
-EXCLUDE_DIRS=("vendor" "docs" ".git" "node_modules" "build")
+EXCLUDE_DIRS=("vendor" "docs" ".git" "node_modules" "build" ".out")
 
 # 检查 LICENSE 文件是否存在
 if [ ! -f "$LICENSE_FILE" ]; then

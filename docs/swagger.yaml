@@ -253,6 +253,15 @@ definitions:
       total:
         type: integer
     type: object
+  admin.ListMatchesResponseData:
+    properties:
+      matches:
+        items:
+          $ref: '#/definitions/match.MatchDetail'
+        type: array
+      total:
+        type: integer
+    type: object
   admin.ListSettingsResponseData:
     properties:
       groups:
@@ -891,6 +900,184 @@ definitions:
         type: string
     type: object
   loot.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  match.JoinMatchmakingRequest:
+    properties:
+      mode:
+        maxLength: 32
+        type: string
+    required:
+    - mode
+    type: object
+  match.ListMatchesResponseData:
+    properties:
+      matches:
+        items:
+          $ref: '#/definitions/match.MatchView'
+        type: array
+      total:
+        type: integer
+    type: object
+  match.Match:
+    properties:
+      created_at:
+        type: string
+      finished_at:
+        description: 结束或取消的时间
+        type: string
+      id:
+        type: integer
+      mode:
+        description: 玩法代码
+        type: string
+      phase:
+        description: 当前阶段, 由玩法定义; 结束后保留最后一个阶段
+        type: string
+      phase_ends_at:
+        description: 当前阶段的截止时间, 不限时或已结束时为空
+        type: string
+      round:
+        description: 当前轮次, 由玩法定义
+        type: integer
+      status:
+        description: playing、finished 或 cancelled
+        type: string
+      updated_at:
+        type: string
+      version:
+        description: 每次切换阶段加 1, 用于丢弃过期的超时任务和推送
+        type: integer
+    type: object
+  match.MatchDetail:
+    properties:
+      created_at:
+        type: string
+      finished_at:
+        description: 结束或取消的时间
+        type: string
+      id:
+        type: integer
+      mode:
+        description: 玩法代码
+        type: string
+      phase:
+        description: 当前阶段, 由玩法定义; 结束后保留最后一个阶段
+        type: string
+      phase_ends_at:
+        description: 当前阶段的截止时间, 不限时或已结束时为空
+        type: string
+      players:
+        items:
+          $ref: '#/definitions/match.PlayerDetail'
+        type: array
+      round:
+        description: 当前轮次, 由玩法定义
+        type: integer
+      status:
+        description: playing、finished 或 cancelled
+        type: string
+      updated_at:
+        type: string
+      version:
+        description: 每次切换阶段加 1, 用于丢弃过期的超时任务和推送
+        type: integer
+    type: object
+  match.MatchView:
+    properties:
+      created_at:
+        type: string
+      finished_at:
+        type: string
+      id:
+        type: integer
+      mode:
+        type: string
+      phase:
+        type: string
+      phase_ends_at:
+        description: 当前阶段的截止时间, 不限时或已结束时为空
+        type: string
+      players:
+        description: 按座位号排序
+        items:
+          $ref: '#/definitions/match.PlayerView'
+        type: array
+      round:
+        type: integer
+      status:
+        type: string
+      version:
+        description: 越大越新, 客户端只采用 version 更大的推送
+        type: integer
+    type: object
+  match.MatchmakingStatus:
+    properties:
+      match_id:
+        description: 正在进行中的对局, 没有时为 0
+        type: integer
+      queue:
+        allOf:
+        - $ref: '#/definitions/match.QueueStatus'
+        description: 正在排队的玩法, 没有排队时为空
+    type: object
+  match.PlayerDetail:
+    properties:
+      avatar_url:
+        type: string
+      bot_level:
+        description: 人机等级, 真人为 0
+        type: integer
+      bot_name:
+        description: 人机的昵称
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_bot:
+        type: boolean
+      match_id:
+        type: integer
+      nickname:
+        description: 真人的昵称, 未设置时为用户名; 人机为人机的昵称
+        type: string
+      rank:
+        description: 结束时的名次, 从 1 开始, 0 表示没有名次
+        type: integer
+      seat:
+        description: 座位号, 从 1 开始, 随机分配
+        type: integer
+      user_id:
+        description: 人机为 0
+        type: integer
+    type: object
+  match.PlayerView:
+    properties:
+      avatar_url:
+        type: string
+      is_self:
+        description: 是否为当前用户
+        type: boolean
+      nickname:
+        type: string
+      rank:
+        description: 结束时的名次, 0 表示没有名次
+        type: integer
+      seat:
+        type: integer
+    type: object
+  match.QueueStatus:
+    properties:
+      joined_at:
+        type: string
+      mode:
+        type: string
+    type: object
+  match.Response:
     properties:
       data: {}
       error_msg:
@@ -1701,6 +1888,113 @@ paths:
           schema:
             $ref: '#/definitions/admin.Response'
       summary: 替换掉落池的全部条目
+      tags:
+      - admin
+  /api/v1/admin/matches:
+    get:
+      description: 包含每个座位是真人还是人机, 按开始时间从新到旧
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - in: query
+        maxLength: 32
+        name: mode
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - enum:
+        - playing
+        - finished
+        - cancelled
+        in: query
+        name: status
+        type: string
+      - description: 只看该用户参与的对局
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListMatchesResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取对局列表
+      tags:
+      - admin
+  /api/v1/admin/matches/{id}/cancel:
+    post:
+      description: 用于对局卡住等异常情况; 玩法会退还入场费等, 玩法已下线时需要手动处理
+      parameters:
+      - description: match id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/match.Match'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 取消进行中的对局
       tags:
       - admin
   /api/v1/admin/settings:
@@ -2956,6 +3250,234 @@ paths:
       summary: 获取掉落池的公示概率
       tags:
       - loot
+  /api/v1/matches:
+    get:
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - enum:
+        - playing
+        - finished
+        - cancelled
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/match.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/match.ListMatchesResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/match.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/match.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/match.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/match.Response'
+      summary: 获取当前用户参与过的对局
+      tags:
+      - match
+  /api/v1/matches/{id}:
+    get:
+      parameters:
+      - description: match id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/match.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/match.MatchView'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/match.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/match.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/match.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/match.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/match.Response'
+      summary: 获取当前用户参与过的一局对局
+      tags:
+      - match
+  /api/v1/matches/current:
+    get:
+      description: 没有进行中的对局时 data 为 null; 断线重连后用它恢复对局
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/match.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/match.MatchView'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/match.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/match.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/match.Response'
+      summary: 获取当前用户正在进行中的对局
+      tags:
+      - match
+  /api/v1/matchmaking:
+    delete:
+      description: 不在队列中时什么都不做; 已经开局时无法离开
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/match.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/match.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/match.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/match.Response'
+      summary: 离开匹配队列
+      tags:
+      - match
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/match.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/match.MatchmakingStatus'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/match.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/match.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/match.Response'
+      summary: 获取当前用户的匹配状态
+      tags:
+      - match
+    post:
+      consumes:
+      - application/json
+      description: 凑够一局时立即开局, 此时返回的 match_id 不为 0, 并推送 match:updated; 否则排队等待, 玩法允许人机补位时,
+        排队人数达到玩法的最少真人数且等到补位时间后用人机补齐。已在同一个队列中时不重复加入。不满足玩法的条件(如余额不足)时返回 403; 开局时不满足条件会被移出队列并推送
+        match:matchmaking_rejected
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/match.JoinMatchmakingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/match.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/match.MatchmakingStatus'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/match.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/match.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/match.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/match.Response'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/match.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/match.Response'
+      summary: 加入匹配队列
+      tags:
+      - match
   /api/v1/ready:
     get:
       description: 检查已启用的 PostgreSQL 和 Redis 是否可用
