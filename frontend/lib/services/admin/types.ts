@@ -1,5 +1,7 @@
+import type {Bundle} from '../auction';
 import type {PageParams} from '../core';
 import type {InventoryTransaction} from '../inventory';
+import type {AuctionRule, Grid} from '../venue';
 import type {WalletTransaction} from '../wallet';
 
 /** 管理端看到的完整用户, 对应后端 auth.User */
@@ -226,3 +228,200 @@ export interface ListAdminInventoryTransactionsData {
   total: number;
   transactions: AdminInventoryTransaction[];
 }
+
+/** 掉落池, 对应后端 loot.Pool */
+export interface LootPool {
+  id: number;
+  /** 玩法中引用的代码, 小写字母、数字和下划线 */
+  code: string;
+  name: string;
+  description: string;
+  /** 停用后不能再抽取 */
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 掉落池列表项, 附带条目数 */
+export interface LootPoolListItem extends LootPool {
+  entry_count: number;
+}
+
+export interface ListLootPoolsParams extends PageParams {
+  /** 按代码或名称搜索, 不区分大小写 */
+  keyword?: string;
+  is_enabled?: boolean;
+}
+
+export interface ListLootPoolsData {
+  total: number;
+  pools: LootPoolListItem[];
+}
+
+export type LootPoolRequest = Pick<LootPool, 'code' | 'name' | 'description' | 'is_enabled'>;
+
+/** 掉落池条目, 对应后端 loot.EntryDetail */
+export interface LootEntry {
+  id: number;
+  pool_id: number;
+  /** 掉落的物品, 与 currency 二选一 */
+  item_id: number;
+  currency: string;
+  /** 抽中的概率为权重 / 池中可抽取条目的权重之和 */
+  weight: number;
+  /** 每次掉落的数量范围, 货币为金额 */
+  min_quantity: number;
+  max_quantity: number;
+  created_at: string;
+  /** 物品或货币的名称, 已删除的物品为占位名称 */
+  name: string;
+  /** 物品品质, 货币为 0 */
+  quality: number;
+  image_url: string;
+  /** 物品已上架或货币已启用, 否则不参与抽取 */
+  is_available: boolean;
+  /** 当前每次抽中的概率, 不参与抽取时为 0 */
+  probability: number;
+}
+
+export type LootEntryRequest = Pick<LootEntry, 'item_id' | 'currency' | 'weight' | 'min_quantity' | 'max_quantity'>;
+
+export interface LootPoolEntriesData {
+  pool: LootPool;
+  /** 按条目 ID 排序, 包含不参与抽取的条目 */
+  entries: LootEntry[];
+}
+
+/** 一个条件, 对应后端 condition.Condition */
+export interface Condition {
+  type: string;
+  /** 参数, 结构由条件类型决定 */
+  params: Record<string, string | number | boolean>;
+}
+
+/** 条件参数的描述, 后台据此生成表单, 对应后端 condition.Field */
+export interface ConditionField {
+  key: string;
+  label: string;
+  help: string;
+  type: 'string' | 'bool' | 'int';
+  /** text / switch / number, 或选择器 currency / item / scope */
+  input: 'text' | 'switch' | 'number' | 'currency' | 'item' | 'scope';
+}
+
+/** 条件类型, 对应后端 condition.TypeView */
+export interface ConditionType {
+  type: string;
+  label: string;
+  description: string;
+  fields: ConditionField[];
+}
+
+/** 仓库的一个档位, 从掉落池抽取若干次 */
+export interface WarehouseSlot {
+  /** 掉落池代码, 只能有物品条目 */
+  pool: string;
+  /** 抽取次数在 [min, max] 内均匀随机 */
+  min: number;
+  max: number;
+  /** 这一档出现的概率, 基点 */
+  chance: number;
+}
+
+/** 仓库生成规则, 对应后端 venue.WarehouseRule */
+export interface WarehouseRule {
+  grid: Grid;
+  slots: WarehouseSlot[];
+  /** 摆不下时重抽, 超过后开局失败 */
+  max_rerolls: number;
+}
+
+/** 人机参数, 系数都是基点, 对应后端 venue.BotRule */
+export interface BotRule {
+  /** 低、中、高三个等级的权重 */
+  level_weights: number[];
+  /** 低、中、高三个等级的估值误差 */
+  estimate_errors: number[];
+  /** 每轮出价 = 估值 × 系数, 轮数更多时沿用最后一个 */
+  round_factors: number[];
+  jitter: number;
+  max_factor: number;
+  bluff_chance: number;
+  /** 只在前几轮诈唬 */
+  bluff_rounds: number;
+  bluff_factor: number;
+}
+
+/** 人机模式的防刷参数, 对应后端 venue.PveRule */
+export interface PveRule {
+  practice_only: boolean;
+  /** 当天在这张地图人机模式的净收益上限, 0 表示不单独限制 */
+  daily_profit_cap: number;
+  /** 按这个系数缩放各档位的抽取次数, 基点 */
+  value_factor: number;
+}
+
+/** 模拟仓库的价值分布, 价值为出价货币的回收价之和 */
+export interface ValueStats {
+  /** 摆放失败率, 基点 */
+  failure_rate: number;
+  mean: number;
+  p10: number;
+  p50: number;
+  p90: number;
+  max: number;
+  mean_pieces: number;
+}
+
+/** 仓库模拟结果, 对应后端 venue.Simulation */
+export interface Simulation {
+  runs: number;
+  /** 排位模式, 不缩放抽取次数 */
+  ranked: ValueStats;
+  /** 人机模式, 按仓库价值系数缩放抽取次数 */
+  pve: ValueStats;
+  simulated_at: string;
+}
+
+/** 管理端看到的完整地图, 对应后端 venue.Venue */
+export interface AdminVenue {
+  id: number;
+  /** 拼进玩法代码和统计范围, 创建后不能修改 */
+  code: string;
+  name: string;
+  description: string;
+  image_url: string;
+  /** 大厅中从小到大排列 */
+  sort_order: number;
+  /** 停用后不能加入队列, 进行中的对局照常打完 */
+  is_enabled: boolean;
+  pve_enabled: boolean;
+  ranked_enabled: boolean;
+  bid_currency: string;
+  /** 入场代价, 数量为正数, 开局时扣除 */
+  entry_cost: Bundle;
+  /** 入场条件, 需要全部满足 */
+  requirements: Condition[];
+  warehouse: WarehouseRule;
+  auction: AuctionRule;
+  bots: BotRule;
+  pve: PveRule;
+  /** 保存时的模拟结果 */
+  simulation: Simulation;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ListVenuesParams extends PageParams {
+  /** 按代码或名称搜索, 不区分大小写 */
+  keyword?: string;
+  is_enabled?: boolean;
+}
+
+export interface ListVenuesData {
+  total: number;
+  venues: AdminVenue[];
+}
+
+/** 新建、修改或模拟地图, 修改时也需提交全部字段 */
+export type VenueRequest = Omit<AdminVenue, 'id' | 'simulation' | 'created_at' | 'updated_at'>;

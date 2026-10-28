@@ -5,6 +5,8 @@ import type {
   AdjustBalanceRequest,
   AdjustInventoryRequest,
   AdminUser,
+  AdminVenue,
+  ConditionType,
   Currency,
   Item,
   ItemRequest,
@@ -16,11 +18,21 @@ import type {
   ListAuditLogsParams,
   ListItemsData,
   ListItemsParams,
+  ListLootPoolsData,
+  ListLootPoolsParams,
   ListUsersData,
   ListUsersParams,
+  ListVenuesData,
+  ListVenuesParams,
+  LootEntryRequest,
+  LootPool,
+  LootPoolEntriesData,
+  LootPoolRequest,
   SettingGroup,
+  Simulation,
   UpdateSettingRequest,
   UpdateUserRequest,
+  VenueRequest,
 } from './types';
 
 export class AdminService extends BaseService {
@@ -74,6 +86,58 @@ export class AdminService extends BaseService {
   /** 删除后已持有的玩家背包保留为占位物品, 返回删除时的持有人数 */
   static deleteItem(id: number) {
     return this.delete<{ holder_count: number }>(`/items/${id}`);
+  }
+
+  static listLootPools(params: ListLootPoolsParams) {
+    return this.get<ListLootPoolsData>('/loot-pools', {params});
+  }
+
+  static createLootPool(body: LootPoolRequest) {
+    return this.post<LootPool>('/loot-pools', body);
+  }
+
+  static updateLootPool(id: number, body: LootPoolRequest) {
+    return this.put<LootPool>(`/loot-pools/${id}`, body);
+  }
+
+  /** 一同删除全部条目, 返回删除的条目数 */
+  static deleteLootPool(id: number) {
+    return this.delete<{ entry_count: number }>(`/loot-pools/${id}`);
+  }
+
+  static listLootPoolEntries(id: number) {
+    return this.get<LootPoolEntriesData>(`/loot-pools/${id}/entries`);
+  }
+
+  /** 用提交的条目整体替换, 提交空数组清空 */
+  static replaceLootPoolEntries(id: number, entries: LootEntryRequest[]) {
+    return this.put<LootPoolEntriesData>(`/loot-pools/${id}/entries`, {entries});
+  }
+
+  static listVenues(params: ListVenuesParams) {
+    return this.get<ListVenuesData>('/venues', {params});
+  }
+
+  /** 保存时会模拟仓库, 摆放失败率过高时拒绝 */
+  static createVenue(body: VenueRequest) {
+    return this.post<AdminVenue>('/venues', body);
+  }
+
+  static updateVenue(id: number, body: VenueRequest) {
+    return this.put<AdminVenue>(`/venues/${id}`, body);
+  }
+
+  static deleteVenue(id: number) {
+    return this.delete<null>(`/venues/${id}`);
+  }
+
+  /** 按未保存的配置模拟仓库, 不写入数据 */
+  static simulateVenue(body: VenueRequest) {
+    return this.post<Simulation>('/venues/simulate', body);
+  }
+
+  static listConditionTypes() {
+    return this.get<{ types: ConditionType[] }>('/conditions/types');
   }
 
   static listSettings() {

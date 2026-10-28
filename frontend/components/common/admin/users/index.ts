@@ -5,4 +5,3 @@ export {BanUserDialog} from './BanUserDialog';
 export {DisableUserDialog} from './DisableUserDialog';
 export {UserWalletDialog} from './UserWalletDialog';
 export {UserInventoryDialog} from './UserInventoryDialog';
-export {ItemCombobox} from './ItemCombobox';
