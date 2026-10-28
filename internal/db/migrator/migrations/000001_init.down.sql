@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS user_stats;
 DROP TABLE IF EXISTS match_players;
 DROP TABLE IF EXISTS matches;
 DROP TABLE IF EXISTS loot_pool_entries;
