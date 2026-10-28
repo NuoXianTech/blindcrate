@@ -174,6 +174,8 @@ type ListMatchesRequest struct {
 	Current int    `json:"current" form:"current" binding:"min=1"`
 	Size    int    `json:"size" form:"size" binding:"min=1,max=100"`
 	Status  string `json:"status" form:"status" binding:"omitempty,oneof=playing finished cancelled"`
+	Prefix  string `json:"prefix" form:"prefix" binding:"max=32"` // 玩法代码冒号前的部分, 如 pve
+	Suffix  string `json:"suffix" form:"suffix" binding:"max=32"` // 玩法代码冒号后的部分, 如地图代码
 }
 
 // ListMatchesResponseData 对局记录分页结果
@@ -185,6 +187,7 @@ type ListMatchesResponseData struct {
 // ListMatches
 // @Tags match
 // @Summary 获取当前用户参与过的对局
+// @Description 可按玩法代码冒号前后的部分筛选, 如 prefix=pve、suffix=<地图代码>; 玩法实现了 Summarizer 时附带 summary, 暗拍为 auction.Summary
 // @Produce json
 // @Param request query ListMatchesRequest true "request query"
 // @Success 200 {object} Response{data=ListMatchesResponseData}

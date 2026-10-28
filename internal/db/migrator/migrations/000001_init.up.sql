@@ -299,7 +299,7 @@ CREATE TABLE IF NOT EXISTS match_players
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_match_players_match_id_seat ON match_players (match_id, seat);
-CREATE INDEX IF NOT EXISTS idx_match_players_user_id ON match_players (user_id);
+CREATE INDEX IF NOT EXISTS idx_match_players_user_id_match_id ON match_players (user_id, match_id DESC);
 
 -- 玩家的统计数据, 每个用户每个统计范围每个周期每个指标一行, 结算时累加; 新增指标不需要改表
 CREATE TABLE IF NOT EXISTS stats

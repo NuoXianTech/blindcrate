@@ -99,6 +99,12 @@ type Provider interface {
 	Mode(ctx context.Context, code string) (Mode, error)
 }
 
+// Summarizer 提供者可以实现的接口, 为对局记录附带玩法的摘要, 如盈亏和是否成交
+type Summarizer interface {
+	// Summaries 返回 viewerID 在这些对局中的摘要, 按对局 ID; 没有摘要的对局可以不返回
+	Summaries(ctx context.Context, viewerID uint64, matchIDs []uint64) (map[uint64]any, error)
+}
+
 var (
 	// modes 静态注册的玩法, 只在启动前写入
 	modes = map[string]Mode{}

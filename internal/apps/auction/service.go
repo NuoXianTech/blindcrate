@@ -73,6 +73,52 @@ func (p *provider) Mode(ctx context.Context, code string) (match.Mode, error) {
 	return &venueMode{kind: p.kind, venue: &venues[0]}, nil
 }
 
+// Summary 对局记录中暗拍的摘要, 金额为出价货币的最小单位
+type Summary struct {
+	Venue       string `json:"venue"`      // 地图代码
+	VenueName   string `json:"venue_name"` // 开局时的地图名称
+	BidCurrency string `json:"bid_currency"`
+	Outcome     string `json:"outcome"`     // 结算前为空, 之后为 sold、unsold 或 cancelled
+	Price       int64  `json:"price"`       // 成交价, 没有成交时为 0
+	Won         bool   `json:"won"`         // 是否由自己成交
+	Profit      int64  `json:"profit"`      // 自己的盈亏, 结算前为 0
+	IsPractice  bool   `json:"is_practice"` // 自己打的是否为练习局
+}
+
+// Summaries 实现 match.Summarizer, 为对局记录附带地图、成交结果和自己的盈亏
+func (p *provider) Summaries(ctx context.Context, viewerID uint64, matchIDs []uint64) (map[uint64]any, error) {
+	tx := db.DB(ctx)
+	var matches []Match
+	if err := tx.Select("match_id, venue, outcome, winner_seat, price").Where("match_id IN ?", matchIDs).Find(&matches).Error; err != nil {
+		return nil, err
+	}
+	var players []Player
+	if err := tx.Where("match_id IN ? AND user_id = ?", matchIDs, viewerID).Find(&players).Error; err != nil {
+		return nil, err
+	}
+	mine := make(map[uint64]*Player, len(players))
+	for i := range players {
+		mine[players[i].MatchID] = &players[i]
+	}
+	summaries := make(map[uint64]any, len(matches))
+	for _, m := range matches {
+		summary := Summary{
+			Venue:       m.Venue.Code,
+			VenueName:   m.Venue.Name,
+			BidCurrency: m.Venue.BidCurrency,
+			Outcome:     m.Outcome,
+			Price:       m.Price,
+		}
+		if player := mine[m.MatchID]; player != nil {
+			summary.Won = m.WinnerSeat != 0 && m.WinnerSeat == player.Seat
+			summary.Profit = player.Profit
+			summary.IsPractice = player.IsPractice
+		}
+		summaries[m.MatchID] = summary
+	}
+	return summaries, nil
+}
+
 // venueMode 一张地图的一种模式, 每次查找玩法时按地图的当前配置创建
 //
 // 准入和开局使用地图的当前配置, 开局后只使用 Match.Venue 中的快照。

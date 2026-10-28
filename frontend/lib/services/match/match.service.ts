@@ -1,5 +1,5 @@
 import {BaseService} from '../core';
-import type {MatchView, MatchmakingStatus} from './types';
+import type {ListMatchesData, ListMatchesParams, MatchView, MatchmakingStatus} from './types';
 
 export class MatchService extends BaseService {
   protected static readonly basePath = '';
@@ -17,6 +17,11 @@ export class MatchService extends BaseService {
   /** 离开匹配队列, 已开局时无法离开 */
   static leaveMatchmaking() {
     return this.delete<null>('/matchmaking');
+  }
+
+  /** 当前用户参与过的对局, 从新到旧, 附带地图、成交和盈亏的摘要 */
+  static listMatches(params: ListMatchesParams) {
+    return this.get<ListMatchesData>('/matches', {params});
   }
 
   /** 当前用户参与的一局, 结束后仍可查看 */

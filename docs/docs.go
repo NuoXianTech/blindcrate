@@ -4567,6 +4567,7 @@ const docTemplate = `{
         },
         "/api/v1/matches": {
             "get": {
+                "description": "可按玩法代码冒号前后的部分筛选, 如 prefix=pve、suffix=\u003c地图代码\u003e; 玩法实现了 Summarizer 时附带 summary, 暗拍为 auction.Summary",
                 "produces": [
                     "application/json"
                 ],
@@ -4579,6 +4580,13 @@ const docTemplate = `{
                         "minimum": 1,
                         "type": "integer",
                         "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 32,
+                        "type": "string",
+                        "description": "玩法代码冒号前的部分, 如 pve",
+                        "name": "prefix",
                         "in": "query"
                     },
                     {
@@ -4596,6 +4604,13 @@ const docTemplate = `{
                         ],
                         "type": "string",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 32,
+                        "type": "string",
+                        "description": "玩法代码冒号后的部分, 如地图代码",
+                        "name": "suffix",
                         "in": "query"
                     }
                 ],
@@ -7653,6 +7668,10 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                },
+                "summary": {
+                    "description": "玩法提供的摘要, 只在对局记录中返回, 见 Summarizer",
+                    "type": "object"
                 },
                 "version": {
                     "description": "越大越新, 客户端只采用 version 更大的推送",

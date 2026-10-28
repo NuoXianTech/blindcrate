@@ -1622,6 +1622,9 @@ definitions:
         type: integer
       status:
         type: string
+      summary:
+        description: 玩法提供的摘要, 只在对局记录中返回, 见 Summarizer
+        type: object
       version:
         description: 越大越新, 客户端只采用 version 更大的推送
         type: integer
@@ -5215,11 +5218,18 @@ paths:
       - loot
   /api/v1/matches:
     get:
+      description: 可按玩法代码冒号前后的部分筛选, 如 prefix=pve、suffix=<地图代码>; 玩法实现了 Summarizer 时附带
+        summary, 暗拍为 auction.Summary
       parameters:
       - in: query
         minimum: 1
         name: current
         type: integer
+      - description: 玩法代码冒号前的部分, 如 pve
+        in: query
+        maxLength: 32
+        name: prefix
+        type: string
       - in: query
         maximum: 100
         minimum: 1
@@ -5231,6 +5241,11 @@ paths:
         - cancelled
         in: query
         name: status
+        type: string
+      - description: 玩法代码冒号后的部分, 如地图代码
+        in: query
+        maxLength: 32
+        name: suffix
         type: string
       produces:
       - application/json

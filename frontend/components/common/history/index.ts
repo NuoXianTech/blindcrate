@@ -1,0 +1,1 @@
+export {MatchHistoryMain} from './MatchHistoryMain';
