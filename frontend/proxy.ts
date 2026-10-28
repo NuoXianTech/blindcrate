@@ -44,5 +44,5 @@ async function hasValidSession(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/home/:path*', '/wallet/:path*', '/inventory/:path*', '/admin/:path*'],
+  matcher: ['/', '/home/:path*', '/wallet/:path*', '/inventory/:path*', '/match/:path*', '/admin/:path*'],
 };
