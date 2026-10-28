@@ -943,10 +943,7 @@ func venueChanges(old, next *venue.Venue) map[string]interface{} {
 func QueryMatches(ctx context.Context, req *ListMatchesRequest) (int64, []match.MatchDetail, error) {
 	offset := (req.Current - 1) * req.Size
 
-	query := db.DB(ctx).Model(&match.Match{})
-	if req.Mode != "" {
-		query = query.Where("mode = ?", req.Mode)
-	}
+	query := match.FilterMode(db.DB(ctx).Model(&match.Match{}), req.Prefix, req.Suffix)
 	if req.Status != "" {
 		query = query.Where("status = ?", req.Status)
 	}

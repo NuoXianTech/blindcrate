@@ -1441,7 +1441,8 @@ const docTemplate = `{
                     {
                         "maxLength": 32,
                         "type": "string",
-                        "name": "mode",
+                        "description": "玩法代码冒号前的部分, 如 pve",
+                        "name": "prefix",
                         "in": "query"
                     },
                     {
@@ -1459,6 +1460,13 @@ const docTemplate = `{
                         ],
                         "type": "string",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 32,
+                        "type": "string",
+                        "description": "玩法代码冒号后的部分, 如地图代码",
+                        "name": "suffix",
                         "in": "query"
                     },
                     {
@@ -1514,9 +1522,83 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/matches/{id}/auction": {
+            "get": {
+                "description": "与玩家看到的公开部分相同, 附带每个座位的带入资金、出价、估值和盈亏",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取一局暗拍的详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "match id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auction.AdminView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/matches/{id}/cancel": {
             "post": {
                 "description": "用于对局卡住等异常情况; 玩法会退还入场费等, 玩法已下线时需要手动处理",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1531,6 +1613,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.CancelMatchRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -5486,6 +5577,19 @@ const docTemplate = `{
                 }
             }
         },
+        "admin.CancelMatchRequest": {
+            "type": "object",
+            "required": [
+                "reason"
+            ],
+            "properties": {
+                "reason": {
+                    "description": "记录在操作日志中",
+                    "type": "string",
+                    "maxLength": 255
+                }
+            }
+        },
         "admin.DeleteItemResponseData": {
             "type": "object",
             "properties": {
@@ -6316,6 +6420,75 @@ const docTemplate = `{
                 }
             }
         },
+        "auction.AdminView": {
+            "type": "object",
+            "properties": {
+                "contenders": {
+                    "description": "加轮时可以出价的座位, 为空表示所有人",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "footprints": {
+                    "description": "全部藏品占的格子, 按扫描顺序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.Footprint"
+                    }
+                },
+                "match_id": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "phase": {
+                    "type": "string"
+                },
+                "phase_ends_at": {
+                    "type": "string"
+                },
+                "piece_count": {
+                    "type": "integer"
+                },
+                "players": {
+                    "description": "按座位号排序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.Player"
+                    }
+                },
+                "result": {
+                    "description": "结算后才有",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/auction.ResultView"
+                        }
+                    ]
+                },
+                "revealed": {
+                    "description": "已公开品质的藏品, 第 N 轮公开前 N 件",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.RevealedPiece"
+                    }
+                },
+                "round": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "venue": {
+                    "$ref": "#/definitions/auction.VenueInfo"
+                },
+                "version": {
+                    "description": "与对局的 version 一致, 客户端只采用 version 更大的推送",
+                    "type": "integer"
+                }
+            }
+        },
         "auction.AuctionView": {
             "type": "object",
             "properties": {
@@ -6466,6 +6639,73 @@ const docTemplate = `{
                 }
             }
         },
+        "auction.Player": {
+            "type": "object",
+            "properties": {
+                "bid": {
+                    "description": "当前出价, 0 表示还没出过价",
+                    "type": "integer"
+                },
+                "bid_at": {
+                    "description": "当前出价的提交时间, 加轮用完仍并列时先出价的人成交",
+                    "type": "string"
+                },
+                "carry": {
+                    "description": "带入资金, 出价的上限",
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "entry_cost": {
+                    "description": "实际扣除的入场代价, 练习局和人机为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "estimate": {
+                    "description": "人机对仓库价值的估值, 真人为 0",
+                    "type": "integer"
+                },
+                "feedback": {
+                    "description": "每轮结束后的反馈, 只给真人",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.Feedback"
+                    }
+                },
+                "frozen": {
+                    "description": "冻结的带入资金, 练习局和人机为 0",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_practice": {
+                    "description": "练习局, 准入时决定, 之后不再变化",
+                    "type": "boolean"
+                },
+                "match_id": {
+                    "type": "integer"
+                },
+                "profit": {
+                    "description": "结算后的盈亏, 出价货币; 练习局按正式局计算",
+                    "type": "integer"
+                },
+                "seat": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "description": "人机为 0",
+                    "type": "integer"
+                }
+            }
+        },
         "auction.Response": {
             "type": "object",
             "properties": {
@@ -6493,7 +6733,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "profit": {
-                    "description": "自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算",
+                    "description": "自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0",
                     "type": "integer"
                 },
                 "scan_from": {

@@ -1,3 +1,4 @@
+import type {AuctionAdminView} from '../auction';
 import {BaseService} from '../core';
 import type {InventoryTransaction, ListUserItemsData, ListUserItemsParams} from '../inventory';
 import type {BalanceItem, WalletTransaction} from '../wallet';
@@ -5,6 +6,7 @@ import type {
   AdjustBalanceRequest,
   AdjustInventoryRequest,
   AdminUser,
+  AdminMatch,
   AdminVenue,
   ConditionType,
   Currency,
@@ -18,6 +20,8 @@ import type {
   ListAdminInventoryTransactionsParams,
   ListAdminWalletTransactionsData,
   ListAdminWalletTransactionsParams,
+  ListAdminMatchesData,
+  ListAdminMatchesParams,
   ListAuditLogsData,
   ListAuditLogsParams,
   ListItemsData,
@@ -232,5 +236,19 @@ export class AdminService extends BaseService {
 
   static listInventoryTransactions(params: ListAdminInventoryTransactionsParams) {
     return this.get<ListAdminInventoryTransactionsData>('/inventory/transactions', {params});
+  }
+
+  static listMatches(params: ListAdminMatchesParams) {
+    return this.get<ListAdminMatchesData>('/matches', {params});
+  }
+
+  /** 一局暗拍的公开部分和每个座位的暗拍数据 */
+  static getMatchAuction(id: number) {
+    return this.get<AuctionAdminView>(`/matches/${id}/auction`);
+  }
+
+  /** 取消进行中的对局, 玩法会退还入场代价并解冻资金; 原因记录在操作日志中 */
+  static cancelMatch(id: number, reason: string) {
+    return this.post<Omit<AdminMatch, 'players'>>(`/matches/${id}/cancel`, {reason});
   }
 }

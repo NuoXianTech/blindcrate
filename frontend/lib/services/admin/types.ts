@@ -544,3 +544,55 @@ export interface StatMetric {
   key: string;
   label: string;
 }
+
+/** 管理员看到的座位, 对应后端 match.PlayerDetail */
+export interface AdminMatchPlayer {
+  id: number;
+  match_id: number;
+  seat: number;
+  /** 人机为 0 */
+  user_id: number;
+  bot_name: string;
+  bot_level: number;
+  /** 结束时的名次, 0 表示没有名次 */
+  rank: number;
+  created_at: string;
+  is_bot: boolean;
+  /** 真人的昵称, 未设置时为用户名; 人机为人机的昵称 */
+  nickname: string;
+  avatar_url: string;
+}
+
+/** 管理员看到的对局, 对应后端 match.MatchDetail */
+export interface AdminMatch {
+  id: number;
+  mode: string;
+  status: string;
+  phase: string;
+  round: number;
+  /** 当前阶段的截止时间, 不限时或已结束时为空 */
+  phase_ends_at: string | null;
+  version: number;
+  /** 玩家可以离开的时间, 为空表示还没释放 */
+  released_at: string | null;
+  created_at: string;
+  updated_at: string;
+  finished_at: string | null;
+  /** 按座位号排序 */
+  players: AdminMatchPlayer[];
+}
+
+export interface ListAdminMatchesParams extends PageParams {
+  /** 玩法代码冒号前的部分, 如 pve */
+  prefix?: string;
+  /** 玩法代码冒号后的部分, 如地图代码 */
+  suffix?: string;
+  status?: string;
+  /** 只看该用户参与的对局 */
+  user_id?: number;
+}
+
+export interface ListAdminMatchesData {
+  total: number;
+  matches: AdminMatch[];
+}

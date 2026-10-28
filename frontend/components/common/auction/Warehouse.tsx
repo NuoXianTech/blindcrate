@@ -7,7 +7,7 @@ import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {scanProgress} from '@/lib/auction';
 import {qualityOf} from '@/lib/quality';
-import {AUCTION_OUTCOME, type AuctionView} from '@/lib/services/auction';
+import {AUCTION_OUTCOME, type AuctionPublicView} from '@/lib/services/auction';
 import {formatAmount} from '@/lib/utils';
 
 /** 扫描进度的刷新间隔, 毫秒 */
@@ -53,7 +53,7 @@ function FogCell({quality, children}: { quality?: number; children?: React.React
  * 开箱后按扫描顺序逐件扫描, 扫完才显示品质、名称和回收价, 中途进入或重连时按已过去的时间接着扫
  */
 export function Warehouse({view, decimals, finished}: {
-  view: AuctionView;
+  view: AuctionPublicView;
   decimals: number;
   /** 对局已结束, 直接显示全部藏品 */
   finished: boolean;

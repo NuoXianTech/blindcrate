@@ -19,6 +19,7 @@ export const ROUTES = {
   adminLootPools: '/admin/loot-pools',
   adminVenues: '/admin/venues',
   adminLeaderboards: '/admin/leaderboards',
+  adminMatches: '/admin/matches',
   adminSettings: '/admin/settings',
   adminTransactions: '/admin/transactions',
   adminAuditLogs: '/admin/audit-logs',
