@@ -29,6 +29,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -110,9 +111,9 @@ func HandlePhaseTimeout(ctx context.Context, t *asynq.Task) error {
 		if m.Version != payload.Version {
 			return nil, nil
 		}
-		mode, ok := modes[m.Mode]
-		if !ok {
-			return nil, fmt.Errorf("mode %s is not registered", m.Mode)
+		mode, err := lookupMode(ctx, m.Mode)
+		if err != nil {
+			return nil, fmt.Errorf("lookup mode %s failed: %w", m.Mode, err)
 		}
 		phase, err := mode.OnTimeout(tx, m, players)
 		if err != nil {
@@ -138,9 +139,10 @@ func HandleBotFill(ctx context.Context, t *asynq.Task) error {
 	return Form(ctx, payload.Mode)
 }
 
-// HandleSweep 巡检: 为到期仍在进行中的对局重新投递超时任务, 并为每种玩法组局
+// HandleSweep 巡检: 为到期仍在进行中的对局重新投递超时任务, 并为每个有人排队的玩法组局
 //
 // 兜底投递失败、Redis 故障等原因丢失的超时和补位任务; 超时任务还在队列中时 EnqueueOnce 不会重复投递。
+// 队列从 Redis 中扫描, 动态玩法不需要预先知道代码; 玩法已不存在的队列被清空。
 func HandleSweep(ctx context.Context, _ *asynq.Task) error {
 	var overdue []Match
 	if err := db.DB(ctx).
@@ -156,10 +158,28 @@ func HandleSweep(ctx context.Context, _ *asynq.Task) error {
 			errs = append(errs, fmt.Errorf("enqueue phase timeout of match %d failed: %w", overdue[i].ID, err))
 		}
 	}
-	for _, code := range modeCodes() {
-		if err := Form(ctx, code); err != nil {
+	codes, err := queuedModeCodes(ctx)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("scan queues failed: %w", err))
+	}
+	for _, code := range codes {
+		err := Form(ctx, code)
+		if err != nil && err.Error() == ModeNotFound {
+			err = dropQueue(ctx, code)
+		}
+		if err != nil {
 			errs = append(errs, fmt.Errorf("form %s failed: %w", code, err))
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// queuedModeCodes 扫描有人排队的玩法代码; 队列清空后 Redis 会删除它的键, 扫描到的都是非空队列
+func queuedModeCodes(ctx context.Context) ([]string, error) {
+	var codes []string
+	iter := db.Redis.Scan(ctx, 0, queueKeyPrefix+"*", sweepScanCount).Iterator()
+	for iter.Next(ctx) {
+		codes = append(codes, strings.TrimPrefix(iter.Val(), queueKeyPrefix))
+	}
+	return codes, iter.Err()
 }

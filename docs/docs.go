@@ -4068,10 +4068,6 @@ const docTemplate = `{
                 "updated_at": {
                     "type": "string"
                 },
-                "weight": {
-                    "description": "掉落权重, 0 表示不会掉落",
-                    "type": "integer"
-                },
                 "width": {
                     "description": "在保险柜中占的格数",
                     "type": "integer"
@@ -4123,12 +4119,6 @@ const docTemplate = `{
                     "description": "0 表示不可卖出",
                     "type": "integer",
                     "maximum": 1000000000000,
-                    "minimum": 0
-                },
-                "weight": {
-                    "description": "掉落权重, 0 表示不会掉落",
-                    "type": "integer",
-                    "maximum": 1000000,
                     "minimum": 0
                 },
                 "width": {
@@ -5108,10 +5098,6 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
-                },
-                "weight": {
-                    "description": "掉落权重, 0 表示不会掉落",
-                    "type": "integer"
                 },
                 "width": {
                     "description": "在保险柜中占的格数",

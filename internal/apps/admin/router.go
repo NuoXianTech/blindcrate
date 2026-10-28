@@ -599,7 +599,6 @@ type ItemRequest struct {
 	ImageURL     string `json:"image_url" binding:"omitempty,max=1024,http_url"`
 	SellCurrency string `json:"sell_currency" binding:"required,max=32"`
 	SellPrice    int64  `json:"sell_price" binding:"min=0,max=1000000000000"` // 0 表示不可卖出
-	Weight       int32  `json:"weight" binding:"min=0,max=1000000"`           // 掉落权重, 0 表示不会掉落
 	Width        int16  `json:"width" binding:"required,min=1,max=10"`        // 在保险柜中占的格数
 	Height       int16  `json:"height" binding:"required,min=1,max=10"`
 	IsEnabled    bool   `json:"is_enabled"` // 下架后不会掉落, 也不能再发放, 已有的保留

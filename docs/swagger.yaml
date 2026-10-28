@@ -155,9 +155,6 @@ definitions:
         type: integer
       updated_at:
         type: string
-      weight:
-        description: 掉落权重, 0 表示不会掉落
-        type: integer
       width:
         description: 在保险柜中占的格数
         type: integer
@@ -191,11 +188,6 @@ definitions:
       sell_price:
         description: 0 表示不可卖出
         maximum: 1000000000000
-        minimum: 0
-        type: integer
-      weight:
-        description: 掉落权重, 0 表示不会掉落
-        maximum: 1000000
         minimum: 0
         type: integer
       width:
@@ -868,9 +860,6 @@ definitions:
         type: integer
       updated_at:
         type: string
-      weight:
-        description: 掉落权重, 0 表示不会掉落
-        type: integer
       width:
         description: 在保险柜中占的格数
         type: integer

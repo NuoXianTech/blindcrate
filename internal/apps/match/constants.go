@@ -26,6 +26,7 @@
 //
 // 新增一种玩法:
 //   - 实现 Mode, 在玩法包的 init 中调用 Register, API 和 worker 进程都需要导入该包; 同一种玩法的不同场次注册为不同的代码
+//   - 场次存在数据库中(如每张地图一种玩法)时, 改为调用 RegisterProvider 按代码前缀提供玩法, 后台增删场次不需要重启
 //   - 排队凑满 PlayerCount 个真人时立即开局; 只要求 MinHumans 个真人的玩法, 等满 BotFillAfter 后由人机补齐
 //   - 对局由匹配创建, 先为每个真人调用 Mode.Admit 检查门槛和扣入场费, 再调用 Mode.Start 进入第一个阶段; 阶段到期时 worker 调用 Mode.OnTimeout
 //   - 玩家操作(如出价)在玩法自己的 ws 处理函数中通过 Advance 写入, 需要提前结束阶段时返回下一个阶段
@@ -65,6 +66,8 @@ const (
 	timeoutGrace = 10 * time.Second
 	// sweepBatch 每次巡检最多重新投递的超时任务数
 	sweepBatch = 100
+	// sweepScanCount 巡检扫描队列时每次 SCAN 的数量提示
+	sweepScanCount = 100
 )
 
 // Redis key

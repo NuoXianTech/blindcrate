@@ -203,7 +203,7 @@ func (t *Transaction) sameChange(req *ChangeRequest) bool {
 		t.Remark == req.Remark
 }
 
-// UserItemDetail 背包中的一种物品, 附带物品信息, 不含掉落权重
+// UserItemDetail 背包中的一种物品, 附带物品信息
 type UserItemDetail struct {
 	ItemID        uint64    `json:"item_id"`
 	Name          string    `json:"name"`

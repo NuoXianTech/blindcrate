@@ -448,7 +448,6 @@ func applyItem(tx *gorm.DB, target *item.Item, req *ItemRequest) error {
 	target.ImageURL = req.ImageURL
 	target.SellCurrency = req.SellCurrency
 	target.SellPrice = req.SellPrice
-	target.Weight = req.Weight
 	target.Width = req.Width
 	target.Height = req.Height
 	target.IsEnabled = req.IsEnabled
@@ -464,7 +463,6 @@ func itemFields(target *item.Item) map[string]interface{} {
 		"image_url":     target.ImageURL,
 		"sell_currency": target.SellCurrency,
 		"sell_price":    target.SellPrice,
-		"weight":        target.Weight,
 		"width":         target.Width,
 		"height":        target.Height,
 		"is_enabled":    target.IsEnabled,

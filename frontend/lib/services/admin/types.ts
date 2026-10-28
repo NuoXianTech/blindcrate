@@ -95,8 +95,6 @@ export interface Item {
   sell_currency: string;
   /** 官方回收价, 最小单位; 0 表示不可卖出 */
   sell_price: number;
-  /** 掉落权重, 0 表示不会掉落 */
-  weight: number;
   /** 在保险柜中占的格数 */
   width: number;
   height: number;
@@ -126,7 +124,7 @@ export interface ListItemsData {
 /** 新建或修改物品, 修改时也需提交全部字段 */
 export type ItemRequest = Pick<
   Item,
-  'name' | 'description' | 'quality' | 'image_url' | 'sell_currency' | 'sell_price' | 'weight' | 'width' | 'height' | 'is_enabled'
+  'name' | 'description' | 'quality' | 'image_url' | 'sell_currency' | 'sell_price' | 'width' | 'height' | 'is_enabled'
 >;
 
 /** 设置项的描述, 后台据此生成表单, 对应后端 settings.Field */

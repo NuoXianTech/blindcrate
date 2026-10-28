@@ -133,7 +133,6 @@ CREATE TABLE IF NOT EXISTS items
     image_url     VARCHAR(1024) NOT NULL DEFAULT '',
     sell_currency VARCHAR(32)   NOT NULL DEFAULT 'chip', -- 卖出得到的货币
     sell_price    BIGINT        NOT NULL DEFAULT 0,      -- 卖出价格, 0 表示不可卖出
-    weight        INTEGER       NOT NULL DEFAULT 0,      -- 掉落权重, 0 表示不会掉落
     width         SMALLINT      NOT NULL DEFAULT 1,      -- 在保险柜中占的格数
     height        SMALLINT      NOT NULL DEFAULT 1,
     is_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,  -- 下架后不会掉落, 也不能再发放, 已有的保留
@@ -142,7 +141,6 @@ CREATE TABLE IF NOT EXISTS items
     deleted_at    TIMESTAMPTZ,                           -- 软删除时间
     CONSTRAINT chk_items_quality CHECK (quality BETWEEN 1 AND 7),
     CONSTRAINT chk_items_sell_price CHECK (sell_price >= 0),
-    CONSTRAINT chk_items_weight CHECK (weight >= 0),
     CONSTRAINT chk_items_width CHECK (width >= 1),
     CONSTRAINT chk_items_height CHECK (height >= 1)
 );

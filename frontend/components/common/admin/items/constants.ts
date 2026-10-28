@@ -14,7 +14,6 @@ export const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
 
 /** 与后端 ItemRequest 的校验一致 */
 export const MAX_SELL_PRICE = 1_000_000_000_000;
-export const MAX_WEIGHT = 1_000_000;
 export const MAX_SIZE = 10;
 
 /** 物品转为修改接口的请求体, 修改接口需要提交全部字段 */
@@ -26,7 +25,6 @@ export function toRequest(item: AdminItem): ItemRequest {
     image_url: item.image_url,
     sell_currency: item.sell_currency,
     sell_price: item.sell_price,
-    weight: item.weight,
     width: item.width,
     height: item.height,
     is_enabled: item.is_enabled,
