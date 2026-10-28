@@ -54,6 +54,16 @@ export interface PveView {
   /** 仓库价值系数, 基点 */
   value_factor: number;
   value_range: ValueRange;
+  /** 今天受到的每日收益上限, 不限制时为空; 任一上限达到后人机对局转为练习局 */
+  profit_caps: ProfitCap[];
+}
+
+/** 人机模式的一个每日收益上限和当天的净收益, 金额为出价货币的最小单位, 对应后端 venue.ProfitCap */
+export interface ProfitCap {
+  /** mode:pve 为全局的上限, venue:<地图代码>:pve 为这张地图的上限 */
+  scope: string;
+  limit: number;
+  profit: number;
 }
 
 /** 玩家看到的地图, 对应后端 venue.VenueView */

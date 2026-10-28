@@ -41,6 +41,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/config"
@@ -188,6 +189,9 @@ func Serve() {
 				leaderboardRouter.GET("", leaderboard.ListBoards)
 				leaderboardRouter.GET("/:code", leaderboard.GetBoard)
 			}
+
+			// Stats
+			apiV1Router.GET("/stats", auth.LoginRequired(), stats.GetStats)
 
 			// Admin
 			adminRouter := apiV1Router.Group("/admin")

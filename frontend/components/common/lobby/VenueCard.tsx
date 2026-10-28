@@ -1,9 +1,10 @@
 import {Bot, Info, LoaderCircle, Swords} from 'lucide-react';
+import {cn} from 'cn';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {MODES, type ModeKind} from '@/lib/auction';
-import type {Venue, ValueRange} from '@/lib/services/venue';
+import type {ProfitCap, Venue, ValueRange} from '@/lib/services/venue';
 import {formatAmount} from '@/lib/utils';
 import {EntryCost, RequirementList} from './VenueInfo';
 
@@ -27,6 +28,7 @@ export function VenueCard({venue: v, decimals, busy, queued, disabled, onJoin, o
     {kind: 'pve', enabled: v.pve_enabled, range: v.pve.value_range, icon: Bot},
     {kind: 'ranked', enabled: v.ranked_enabled, range: v.value_range, icon: Swords},
   ];
+  const capReached = v.pve.profit_caps.some((c) => c.profit >= c.limit);
 
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border bg-card">
@@ -69,15 +71,22 @@ export function VenueCard({venue: v, decimals, busy, queued, disabled, onJoin, o
           {modes.map(({kind, enabled, range, icon: Icon}) => (
             <div key={kind} className="flex flex-col gap-1.5 rounded-lg border p-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 font-medium">
+                <span className="flex items-center gap-1.5 font-medium whitespace-nowrap">
                   <Icon className="size-4 text-primary" />
                   {MODES[kind].label}
                 </span>
-                {kind === 'pve' && v.pve.practice_only && <Badge variant="outline">只能练习</Badge>}
+                {kind === 'pve' && (v.pve.practice_only || capReached) && (
+                  <Badge variant="outline" title={v.pve.practice_only ? undefined : '今日人机收益已达上限, 明天恢复'}>
+                    只能练习
+                  </Badge>
+                )}
               </div>
               <span className="text-xs text-muted-foreground" title="模拟的仓库价值, 八成的仓库在这个区间内">
                 价值约 {formatAmount(range.p10, decimals, {compact: true})} - {formatAmount(range.p90, decimals, {compact: true})}
               </span>
+              {kind === 'pve' && v.pve.profit_caps.map((c) => (
+                <ProfitCapLine key={c.scope} cap={c} currency={v.bid_currency} decimals={decimals} />
+              ))}
               <Button
                 size="sm"
                 variant={kind === 'pve' ? 'default' : 'secondary'}
@@ -92,5 +101,25 @@ export function VenueCard({venue: v, decimals, busy, queued, disabled, onJoin, o
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * 人机模式的一个每日收益上限, 如 "今日收益 120 / 5,000"; 达到后显示为警示色
+ */
+function ProfitCapLine({cap, currency, decimals}: { cap: ProfitCap; currency: string; decimals: number }) {
+  const reached = cap.profit >= cap.limit;
+  const global = !cap.scope.startsWith('venue:');
+  return (
+    <span
+      className={cn('flex items-center justify-between gap-2 text-xs whitespace-nowrap', reached ? 'text-quality-red' : 'text-muted-foreground')}
+      title={`${global ? '全部地图' : '这张地图'}今天的人机净收益 / 每日上限; ${reached ? '已达上限, 今天的人机对局都是练习局' : '达到上限后, 今天的人机对局转为练习局'}`}
+    >
+      {global ? '今日收益' : '本图今日'}
+      <span className="flex items-center gap-1 font-mono tabular-nums">
+        <CurrencyIcon currency={currency} className="size-3.5" />
+        {formatAmount(cap.profit, decimals, {signed: true})} / {formatAmount(cap.limit, decimals, {compact: true})}
+      </span>
+    </span>
   );
 }
