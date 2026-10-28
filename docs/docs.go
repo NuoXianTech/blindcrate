@@ -603,6 +603,358 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/leaderboards": {
+            "get": {
+                "description": "按排序值排列, 包含停用的榜单",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取榜单列表",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "name": "is_enabled",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 64,
+                        "type": "string",
+                        "description": "按代码或名称搜索, 不区分大小写",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListLeaderboardsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "新建榜单",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.LeaderboardRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/leaderboard.Board"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/leaderboards/metrics": {
+            "get": {
+                "description": "已注册的计数指标和每种货币的净收益",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取可以排名的指标",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListLeaderboardMetricsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/leaderboards/{id}": {
+            "put": {
+                "description": "需提交全部字段; 修改后缓存的前 N 名随即失效",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "修改榜单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "leaderboard id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.LeaderboardRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/leaderboard.Board"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "只删除榜单配置, 统计数据不受影响",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "删除榜单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "leaderboard id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/loot-pools": {
             "get": {
                 "produces": [
@@ -4033,6 +4385,121 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/leaderboards": {
+            "get": {
+                "description": "按排序值排列, 只有榜单的配置, 名次见获取排行榜",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "leaderboard"
+                ],
+                "summary": "获取启用的排行榜",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/leaderboard.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/leaderboard.ListBoardsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/leaderboard.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/leaderboard.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/leaderboard.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/leaderboards/{code}": {
+            "get": {
+                "description": "前 N 名缓存 60 秒, 所有人看到同一份; 自己的名次每次查询, 可能在前 N 名之外",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "leaderboard"
+                ],
+                "summary": "获取排行榜",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "leaderboard code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/leaderboard.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/leaderboard.BoardDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/leaderboard.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/leaderboard.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/leaderboard.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/leaderboard.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/loot-pools/{code}/odds": {
             "get": {
                 "description": "只返回已启用的掉落池中可抽取的条目, 概率为每次抽取抽中该条目的概率",
@@ -5114,6 +5581,63 @@ const docTemplate = `{
                 }
             }
         },
+        "admin.LeaderboardRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "metric",
+                "name",
+                "period",
+                "scope"
+            ],
+            "properties": {
+                "code": {
+                    "description": "自然键, 小写字母、数字和下划线",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "is_enabled": {
+                    "description": "停用后玩家看不到",
+                    "type": "boolean"
+                },
+                "metric": {
+                    "description": "排名的指标, 见可以排名的指标",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "min_matches": {
+                    "description": "同一范围和周期内至少完成多少局才上榜",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "period": {
+                    "description": "total 累计或 day 当天",
+                    "type": "string"
+                },
+                "scope": {
+                    "description": "统计范围, 如 all、mode:ranked、venue:dock",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "size": {
+                    "description": "展示前多少名, 10-500",
+                    "type": "integer"
+                },
+                "sort_order": {
+                    "description": "玩家页面的页签从小到大排列",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
+                }
+            }
+        },
         "admin.ListAuditLogsResponseData": {
             "type": "object",
             "properties": {
@@ -5171,6 +5695,31 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/admin.ItemListItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "admin.ListLeaderboardMetricsResponseData": {
+            "type": "object",
+            "properties": {
+                "metrics": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_NuoXianTech_blindcrate_internal_apps_stats.Metric"
+                    }
+                }
+            }
+        },
+        "admin.ListLeaderboardsResponseData": {
+            "type": "object",
+            "properties": {
+                "boards": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/leaderboard.Board"
                     }
                 },
                 "total": {
@@ -6245,6 +6794,18 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_NuoXianTech_blindcrate_internal_apps_stats.Metric": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "description": "后台和条件描述中展示的名称, 如 \"对局数\"",
+                    "type": "string"
+                }
+            }
+        },
         "health.Response": {
             "type": "object",
             "properties": {
@@ -6613,6 +7174,209 @@ const docTemplate = `{
                 "width": {
                     "description": "在仓库中占的格数",
                     "type": "integer"
+                }
+            }
+        },
+        "leaderboard.Board": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "自然键, 如 ranked_wins",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_enabled": {
+                    "description": "停用后玩家看不到",
+                    "type": "boolean"
+                },
+                "metric": {
+                    "description": "排名的指标, 如 wins、profit:chip",
+                    "type": "string"
+                },
+                "min_matches": {
+                    "description": "同一范围和周期内至少完成多少局才上榜",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "period": {
+                    "description": "统计周期, total 或 day",
+                    "type": "string"
+                },
+                "scope": {
+                    "description": "统计范围, 如 all、mode:ranked",
+                    "type": "string"
+                },
+                "size": {
+                    "description": "展示前多少名",
+                    "type": "integer"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "leaderboard.BoardDetail": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "currency": {
+                    "description": "指标为某种货币的净收益时为货币代码, 数值按该货币的最小单位计; 否则为空",
+                    "type": "string"
+                },
+                "current_period": {
+                    "description": "当前的统计周期, 如 total、day:2026-10-28",
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "entries": {
+                    "description": "按名次排列, 最多 Size 名",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/leaderboard.Entry"
+                    }
+                },
+                "metric": {
+                    "type": "string"
+                },
+                "metric_name": {
+                    "description": "指标的展示名称, 如 \"胜利次数\"",
+                    "type": "string"
+                },
+                "min_matches": {
+                    "type": "integer"
+                },
+                "mine": {
+                    "$ref": "#/definitions/leaderboard.Mine"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "period": {
+                    "description": "total 或 day",
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "scope_name": {
+                    "description": "统计范围的展示名称, 全部对局为空",
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "leaderboard.BoardView": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "currency": {
+                    "description": "指标为某种货币的净收益时为货币代码, 数值按该货币的最小单位计; 否则为空",
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "metric": {
+                    "type": "string"
+                },
+                "metric_name": {
+                    "description": "指标的展示名称, 如 \"胜利次数\"",
+                    "type": "string"
+                },
+                "min_matches": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "period": {
+                    "description": "total 或 day",
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "scope_name": {
+                    "description": "统计范围的展示名称, 全部对局为空",
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "leaderboard.Entry": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "is_self": {
+                    "type": "boolean"
+                },
+                "nickname": {
+                    "description": "未设置昵称时为用户名",
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "value": {
+                    "type": "integer"
+                }
+            }
+        },
+        "leaderboard.ListBoardsResponseData": {
+            "type": "object",
+            "properties": {
+                "boards": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/leaderboard.BoardView"
+                    }
+                }
+            }
+        },
+        "leaderboard.Mine": {
+            "type": "object",
+            "properties": {
+                "rank": {
+                    "description": "名次, 可能在前 N 名之外; 0 表示没有上榜(没有数据、局数不够或账号受限)",
+                    "type": "integer"
+                },
+                "value": {
+                    "description": "自己的数值, 没有上榜也会返回",
+                    "type": "integer"
+                }
+            }
+        },
+        "leaderboard.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
                 }
             }
         },

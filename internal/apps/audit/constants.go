@@ -32,12 +32,13 @@ const (
 
 // 操作对象类型
 const (
-	TargetUser     = "user"
-	TargetSetting  = "setting" // target_id 固定为 0, 设置组见 detail.key
-	TargetItem     = "item"
-	TargetLootPool = "loot_pool"
-	TargetMatch    = "match"
-	TargetVenue    = "venue"
+	TargetUser        = "user"
+	TargetSetting     = "setting" // target_id 固定为 0, 设置组见 detail.key
+	TargetItem        = "item"
+	TargetLootPool    = "loot_pool"
+	TargetMatch       = "match"
+	TargetVenue       = "venue"
+	TargetLeaderboard = "leaderboard"
 )
 
 // 操作类型, 格式为 "模块.动作"
@@ -67,6 +68,9 @@ const (
 	ActionVenueUpdate           = "admin.venue_update"
 	ActionVenueDelete           = "admin.venue_delete"
 	ActionMatchCancel           = "admin.match_cancel"
+	ActionLeaderboardCreate     = "admin.leaderboard_create"
+	ActionLeaderboardUpdate     = "admin.leaderboard_update"
+	ActionLeaderboardDelete     = "admin.leaderboard_delete"
 	ActionSettingsUpdate        = "admin.settings_update"
 	ActionSettingsRollback      = "admin.settings_rollback"
 	ActionSettingsReset         = "admin.settings_reset"

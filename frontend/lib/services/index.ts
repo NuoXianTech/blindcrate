@@ -2,6 +2,7 @@ import {AdminService} from './admin';
 import {AuctionService} from './auction';
 import {AuthService} from './auth';
 import {InventoryService} from './inventory';
+import {LeaderboardService} from './leaderboard';
 import {MatchService} from './match';
 import {VenueService} from './venue';
 import {WalletService} from './wallet';
@@ -37,6 +38,8 @@ const services = {
   venue: VenueService,
   /** 匹配和对局 */
   match: MatchService,
+  /** 排行榜 */
+  leaderboard: LeaderboardService,
   /** 仓库暗拍 */
   auction: AuctionService,
   /** 管理后台 */

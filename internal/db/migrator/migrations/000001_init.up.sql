@@ -314,6 +314,35 @@ CREATE TABLE IF NOT EXISTS stats
     PRIMARY KEY (user_id, scope, period, metric)
 );
 
+-- 排行榜按范围、周期和指标取数值最大的若干行
+CREATE INDEX IF NOT EXISTS idx_stats_board ON stats (scope, period, metric, value DESC);
+
+-- 排行榜, 由管理员配置, 按 stats 中的某个指标排名
+CREATE TABLE IF NOT EXISTS leaderboards
+(
+    id          BIGSERIAL PRIMARY KEY,
+    code        VARCHAR(64)  NOT NULL,               -- 自然键, 如 ranked_wins
+    name        VARCHAR(64)  NOT NULL,
+    description VARCHAR(255) NOT NULL DEFAULT '',
+    metric      VARCHAR(64)  NOT NULL,               -- 排名的指标, 如 wins、profit:chip
+    scope       VARCHAR(64)  NOT NULL,               -- 统计范围, 如 all、mode:ranked
+    period      VARCHAR(16)  NOT NULL,               -- 统计周期, total 或 day
+    size        INTEGER      NOT NULL DEFAULT 100,   -- 展示前多少名
+    min_matches BIGINT       NOT NULL DEFAULT 0,     -- 同一范围和周期内至少完成多少局才上榜
+    sort_order  INTEGER      NOT NULL DEFAULT 0,
+    is_enabled  BOOLEAN      NOT NULL DEFAULT FALSE, -- 停用后玩家看不到
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_leaderboards_code ON leaderboards (code);
+
+INSERT INTO leaderboards (code, name, description, metric, scope, period, size, min_matches, sort_order, is_enabled)
+VALUES ('ranked_wins', '排位胜场', '排位中拿到第一名的次数', 'wins', 'mode:ranked', 'total', 100, 0, 10, TRUE),
+       ('daily_profit_chip', '今日收益', '今天所有对局的筹码净收益, 至少完成 3 局才上榜', 'profit:chip', 'all', 'day', 100, 3, 20, TRUE),
+       ('bid_won', '成交次数', '累计拍下仓库的次数', 'bid_won', 'all', 'total', 100, 0, 30, TRUE)
+ON CONFLICT (code) DO NOTHING;
+
 -- 地图(拍卖场), 每张地图有人机和排位两种玩法; 软删除, 代码在已删除的地图中也唯一
 CREATE TABLE IF NOT EXISTS venues
 (

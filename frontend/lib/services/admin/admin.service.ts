@@ -10,6 +10,10 @@ import type {
   Currency,
   Item,
   ItemRequest,
+  LeaderboardRequest,
+  AdminLeaderboard,
+  ListLeaderboardsData,
+  ListLeaderboardsParams,
   ListAdminInventoryTransactionsData,
   ListAdminInventoryTransactionsParams,
   ListAdminWalletTransactionsData,
@@ -34,6 +38,7 @@ import type {
   SettingGroup,
   SettingRevisionDetail,
   Simulation,
+  StatMetric,
   UpdateSettingRequest,
   UpdateUserRequest,
   VenueRequest,
@@ -138,6 +143,29 @@ export class AdminService extends BaseService {
   /** 按未保存的配置模拟仓库, 不写入数据 */
   static simulateVenue(body: VenueRequest) {
     return this.post<Simulation>('/venues/simulate', body);
+  }
+
+  static listLeaderboards(params: ListLeaderboardsParams) {
+    return this.get<ListLeaderboardsData>('/leaderboards', {params});
+  }
+
+  /** 可以排名的指标: 计数指标和每种货币的净收益 */
+  static listLeaderboardMetrics() {
+    return this.get<{ metrics: StatMetric[] }>('/leaderboards/metrics');
+  }
+
+  static createLeaderboard(body: LeaderboardRequest) {
+    return this.post<AdminLeaderboard>('/leaderboards', body);
+  }
+
+  /** 修改后缓存的前 N 名随即失效 */
+  static updateLeaderboard(id: number, body: LeaderboardRequest) {
+    return this.put<AdminLeaderboard>(`/leaderboards/${id}`, body);
+  }
+
+  /** 只删除榜单配置, 统计数据不受影响 */
+  static deleteLeaderboard(id: number) {
+    return this.delete<null>(`/leaderboards/${id}`);
   }
 
   static listConditionTypes() {

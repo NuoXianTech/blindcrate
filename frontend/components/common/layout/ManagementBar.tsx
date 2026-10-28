@@ -8,11 +8,13 @@ import {
   Dices,
   Gamepad2,
   LogOut,
+  Medal,
   Package,
   Palette,
   ReceiptText,
   ScrollText,
   Settings,
+  Trophy,
   Users,
   Wallet,
   Warehouse,
@@ -49,6 +51,7 @@ export function ManagementBar() {
     {title: '大厅', icon: <Gamepad2 />, href: ROUTES.gameHome, active: pathname === ROUTES.gameHome},
     {title: '背包', icon: <Backpack />, href: ROUTES.inventory, active: pathname.startsWith(ROUTES.inventory)},
     {title: '钱包', icon: <Wallet />, href: ROUTES.wallet, active: pathname.startsWith(ROUTES.wallet)},
+    {title: '排行榜', icon: <Trophy />, href: ROUTES.leaderboard, active: pathname.startsWith(ROUTES.leaderboard)},
   ];
 
   // 管理区域, 单独一组
@@ -59,6 +62,7 @@ export function ManagementBar() {
         {title: '物品管理', icon: <Package />, href: ROUTES.adminItems, active: pathname.startsWith(ROUTES.adminItems)},
         {title: '掉落池', icon: <Dices />, href: ROUTES.adminLootPools, active: pathname.startsWith(ROUTES.adminLootPools)},
         {title: '地图管理', icon: <Warehouse />, href: ROUTES.adminVenues, active: pathname.startsWith(ROUTES.adminVenues)},
+        {title: '榜单管理', icon: <Medal />, href: ROUTES.adminLeaderboards, active: pathname.startsWith(ROUTES.adminLeaderboards)},
         {title: '流水查询', icon: <ReceiptText />, href: ROUTES.adminTransactions, active: pathname.startsWith(ROUTES.adminTransactions)},
         {title: '操作日志', icon: <ScrollText />, href: ROUTES.adminAuditLogs, active: pathname.startsWith(ROUTES.adminAuditLogs)},
         {title: '系统设置', icon: <Settings />, href: ROUTES.adminSettings, active: pathname.startsWith(ROUTES.adminSettings)},
