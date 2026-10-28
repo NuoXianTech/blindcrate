@@ -28,6 +28,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/NuoXianTech/blindcrate/internal/task"
@@ -45,6 +46,8 @@ func StartWorker() error {
 		asynq.Config{
 			Concurrency:     config.Config.Worker.Concurrency,
 			ShutdownTimeout: 3 * time.Minute,
+			// 定时任务默认每 5 秒检查一次是否到期, 缩短到 1 秒让对局阶段准时结束
+			DelayedTaskCheckInterval: time.Second,
 			Queues: map[string]int{
 				task.QueueCritical: 10,
 				task.QueueDefault:  5,
@@ -57,6 +60,9 @@ func StartWorker() error {
 	// 注册任务处理器
 	mux := asynq.NewServeMux()
 	mux.Use(taskLoggingMiddleware)
+	mux.HandleFunc(task.TypeMatchPhaseTimeout, match.HandlePhaseTimeout)
+	mux.HandleFunc(task.TypeMatchBotFill, match.HandleBotFill)
+	mux.HandleFunc(task.TypeMatchSweep, match.HandleSweep)
 
 	// 启动服务
 	return asynqServer.Run(mux)

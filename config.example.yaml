@@ -62,6 +62,7 @@ log:
 schedule:
   port: 8002 # scheduler probe port
   time_zone: "Asia/Shanghai" # cron expressions are evaluated in this time zone
+  match_sweep: "@every 30s" # recover overdue match phases and stuck matchmaking queues
 
 # Worker
 worker:

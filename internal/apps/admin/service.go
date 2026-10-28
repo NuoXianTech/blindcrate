@@ -41,6 +41,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
+	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -776,6 +777,37 @@ func lootEntryFields(entries []loot.Entry) []map[string]interface{} {
 		}
 	}
 	return fields
+}
+
+// QueryMatches 获取对局列表
+func QueryMatches(ctx context.Context, req *ListMatchesRequest) (int64, []match.MatchDetail, error) {
+	offset := (req.Current - 1) * req.Size
+
+	query := db.DB(ctx).Model(&match.Match{})
+	if req.Mode != "" {
+		query = query.Where("mode = ?", req.Mode)
+	}
+	if req.Status != "" {
+		query = query.Where("status = ?", req.Status)
+	}
+	if req.UserID != nil {
+		query = query.Where("id IN (SELECT match_id FROM match_players WHERE user_id = ?)", *req.UserID)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return 0, nil, err
+	}
+
+	var matches []match.Match
+	if err := query.Order("id DESC").Offset(offset).Limit(req.Size).Find(&matches).Error; err != nil {
+		return 0, nil, err
+	}
+	details, err := match.LoadDetails(db.DB(ctx), matches)
+	if err != nil {
+		return 0, nil, err
+	}
+	return total, details, nil
 }
 
 // queryUserInventory 获取指定用户背包中的物品

@@ -249,3 +249,38 @@ CREATE TABLE IF NOT EXISTS loot_pool_entries
 );
 
 CREATE INDEX IF NOT EXISTS idx_loot_pool_entries_pool_id ON loot_pool_entries (pool_id);
+
+-- 对局, 由匹配创建, 创建时即开始; 阶段由玩法定义
+CREATE TABLE IF NOT EXISTS matches
+(
+    id            BIGSERIAL PRIMARY KEY,
+    mode          VARCHAR(32) NOT NULL,            -- 玩法代码
+    status        VARCHAR(16) NOT NULL,            -- playing、finished 或 cancelled
+    phase         VARCHAR(32) NOT NULL DEFAULT '', -- 当前阶段, 结束后保留最后一个阶段
+    round         INTEGER     NOT NULL DEFAULT 0,
+    phase_ends_at TIMESTAMPTZ,                     -- 当前阶段的截止时间, 不限时或已结束时为空
+    version       BIGINT      NOT NULL DEFAULT 0,  -- 每次切换阶段加 1
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at   TIMESTAMPTZ
+);
+
+-- 巡检到期仍未推进的对局
+CREATE INDEX IF NOT EXISTS idx_matches_status_phase_ends_at ON matches (status, phase_ends_at);
+
+-- 对局中的座位, 坐的是真人或人机
+CREATE TABLE IF NOT EXISTS match_players
+(
+    id         BIGSERIAL PRIMARY KEY,
+    match_id   BIGINT      NOT NULL,
+    seat       SMALLINT    NOT NULL,             -- 座位号, 从 1 开始
+    user_id    BIGINT      NOT NULL DEFAULT 0,   -- 人机为 0
+    bot_name   VARCHAR(32) NOT NULL DEFAULT '',
+    bot_level  SMALLINT    NOT NULL DEFAULT 0,   -- 人机等级, 真人为 0
+    rank       SMALLINT    NOT NULL DEFAULT 0,   -- 结束时的名次, 0 表示没有名次
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_match_players_bot CHECK ((user_id = 0) = (bot_level > 0))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_match_players_match_id_seat ON match_players (match_id, seat);
+CREATE INDEX IF NOT EXISTS idx_match_players_user_id ON match_players (user_id);

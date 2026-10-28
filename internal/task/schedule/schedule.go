@@ -74,6 +74,12 @@ func StartScheduler() error {
 			},
 		)
 
+		// 巡检到期未推进的对局和排队, 失败时等下一次巡检, 不重试
+		if _, err = scheduler.Register(config.Config.Schedule.MatchSweep, asynq.NewTask(task.TypeMatchSweep, nil), asynq.MaxRetry(0)); err != nil {
+			err = fmt.Errorf("register %s failed: %w", task.TypeMatchSweep, err)
+			return
+		}
+
 		// 启动调度器
 		err = scheduler.Run()
 	})

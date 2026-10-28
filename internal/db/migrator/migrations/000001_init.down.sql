@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS match_players;
+DROP TABLE IF EXISTS matches;
 DROP TABLE IF EXISTS loot_pool_entries;
 DROP TABLE IF EXISTS loot_pools;
 DROP TABLE IF EXISTS inventory_sell_order_items;

@@ -36,6 +36,7 @@ const (
 	TargetSetting  = "setting" // target_id 固定为 0, 设置组见 detail.key
 	TargetItem     = "item"
 	TargetLootPool = "loot_pool"
+	TargetMatch    = "match"
 )
 
 // 操作类型, 格式为 "模块.动作"
@@ -61,6 +62,7 @@ const (
 	ActionLootPoolUpdate        = "admin.loot_pool_update"
 	ActionLootPoolDelete        = "admin.loot_pool_delete"
 	ActionLootPoolEntriesUpdate = "admin.loot_pool_entries_update"
+	ActionMatchCancel           = "admin.match_cancel"
 	ActionSettingsUpdate        = "admin.settings_update"
 	ActionMailTest              = "admin.mail_test"
 )

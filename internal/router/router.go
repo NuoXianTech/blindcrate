@@ -36,6 +36,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
+	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/config"
@@ -145,6 +146,22 @@ func Serve() {
 			// Loot
 			apiV1Router.GET("/loot-pools/:code/odds", auth.LoginRequired(), loot.GetPoolOdds)
 
+			// Match
+			matchmakingRouter := apiV1Router.Group("/matchmaking")
+			matchmakingRouter.Use(auth.LoginRequired())
+			{
+				matchmakingRouter.GET("", match.GetMatchmaking)
+				matchmakingRouter.POST("", ratelimit.ByUser("match:join", ratelimit.PerMinute(30)), match.JoinMatchmaking)
+				matchmakingRouter.DELETE("", match.LeaveMatchmaking)
+			}
+			matchRouter := apiV1Router.Group("/matches")
+			matchRouter.Use(auth.LoginRequired())
+			{
+				matchRouter.GET("", match.ListMatches)
+				matchRouter.GET("/current", match.GetCurrentMatch)
+				matchRouter.GET("/:id", match.GetMatch)
+			}
+
 			// Admin
 			adminRouter := apiV1Router.Group("/admin")
 			adminRouter.Use(auth.LoginRequired(), admin.LoginAdminRequired())
@@ -188,6 +205,13 @@ func Serve() {
 					lootPoolAdminRouter.DELETE("/:id", admin.DeleteLootPool)
 					lootPoolAdminRouter.GET("/:id/entries", admin.ListLootPoolEntries)
 					lootPoolAdminRouter.PUT("/:id/entries", admin.ReplaceLootPoolEntries)
+				}
+
+				// Match
+				matchAdminRouter := adminRouter.Group("/matches")
+				{
+					matchAdminRouter.GET("", admin.ListMatches)
+					matchAdminRouter.POST("/:id/cancel", admin.CancelMatch)
 				}
 
 				// Inventory

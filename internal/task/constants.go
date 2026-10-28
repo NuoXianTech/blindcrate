@@ -41,3 +41,10 @@ const (
 	QueueDefault  = "default"
 	QueueLow      = "low"
 )
+
+// 任务类型
+const (
+	TypeMatchPhaseTimeout = "match:phase_timeout" // 对局阶段到期, 进 critical
+	TypeMatchBotFill      = "match:bot_fill"      // 排队等到补位时间, 用人机补齐后组局
+	TypeMatchSweep        = "match:sweep"         // 定时巡检到期未推进的对局和排队, cron 为 schedule.match_sweep
+)
