@@ -86,8 +86,12 @@ func QueryGroups(ctx context.Context, category string) ([]GroupView, error) {
 		if category != "" && g.category != category {
 			continue
 		}
+		fields, err := g.formFields(db.DB(ctx))
+		if err != nil {
+			return nil, err
+		}
 		value, broken := g.decode(ctx, rows[g.key])
-		views = append(views, g.view(rows[g.key], value, broken))
+		views = append(views, g.view(fields, rows[g.key], value, broken))
 	}
 	return views, nil
 }
@@ -102,8 +106,12 @@ func QueryGroup(ctx context.Context, key string) (*GroupView, error) {
 	if err := db.DB(ctx).Where("key = ?", key).Limit(1).Find(&row).Error; err != nil {
 		return nil, err
 	}
+	fields, err := g.formFields(db.DB(ctx))
+	if err != nil {
+		return nil, err
+	}
 	value, broken := g.decode(ctx, &row)
-	view := g.view(&row, value, broken)
+	view := g.view(fields, &row, value, broken)
 	return &view, nil
 }
 
@@ -179,8 +187,8 @@ func Update(ctx context.Context, operatorID uint64, key string, version int64, r
 	if g == nil {
 		return nil, nil, errors.New(GroupNotFound)
 	}
-	return g.save(ctx, operatorID, version, RevisionUpdate, 0, func(_ *gorm.DB, cur any, broken []string) (any, error) {
-		return g.merge(cur, broken, raw, clearSecrets)
+	return g.save(ctx, operatorID, version, RevisionUpdate, 0, func(tx *gorm.DB, cur any, broken []string) (any, error) {
+		return g.merge(tx, cur, broken, raw, clearSecrets)
 	})
 }
 
@@ -201,7 +209,7 @@ func Rollback(ctx context.Context, operatorID uint64, key string, version, targe
 		if len(broken) > 0 {
 			return nil, fmt.Errorf(RevisionBroken, target, g.field(broken[0]).Label)
 		}
-		if err = g.validate(next); err != nil {
+		if err = g.validate(tx, next); err != nil {
 			return nil, err
 		}
 		return next, nil
@@ -245,9 +253,13 @@ func (g *group) save(ctx context.Context, operatorID uint64, version int64, acti
 			failure = err
 			return err
 		}
+		fields, err := g.formFields(tx)
+		if err != nil {
+			return err
+		}
 		changes = g.diff(cur, broken, next)
 		if len(changes) == 0 {
-			view = g.view(&row, cur, broken)
+			view = g.view(fields, &row, cur, broken)
 			return nil
 		}
 		stored, err := g.encode(next)
@@ -306,7 +318,7 @@ func (g *group) save(ctx context.Context, operatorID uint64, version int64, acti
 		if err = tx.Create(&revision).Error; err != nil {
 			return err
 		}
-		view = g.view(&row, next, nil)
+		view = g.view(fields, &row, next, nil)
 		return nil
 	})
 	if failure != nil {

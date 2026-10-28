@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS items
     quality       SMALLINT      NOT NULL DEFAULT 1,             -- 品质等级, 见 qualities
     category      VARCHAR(32)   NOT NULL DEFAULT 'collectible', -- 类别代码, 由代码注册; 仓库只抽藏品
     image_url     VARCHAR(1024) NOT NULL DEFAULT '',
-    sell_currency VARCHAR(32)   NOT NULL DEFAULT 'chip',        -- 卖出得到的货币
+    sell_currency VARCHAR(32)   NOT NULL,                       -- 卖出得到的货币
     sell_price    BIGINT        NOT NULL DEFAULT 0,             -- 卖出价格, 0 表示不可卖出
     width         SMALLINT      NOT NULL DEFAULT 1,             -- 在仓库中占的格数
     height        SMALLINT      NOT NULL DEFAULT 1,
@@ -381,7 +381,7 @@ CREATE TABLE IF NOT EXISTS venues
     is_enabled     BOOLEAN       NOT NULL DEFAULT FALSE,  -- 停用后不能加入队列, 进行中的对局照常打完
     pve_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,
     ranked_enabled BOOLEAN       NOT NULL DEFAULT FALSE,
-    bid_currency   VARCHAR(32)   NOT NULL DEFAULT 'chip', -- 出价和计算仓库价值的货币
+    bid_currency   VARCHAR(32)   NOT NULL,                -- 出价和计算仓库价值的货币
     entry_cost     JSONB         NOT NULL DEFAULT '{}',   -- 入场代价 reward.Bundle, 数量为正数
     requirements   JSONB         NOT NULL DEFAULT '[]',   -- 入场条件 []condition.Condition
     warehouse      JSONB         NOT NULL DEFAULT '{}',   -- 仓库生成规则

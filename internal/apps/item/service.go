@@ -32,20 +32,20 @@ import (
 	"slices"
 	"unicode/utf8"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-// Placeholder 生成占位物品, 保留原物品 ID
-func Placeholder(id uint64) *Item {
+// Placeholder 生成占位物品, 保留原物品 ID, 按 currency 回收
+func Placeholder(id uint64, currency string) *Item {
 	return &Item{
 		ID:            id,
 		Name:          placeholderName(id),
 		Quality:       PlaceholderQuality,
 		Category:      CategoryCollectible,
-		SellCurrency:  wallet.CurrencyChip,
+		SellCurrency:  currency,
 		SellPrice:     PlaceholderSellPrice,
 		Width:         1,
 		Height:        1,
@@ -58,7 +58,7 @@ func placeholderName(id uint64) string {
 	return fmt.Sprintf("未知物品 #%d", id)
 }
 
-// Resolve 按 ID 批量获取物品, 已删除或不存在的物品返回占位物品
+// Resolve 按 ID 批量获取物品, 已删除或不存在的物品返回占位物品, 占位物品按基础货币回收
 //
 // 背包展示、卖出、仓库暗拍等读取用户持有的物品时都应走这里, 占位规则只在这一处决定。
 func Resolve(tx *gorm.DB, ids []uint64) (map[uint64]*Item, error) {
@@ -74,10 +74,19 @@ func Resolve(tx *gorm.DB, ids []uint64) (map[uint64]*Item, error) {
 	for i := range items {
 		result[items[i].ID] = &items[i]
 	}
+	var currency string
 	for _, id := range ids {
-		if result[id] == nil {
-			result[id] = Placeholder(id)
+		if result[id] != nil {
+			continue
 		}
+		if currency == "" {
+			economy, err := settings.Economy.Get(tx.Statement.Context)
+			if err != nil {
+				return nil, err
+			}
+			currency = economy.BaseCurrency
+		}
+		result[id] = Placeholder(id, currency)
 	}
 	return result, nil
 }

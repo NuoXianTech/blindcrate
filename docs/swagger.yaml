@@ -2019,6 +2019,9 @@ definitions:
         type: array
       public:
         type: boolean
+      ref:
+        description: 引用其他模块的数据, 如 currency; 可选值在读取时由 RegisterRef 注册的函数生成
+        type: string
       secret:
         type: boolean
       type:

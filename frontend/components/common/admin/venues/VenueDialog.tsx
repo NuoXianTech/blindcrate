@@ -9,6 +9,7 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import type {ScopeOption} from '@/components/common/admin/editors';
 import {SubmitButton} from '@/components/common/form';
+import {useSite} from '@/components/common/site';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminItem, AdminVenue, ConditionType, Currency, LootPoolListItem, Simulation} from '@/lib/services/admin';
@@ -82,7 +83,8 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
   const save = useSubmit();
   const simulate = useSubmit();
   const pending = save.pending || simulate.pending;
-  const [form, setForm] = useState<VenueForm>(() => toVenueForm(venue ? toRequest(venue) : null, currencies));
+  const {economy} = useSite();
+  const [form, setForm] = useState<VenueForm>(() => toVenueForm(venue ? toRequest(venue) : null, currencies, economy.base_currency));
   const [tab, setTab] = useState('basic');
   const [simulation, setSimulation] = useState<Simulation | null>(venue?.simulation ?? null);
   // 模拟结果之后表单是否有改动

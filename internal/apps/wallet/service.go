@@ -30,9 +30,14 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 )
+
+func init() {
+	settings.RegisterRef(RefCurrency, currencyOptions)
+}
 
 // ChangeRequest 一次余额变动
 //
@@ -138,6 +143,19 @@ func validateChange(req *ChangeRequest) error {
 // amountInRange 单笔变动不能超过 MaxAmount
 func amountInRange(amount int64) bool {
 	return amount >= -MaxAmount && amount <= MaxAmount
+}
+
+// currencyOptions 设置中可以选的货币: 全部启用的货币, 按排序值排列
+func currencyOptions(tx *gorm.DB) ([]settings.Option, error) {
+	var currencies []Currency
+	if err := tx.Where("is_enabled").Order("sort_order, code").Find(&currencies).Error; err != nil {
+		return nil, err
+	}
+	options := make([]settings.Option, len(currencies))
+	for i, currency := range currencies {
+		options[i] = settings.Option{Value: currency.Code, Label: currency.Name}
+	}
+	return options, nil
 }
 
 // checkCurrency 货币必须存在且启用

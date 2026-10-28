@@ -77,7 +77,7 @@ export interface VenueForm {
   valueFactor: string;
 }
 
-/** 新建地图时的默认配置, 与老城区仓库的种子数据相近 */
+/** 新建地图时的默认配置, 与老城区仓库的种子数据相近; 出价货币见 toVenueForm */
 const DEFAULT_REQUEST: VenueRequest = {
   code: '',
   name: '',
@@ -87,7 +87,7 @@ const DEFAULT_REQUEST: VenueRequest = {
   is_enabled: false,
   pve_enabled: true,
   ranked_enabled: true,
-  bid_currency: 'chip',
+  bid_currency: '',
   entry_cost: {},
   requirements: [],
   warehouse: {grid: {width: 6, height: 5}, slots: [{pool: '', min: 4, max: 8, chance: 10000}], max_rerolls: 10},
@@ -120,14 +120,12 @@ function ratioInput(value: number, decimals: number): string {
 
 /**
  * 地图转为表单, venue 为空时新建
- * 出价货币不存在时换成第一个货币, 金额按它的小数位换算
+ * 新建时出价货币为基础货币, 基础货币不存在时换成第一个货币, 金额按它的小数位换算
  */
-export function toVenueForm(venue: VenueRequest | null, currencies: Currency[]): VenueForm {
+export function toVenueForm(venue: VenueRequest | null, currencies: Currency[], baseCurrency: string): VenueForm {
   const v = venue ?? {
     ...DEFAULT_REQUEST,
-    bid_currency: currencies.some((c) => c.code === DEFAULT_REQUEST.bid_currency) ?
-      DEFAULT_REQUEST.bid_currency :
-      currencies[0]?.code ?? '',
+    bid_currency: currencies.some((c) => c.code === baseCurrency) ? baseCurrency : currencies[0]?.code ?? '',
   };
   const decimals = decimalsOf(currencies, v.bid_currency);
   return {

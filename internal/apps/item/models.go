@@ -40,7 +40,7 @@ type Item struct {
 	Quality       int16          `gorm:"not null;default:1" json:"quality"`                      // 品质等级, 见 Quality
 	Category      string         `gorm:"size:32;not null;default:'collectible'" json:"category"` // 类别代码, 见 RegisterCategory
 	ImageURL      string         `gorm:"size:1024;not null;default:''" json:"image_url"`
-	SellCurrency  string         `gorm:"size:32;not null;default:'chip'" json:"sell_currency"`
+	SellCurrency  string         `gorm:"size:32;not null" json:"sell_currency"`
 	SellPrice     int64          `gorm:"not null;default:0;check:chk_items_sell_price,sell_price >= 0" json:"sell_price"` // 0 表示不可卖出
 	Width         int16          `gorm:"not null;default:1;check:chk_items_width,width >= 1" json:"width"`                // 在仓库中占的格数
 	Height        int16          `gorm:"not null;default:1;check:chk_items_height,height >= 1" json:"height"`

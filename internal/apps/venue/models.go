@@ -45,7 +45,7 @@ type Venue struct {
 	IsEnabled     bool                  `gorm:"not null;default:false" json:"is_enabled"` // 停用后不能加入队列, 进行中的对局照常打完
 	PveEnabled    bool                  `gorm:"not null;default:false" json:"pve_enabled"`
 	RankedEnabled bool                  `gorm:"not null;default:false" json:"ranked_enabled"`
-	BidCurrency   string                `gorm:"size:32;not null;default:'chip'" json:"bid_currency"`                  // 出价和计算仓库价值的货币
+	BidCurrency   string                `gorm:"size:32;not null" json:"bid_currency"`                                 // 出价和计算仓库价值的货币
 	EntryCost     reward.Bundle         `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"entry_cost"`   // 入场代价, 数量为正数, 开局时扣除
 	Requirements  []condition.Condition `gorm:"type:jsonb;serializer:json;not null;default:'[]'" json:"requirements"` // 入场条件, 需要全部满足
 	Warehouse     WarehouseRule         `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"warehouse"`    // 仓库生成规则

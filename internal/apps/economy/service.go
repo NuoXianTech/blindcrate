@@ -57,7 +57,7 @@ func grantSignup(tx *gorm.DB, user *auth.User) error {
 	err = tx.Transaction(func(tx *gorm.DB) error {
 		_, _, err := wallet.Change(tx, &wallet.ChangeRequest{
 			UserID:         user.ID,
-			Currency:       wallet.CurrencyChip,
+			Currency:       economy.BaseCurrency,
 			Amount:         int64(economy.SignupGrant),
 			BizType:        wallet.BizSignupGrant,
 			BizID:          userID,

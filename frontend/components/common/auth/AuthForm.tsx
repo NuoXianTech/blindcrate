@@ -13,7 +13,6 @@ import {CurrencyIcon} from '@/components/common/wallet';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import {ROUTES, loginHref, safeRedirect} from '@/lib/access';
-import {CURRENCY_CHIP} from '@/lib/services/wallet';
 import {formatAmount} from '@/lib/utils';
 import {checkPassword, checkPasswordConfirm, checkUsername} from '@/lib/validation';
 import {useAuth} from './AuthProvider';
@@ -63,7 +62,7 @@ export function AuthForm({mode}: { mode: Mode }) {
       return;
     }
     const info = await services.auth.register(body);
-    toast.success(`注册成功, 欢迎 ${info.nickname}`, {description: await grantedText()});
+    toast.success(`注册成功, 欢迎 ${info.nickname}`, {description: await grantedText(economy.base_currency)});
     setUser(info);
   });
 
@@ -136,10 +135,9 @@ export function AuthForm({mode}: { mode: Mode }) {
           {mode === 'register' && economy.signup_grant > 0 && (
             <p className="flex items-center justify-center gap-1.5 rounded-lg border bg-card px-3 py-2 text-sm">
               注册即送
-              <CurrencyIcon currency={CURRENCY_CHIP} className="size-4" />
-              {/* 注册前拿不到货币的小数位, 筹码按整数显示 */}
+              <CurrencyIcon currency={economy.base_currency} className="size-4" />
+              {/* 注册前拿不到货币的名称和小数位, 只显示图标和整数 */}
               <span className="font-mono font-bold tabular-nums">{formatAmount(economy.signup_grant)}</span>
-              筹码
             </p>
           )}
           <SubmitButton pending={pending} size="lg" className="mt-2 w-full">
@@ -164,11 +162,13 @@ export function AuthForm({mode}: { mode: Mode }) {
 /**
  * 注册成功后新手资金的到账提示, 以余额为准: 关闭发放或发放失败时余额为 0, 不提示
  */
-async function grantedText(): Promise<string | undefined> {
+async function grantedText(currency: string): Promise<string | undefined> {
   try {
     const {balances} = await services.wallet.listBalances();
-    const chip = balances.find((b) => b.currency === CURRENCY_CHIP);
-    return chip && chip.balance > 0 ? `新手资金 ${formatAmount(chip.balance, chip.decimals)} ${chip.name}已到账` : undefined;
+    const granted = balances.find((b) => b.currency === currency);
+    return granted && granted.balance > 0 ?
+      `新手资金 ${formatAmount(granted.balance, granted.decimals)} ${granted.name}已到账` :
+      undefined;
   } catch {
     // 只影响提示, 不影响注册
     return undefined;

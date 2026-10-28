@@ -20,9 +20,11 @@ export interface PublicSettings {
     email_login_enabled: boolean;
   };
   economy: {
+    /** 基础货币的代码: 新手资金和已删除物品的回收价使用, 也是新建物品和地图时默认选中的货币 */
+    base_currency: string;
     /** 出售手续费率, 单位为基点 */
     sell_fee_rate: number;
-    /** 新用户注册时发放的筹码, 0 表示不发放 */
+    /** 新用户注册时发放的基础货币, 0 表示不发放 */
     signup_grant: number;
     /** 人机每日收益上限, 0 表示不限制 */
     pve_daily_profit_cap: number;
@@ -36,7 +38,7 @@ export const PUBLIC_SETTINGS_TAG = 'public-settings';
 const DEFAULT_SETTINGS: PublicSettings = {
   site: {name: 'BlindCrate', description: '', logo_url: '', announcement: '', icp: '', contact_email: ''},
   auth: {register_enabled: true, email_login_enabled: true},
-  economy: {sell_fee_rate: 500, signup_grant: 5000, pve_daily_profit_cap: 5000},
+  economy: {base_currency: 'chip', sell_fee_rate: 500, signup_grant: 5000, pve_daily_profit_cap: 5000},
 };
 
 /** 站点简介为空时使用 */
