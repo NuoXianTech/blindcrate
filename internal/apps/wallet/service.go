@@ -27,17 +27,22 @@ package wallet
 import (
 	"context"
 	"errors"
+	"regexp"
 	"time"
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func init() {
 	settings.RegisterRef(RefCurrency, currencyOptions)
 }
+
+// codePattern 货币代码, 小写字母、数字和下划线
+var codePattern = regexp.MustCompile(`^[a-z0-9_]{1,32}$`)
 
 // ChangeRequest 一次余额变动
 //
@@ -146,9 +151,11 @@ func amountInRange(amount int64) bool {
 }
 
 // currencyOptions 设置中可以选的货币: 全部启用的货币, 按排序值排列
+//
+// 对货币加共享锁, 保存设置时货币不会被并发停用, 见 CheckDisable。
 func currencyOptions(tx *gorm.DB) ([]settings.Option, error) {
 	var currencies []Currency
-	if err := tx.Where("is_enabled").Order("sort_order, code").Find(&currencies).Error; err != nil {
+	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("is_enabled").Order("sort_order, code").Find(&currencies).Error; err != nil {
 		return nil, err
 	}
 	options := make([]settings.Option, len(currencies))
@@ -156,6 +163,31 @@ func currencyOptions(tx *gorm.DB) ([]settings.Option, error) {
 		options[i] = settings.Option{Value: currency.Code, Label: currency.Name}
 	}
 	return options, nil
+}
+
+// ValidateCurrency 校验货币的代码和名称
+func ValidateCurrency(c *Currency) error {
+	if !codePattern.MatchString(c.Code) {
+		return errors.New(CurrencyCodeInvalid)
+	}
+	if n := utf8.RuneCountInString(c.Name); n < 1 || n > 32 {
+		return errors.New(CurrencyNameInvalid)
+	}
+	return nil
+}
+
+// CheckDisable 基础货币不能停用, 是基础货币时返回 CurrencyIsBase
+//
+// 调用方需先锁定货币; 保存设置时对可选的货币加了共享锁, 两边不会同时生效。
+func CheckDisable(tx *gorm.DB, code string) error {
+	economy, err := settings.Economy.Get(tx.Statement.Context)
+	if err != nil {
+		return err
+	}
+	if economy.BaseCurrency == code {
+		return errors.New(CurrencyIsBase)
+	}
+	return nil
 }
 
 // checkCurrency 货币必须存在且启用

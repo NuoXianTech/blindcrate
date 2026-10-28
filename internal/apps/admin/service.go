@@ -625,6 +625,112 @@ func qualityChanges(old, next *item.Quality) map[string]interface{} {
 	return changes
 }
 
+// doCreateCurrency 新建货币
+func doCreateCurrency(ctx context.Context, req *CreateCurrencyRequest) (*wallet.Currency, error) {
+	target := &wallet.Currency{Code: req.Code}
+	applyCurrency(target, &req.CurrencyRequest)
+	if err := wallet.ValidateCurrency(target); err != nil {
+		return nil, err
+	}
+	if err := db.DB(ctx).Create(target).Error; err != nil {
+		if db.IsUniqueViolation(err) {
+			return nil, errors.New(wallet.CurrencyTaken)
+		}
+		return nil, err
+	}
+	return target, nil
+}
+
+// doUpdateCurrency 修改货币, 返回修改后的货币和本次修改的字段, 没有任何字段变化时不写库
+//
+// 金额按最小单位存储, 小数位只影响展示; 货币已被使用时修改小数位会让现有金额整体变大或变小, 因此只能修改未使用的货币。
+func doUpdateCurrency(ctx context.Context, code string, req *CurrencyRequest) (*wallet.Currency, map[string]interface{}, error) {
+	var (
+		target  wallet.Currency
+		changes map[string]interface{}
+	)
+	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), code); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New(wallet.CurrencyNotFound)
+			}
+			return err
+		}
+		old := target
+		applyCurrency(&target, req)
+		if err := wallet.ValidateCurrency(&target); err != nil {
+			return err
+		}
+		if target.Decimals != old.Decimals {
+			used, err := currencyUsed(tx, code)
+			if err != nil {
+				return err
+			}
+			if used {
+				return errors.New(wallet.CurrencyInUse)
+			}
+		}
+		if old.IsEnabled && !target.IsEnabled {
+			if err := wallet.CheckDisable(tx, code); err != nil {
+				return err
+			}
+		}
+		changes = currencyChanges(&old, &target)
+		if len(changes) == 0 {
+			return nil
+		}
+		return tx.Save(&target).Error
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return &target, changes, nil
+}
+
+// currencyUsed 货币是否已被余额、物品、地图或掉落池使用, 已删除的物品和地图也算
+//
+// 对局、出售单和流水都会先写余额, 有余额行就说明已经产生过金额。
+func currencyUsed(tx *gorm.DB, code string) (bool, error) {
+	var used bool
+	err := tx.Raw(`SELECT EXISTS (SELECT 1 FROM wallet_balances WHERE currency = @code)
+		OR EXISTS (SELECT 1 FROM items WHERE sell_currency = @code)
+		OR EXISTS (SELECT 1 FROM venues WHERE bid_currency = @code)
+		OR EXISTS (SELECT 1 FROM loot_pool_entries WHERE currency = @code)`, map[string]interface{}{"code": code}).
+		Scan(&used).Error
+	return used, err
+}
+
+// applyCurrency 写入货币字段, 名称去掉首尾空白
+func applyCurrency(target *wallet.Currency, req *CurrencyRequest) {
+	target.Name = strings.TrimSpace(req.Name)
+	target.Decimals = req.Decimals
+	target.SortOrder = req.SortOrder
+	target.IsEnabled = req.IsEnabled
+}
+
+// currencyFields 货币的字段, 用于操作日志
+func currencyFields(target *wallet.Currency) map[string]interface{} {
+	return map[string]interface{}{
+		"code":       target.Code,
+		"name":       target.Name,
+		"decimals":   target.Decimals,
+		"sort_order": target.SortOrder,
+		"is_enabled": target.IsEnabled,
+	}
+}
+
+// currencyChanges 本次修改了哪些字段, 用于操作日志
+func currencyChanges(old, next *wallet.Currency) map[string]interface{} {
+	changes := map[string]interface{}{}
+	nextFields := currencyFields(next)
+	for key, oldValue := range currencyFields(old) {
+		if newValue := nextFields[key]; oldValue != newValue {
+			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
+		}
+	}
+	return changes
+}
+
 // lootPoolCodePattern 掉落池代码, 小写字母、数字和下划线
 var lootPoolCodePattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
 

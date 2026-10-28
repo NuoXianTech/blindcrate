@@ -86,6 +86,32 @@ definitions:
     required:
     - reason
     type: object
+  admin.CreateCurrencyRequest:
+    properties:
+      code:
+        description: 自然键, 小写字母、数字和下划线
+        maxLength: 32
+        type: string
+      decimals:
+        description: 展示用小数位, 已被使用的货币不能修改
+        maximum: 6
+        minimum: 0
+        type: integer
+      is_enabled:
+        description: 停用后不能再入账或扣款, 基础货币不能停用
+        type: boolean
+      name:
+        maxLength: 32
+        type: string
+      sort_order:
+        description: 余额和下拉框中从小到大排列
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+    required:
+    - code
+    - name
+    type: object
   admin.CreateQualityRequest:
     properties:
       code:
@@ -122,6 +148,27 @@ definitions:
     - code
     - color
     - level
+    - name
+    type: object
+  admin.CurrencyRequest:
+    properties:
+      decimals:
+        description: 展示用小数位, 已被使用的货币不能修改
+        maximum: 6
+        minimum: 0
+        type: integer
+      is_enabled:
+        description: 停用后不能再入账或扣款, 基础货币不能停用
+        type: boolean
+      name:
+        maxLength: 32
+        type: string
+      sort_order:
+        description: 余额和下拉框中从小到大排列
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+    required:
     - name
     type: object
   admin.DeleteItemResponseData:
@@ -5046,6 +5093,107 @@ paths:
           schema:
             $ref: '#/definitions/admin.Response'
       summary: 获取全部货币定义
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.CreateCurrencyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wallet.Currency'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 新建货币
+      tags:
+      - admin
+  /api/v1/admin/wallet/currencies/{code}:
+    put:
+      consumes:
+      - application/json
+      description: 需提交全部字段, 代码不能修改; 已被余额、物品、地图或掉落池使用的货币不能修改小数位, 基础货币不能停用
+      parameters:
+      - description: currency code
+        in: path
+        name: code
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.CurrencyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wallet.Currency'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 修改货币
       tags:
       - admin
   /api/v1/admin/wallet/transactions:

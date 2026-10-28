@@ -88,6 +88,12 @@ export interface Currency {
   updated_at: string;
 }
 
+/** 修改货币, 代码创建后不能修改; 已被使用的货币不能修改小数位, 基础货币不能停用 */
+export type CurrencyRequest = Pick<Currency, 'name' | 'decimals' | 'sort_order' | 'is_enabled'>;
+
+/** 新建货币 */
+export type CreateCurrencyRequest = CurrencyRequest & Pick<Currency, 'code'>;
+
 /** 物品定义, 对应后端 item.Item */
 export interface Item {
   id: number;

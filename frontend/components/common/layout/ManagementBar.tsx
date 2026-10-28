@@ -6,6 +6,7 @@ import {useTheme} from 'next-themes';
 import {
   Backpack,
   ChartColumn,
+  Coins,
   Dices,
   Gem,
   Gamepad2,
@@ -67,6 +68,7 @@ export function ManagementBar() {
         {title: '用户管理', icon: <Users />, href: ROUTES.adminUsers, active: pathname.startsWith(ROUTES.adminUsers)},
         {title: '物品管理', icon: <Package />, href: ROUTES.adminItems, active: pathname.startsWith(ROUTES.adminItems)},
         {title: '品质管理', icon: <Gem />, href: ROUTES.adminQualities, active: pathname.startsWith(ROUTES.adminQualities)},
+        {title: '货币管理', icon: <Coins />, href: ROUTES.adminCurrencies, active: pathname.startsWith(ROUTES.adminCurrencies)},
         {title: '掉落池', icon: <Dices />, href: ROUTES.adminLootPools, active: pathname.startsWith(ROUTES.adminLootPools)},
         {title: '地图管理', icon: <Warehouse />, href: ROUTES.adminVenues, active: pathname.startsWith(ROUTES.adminVenues)},
         {title: '榜单管理', icon: <Medal />, href: ROUTES.adminLeaderboards, active: pathname.startsWith(ROUTES.adminLeaderboards)},
