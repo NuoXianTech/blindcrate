@@ -30,6 +30,7 @@ import (
 	"maps"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/task/schedule"
@@ -169,4 +170,50 @@ func Get(tx *gorm.DB, userID uint64, scope, period, metric string) (int64, error
 		return 0, nil
 	}
 	return values[0], nil
+}
+
+// DayValues 一天的全部指标
+type DayValues struct {
+	Day    string `json:"day"`    // 日期, 如 2026-10-28
+	Values Values `json:"values"` // 指标 -> 当天的值, 没有记录的指标不返回
+}
+
+// UserStats 用户在一个统计范围的累计和最近几天的数据
+type UserStats struct {
+	Scope   string      `json:"scope"`
+	Metrics []Metric    `json:"metrics"` // 全部计数指标的名称, 按注册顺序; 净收益按货币另外命名, 见 MetricProfit
+	Total   Values      `json:"total"`   // 指标 -> 累计值, 没有记录的指标不返回
+	Days    []DayValues `json:"days"`    // 最近 RecentDays 天, 从早到晚, 最后一天为今天
+}
+
+// QueryUserStats 获取用户在一个统计范围的累计数据和截至 now 的最近 RecentDays 天的数据
+func QueryUserStats(tx *gorm.DB, userID uint64, scope string, now time.Time) (*UserStats, error) {
+	if !ValidScope(scope) {
+		return nil, errors.New(ScopeInvalid)
+	}
+	result := &UserStats{Scope: scope, Metrics: Metrics(), Total: Values{}, Days: make([]DayValues, RecentDays)}
+	periods := []string{PeriodTotal}
+	days := make(map[string]*DayValues, RecentDays)
+	for i := range result.Days {
+		at := now.AddDate(0, 0, i-RecentDays+1)
+		period := PeriodDay(at)
+		result.Days[i] = DayValues{Day: strings.TrimPrefix(period, "day:"), Values: Values{}}
+		days[period] = &result.Days[i]
+		periods = append(periods, period)
+	}
+
+	var rows []Stat
+	if err := tx.Select("period, metric, value").
+		Where("user_id = ? AND scope = ? AND period IN ?", userID, scope, periods).
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		if row.Period == PeriodTotal {
+			result.Total[row.Metric] = row.Value
+		} else if day := days[row.Period]; day != nil {
+			day.Values[row.Metric] = row.Value
+		}
+	}
+	return result, nil
 }

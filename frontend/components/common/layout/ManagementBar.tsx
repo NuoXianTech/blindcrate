@@ -5,6 +5,7 @@ import {usePathname} from 'next/navigation';
 import {useTheme} from 'next-themes';
 import {
   Backpack,
+  ChartColumn,
   Dices,
   Gamepad2,
   History,
@@ -54,6 +55,7 @@ export function ManagementBar() {
     {title: '背包', icon: <Backpack />, href: ROUTES.inventory, active: pathname.startsWith(ROUTES.inventory)},
     {title: '钱包', icon: <Wallet />, href: ROUTES.wallet, active: pathname.startsWith(ROUTES.wallet)},
     {title: '排行榜', icon: <Trophy />, href: ROUTES.leaderboard, active: pathname.startsWith(ROUTES.leaderboard)},
+    {title: '数据', icon: <ChartColumn />, href: ROUTES.stats, active: pathname.startsWith(ROUTES.stats)},
   ];
 
   // 管理区域, 单独一组

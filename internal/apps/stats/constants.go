@@ -44,6 +44,9 @@ const (
 	MetricWins    = "wins"    // 胜利次数, 名次为第 1 的对局数
 )
 
+// RecentDays 个人数据中按天展示的天数, 含今天
+const RecentDays = 7
+
 const (
 	// maxScopeLength 统计范围的最大长度, 与 stats.scope 一致
 	maxScopeLength = 64

@@ -5012,6 +5012,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/stats": {
+            "get": {
+                "description": "返回一个统计范围的累计数据和最近 7 天每天的数据; 只能查看自己的数据, 练习局不计入",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stats"
+                ],
+                "summary": "获取当前用户的个人数据",
+                "parameters": [
+                    {
+                        "maxLength": 64,
+                        "type": "string",
+                        "description": "统计范围, 如 all、mode:pve、venue:dock, 默认 all",
+                        "name": "scope",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/stats.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/stats.UserStats"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/stats.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/stats.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/stats.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/stats.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/venues": {
             "get": {
                 "description": "按排序值排列, 附带当前用户对每个入场条件的达成情况和仓库价值区间; 价值区间为保存地图时的模拟结果",
@@ -7997,6 +8062,69 @@ const docTemplate = `{
                 }
             }
         },
+        "stats.DayValues": {
+            "type": "object",
+            "properties": {
+                "day": {
+                    "description": "日期, 如 2026-10-28",
+                    "type": "string"
+                },
+                "values": {
+                    "description": "指标 -\u003e 当天的值, 没有记录的指标不返回",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stats.Values"
+                        }
+                    ]
+                }
+            }
+        },
+        "stats.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "stats.UserStats": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "description": "最近 RecentDays 天, 从早到晚, 最后一天为今天",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/stats.DayValues"
+                    }
+                },
+                "metrics": {
+                    "description": "全部计数指标的名称, 按注册顺序; 净收益按货币另外命名, 见 MetricProfit",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_NuoXianTech_blindcrate_internal_apps_stats.Metric"
+                    }
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "total": {
+                    "description": "指标 -\u003e 累计值, 没有记录的指标不返回",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stats.Values"
+                        }
+                    ]
+                }
+            }
+        },
+        "stats.Values": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "integer",
+                "format": "int64"
+            }
+        },
         "venue.AuctionRule": {
             "type": "object",
             "properties": {
@@ -8148,6 +8276,22 @@ const docTemplate = `{
                 }
             }
         },
+        "venue.ProfitCap": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "profit": {
+                    "description": "当天的净收益",
+                    "type": "integer"
+                },
+                "scope": {
+                    "description": "统计范围: mode:pve 为全局的上限, venue:\u003c地图代码\u003e:pve 为这张地图的上限",
+                    "type": "string"
+                }
+            }
+        },
         "venue.PveRule": {
             "type": "object",
             "properties": {
@@ -8174,6 +8318,13 @@ const docTemplate = `{
             "properties": {
                 "practice_only": {
                     "type": "boolean"
+                },
+                "profit_caps": {
+                    "description": "用户今天受到的每日收益上限, 不限制时为空; 任一上限达到后人机对局转为练习局",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.ProfitCap"
+                    }
                 },
                 "value_factor": {
                     "description": "仓库价值系数, 基点",

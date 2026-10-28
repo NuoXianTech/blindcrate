@@ -39,6 +39,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -274,9 +275,46 @@ type ValueRange struct {
 
 // PveView 玩家看到的人机模式参数
 type PveView struct {
-	PracticeOnly bool       `json:"practice_only"`
-	ValueFactor  int32      `json:"value_factor"` // 仓库价值系数, 基点
-	ValueRange   ValueRange `json:"value_range"`
+	PracticeOnly bool        `json:"practice_only"`
+	ValueFactor  int32       `json:"value_factor"` // 仓库价值系数, 基点
+	ValueRange   ValueRange  `json:"value_range"`
+	ProfitCaps   []ProfitCap `json:"profit_caps"` // 用户今天受到的每日收益上限, 不限制时为空; 任一上限达到后人机对局转为练习局
+}
+
+// ProfitCap 人机模式的一个每日收益上限和用户当天的净收益, 金额为出价货币的最小单位
+type ProfitCap struct {
+	Scope  string `json:"scope"` // 统计范围: mode:pve 为全局的上限, venue:<地图代码>:pve 为这张地图的上限
+	Limit  int64  `json:"limit"`
+	Profit int64  `json:"profit"` // 当天的净收益
+}
+
+// Reached 是否达到上限, 达到后当天的人机对局转为练习局
+func (c ProfitCap) Reached() bool {
+	return c.Profit >= c.Limit
+}
+
+// PveProfitCaps 用户在 at 当天的人机每日收益上限: 全局的上限和这张地图的上限, 按地图的出价货币计算; 为 0 的上限不限制, 不返回
+func PveProfitCaps(tx *gorm.DB, userID uint64, v *Venue, at time.Time) ([]ProfitCap, error) {
+	economySettings, err := settings.Economy.Get(tx.Statement.Context)
+	if err != nil {
+		return nil, err
+	}
+	limits := []ProfitCap{
+		{Scope: stats.ScopeMode(ModePve), Limit: int64(economySettings.PveDailyProfitCap)},
+		{Scope: stats.ScopeVenueMode(v.Code, ModePve), Limit: v.Pve.DailyProfitCap},
+	}
+	day, metric := stats.PeriodDay(at), stats.MetricProfit(v.BidCurrency)
+	caps := make([]ProfitCap, 0, len(limits))
+	for _, c := range limits {
+		if c.Limit == 0 {
+			continue
+		}
+		if c.Profit, err = stats.Get(tx, userID, c.Scope, day, metric); err != nil {
+			return nil, err
+		}
+		caps = append(caps, c)
+	}
+	return caps, nil
 }
 
 // VenueView 玩家看到的地图
@@ -412,6 +450,10 @@ func newView(tx *gorm.DB, userID uint64, v *Venue, names *costNames) (*VenueView
 	if err != nil {
 		return nil, err
 	}
+	caps, err := PveProfitCaps(tx, userID, v, time.Now())
+	if err != nil {
+		return nil, err
+	}
 	view := &VenueView{
 		Code:          v.Code,
 		Name:          v.Name,
@@ -430,6 +472,7 @@ func newView(tx *gorm.DB, userID uint64, v *Venue, names *costNames) (*VenueView
 			PracticeOnly: v.Pve.PracticeOnly,
 			ValueFactor:  v.Pve.ValueFactor,
 			ValueRange:   newValueRange(v.Simulation.Pve),
+			ProfitCaps:   caps,
 		},
 	}
 	for _, p := range progress {

@@ -9,6 +9,7 @@ export const ROUTES = {
   wallet: '/wallet',
   inventory: '/inventory',
   leaderboard: '/leaderboard',
+  stats: '/stats',
   match: '/match',
   matches: '/matches',
   login: '/login',
@@ -24,7 +25,7 @@ export const ROUTES = {
 } as const;
 
 /** 需要登录的路径前缀 */
-const AUTH_PREFIXES = ['/home', '/wallet', '/inventory', '/leaderboard', '/match', '/matches', '/admin'];
+const AUTH_PREFIXES = ['/home', '/wallet', '/inventory', '/leaderboard', '/stats', '/match', '/matches', '/admin'];
 /** 需要管理员的路径前缀 */
 const ADMIN_PREFIXES = ['/admin'];
 
