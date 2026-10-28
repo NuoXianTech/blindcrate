@@ -43,7 +43,7 @@ export function ItemDialog({item, currencies, onClose, onSaved}: ItemDialogProps
         <DialogHeader>
           <DialogTitle>{editing ? `编辑 ${editing.name}` : '新建物品'}</DialogTitle>
           <DialogDescription>
-            {editing ? '修改名称不影响已有记录中的名称' : '上架后可以发放给玩家, 掉落权重大于 0 时参与掉落'}
+            {editing ? '修改名称不影响已有记录中的名称' : '上架后可以发放给玩家, 加入掉落池后参与掉落'}
           </DialogDescription>
         </DialogHeader>
         {/* key 保证切换物品时表单重置 */}

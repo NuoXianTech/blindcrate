@@ -13,7 +13,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Skeleton} from '@/components/ui/skeleton';
 import {SubmitButton} from '@/components/common/form';
-import {ItemImage} from '@/components/common/item';
+import {ItemCombobox, ItemImage} from '@/components/common/item';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminItem, AdminUser} from '@/lib/services/admin';
@@ -22,7 +22,6 @@ import type {UserItem} from '@/lib/services/inventory';
 import {qualityOf} from '@/lib/quality';
 import {parseAmount} from '@/lib/utils';
 import {DirectionToggle} from './DirectionToggle';
-import {ItemCombobox} from './ItemCombobox';
 import {UserAssetDialog} from './UserAssetDialog';
 import {ITEM_LIMIT, MAX_QUANTITY, transactionsHref, type Direction} from './constants';
 

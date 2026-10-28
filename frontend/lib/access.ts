@@ -13,6 +13,8 @@ export const ROUTES = {
   register: '/register',
   adminUsers: '/admin/users',
   adminItems: '/admin/items',
+  adminLootPools: '/admin/loot-pools',
+  adminVenues: '/admin/venues',
   adminSettings: '/admin/settings',
   adminTransactions: '/admin/transactions',
   adminAuditLogs: '/admin/audit-logs',
