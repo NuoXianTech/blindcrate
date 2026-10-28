@@ -312,9 +312,9 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "maximum": 7,
                         "minimum": 1,
                         "type": "integer",
+                        "description": "品质等级",
                         "name": "quality",
                         "in": "query"
                     },
@@ -1682,6 +1682,275 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/qualities": {
+            "get": {
+                "description": "按排序值排列, 带上使用每个品质的物品数",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取品质列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListQualitiesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "新建品质",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.CreateQualityRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/item.Quality"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/qualities/{level}": {
+            "put": {
+                "description": "需提交全部字段, 等级和代码不能修改; 新的扫描时长只影响之后开局的对局",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "修改品质",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "quality level",
+                        "name": "level",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.QualityRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/item.Quality"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "还有未删除的物品使用该品质时不能删除; 已开局对局中的藏品保留原等级",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "删除品质",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "quality level",
+                        "name": "level",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/settings": {
             "get": {
                 "description": "包含表单描述和当前值, 密钥字段不返回明文; 可以按分类筛选",
@@ -2713,9 +2982,9 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "maximum": 7,
                         "minimum": 1,
                         "type": "integer",
+                        "description": "品质等级",
                         "name": "quality",
                         "in": "query"
                     },
@@ -4165,9 +4434,9 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "maximum": 7,
                         "minimum": 1,
                         "type": "integer",
+                        "description": "品质等级",
                         "name": "quality",
                         "in": "query"
                     },
@@ -5036,6 +5305,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/qualities": {
+            "get": {
+                "description": "按排序值排列, 无需登录; 前端用来展示品质的名称和颜色",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "item"
+                ],
+                "summary": "获取物品品质",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/item.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/item.ListQualitiesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/item.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ready": {
             "get": {
                 "description": "检查已启用的 PostgreSQL 和 Redis 是否可用",
@@ -5590,6 +5897,54 @@ const docTemplate = `{
                 }
             }
         },
+        "admin.CreateQualityRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "color",
+                "level",
+                "name"
+            ],
+            "properties": {
+                "code": {
+                    "description": "自然键, 小写字母、数字和下划线",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "color": {
+                    "description": "#rrggbb",
+                    "type": "string",
+                    "maxLength": 7
+                },
+                "effect": {
+                    "description": "特效, 空表示纯色, rainbow 为流动渐变",
+                    "type": "string",
+                    "maxLength": 16
+                },
+                "level": {
+                    "description": "等级, 越大越稀有",
+                    "type": "integer",
+                    "maximum": 999,
+                    "minimum": 1
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "scan_ms": {
+                    "description": "开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久",
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 100
+                },
+                "sort_order": {
+                    "description": "筛选和图例中从小到大排列",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
+                }
+            }
+        },
         "admin.DeleteItemResponseData": {
             "type": "object",
             "properties": {
@@ -5691,7 +6046,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "quality": {
-                    "description": "见 constants.go",
+                    "description": "品质等级, 见 Quality",
                     "type": "integer"
                 },
                 "sell_currency": {
@@ -5742,9 +6097,8 @@ const docTemplate = `{
                     "maxLength": 64
                 },
                 "quality": {
-                    "description": "1-7: 灰/绿/蓝/紫/金/红/炫彩",
+                    "description": "品质等级, 必须存在",
                     "type": "integer",
-                    "maximum": 7,
                     "minimum": 1
                 },
                 "sell_currency": {
@@ -5936,6 +6290,17 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "admin.ListQualitiesResponseData": {
+            "type": "object",
+            "properties": {
+                "qualities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/admin.QualityListItem"
+                    }
                 }
             }
         },
@@ -6142,6 +6507,82 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "maxLength": 64
+                }
+            }
+        },
+        "admin.QualityListItem": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "自然键, 导入导出时用来对应",
+                    "type": "string"
+                },
+                "color": {
+                    "description": "#rrggbb",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "effect": {
+                    "description": "特效, 空表示纯色, 见 constants.go",
+                    "type": "string"
+                },
+                "item_count": {
+                    "description": "使用该品质的未删除物品数, 不为 0 时不能删除",
+                    "type": "integer"
+                },
+                "level": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "scan_ms": {
+                    "description": "开箱时扫描这一品质藏品的时长, 毫秒",
+                    "type": "integer"
+                },
+                "sort_order": {
+                    "description": "筛选和图例中从小到大排列",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "admin.QualityRequest": {
+            "type": "object",
+            "required": [
+                "color",
+                "name"
+            ],
+            "properties": {
+                "color": {
+                    "description": "#rrggbb",
+                    "type": "string",
+                    "maxLength": 7
+                },
+                "effect": {
+                    "description": "特效, 空表示纯色, rainbow 为流动渐变",
+                    "type": "string",
+                    "maxLength": 16
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "scan_ms": {
+                    "description": "开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久",
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 100
+                },
+                "sort_order": {
+                    "description": "筛选和图例中从小到大排列",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
                 }
             }
         },
@@ -7478,7 +7919,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "quality": {
-                    "description": "见 constants.go",
+                    "description": "品质等级, 见 Quality",
                     "type": "integer"
                 },
                 "sell_currency": {
@@ -7494,6 +7935,63 @@ const docTemplate = `{
                 "width": {
                     "description": "在仓库中占的格数",
                     "type": "integer"
+                }
+            }
+        },
+        "item.ListQualitiesResponseData": {
+            "type": "object",
+            "properties": {
+                "qualities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/item.Quality"
+                    }
+                }
+            }
+        },
+        "item.Quality": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "自然键, 导入导出时用来对应",
+                    "type": "string"
+                },
+                "color": {
+                    "description": "#rrggbb",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "effect": {
+                    "description": "特效, 空表示纯色, 见 constants.go",
+                    "type": "string"
+                },
+                "level": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "scan_ms": {
+                    "description": "开箱时扫描这一品质藏品的时长, 毫秒",
+                    "type": "integer"
+                },
+                "sort_order": {
+                    "description": "筛选和图例中从小到大排列",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "item.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
                 }
             }
         },
@@ -8389,7 +8887,7 @@ const docTemplate = `{
                     }
                 },
                 "reveal_seconds": {
-                    "description": "全部藏品扫描完后再停留的时长, 扫描时长见设置组 auction",
+                    "description": "全部藏品扫描完后再停留的时长, 扫描时长见品质的 scan_ms",
                     "type": "integer",
                     "maximum": 60,
                     "minimum": 3

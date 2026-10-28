@@ -7,9 +7,9 @@ import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
+import {useQualities} from '@/components/common/site';
 import type {UserItem} from '@/lib/services/inventory';
 import type {BalanceItem} from '@/lib/services/wallet';
-import {qualityOf} from '@/lib/quality';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 
 /**
@@ -32,7 +32,7 @@ interface ItemDetailDialogProps {
  * 物品详情对话框
  */
 export function ItemDetailDialog({item, currencies, onClose, onViewRecords, onSell}: ItemDetailDialogProps) {
-  const q = qualityOf(item?.quality ?? 1);
+  const q = useQualities().qualityOf(item?.quality ?? 0);
   const currency = currencies.find((c) => c.currency === item?.sell_currency);
 
   return (
@@ -47,7 +47,7 @@ export function ItemDetailDialog({item, currencies, onClose, onViewRecords, onSe
               <div className="flex min-w-0 flex-col gap-1">
                 <DialogTitle className={cn('truncate', q.text)}>{item.name}</DialogTitle>
                 <DialogDescription className="flex flex-wrap items-center gap-2">
-                  <span>{q.label}品质</span>
+                  <span>{q.name}品质</span>
                   {item.is_placeholder ? (
                     <Badge variant="outline">已移除</Badge>
                   ) : (

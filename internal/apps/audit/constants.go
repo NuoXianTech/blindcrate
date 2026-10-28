@@ -39,6 +39,7 @@ const (
 	TargetMatch       = "match"
 	TargetVenue       = "venue"
 	TargetLeaderboard = "leaderboard"
+	TargetQuality     = "quality" // target_id 为品质等级
 )
 
 // 操作类型, 格式为 "模块.动作"
@@ -71,6 +72,9 @@ const (
 	ActionLeaderboardCreate     = "admin.leaderboard_create"
 	ActionLeaderboardUpdate     = "admin.leaderboard_update"
 	ActionLeaderboardDelete     = "admin.leaderboard_delete"
+	ActionQualityCreate         = "admin.quality_create"
+	ActionQualityUpdate         = "admin.quality_update"
+	ActionQualityDelete         = "admin.quality_delete"
 	ActionSettingsUpdate        = "admin.settings_update"
 	ActionSettingsRollback      = "admin.settings_rollback"
 	ActionSettingsReset         = "admin.settings_reset"

@@ -14,12 +14,12 @@ import {Label} from '@/components/ui/label';
 import {Skeleton} from '@/components/ui/skeleton';
 import {SubmitButton} from '@/components/common/form';
 import {ItemCombobox, ItemImage} from '@/components/common/item';
+import {useQualities} from '@/components/common/site';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminItem, AdminUser} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
 import type {UserItem} from '@/lib/services/inventory';
-import {qualityOf} from '@/lib/quality';
 import {parseAmount} from '@/lib/utils';
 import {DirectionToggle} from './DirectionToggle';
 import {UserAssetDialog} from './UserAssetDialog';
@@ -42,6 +42,7 @@ export function UserInventoryDialog({user, onClose}: { user: AdminUser | null; o
  */
 function InventoryPanel({user}: { user: AdminUser }) {
   const {pending, submit} = useSubmit();
+  const {qualityOf} = useQualities();
   const [owned, setOwned] = useState<{ total: number; items: UserItem[] } | null>(null);
   // 可发放的物品(已上架)
   const [grantable, setGrantable] = useState<AdminItem[]>([]);

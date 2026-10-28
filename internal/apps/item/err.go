@@ -29,4 +29,12 @@ const (
 	ItemDisabled    = "物品已下架"
 	ItemNameInvalid = "物品名称需为 1-64 个字符"
 	ItemNameTaken   = "物品名称已存在"
+
+	QualityNotFound      = "品质不存在"
+	QualityCodeInvalid   = "品质代码需为 1-32 个小写字母、数字或下划线"
+	QualityNameInvalid   = "品质名称需为 1-32 个字符"
+	QualityColorInvalid  = "颜色需为 #RRGGBB 格式"
+	QualityEffectInvalid = "品质特效不存在"
+	QualityTaken         = "品质等级或代码已存在"
+	QualityInUse         = "还有物品使用该品质, 不能删除"
 )

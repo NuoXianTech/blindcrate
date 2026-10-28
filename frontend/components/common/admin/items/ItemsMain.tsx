@@ -9,10 +9,10 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {Table, TableBody, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
+import {useQualities} from '@/components/common/site';
 import services from '@/lib/services';
 import type {AdminItem, Currency} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
-import {QUALITIES} from '@/lib/quality';
 import {DeleteItemDialog} from './DeleteItemDialog';
 import {ItemDialog} from './ItemDialog';
 import {ItemRow} from './ItemRow';
@@ -23,6 +23,7 @@ import {PAGE_SIZE, STATUS_FILTERS, toRequest, type StatusFilter} from './constan
  */
 export function ItemsMain() {
   const {user: me} = useAuth();
+  const {qualities} = useQualities();
   const isAdmin = !!me?.is_admin;
   const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -122,9 +123,9 @@ export function ItemsMain() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部品质</SelectItem>
-            {QUALITIES.map((q) => (
-              <SelectItem key={q.value} value={String(q.value)}>
-                <span className={q.text}>{q.label}</span>
+            {qualities.map((q) => (
+              <SelectItem key={q.level} value={String(q.level)}>
+                <span className={q.text}>{q.name}</span>
               </SelectItem>
             ))}
           </SelectContent>

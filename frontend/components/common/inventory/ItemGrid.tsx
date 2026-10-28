@@ -8,11 +8,11 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {useAuth} from '@/components/common/auth';
 import {Pagination} from '@/components/common/layout';
 import {CurrencyIcon} from '@/components/common/wallet';
+import {useQualities} from '@/components/common/site';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {UserItem} from '@/lib/services/inventory';
 import type {BalanceItem} from '@/lib/services/wallet';
-import {QUALITIES} from '@/lib/quality';
 import {formatAmount} from '@/lib/utils';
 import {ItemCard} from './ItemCard';
 import {ItemDetailDialog} from './ItemDetailDialog';
@@ -28,6 +28,7 @@ export function ItemGrid({currencies, onViewRecords}: {
   onViewRecords: (item: UserItem) => void;
 }) {
   const {user} = useAuth();
+  const {qualities} = useQualities();
   const [quality, setQuality] = useState<number | undefined>();
   const [current, setCurrent] = useState(1);
   const [data, setData] = useState<{ total: number; items: UserItem[] } | null>(null);
@@ -107,9 +108,9 @@ export function ItemGrid({currencies, onViewRecords}: {
           <Button variant={quality === undefined ? 'secondary' : 'ghost'} size="sm" onClick={() => changeQuality(undefined)}>
             全部
           </Button>
-          {QUALITIES.map((q) => (
-            <Button key={q.value} variant={quality === q.value ? 'secondary' : 'ghost'} size="sm" onClick={() => changeQuality(q.value)}>
-              <span className={q.text}>{q.label}</span>
+          {qualities.map((q) => (
+            <Button key={q.level} variant={quality === q.level ? 'secondary' : 'ghost'} size="sm" onClick={() => changeQuality(q.level)}>
+              <span className={q.text}>{q.name}</span>
             </Button>
           ))}
         </div>

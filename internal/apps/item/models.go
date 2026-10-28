@@ -37,7 +37,7 @@ type Item struct {
 	ID            uint64         `gorm:"primaryKey" json:"id"`
 	Name          string         `gorm:"size:64;not null;uniqueIndex:uniq_items_name,where:deleted_at IS NULL" json:"name"`
 	Description   string         `gorm:"size:255;not null;default:''" json:"description"`
-	Quality       int16          `gorm:"not null;default:1;check:chk_items_quality,quality BETWEEN 1 AND 7" json:"quality"` // 见 constants.go
+	Quality       int16          `gorm:"not null;default:1" json:"quality"` // 品质等级, 见 Quality
 	ImageURL      string         `gorm:"size:1024;not null;default:''" json:"image_url"`
 	SellCurrency  string         `gorm:"size:32;not null;default:'chip'" json:"sell_currency"`
 	SellPrice     int64          `gorm:"not null;default:0;check:chk_items_sell_price,sell_price >= 0" json:"sell_price"` // 0 表示不可卖出
@@ -56,6 +56,32 @@ func (Item) TableName() string { return "items" }
 // Exact 按 ID 获取未删除的物品
 func (i *Item) Exact(tx *gorm.DB, id uint64) error {
 	if err := tx.Where("id = ?", id).First(i).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+// Quality 物品品质, 新增品质只需插入一行
+//
+// 等级越大越稀有, 物品、仓库藏品按等级引用品质; 颜色和名称由前端从接口读取。
+type Quality struct {
+	Level     int16     `gorm:"primaryKey;autoIncrement:false" json:"level"`
+	Code      string    `gorm:"size:32;not null;uniqueIndex:uniq_qualities_code" json:"code"` // 自然键, 导入导出时用来对应
+	Name      string    `gorm:"size:32;not null" json:"name"`
+	Color     string    `gorm:"size:7;not null" json:"color"`              // #rrggbb
+	Effect    string    `gorm:"size:16;not null;default:''" json:"effect"` // 特效, 空表示纯色, 见 constants.go
+	ScanMs    int32     `gorm:"not null;default:0" json:"scan_ms"`         // 开箱时扫描这一品质藏品的时长, 毫秒
+	SortOrder int32     `gorm:"not null;default:0" json:"sort_order"`      // 筛选和图例中从小到大排列
+	CreatedAt time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
+}
+
+// TableName 自定义表名
+func (Quality) TableName() string { return "qualities" }
+
+// Exact 按等级查询
+func (q *Quality) Exact(tx *gorm.DB, level int16) error {
+	if err := tx.Where("level = ?", level).First(q).Error; err != nil {
 		return err
 	}
 	return nil

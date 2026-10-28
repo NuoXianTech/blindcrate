@@ -1,3 +1,4 @@
+import type {Quality} from '../../quality';
 import type {Bundle} from '../auction';
 import type {PageParams} from '../core';
 import type {InventoryTransaction} from '../inventory';
@@ -92,7 +93,7 @@ export interface Item {
   id: number;
   name: string;
   description: string;
-  /** 1-7, 见 lib/quality.ts */
+  /** 品质等级, 见 useQualities */
   quality: number;
   image_url: string;
   sell_currency: string;
@@ -106,6 +107,20 @@ export interface Item {
   created_at: string;
   updated_at: string;
 }
+
+/** 管理端品质列表项, 附带使用该品质的物品数 */
+export interface AdminQuality extends Quality {
+  /** 使用该品质的未删除物品数, 不为 0 时不能删除 */
+  item_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 修改品质, 等级和代码创建后不能修改 */
+export type QualityRequest = Pick<Quality, 'name' | 'color' | 'effect' | 'scan_ms' | 'sort_order'>;
+
+/** 新建品质 */
+export type CreateQualityRequest = QualityRequest & Pick<Quality, 'level' | 'code'>;
 
 /** 管理端物品列表项, 附带持有人数 */
 export interface AdminItem extends Item {

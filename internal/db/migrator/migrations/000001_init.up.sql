@@ -139,13 +139,39 @@ CREATE TABLE IF NOT EXISTS setting_revisions
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_setting_revisions_key_version ON setting_revisions (key, version);
 
+-- 物品品质, 新增品质只需插入一行; 等级越大越稀有, 物品和仓库藏品按等级引用
+CREATE TABLE IF NOT EXISTS qualities
+(
+    level      SMALLINT PRIMARY KEY,
+    code       VARCHAR(32) NOT NULL,             -- 自然键, 导入导出时用来对应
+    name       VARCHAR(32) NOT NULL,
+    color      VARCHAR(7)  NOT NULL,             -- #rrggbb
+    effect     VARCHAR(16) NOT NULL DEFAULT '',  -- 特效, 空表示纯色, rainbow 为流动渐变
+    scan_ms    INTEGER     NOT NULL DEFAULT 0,   -- 开箱时扫描这一品质藏品的时长, 毫秒
+    sort_order INTEGER     NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_qualities_code ON qualities (code);
+
+INSERT INTO qualities (level, code, name, color, effect, scan_ms, sort_order)
+VALUES (1, 'gray', '灰色', '#a1a5ab', '', 400, 10),
+       (2, 'green', '绿色', '#4bcb71', '', 500, 20),
+       (3, 'blue', '蓝色', '#3ba6f5', '', 700, 30),
+       (4, 'purple', '紫色', '#ad74ff', '', 1000, 40),
+       (5, 'gold', '金色', '#fab72a', '', 1500, 50),
+       (6, 'red', '红色', '#f94144', '', 2000, 60),
+       (7, 'rainbow', '炫彩', '#ff6ad5', 'rainbow', 3000, 70)
+ON CONFLICT (level) DO NOTHING;
+
 -- 物品定义, 删除为软删除, ID 不会被新物品复用; 已删除的物品在玩家背包中按占位物品处理
 CREATE TABLE IF NOT EXISTS items
 (
     id            BIGSERIAL PRIMARY KEY,
     name          VARCHAR(64)   NOT NULL,
     description   VARCHAR(255)  NOT NULL DEFAULT '',
-    quality       SMALLINT      NOT NULL DEFAULT 1,      -- 品质 1-7: 灰/绿/蓝/紫/金/红/炫彩
+    quality       SMALLINT      NOT NULL DEFAULT 1,      -- 品质等级, 见 qualities
     image_url     VARCHAR(1024) NOT NULL DEFAULT '',
     sell_currency VARCHAR(32)   NOT NULL DEFAULT 'chip', -- 卖出得到的货币
     sell_price    BIGINT        NOT NULL DEFAULT 0,      -- 卖出价格, 0 表示不可卖出
@@ -155,7 +181,6 @@ CREATE TABLE IF NOT EXISTS items
     created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     deleted_at    TIMESTAMPTZ,                           -- 软删除时间
-    CONSTRAINT chk_items_quality CHECK (quality BETWEEN 1 AND 7),
     CONSTRAINT chk_items_sell_price CHECK (sell_price >= 0),
     CONSTRAINT chk_items_width CHECK (width >= 1),
     CONSTRAINT chk_items_height CHECK (height >= 1)

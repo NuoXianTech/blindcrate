@@ -5,8 +5,8 @@ import {motion, useReducedMotion} from 'motion/react';
 import {cn} from 'cn';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
+import {useQualities} from '@/components/common/site';
 import {scanProgress} from '@/lib/auction';
-import {qualityOf} from '@/lib/quality';
 import {AUCTION_OUTCOME, type AuctionPublicView} from '@/lib/services/auction';
 import {formatAmount} from '@/lib/utils';
 
@@ -40,6 +40,7 @@ function useNow(interval: number | null) {
  * 迷雾中的一件藏品: 只看得到占的格子, 已公开品质时顶部显示品质色
  */
 function FogCell({quality, children}: { quality?: number; children?: React.ReactNode }) {
+  const {qualityOf} = useQualities();
   return (
     <div className="relative size-full overflow-hidden rounded-md border border-dashed border-muted-foreground/40 bg-muted/70">
       {!!quality && <span className={cn('absolute inset-x-0 top-0 h-1', qualityOf(quality).bar)} />}
@@ -59,6 +60,7 @@ export function Warehouse({view, decimals, finished}: {
   finished: boolean;
 }) {
   const reduced = useReducedMotion();
+  const {qualityOf} = useQualities();
   const {grid, bid_currency: currency} = view.venue;
   const result = view.result;
   const scanFrom = result?.scan_from ? new Date(result.scan_from).getTime() : null;
@@ -150,7 +152,7 @@ export function Warehouse({view, decimals, finished}: {
                 initial={reduced || !scanning ? false : {opacity: 0, scale: 0.6}}
                 animate={{opacity: 1, scale: 1}}
                 transition={{duration: 0.35, ease: [0.22, 1, 0.36, 1]}}
-                title={`${p.name} · ${q.label} · ${formatAmount(p.sell_price, decimals)}`}
+                title={`${p.name} · ${q.name} · ${formatAmount(p.sell_price, decimals)}`}
               >
                 <div className="relative flex size-full items-center justify-center overflow-hidden rounded-md border bg-card">
                   <span className={cn('absolute inset-x-0 top-0 h-1', q.bar)} />
@@ -186,7 +188,7 @@ export function Warehouse({view, decimals, finished}: {
               return (
                 <span key={i} className="flex h-7 min-w-10 items-center gap-1.5 rounded-md border bg-card px-2 text-xs">
                   <span className={cn('size-2.5 rounded-full', q.bar)} />
-                  <span className={q.text}>{q.label}</span>
+                  <span className={q.text}>{q.name}</span>
                 </span>
               );
             })}

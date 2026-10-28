@@ -5,8 +5,8 @@ import {Button} from '@/components/ui/button';
 import {TableCell, TableRow} from '@/components/ui/table';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
+import {useQualities} from '@/components/common/site';
 import type {AdminItem, Currency} from '@/lib/services/admin';
-import {qualityOf} from '@/lib/quality';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 
 /**
@@ -25,7 +25,7 @@ interface ItemRowProps {
  * 物品列表的一行: 物品信息和操作按钮
  */
 export function ItemRow({item, currency, onEdit, onToggle, onDelete}: ItemRowProps) {
-  const q = qualityOf(item.quality);
+  const q = useQualities().qualityOf(item.quality);
   return (
     <TableRow>
       <TableCell>
@@ -44,7 +44,7 @@ export function ItemRow({item, currency, onEdit, onToggle, onDelete}: ItemRowPro
         </div>
       </TableCell>
       <TableCell>
-        <span className={q.text}>{q.label}</span>
+        <span className={q.text}>{q.name}</span>
       </TableCell>
       <TableCell className="text-right">
         {item.sell_price > 0 ? (
