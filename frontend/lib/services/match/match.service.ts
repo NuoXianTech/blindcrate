@@ -24,6 +24,11 @@ export class MatchService extends BaseService {
     return this.get<ListMatchesData>('/matches', {params});
   }
 
+  /** 当前用户进行中且还没释放的对局, 没有时为 null */
+  static getCurrentMatch() {
+    return this.get<MatchView | null>('/matches/current');
+  }
+
   /** 当前用户参与的一局, 结束后仍可查看 */
   static getMatch(id: number) {
     return this.get<MatchView>(`/matches/${id}`);
