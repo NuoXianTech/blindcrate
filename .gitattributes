@@ -1,0 +1,51 @@
+* text=auto eol=lf
+
+# Node / JavaScript / TypeScript
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+package-lock.json -diff -merge
+yarn.lock -diff -merge
+pnpm-lock.yaml -diff -merge
+
+# Go
+*.go text eol=lf diff=golang
+go.mod text eol=lf
+go.sum -diff -merge
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.bmp binary
+
+# Fonts
+*.woff binary
+*.woff2 binary
+*.eot binary
+*.ttf binary
+*.otf binary
+
+# Archives
+*.zip binary
+*.tar binary
+*.gz binary
+*.7z binary
+*.rar binary
+
+# Documents & media
+*.pdf binary
+*.doc binary
+*.docx binary
+*.xls binary
+*.xlsx binary
+*.mp3 binary
+*.mp4 binary
+*.mov binary
