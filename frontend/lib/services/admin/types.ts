@@ -179,8 +179,10 @@ export interface SettingField {
   help: string;
   type: 'string' | 'bool' | 'int' | 'int_list';
   input: 'text' | 'textarea' | 'password' | 'select' | 'switch' | 'number' | 'list';
-  /** 下拉框的可选值 */
+  /** 下拉框的可选值, 引用字段为读取时的可选值 */
   options?: SettingOption[];
+  /** 引用其他模块的数据, 如 currency 为启用的货币 */
+  ref?: string;
   /** 整数的单位, bp 为基点, 按百分比输入 */
   unit?: 'bp' | 'second' | 'millisecond';
   /** 密钥, 读取时不返回明文 */

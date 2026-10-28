@@ -122,11 +122,12 @@ var (
 	Economy = Register(Group[EconomySettings]{
 		Key:         KeyEconomy,
 		Label:       "经济",
-		Description: "货币的产出和回收, 用于控制筹码总量、避免贬值",
+		Description: "货币的产出和回收, 用于控制货币总量、避免贬值",
 		Category:    CategoryGame,
 		Sort:        10,
 		Defaults: func() *EconomySettings {
-			return &EconomySettings{SellFeeRate: 500, SignupGrant: 5000, PveDailyProfitCap: 5000}
+			// 基础货币默认为种子数据中的筹码 chip
+			return &EconomySettings{BaseCurrency: "chip", SellFeeRate: 500, SignupGrant: 5000, PveDailyProfitCap: 5000}
 		},
 	})
 )
@@ -158,9 +159,10 @@ type MailSettings struct {
 	FromAddress string `json:"from_address" label:"发件人邮箱" binding:"required_if=Enabled true,omitempty,max=255,email"`
 }
 
-// EconomySettings 经济: 出售手续费、新手资金和人机模式的收益上限
+// EconomySettings 经济: 基础货币、出售手续费、新手资金和人机模式的收益上限
 type EconomySettings struct {
-	SellFeeRate       int `json:"sell_fee_rate" label:"出售手续费率" help:"卖出物品时按卖出金额扣除的比例, 最高 20%" binding:"min=0,max=2000" unit:"bp" public:"true"`
-	SignupGrant       int `json:"signup_grant" label:"新手资金" help:"新用户注册时发放的筹码, 0 表示不发放" binding:"min=0,max=1000000000" public:"true"`
-	PveDailyProfitCap int `json:"pve_daily_profit_cap" label:"人机每日收益上限" help:"玩家当天在人机模式的净收益达到上限后, 当天剩下的人机对局变为练习局, 不扣入场费也不发藏品; 按各地图的出价货币分别计算; 0 表示不限制, 地图可以单独设置更低的上限" binding:"min=0,max=1000000000" public:"true"`
+	BaseCurrency      string `json:"base_currency" label:"基础货币" help:"新手资金和已删除物品的回收价使用的货币, 也是新建物品和地图时默认选中的货币" binding:"required,max=32" ref:"currency" public:"true"`
+	SellFeeRate       int    `json:"sell_fee_rate" label:"出售手续费率" help:"卖出物品时按卖出金额扣除的比例, 最高 20%" binding:"min=0,max=2000" unit:"bp" public:"true"`
+	SignupGrant       int    `json:"signup_grant" label:"新手资金" help:"新用户注册时发放的基础货币, 0 表示不发放" binding:"min=0,max=1000000000" public:"true"`
+	PveDailyProfitCap int    `json:"pve_daily_profit_cap" label:"人机每日收益上限" help:"玩家当天在人机模式的净收益达到上限后, 当天剩下的人机对局变为练习局, 不扣入场费也不发藏品; 按各地图的出价货币分别计算; 0 表示不限制, 地图可以单独设置更低的上限" binding:"min=0,max=1000000000" public:"true"`
 }

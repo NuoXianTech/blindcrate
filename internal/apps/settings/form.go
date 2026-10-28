@@ -40,6 +40,7 @@ import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	zhtranslations "github.com/go-playground/validator/v10/translations/zh"
+	"gorm.io/gorm"
 )
 
 // Field 设置项的描述, 后台据此自动生成表单
@@ -50,6 +51,7 @@ type Field struct {
 	Type    string   `json:"type"`              // string / bool / int / int_list
 	Input   string   `json:"input"`             // text / textarea / password / select / switch / number / list
 	Options []Option `json:"options,omitempty"` // 下拉框的可选值
+	Ref     string   `json:"ref,omitempty"`     // 引用其他模块的数据, 如 currency; 可选值在读取时由 RegisterRef 注册的函数生成
 	Unit    string   `json:"unit,omitempty"`    // 整数的单位: bp / second / millisecond
 	Secret  bool     `json:"secret"`
 	Public  bool     `json:"public"`
@@ -106,6 +108,9 @@ var (
 	units      = []string{"bp", "second", "millisecond"}
 	keyPattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
 
+	// refs 引用字段的可选值, 按引用名称, 只在启动前写入
+	refs = map[string]RefOptions{}
+
 	validate = validator.New(validator.WithRequiredStructEnabled())
 	trans, _ = ut.New(zh.New()).GetTranslator("zh")
 )
@@ -129,6 +134,26 @@ func init() {
 	}); err != nil {
 		panic(err)
 	}
+}
+
+// RefOptions 生成引用字段的可选值, 如全部启用的货币
+type RefOptions func(tx *gorm.DB) ([]Option, error)
+
+// RegisterRef 注册一种引用, 带 ref tag 的字段在后台显示为下拉框, 保存时只能选可选值; 需要在启动前调用, 重复注册时 panic
+func RegisterRef(name string, options RefOptions) {
+	if _, ok := refs[name]; ok {
+		panic(fmt.Sprintf("settings: ref %s already registered", name))
+	}
+	refs[name] = options
+}
+
+// refOptions 引用字段的可选值, 引用没有注册时返回错误
+func refOptions(tx *gorm.DB, name string) ([]Option, error) {
+	options, ok := refs[name]
+	if !ok {
+		return nil, fmt.Errorf("settings: ref %s not registered", name)
+	}
+	return options(tx)
 }
 
 // Register 注册一个设置组, 在包级变量中调用, key 重复、分类未知或字段类型不支持时 panic
@@ -183,6 +208,7 @@ func newGroup[T any](def Group[T]) *group {
 			Help:    sf.Tag.Get("help"),
 			Input:   sf.Tag.Get("input"),
 			Options: parseOptions(name, sf.Tag.Get("options")),
+			Ref:     sf.Tag.Get("ref"),
 			Unit:    sf.Tag.Get("unit"),
 			Secret:  sf.Tag.Get("secret") == "true",
 			Public:  sf.Tag.Get("public") == "true",
@@ -194,7 +220,7 @@ func newGroup[T any](def Group[T]) *group {
 			switch {
 			case f.Secret:
 				f.Input = "password"
-			case len(f.Options) > 0:
+			case len(f.Options) > 0 || f.Ref != "":
 				f.Input = "select"
 			case f.Input == "":
 				f.Input = "text"
@@ -209,10 +235,12 @@ func newGroup[T any](def Group[T]) *group {
 			panic(fmt.Sprintf("settings: %s: unsupported type %s", name, sf.Type))
 		}
 		switch {
-		case f.Secret && (f.Type != "string" || len(f.Options) > 0):
+		case f.Secret && (f.Type != "string" || len(f.Options) > 0 || f.Ref != ""):
 			panic(fmt.Sprintf("settings: %s: only plain strings can be secret", name))
-		case len(f.Options) > 0 && f.Type != "string":
+		case (len(f.Options) > 0 || f.Ref != "") && f.Type != "string":
 			panic(fmt.Sprintf("settings: %s: only strings can have options", name))
+		case len(f.Options) > 0 && f.Ref != "":
+			panic(fmt.Sprintf("settings: %s: options and ref are exclusive", name))
 		case f.Unit != "" && (!slices.Contains(units, f.Unit) || (f.Type != "int" && f.Type != "int_list")):
 			panic(fmt.Sprintf("settings: %s: unsupported unit %q", name, f.Unit))
 		}
@@ -262,14 +290,30 @@ func (g *group) field(key string) *Field {
 	return nil
 }
 
-// view 生成管理后台看到的设置组
-func (g *group) view(row *Setting, value any, broken []string) GroupView {
+// formFields 后台表单的字段, 引用字段带上当前的可选值
+func (g *group) formFields(tx *gorm.DB) ([]Field, error) {
+	fields := slices.Clone(g.fields)
+	for i := range fields {
+		if fields[i].Ref == "" {
+			continue
+		}
+		options, err := refOptions(tx, fields[i].Ref)
+		if err != nil {
+			return nil, err
+		}
+		fields[i].Options = options
+	}
+	return fields, nil
+}
+
+// view 生成管理后台看到的设置组, fields 见 formFields
+func (g *group) view(fields []Field, row *Setting, value any, broken []string) GroupView {
 	view := GroupView{
 		Key:           g.key,
 		Label:         g.label,
 		Description:   g.description,
 		Category:      g.category,
-		Fields:        g.fields,
+		Fields:        fields,
 		Value:         g.values(value, false),
 		SecretsSet:    g.secretsSet(value),
 		SecretsBroken: broken,
@@ -286,7 +330,7 @@ func (g *group) view(row *Setting, value any, broken []string) GroupView {
 //
 // 没有提交的字段保持当前值; 密钥字段提交空字符串表示不修改, 需要清空时放进 clearSecrets;
 // broken 为当前值中无法解密的密钥字段, 这些字段必须重新填写或清空, 否则保存会把原密文覆盖为空。
-func (g *group) merge(cur any, broken []string, raw json.RawMessage, clearSecrets []string) (any, error) {
+func (g *group) merge(tx *gorm.DB, cur any, broken []string, raw json.RawMessage, clearSecrets []string) (any, error) {
 	next := clone(cur)
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
@@ -314,24 +358,31 @@ func (g *group) merge(cur any, broken []string, raw json.RawMessage, clearSecret
 		}
 	}
 
-	if err := g.validate(next); err != nil {
+	if err := g.validate(tx, next); err != nil {
 		return nil, err
 	}
 	return next, nil
 }
 
-// validate 按 binding 规则校验, 并检查下拉框的值是否在可选值中
-func (g *group) validate(v any) error {
+// validate 按 binding 规则校验, 并检查下拉框和引用字段的值是否在可选值中
+func (g *group) validate(tx *gorm.DB, v any) error {
 	if err := ValidateStruct(v); err != nil {
 		return err
 	}
 	rv := reflect.ValueOf(v).Elem()
 	for _, f := range g.fields {
-		if len(f.Options) == 0 {
+		if len(f.Options) == 0 && f.Ref == "" {
 			continue
 		}
+		options := f.Options
+		if f.Ref != "" {
+			var err error
+			if options, err = refOptions(tx, f.Ref); err != nil {
+				return err
+			}
+		}
 		value := rv.Field(f.index).String()
-		if !slices.ContainsFunc(f.Options, func(o Option) bool { return o.Value == value }) {
+		if !slices.ContainsFunc(options, func(o Option) bool { return o.Value == value }) {
 			return fmt.Errorf(OptionInvalid, f.Label)
 		}
 	}

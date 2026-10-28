@@ -12,7 +12,7 @@ import {Textarea} from '@/components/ui/textarea';
 import {SubmitButton} from '@/components/common/form';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
-import {useQualities} from '@/components/common/site';
+import {useQualities, useSite} from '@/components/common/site';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminItem, Currency, ItemCategory, ItemRequest} from '@/lib/services/admin';
@@ -63,12 +63,13 @@ function ItemForm({item, currencies, categories, onClose, onSaved}: Omit<ItemDia
 }) {
   const {pending, submit} = useSubmit();
   const {qualities} = useQualities();
+  const {economy} = useSite();
   const [name, setName] = useState(item?.name ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
   const [quality, setQuality] = useState(String(item?.quality ?? qualities[0]?.level ?? 1));
   const [category, setCategory] = useState(item?.category ?? categories[0]?.code ?? 'collectible');
   const [imageURL, setImageURL] = useState(item?.image_url ?? '');
-  const [sellCurrency, setSellCurrency] = useState(item?.sell_currency ?? currencies[0]?.code ?? 'chip');
+  const [sellCurrency, setSellCurrency] = useState(item?.sell_currency ?? economy.base_currency);
   const currency = currencies.find((c) => c.code === sellCurrency);
   const decimals = currency?.decimals ?? 0;
   const [sellPrice, setSellPrice] = useState(item ? amountInput(item.sell_price, decimals) : '0');
