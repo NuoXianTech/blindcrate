@@ -13,6 +13,26 @@ export interface BalanceItem {
   frozen: number;
 }
 
+/** 钱包相关的 ws 推送 */
+export const WALLET_MESSAGES = {
+  /** 余额变动, data 为 BalanceChangedMessage */
+  balanceChanged: 'wallet:balance_changed',
+} as const;
+
+/** 一种货币变动后的余额 */
+export interface BalanceChange {
+  currency: string;
+  balance: number;
+  frozen: number;
+  /** 同一货币的流水 ID 越大越新, 只采用 ID 更大的推送 */
+  transaction_id: number;
+}
+
+export interface BalanceChangedMessage {
+  /** 按货币代码排序 */
+  balances: BalanceChange[];
+}
+
 /** 用户自己的余额流水, 对应后端 wallet.TransactionItem */
 export interface WalletTransaction {
   id: number;
