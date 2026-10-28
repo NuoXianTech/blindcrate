@@ -129,6 +129,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/conditions/types": {
+            "get": {
+                "description": "包含每种条件的参数表单描述, 用于条件编辑器; input 为 currency、item、scope 的字段需要用选择器填写",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取全部条件类型",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListConditionTypesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/inventory/transactions": {
             "get": {
                 "produces": [
@@ -4109,6 +4153,17 @@ const docTemplate = `{
                 }
             }
         },
+        "admin.ListConditionTypesResponseData": {
+            "type": "object",
+            "properties": {
+                "types": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.TypeView"
+                    }
+                }
+            }
+        },
         "admin.ListCurrenciesResponseData": {
             "type": "object",
             "properties": {
@@ -4643,6 +4698,48 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "condition.Field": {
+            "type": "object",
+            "properties": {
+                "help": {
+                    "type": "string"
+                },
+                "input": {
+                    "description": "text / switch / number, 或选择器 currency / item / scope",
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "string / bool / int",
+                    "type": "string"
+                }
+            }
+        },
+        "condition.TypeView": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Field"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 }
             }
