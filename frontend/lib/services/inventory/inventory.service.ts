@@ -2,8 +2,12 @@ import {BaseService} from '../core';
 import type {
   ListInventoryTransactionsData,
   ListInventoryTransactionsParams,
+  ListSellOrdersData,
+  ListSellOrdersParams,
   ListUserItemsData,
   ListUserItemsParams,
+  SellItemsRequest,
+  SellOrder,
 } from './types';
 
 export class InventoryService extends BaseService {
@@ -16,5 +20,14 @@ export class InventoryService extends BaseService {
 
   static listTransactions(params: ListInventoryTransactionsParams) {
     return this.get<ListInventoryTransactionsData>('/transactions', {params});
+  }
+
+  /** 按当前的卖出价出售并扣除手续费, 全部成功或全部失败; 幂等键相同的重复提交返回原出售单 */
+  static sell(body: SellItemsRequest) {
+    return this.post<SellOrder>('/sell', body);
+  }
+
+  static listSellOrders(params: ListSellOrdersParams) {
+    return this.get<ListSellOrdersData>('/sell-orders', {params});
   }
 }

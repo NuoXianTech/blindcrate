@@ -18,6 +18,14 @@ export interface PublicSettings {
     register_enabled: boolean;
     email_login_enabled: boolean;
   };
+  economy: {
+    /** 出售手续费率, 单位为基点 */
+    sell_fee_rate: number;
+    /** 新用户注册时发放的筹码, 0 表示不发放 */
+    signup_grant: number;
+    /** 人机每日收益上限, 0 表示不限制 */
+    pve_daily_profit_cap: number;
+  };
 }
 
 /** 缓存标签, 管理员保存设置后按标签刷新, 见 lib/site-actions.ts */
@@ -27,6 +35,7 @@ export const PUBLIC_SETTINGS_TAG = 'public-settings';
 const DEFAULT_SETTINGS: PublicSettings = {
   site: {name: 'BlindCrate', description: '', logo_url: '', announcement: '', icp: '', contact_email: ''},
   auth: {register_enabled: true, email_login_enabled: true},
+  economy: {sell_fee_rate: 500, signup_grant: 5000, pve_daily_profit_cap: 5000},
 };
 
 /** 站点简介为空时使用 */
@@ -42,6 +51,7 @@ async function fetchPublicSettings(): Promise<PublicSettings | null> {
     return {
       site: {...DEFAULT_SETTINGS.site, ...data?.site},
       auth: {...DEFAULT_SETTINGS.auth, ...data?.auth},
+      economy: {...DEFAULT_SETTINGS.economy, ...data?.economy},
     };
   } catch {
     return null;

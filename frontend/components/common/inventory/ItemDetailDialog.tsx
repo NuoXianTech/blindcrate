@@ -1,6 +1,6 @@
 'use client';
 
-import {ScrollText} from 'lucide-react';
+import {HandCoins, ScrollText} from 'lucide-react';
 import {cn} from 'cn';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
@@ -24,12 +24,14 @@ interface ItemDetailDialogProps {
   onClose: () => void;
   /** 查看该物品的记录 */
   onViewRecords: (item: UserItem) => void;
+  /** 出售该物品, 不可出售的物品不显示按钮 */
+  onSell: (item: UserItem) => void;
 }
 
 /**
  * 物品详情对话框
  */
-export function ItemDetailDialog({item, currencies, onClose, onViewRecords}: ItemDetailDialogProps) {
+export function ItemDetailDialog({item, currencies, onClose, onViewRecords, onSell}: ItemDetailDialogProps) {
   const q = qualityOf(item?.quality ?? 1);
   const currency = currencies.find((c) => c.currency === item?.sell_currency);
 
@@ -84,6 +86,12 @@ export function ItemDetailDialog({item, currencies, onClose, onViewRecords}: Ite
                 <ScrollText />
                 查看记录
               </Button>
+              {item.sell_price > 0 && (
+                <Button onClick={() => onSell(item)}>
+                  <HandCoins />
+                  出售
+                </Button>
+              )}
             </DialogFooter>
           </>
         )}
