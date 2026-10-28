@@ -43,6 +43,8 @@ apiClient.interceptors.response.use(
           message = '服务器响应超时, 请稍后重试';
         } else if (!error.response) {
           message = '无法连接服务器, 请检查网络后重试';
+        } else if (status === 429) {
+          message = '操作太频繁, 请稍后再试';
         } else if (status && status >= 500) {
           message = '服务器暂时不可用, 请稍后重试';
         } else {
