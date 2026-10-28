@@ -114,13 +114,15 @@ type Bid struct {
 // TableName 自定义表名
 func (Bid) TableName() string { return "auction_bids" }
 
-// WarehouseItem 仓库里的一件藏品, 开局时快照名称和回收价
+// WarehouseItem 仓库里的一件藏品, 开局时快照名称、回收价和扫描时长
 //
 // 唯一索引 uniq_auction_warehouse_items_match_id_reveal_order 保证公开顺序不重复。
 type WarehouseItem struct {
 	ID           uint64 `gorm:"primaryKey" json:"id"`
 	MatchID      uint64 `gorm:"not null;uniqueIndex:uniq_auction_warehouse_items_match_id_reveal_order,priority:1" json:"match_id"`
 	RevealOrder  int32  `gorm:"not null;uniqueIndex:uniq_auction_warehouse_items_match_id_reveal_order,priority:2" json:"reveal_order"` // 公开品质的顺序, 从 1 开始, 第 N 轮公开前 N 件
+	ScanOrder    int32  `gorm:"not null;default:0" json:"scan_order"`                                                                   // 开箱时扫描的顺序, 从 1 开始, 按位置从上到下、从左到右
+	ScanMs       int32  `gorm:"not null;default:0" json:"scan_ms"`                                                                      // 开箱时扫描这件的时长, 毫秒, 开局时按品质快照
 	ItemID       uint64 `gorm:"not null" json:"item_id"`
 	Name         string `gorm:"size:64;not null" json:"name"`
 	ImageURL     string `gorm:"size:1024;not null;default:''" json:"image_url"`

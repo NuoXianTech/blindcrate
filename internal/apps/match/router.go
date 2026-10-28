@@ -146,7 +146,7 @@ func GetMatchmaking(c *gin.Context) {
 // GetCurrentMatch
 // @Tags match
 // @Summary 获取当前用户正在进行中的对局
-// @Description 没有进行中的对局时 data 为 null; 断线重连后用它恢复对局
+// @Description 没有进行中的对局时 data 为 null; 已释放(玩家已结算、可以离开)的对局不算; 断线重连后用它恢复对局
 // @Produce json
 // @Success 200 {object} Response{data=MatchView}
 // @Failure 401 {object} Response

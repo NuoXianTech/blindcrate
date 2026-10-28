@@ -218,6 +218,30 @@ func botBid(rule *venue.BotRule, auction *venue.AuctionRule, round int32, estima
 	return max(min(max(bid, auction.StartPrice), limit), previous)
 }
 
+// scanOrders 开箱时的扫描顺序, 按位置从上到下、从左到右, 返回每件藏品的顺序, 从 1 开始
+func scanOrders(pieces []venue.Piece) []int32 {
+	indexes := make([]int, len(pieces))
+	for i := range indexes {
+		indexes[i] = i
+	}
+	slices.SortFunc(indexes, func(a, b int) int {
+		return cmp.Or(cmp.Compare(pieces[a].Y, pieces[b].Y), cmp.Compare(pieces[a].X, pieces[b].X))
+	})
+	orders := make([]int32, len(pieces))
+	for order, i := range indexes {
+		orders[i] = int32(order + 1)
+	}
+	return orders
+}
+
+// scanMs 品质为 quality 的藏品的扫描时长, durations 按品质从低到高; 超出范围的品质按最接近的一档
+func scanMs(durations []int, quality int16) int32 {
+	if len(durations) == 0 {
+		return 0
+	}
+	return int32(durations[min(max(int(quality), 1), len(durations))-1])
+}
+
 // amountIn 一组变动中某种货币的金额
 func amountIn(bundle reward.Bundle, currency string) int64 {
 	var amount int64

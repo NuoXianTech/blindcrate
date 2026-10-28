@@ -275,6 +275,7 @@ CREATE TABLE IF NOT EXISTS matches
     round         INTEGER     NOT NULL DEFAULT 0,
     phase_ends_at TIMESTAMPTZ,                     -- 当前阶段的截止时间, 不限时或已结束时为空
     version       BIGINT      NOT NULL DEFAULT 0,  -- 每次切换阶段加 1
+    released_at   TIMESTAMPTZ,                     -- 玩家可以离开的时间, 之后不再算作进行中的对局
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     finished_at   TIMESTAMPTZ
@@ -394,12 +395,14 @@ CREATE TABLE IF NOT EXISTS auction_bids
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_bids_match_id_round_seat ON auction_bids (match_id, round, seat);
 
--- 暗拍仓库里的藏品, 开局时快照名称和回收价
+-- 暗拍仓库里的藏品, 开局时快照名称、回收价和扫描时长
 CREATE TABLE IF NOT EXISTS auction_warehouse_items
 (
     id            BIGSERIAL PRIMARY KEY,
     match_id      BIGINT        NOT NULL,
-    reveal_order  INTEGER       NOT NULL, -- 公开品质的顺序, 从 1 开始, 第 N 轮公开前 N 件
+    reveal_order  INTEGER       NOT NULL,           -- 公开品质的顺序, 从 1 开始, 第 N 轮公开前 N 件
+    scan_order    INTEGER       NOT NULL DEFAULT 0, -- 开箱时扫描的顺序, 从 1 开始, 按位置从上到下、从左到右
+    scan_ms       INTEGER       NOT NULL DEFAULT 0, -- 开箱时扫描这件的时长, 毫秒, 开局时按品质快照
     item_id       BIGINT        NOT NULL,
     name          VARCHAR(64)   NOT NULL,
     image_url     VARCHAR(1024) NOT NULL DEFAULT '',

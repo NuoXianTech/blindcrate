@@ -39,6 +39,7 @@ type Phase struct {
 	Name     string        // 阶段名称, 由玩法定义, 如 bidding, 最长 32
 	Round    int32         // 第几轮, 没有轮次时为 0
 	Duration time.Duration // 阶段时长, 到期后调用 Mode.OnTimeout; 0 表示不限时, 只能由玩家操作推进
+	Release  bool          // 玩家已结算, 从这个阶段起可以离开并加入新的队列, 之后的阶段只用于展示(如开箱动画); 释放后不能撤销
 	Finish   bool          // 对局结束, 为 true 时忽略其他字段
 }
 

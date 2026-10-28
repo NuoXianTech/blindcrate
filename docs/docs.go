@@ -4180,7 +4180,7 @@ const docTemplate = `{
         },
         "/api/v1/matches/current": {
             "get": {
-                "description": "没有进行中的对局时 data 为 null; 断线重连后用它恢复对局",
+                "description": "没有进行中的对局时 data 为 null; 已释放(玩家已结算、可以离开)的对局不算; 断线重连后用它恢复对局",
                 "produces": [
                     "application/json"
                 ],
@@ -5697,6 +5697,13 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
+                "footprints": {
+                    "description": "全部藏品占的格子, 按扫描顺序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.Footprint"
+                    }
+                },
                 "match_id": {
                     "type": "integer"
                 },
@@ -5761,6 +5768,31 @@ const docTemplate = `{
                 }
             }
         },
+        "auction.Footprint": {
+            "type": "object",
+            "properties": {
+                "height": {
+                    "type": "integer"
+                },
+                "quality": {
+                    "description": "已公开品质时为品质, 否则为 0",
+                    "type": "integer"
+                },
+                "scan_order": {
+                    "description": "开箱时扫描的顺序, 从 1 开始",
+                    "type": "integer"
+                },
+                "width": {
+                    "type": "integer"
+                },
+                "x": {
+                    "type": "integer"
+                },
+                "y": {
+                    "type": "integer"
+                }
+            }
+        },
         "auction.PieceView": {
             "type": "object",
             "properties": {
@@ -5777,6 +5809,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "quality": {
+                    "type": "integer"
+                },
+                "scan_ms": {
+                    "description": "扫描这件的时长, 毫秒",
+                    "type": "integer"
+                },
+                "scan_order": {
+                    "description": "开箱时扫描的顺序, 从 1 开始",
                     "type": "integer"
                 },
                 "sell_currency": {
@@ -5814,6 +5854,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "pieces": {
+                    "description": "按扫描顺序",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auction.PieceView"
@@ -5825,6 +5866,10 @@ const docTemplate = `{
                 "profit": {
                     "description": "自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算",
                     "type": "integer"
+                },
+                "scan_from": {
+                    "description": "开始扫描的时间, 即结算时间; 按已过去的时间和每件的扫描时长算出扫描进度",
+                    "type": "string"
                 },
                 "seats": {
                     "description": "按座位号排序",
@@ -6733,6 +6778,10 @@ const docTemplate = `{
                     "description": "当前阶段的截止时间, 不限时或已结束时为空",
                     "type": "string"
                 },
+                "released_at": {
+                    "description": "玩家可以离开的时间, 之后不再算作进行中的对局; 为空表示还没释放",
+                    "type": "string"
+                },
                 "round": {
                     "description": "当前轮次, 由玩法定义",
                     "type": "integer"
@@ -6781,6 +6830,10 @@ const docTemplate = `{
                         "$ref": "#/definitions/match.PlayerDetail"
                     }
                 },
+                "released_at": {
+                    "description": "玩家可以离开的时间, 之后不再算作进行中的对局; 为空表示还没释放",
+                    "type": "string"
+                },
                 "round": {
                     "description": "当前轮次, 由玩法定义",
                     "type": "integer"
@@ -6826,6 +6879,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/match.PlayerView"
                     }
+                },
+                "released_at": {
+                    "description": "玩家可以离开的时间, 为空表示还没释放",
+                    "type": "string"
                 },
                 "round": {
                     "type": "integer"
@@ -7181,6 +7238,7 @@ const docTemplate = `{
                     }
                 },
                 "reveal_seconds": {
+                    "description": "全部藏品扫描完后再停留的时长, 扫描时长见设置组 auction",
                     "type": "integer",
                     "maximum": 60,
                     "minimum": 3

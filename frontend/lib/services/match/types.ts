@@ -51,6 +51,8 @@ export interface MatchView {
   phase_ends_at: string | null;
   /** 越大越新, 只采用 version 更大的推送 */
   version: number;
+  /** 玩家可以离开的时间, 之后不再算作进行中的对局; 为空表示还没释放 */
+  released_at: string | null;
   /** 按座位号排序 */
   players: MatchPlayer[];
   created_at: string;

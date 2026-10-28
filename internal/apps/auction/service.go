@@ -25,10 +25,12 @@
 package auction
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -235,7 +237,7 @@ func (vm *venueMode) practice(tx *gorm.DB, userID uint64) (bool, error) {
 	return false, nil
 }
 
-// Start 快照地图配置, 生成仓库并随机公开顺序, 为人机生成估值, 进入第 1 轮出价
+// Start 快照地图配置, 生成仓库并随机公开顺序, 按位置排出扫描顺序并快照扫描时长, 为人机生成估值, 进入第 1 轮出价
 //
 // 人机模式按地图的仓库价值系数缩放抽取次数; 掉落池已不可用或摆不下时开局失败。
 func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) (*match.Phase, error) {
@@ -281,13 +283,20 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 	if err != nil {
 		return nil, err
 	}
+	auctionSettings, err := settings.Auction.Get(tx.Statement.Context)
+	if err != nil {
+		return nil, err
+	}
 	order := rand.Perm(len(warehouse.Pieces))
+	scanOrder := scanOrders(warehouse.Pieces)
 	rows := make([]WarehouseItem, len(warehouse.Pieces))
 	for i, piece := range warehouse.Pieces {
 		target := items[piece.ItemID]
 		rows[i] = WarehouseItem{
 			MatchID:      m.ID,
 			RevealOrder:  int32(order[i] + 1),
+			ScanOrder:    scanOrder[i],
+			ScanMs:       scanMs(auctionSettings.ScanMs, piece.Quality),
 			ItemID:       piece.ItemID,
 			Name:         target.Name,
 			ImageURL:     target.ImageURL,
@@ -330,7 +339,7 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 	return biddingPhase(&v.Auction, 1), nil
 }
 
-// OnTimeout 出价阶段到期时没提交的真人视为不加价, 判定本轮; 开箱阶段到期时对局结束
+// OnTimeout 出价阶段到期时没提交的真人视为不加价, 判定本轮; 开箱阶段(扫描完并停留后)到期时对局结束
 func (vm *venueMode) OnTimeout(tx *gorm.DB, m *match.Match, _ []match.Player) (*match.Phase, error) {
 	switch m.Phase {
 	case PhaseBidding:
@@ -453,6 +462,8 @@ func (st *state) placeBid(tx *gorm.DB, p *Player, amount int64, at time.Time) er
 
 // resolveRound 人机出价后判定本轮: 成交或流拍时结算并进入开箱, 否则给真人反馈并进入下一轮
 //
+// 开箱阶段的时长为全部藏品的扫描时长之和加上停留时长; 进入开箱时已结算, 对局随即释放, 玩家可以离开去排下一局。
+//
 // 加轮只有人机并列时没有真人可以出价, 不等待超时, 直接判定下一轮。
 func (st *state) resolveRound(tx *gorm.DB) (*match.Phase, error) {
 	a := &st.auction
@@ -480,7 +491,11 @@ func (st *state) resolveRound(tx *gorm.DB) (*match.Phase, error) {
 			if err := st.settle(tx, result); err != nil {
 				return nil, err
 			}
-			return &match.Phase{Name: PhaseReveal, Round: round, Duration: time.Duration(rule.RevealSeconds) * time.Second}, nil
+			scan, err := scanDuration(tx, st.match.ID)
+			if err != nil {
+				return nil, err
+			}
+			return &match.Phase{Name: PhaseReveal, Round: round, Duration: scan + time.Duration(rule.RevealSeconds)*time.Second, Release: true}, nil
 		}
 
 		bids := make(map[int16]int64, len(st.players))
@@ -514,6 +529,15 @@ func (st *state) resolveRound(tx *gorm.DB) (*match.Phase, error) {
 		st.match.Round = round + 1
 		clear(st.submitted)
 	}
+}
+
+// scanDuration 开箱时扫描全部藏品的时长
+func scanDuration(tx *gorm.DB, matchID uint64) (time.Duration, error) {
+	var total int64
+	if err := tx.Model(&WarehouseItem{}).Where("match_id = ?", matchID).Select("COALESCE(SUM(scan_ms), 0)").Scan(&total).Error; err != nil {
+		return 0, err
+	}
+	return time.Duration(total) * time.Millisecond, nil
 }
 
 // humanCanBid 本轮是否有真人可以出价
@@ -829,6 +853,16 @@ type RevealedPiece struct {
 	Quality int16 `json:"quality"`
 }
 
+// Footprint 一件藏品在仓库中占的格子, 出价时就公开, 不包含名称和回收价
+type Footprint struct {
+	ScanOrder int32 `json:"scan_order"` // 开箱时扫描的顺序, 从 1 开始
+	X         int16 `json:"x"`
+	Y         int16 `json:"y"`
+	Width     int16 `json:"width"`
+	Height    int16 `json:"height"`
+	Quality   int16 `json:"quality"` // 已公开品质时为品质, 否则为 0
+}
+
 // SelfView 自己在这局中的状态
 type SelfView struct {
 	Seat       int16         `json:"seat"`
@@ -859,6 +893,8 @@ type PieceView struct {
 	Y            int16  `json:"y"`
 	SellCurrency string `json:"sell_currency"`
 	SellPrice    int64  `json:"sell_price"` // 开局时的回收价
+	ScanOrder    int32  `json:"scan_order"` // 开箱时扫描的顺序, 从 1 开始
+	ScanMs       int32  `json:"scan_ms"`    // 扫描这件的时长, 毫秒
 }
 
 // ResultView 结算结果
@@ -866,10 +902,11 @@ type ResultView struct {
 	Outcome    string       `json:"outcome"`     // sold、unsold 或 cancelled
 	WinnerSeat int16        `json:"winner_seat"` // 没有成交时为 0
 	Price      int64        `json:"price"`
-	Value      int64        `json:"value"`  // 仓库价值
-	Profit     int64        `json:"profit"` // 自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算
-	Pieces     []PieceView  `json:"pieces"`
-	Seats      []SeatResult `json:"seats"` // 按座位号排序
+	Value      int64        `json:"value"`     // 仓库价值
+	Profit     int64        `json:"profit"`    // 自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算
+	Pieces     []PieceView  `json:"pieces"`    // 按扫描顺序
+	Seats      []SeatResult `json:"seats"`     // 按座位号排序
+	ScanFrom   *time.Time   `json:"scan_from"` // 开始扫描的时间, 即结算时间; 按已过去的时间和每件的扫描时长算出扫描进度
 }
 
 // AuctionView 玩家看到的一局暗拍
@@ -883,6 +920,7 @@ type AuctionView struct {
 	Version     int64           `json:"version"` // 与对局的 version 一致, 客户端只采用 version 更大的推送
 	Venue       VenueInfo       `json:"venue"`
 	PieceCount  int32           `json:"piece_count"`
+	Footprints  []Footprint     `json:"footprints"` // 全部藏品占的格子, 按扫描顺序
 	Revealed    []RevealedPiece `json:"revealed"`   // 已公开品质的藏品, 第 N 轮公开前 N 件
 	Contenders  []int16         `json:"contenders"` // 加轮时可以出价的座位, 为空表示所有人
 	Self        SelfView        `json:"self"`
@@ -922,6 +960,7 @@ func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
 			MaxExtraRounds: rule.MaxExtraRounds,
 		},
 		PieceCount: a.PieceCount,
+		Footprints: make([]Footprint, len(items)),
 		Revealed:   []RevealedPiece{},
 		Contenders: a.Contenders,
 		Self: SelfView{
@@ -940,11 +979,14 @@ func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
 	if a.Outcome != "" {
 		revealed = a.PieceCount
 	}
-	for _, it := range items {
+	for i, it := range items {
+		view.Footprints[i] = Footprint{ScanOrder: it.ScanOrder, X: it.X, Y: it.Y, Width: it.Width, Height: it.Height}
 		if it.RevealOrder <= revealed {
+			view.Footprints[i].Quality = it.Quality
 			view.Revealed = append(view.Revealed, RevealedPiece{Order: it.RevealOrder, Quality: it.Quality})
 		}
 	}
+	slices.SortFunc(view.Revealed, func(a, b RevealedPiece) int { return cmp.Compare(a.Order, b.Order) })
 	if a.Outcome == "" {
 		return view
 	}
@@ -957,6 +999,7 @@ func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
 		Profit:     self.Profit,
 		Pieces:     make([]PieceView, len(items)),
 		Seats:      make([]SeatResult, len(st.players)),
+		ScanFrom:   a.SettledAt,
 	}
 	for i, it := range items {
 		result.Pieces[i] = PieceView{
@@ -970,6 +1013,8 @@ func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
 			Y:            it.Y,
 			SellCurrency: it.SellCurrency,
 			SellPrice:    it.SellPrice,
+			ScanOrder:    it.ScanOrder,
+			ScanMs:       it.ScanMs,
 		}
 	}
 	for i, p := range st.players {
@@ -979,10 +1024,10 @@ func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
 	return view
 }
 
-// loadItems 仓库里的藏品, 按公开顺序
+// loadItems 仓库里的藏品, 按扫描顺序
 func loadItems(tx *gorm.DB, matchID uint64) ([]WarehouseItem, error) {
 	var items []WarehouseItem
-	if err := tx.Where("match_id = ?", matchID).Order("reveal_order").Find(&items).Error; err != nil {
+	if err := tx.Where("match_id = ?", matchID).Order("scan_order, reveal_order").Find(&items).Error; err != nil {
 		return nil, err
 	}
 	return items, nil

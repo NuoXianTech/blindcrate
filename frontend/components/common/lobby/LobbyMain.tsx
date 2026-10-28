@@ -65,7 +65,8 @@ export function LobbyMain() {
   }, [connected, loadStatus]);
 
   useWsEvent<MatchView>(MATCH_MESSAGES.updated, (view) => {
-    if (view.status === MATCH_STATUS.playing) router.push(matchHref(view.id));
+    // 已释放的对局只剩开箱展示, 离开后不再拉回去
+    if (view.status === MATCH_STATUS.playing && !view.released_at) router.push(matchHref(view.id));
   });
 
   useWsEvent<MatchmakingRejectedMessage>(MATCH_MESSAGES.matchmakingRejected, (msg) => {

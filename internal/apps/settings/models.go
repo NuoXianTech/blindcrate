@@ -49,6 +49,7 @@ const (
 	KeyAuth    = "auth"
 	KeyMail    = "mail"
 	KeyEconomy = "economy"
+	KeyAuction = "auction"
 )
 
 // Setting 一个设置组存一行, 内容为该组的 JSON, 未保存过的设置组没有记录, 使用代码中的默认值
@@ -129,6 +130,16 @@ var (
 			return &EconomySettings{SellFeeRate: 500, SignupGrant: 5000, PveDailyProfitCap: 5000}
 		},
 	})
+	Auction = Register(Group[AuctionSettings]{
+		Key:         KeyAuction,
+		Label:       "暗拍",
+		Description: "仓库暗拍的对局参数, 修改后只影响之后开局的对局",
+		Category:    CategoryGame,
+		Sort:        20,
+		Defaults: func() *AuctionSettings {
+			return &AuctionSettings{ScanMs: []int{400, 500, 700, 1000, 1500, 2000, 3000}}
+		},
+	})
 )
 
 // SiteSettings 站点展示信息
@@ -156,6 +167,11 @@ type MailSettings struct {
 	Password    string `json:"password" label:"密码" binding:"max=255" secret:"true"`
 	FromName    string `json:"from_name" label:"发件人名称" help:"留空则使用站点名称" binding:"max=64"`
 	FromAddress string `json:"from_address" label:"发件人邮箱" binding:"required_if=Enabled true,omitempty,max=255,email"`
+}
+
+// AuctionSettings 暗拍: 开箱时每件藏品的扫描时长
+type AuctionSettings struct {
+	ScanMs []int `json:"scan_ms" label:"扫描时长" help:"开箱时逐件扫描藏品, 按品质从灰到炫彩依次填写 7 个时长; 品质越高可以扫得越久, 开箱阶段的时长为全部藏品的扫描时长之和加上地图的开箱后停留时长" binding:"len=7,dive,min=100,max=10000" unit:"millisecond"`
 }
 
 // EconomySettings 经济: 出售手续费、新手资金和人机模式的收益上限
