@@ -9,9 +9,12 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {SiteLogo, useSite} from '@/components/common/site';
 import {SubmitButton} from '@/components/common/form';
+import {CurrencyIcon} from '@/components/common/wallet';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import {ROUTES, loginHref, safeRedirect} from '@/lib/access';
+import {CURRENCY_CHIP} from '@/lib/services/wallet';
+import {formatAmount} from '@/lib/utils';
 import {checkPassword, checkPasswordConfirm, checkUsername} from '@/lib/validation';
 import {useAuth} from './AuthProvider';
 
@@ -30,7 +33,7 @@ export function AuthForm({mode}: { mode: Mode }) {
   const redirect = useSearchParams().get('redirect');
   const copy = COPY[mode];
   const {user, setUser} = useAuth();
-  const {site, auth} = useSite();
+  const {site, auth, economy} = useSite();
   // 关闭注册时注册页只显示提示, 登录页不显示注册入口
   const registerClosed = !auth.register_enabled;
   const {pending, submit} = useSubmit();
@@ -53,8 +56,14 @@ export function AuthForm({mode}: { mode: Mode }) {
       check(checkPasswordConfirm(password, confirm));
     }
     const body = {username: name, password};
-    const info = mode === 'login' ? await services.auth.login(body) : await services.auth.register(body);
-    toast.success(mode === 'login' ? `欢迎回来, ${info.nickname}` : `注册成功, 欢迎 ${info.nickname}`);
+    if (mode === 'login') {
+      const info = await services.auth.login(body);
+      toast.success(`欢迎回来, ${info.nickname}`);
+      setUser(info);
+      return;
+    }
+    const info = await services.auth.register(body);
+    toast.success(`注册成功, 欢迎 ${info.nickname}`, {description: await grantedText()});
     setUser(info);
   });
 
@@ -124,6 +133,15 @@ export function AuthForm({mode}: { mode: Mode }) {
               />
             </div>
           )}
+          {mode === 'register' && economy.signup_grant > 0 && (
+            <p className="flex items-center justify-center gap-1.5 rounded-lg border bg-card px-3 py-2 text-sm">
+              注册即送
+              <CurrencyIcon currency={CURRENCY_CHIP} className="size-4" />
+              {/* 注册前拿不到货币的小数位, 筹码按整数显示 */}
+              <span className="font-mono font-bold tabular-nums">{formatAmount(economy.signup_grant)}</span>
+              筹码
+            </p>
+          )}
           <SubmitButton pending={pending} size="lg" className="mt-2 w-full">
             {pending ? `正在${copy.submit}...` : copy.submit}
           </SubmitButton>
@@ -141,4 +159,18 @@ export function AuthForm({mode}: { mode: Mode }) {
       )}
     </div>
   );
+}
+
+/**
+ * 注册成功后新手资金的到账提示, 以余额为准: 关闭发放或发放失败时余额为 0, 不提示
+ */
+async function grantedText(): Promise<string | undefined> {
+  try {
+    const {balances} = await services.wallet.listBalances();
+    const chip = balances.find((b) => b.currency === CURRENCY_CHIP);
+    return chip && chip.balance > 0 ? `新手资金 ${formatAmount(chip.balance, chip.decimals)} ${chip.name}已到账` : undefined;
+  } catch {
+    // 只影响提示, 不影响注册
+    return undefined;
+  }
 }
