@@ -27,6 +27,7 @@ package schedule
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -40,6 +41,9 @@ var (
 	// AsynqClient 投递任务的客户端, 业务代码用它把任务放进队列
 	AsynqClient *asynq.Client
 
+	// Location 定时任务和按天统计使用的时区, 来自 schedule.time_zone; 按天划分的数据都用它计算日期, 与定时任务一致
+	Location *time.Location
+
 	// inspector 查询和删除队列中的任务, 用于取消定时器
 	inspector *asynq.Inspector
 
@@ -48,6 +52,11 @@ var (
 )
 
 func init() {
+	location, err := time.LoadLocation(config.Config.Schedule.TimeZone)
+	if err != nil {
+		log.Fatalf("[Scheduler] load location %q failed: %v\n", config.Config.Schedule.TimeZone, err)
+	}
+	Location = location
 	AsynqClient = asynq.NewClient(task.RedisOpt)
 	inspector = asynq.NewInspector(task.RedisOpt)
 }
@@ -58,15 +67,10 @@ func init() {
 func StartScheduler() error {
 	var err error
 	schedulerOnce.Do(func() {
-		location, locErr := time.LoadLocation(config.Config.Schedule.TimeZone)
-		if locErr != nil {
-			err = fmt.Errorf("load location %q failed: %w", config.Config.Schedule.TimeZone, locErr)
-			return
-		}
 		scheduler = asynq.NewScheduler(
 			task.RedisOpt,
 			&asynq.SchedulerOpts{
-				Location: location,
+				Location: Location,
 				// asynq 投递失败时不打日志, 这里补上, 避免定时任务漏跑没人发现
 				EnqueueErrorHandler: func(t *asynq.Task, _ []asynq.Option, enqueueErr error) {
 					logger.ErrorF(context.Background(), "[Scheduler] enqueue %s failed: %v", t.Type(), enqueueErr)

@@ -284,3 +284,18 @@ CREATE TABLE IF NOT EXISTS match_players
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_match_players_match_id_seat ON match_players (match_id, seat);
 CREATE INDEX IF NOT EXISTS idx_match_players_user_id ON match_players (user_id);
+
+-- 玩家的对局统计, 每个用户每个统计范围每个周期一行, 结算时累加
+CREATE TABLE IF NOT EXISTS user_stats
+(
+    user_id    BIGINT      NOT NULL,
+    scope      VARCHAR(64) NOT NULL,           -- 统计范围, 如 all、mode:ranked、venue:dock
+    period     VARCHAR(32) NOT NULL,           -- 统计周期, 如 total、day:2026-10-28
+    matches    BIGINT      NOT NULL DEFAULT 0, -- 完成的对局数
+    wins       BIGINT      NOT NULL DEFAULT 0, -- 胜利次数
+    profit     BIGINT      NOT NULL DEFAULT 0, -- 净收益, 可以为负
+    bid_won    BIGINT      NOT NULL DEFAULT 0, -- 成交次数
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, scope, period)
+);
