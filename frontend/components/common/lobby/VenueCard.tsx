@@ -1,0 +1,105 @@
+import {Bot, Check, LoaderCircle, Swords, X} from 'lucide-react';
+import {cn} from 'cn';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {CurrencyIcon} from '@/components/common/wallet';
+import {MODES, type ModeKind} from '@/lib/auction';
+import type {Venue, ValueRange} from '@/lib/services/venue';
+import {formatAmount} from '@/lib/utils';
+
+/**
+ * 大厅里的一张地图: 简介、入场代价、仓库价值区间、入场条件, 以及人机和排位两个入口
+ * busy 为正在加入的模式, queued 为正在这张地图排队的模式
+ */
+export function VenueCard({venue: v, decimals, busy, queued, disabled, onJoin}: {
+  venue: Venue;
+  /** 出价货币的展示小数位 */
+  decimals: number;
+  busy: ModeKind | null;
+  queued: ModeKind | null;
+  /** 正在排队或对局中时不能再加入 */
+  disabled: boolean;
+  onJoin: (kind: ModeKind) => void;
+}) {
+  const modes: { kind: ModeKind; enabled: boolean; range: ValueRange; icon: typeof Bot }[] = [
+    {kind: 'pve', enabled: v.pve_enabled, range: v.pve.value_range, icon: Bot},
+    {kind: 'ranked', enabled: v.ranked_enabled, range: v.value_range, icon: Swords},
+  ];
+
+  return (
+    <div className="flex flex-col overflow-hidden rounded-xl border bg-card">
+      {v.image_url && (
+        // 图片地址由管理员填写, 域名不固定, 不走 next/image
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={v.image_url} alt={v.name} className="h-32 w-full object-cover" />
+      )}
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-bold">{v.name}</h2>
+          {v.description && <p className="text-sm whitespace-pre-wrap text-muted-foreground">{v.description}</p>}
+        </div>
+
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+          <dt className="text-muted-foreground">入场代价</dt>
+          <dd className="flex flex-wrap gap-x-3 gap-y-1">
+            {v.entry_cost.length ? v.entry_cost.map((line) => (
+              <span key={line.currency ?? `item:${line.item_id}`} className="flex items-center gap-1">
+                {line.currency && <CurrencyIcon currency={line.currency} className="size-4" />}
+                <span className="font-mono tabular-nums">
+                  {line.currency ? formatAmount(line.amount, line.currency === v.bid_currency ? decimals : 0) : `×${line.amount}`}
+                </span>
+                <span className="text-muted-foreground">{line.name}</span>
+              </span>
+            )) : <span className="text-muted-foreground">免费</span>}
+          </dd>
+          <dt className="text-muted-foreground">起拍 / 带入</dt>
+          <dd className="flex items-center gap-1 font-mono tabular-nums">
+            <CurrencyIcon currency={v.bid_currency} className="size-4" />
+            {formatAmount(v.auction.start_price, decimals)} / {formatAmount(v.auction.max_carry, decimals)}
+          </dd>
+          <dt className="text-muted-foreground">轮数</dt>
+          <dd>
+            {v.auction.rounds} 轮, 每轮 {v.auction.round_seconds} 秒
+          </dd>
+        </dl>
+
+        {v.requirements.length > 0 && (
+          <ul className="flex flex-col gap-1 text-sm">
+            {v.requirements.map((r, i) => (
+              <li key={i} className={cn('flex items-center gap-1.5', r.met ? 'text-muted-foreground' : 'text-destructive')}>
+                {r.met ? <Check className="size-4 shrink-0" /> : <X className="size-4 shrink-0" />}
+                {r.text}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-auto grid gap-2 sm:grid-cols-2">
+          {modes.map(({kind, enabled, range, icon: Icon}) => (
+            <div key={kind} className="flex flex-col gap-1.5 rounded-lg border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Icon className="size-4 text-primary" />
+                  {MODES[kind].label}
+                </span>
+                {kind === 'pve' && v.pve.practice_only && <Badge variant="outline">只能练习</Badge>}
+              </div>
+              <span className="text-xs text-muted-foreground" title="模拟的仓库价值, 八成的仓库在这个区间内">
+                价值约 {formatAmount(range.p10, decimals, {compact: true})} - {formatAmount(range.p90, decimals, {compact: true})}
+              </span>
+              <Button
+                size="sm"
+                variant={kind === 'pve' ? 'default' : 'secondary'}
+                disabled={!enabled || !v.eligible || disabled || busy !== null}
+                onClick={() => onJoin(kind)}
+              >
+                {busy === kind && <LoaderCircle className="animate-spin" />}
+                {!enabled ? '未开放' : queued === kind ? '匹配中' : '开始'}
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

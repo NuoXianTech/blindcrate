@@ -1,0 +1,68 @@
+/** 对局状态, 与后端 internal/apps/match/constants.go 对应 */
+export const MATCH_STATUS = {
+  playing: 'playing',
+  finished: 'finished',
+  cancelled: 'cancelled',
+} as const;
+
+/** 对局相关的 ws 推送 */
+export const MATCH_MESSAGES = {
+  /** 对局开始、切换阶段或结束, data 为 MatchView */
+  updated: 'match:updated',
+  /** 创建对局失败, 已移出队列, data 为 MatchmakingFailedMessage */
+  matchmakingFailed: 'match:matchmaking_failed',
+  /** 开局时不满足玩法的条件, 已移出队列, data 为 MatchmakingRejectedMessage */
+  matchmakingRejected: 'match:matchmaking_rejected',
+} as const;
+
+/** 排队状态 */
+export interface QueueStatus {
+  /** 玩法代码, 如 pve:dock */
+  mode: string;
+  joined_at: string;
+}
+
+/** 匹配状态, 排队和对局最多只有一个 */
+export interface MatchmakingStatus {
+  /** 没有排队时为空 */
+  queue: QueueStatus | null;
+  /** 进行中的对局, 没有时为 0 */
+  match_id: number;
+}
+
+/** 玩家看到的座位, 不区分真人和人机 */
+export interface MatchPlayer {
+  seat: number;
+  nickname: string;
+  avatar_url: string;
+  /** 结束时的名次, 0 表示没有名次 */
+  rank: number;
+  is_self: boolean;
+}
+
+/** 玩家看到的对局, 对应后端 match.MatchView */
+export interface MatchView {
+  id: number;
+  mode: string;
+  status: string;
+  phase: string;
+  round: number;
+  /** 当前阶段的截止时间, 不限时或已结束时为空 */
+  phase_ends_at: string | null;
+  /** 越大越新, 只采用 version 更大的推送 */
+  version: number;
+  /** 按座位号排序 */
+  players: MatchPlayer[];
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface MatchmakingFailedMessage {
+  mode: string;
+}
+
+export interface MatchmakingRejectedMessage {
+  mode: string;
+  /** 不满足的条件, 如余额不足 */
+  reason: string;
+}
