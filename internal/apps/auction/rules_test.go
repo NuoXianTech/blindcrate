@@ -25,6 +25,7 @@
 package auction
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -157,5 +158,29 @@ func TestBotBid(t *testing.T) {
 	}
 	if got := botBid(&bots, &testRule, 2, 100, 0, 10000, zero); got != 0 {
 		t.Errorf("limit below start price should pass: got %d, want 0", got)
+	}
+}
+
+func TestScanOrders(t *testing.T) {
+	pieces := []venue.Piece{{X: 2, Y: 1}, {X: 0, Y: 0}, {X: 3, Y: 0}, {X: 0, Y: 1}}
+	want := []int32{4, 1, 2, 3}
+	if got := scanOrders(pieces); !slices.Equal(got, want) {
+		t.Fatalf("scanOrders = %v, want %v", got, want)
+	}
+}
+
+func TestScanMs(t *testing.T) {
+	durations := []int{400, 500, 700}
+	cases := []struct {
+		quality int16
+		want    int32
+	}{{1, 400}, {3, 700}, {0, 400}, {9, 700}}
+	for _, c := range cases {
+		if got := scanMs(durations, c.quality); got != c.want {
+			t.Errorf("scanMs(%d) = %d, want %d", c.quality, got, c.want)
+		}
+	}
+	if got := scanMs(nil, 1); got != 0 {
+		t.Errorf("scanMs(nil) = %d, want 0", got)
 	}
 }

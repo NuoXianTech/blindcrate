@@ -69,8 +69,8 @@ export function AuctionTab({form, onChange, disabled, currency}: FormTabProps & 
           />
           <InputField
             id="venue-reveal-seconds"
-            label="开箱时长"
-            help="3-60 秒"
+            label="开箱后停留时长"
+            help="全部藏品扫描完后再停留 3-60 秒; 扫描时长在设置的暗拍中按品质配置"
             suffix="秒"
             inputMode="numeric"
             value={form.revealSeconds}

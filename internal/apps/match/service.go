@@ -230,6 +230,10 @@ func enterPhase(tx *gorm.DB, m *Match, phase *Phase) error {
 		updates["phase"] = m.Phase
 		updates["round"] = m.Round
 		updates["phase_ends_at"] = m.PhaseEndsAt
+		if phase.Release && m.ReleasedAt == nil {
+			m.ReleasedAt = &now
+			updates["released_at"] = now
+		}
 	}
 	return tx.Model(m).Updates(updates).Error
 }
@@ -347,6 +351,7 @@ type MatchView struct {
 	Round       int32        `json:"round"`
 	PhaseEndsAt *time.Time   `json:"phase_ends_at"` // 当前阶段的截止时间, 不限时或已结束时为空
 	Version     int64        `json:"version"`       // 越大越新, 客户端只采用 version 更大的推送
+	ReleasedAt  *time.Time   `json:"released_at"`   // 玩家可以离开的时间, 为空表示还没释放
 	Players     []PlayerView `json:"players"`       // 按座位号排序
 	CreatedAt   time.Time    `json:"created_at"`
 	FinishedAt  *time.Time   `json:"finished_at"`
@@ -362,6 +367,7 @@ func (d *MatchDetail) View(viewerID uint64) MatchView {
 		Round:       d.Round,
 		PhaseEndsAt: d.PhaseEndsAt,
 		Version:     d.Version,
+		ReleasedAt:  d.ReleasedAt,
 		Players:     make([]PlayerView, len(d.Players)),
 		CreatedAt:   d.CreatedAt,
 		FinishedAt:  d.FinishedAt,
@@ -378,12 +384,12 @@ func (d *MatchDetail) View(viewerID uint64) MatchView {
 	return view
 }
 
-// activeMatchID 用户正在进行中的对局, 没有时为 0
+// activeMatchID 用户正在进行中且还没释放的对局, 没有时为 0
 func activeMatchID(tx *gorm.DB, userID uint64) (uint64, error) {
 	var ids []uint64
 	if err := tx.Model(&Player{}).
 		Joins("JOIN matches ON matches.id = match_players.match_id").
-		Where("match_players.user_id = ? AND matches.status = ?", userID, StatusPlaying).
+		Where("match_players.user_id = ? AND matches.status = ? AND matches.released_at IS NULL", userID, StatusPlaying).
 		Order("match_players.match_id DESC").Limit(1).
 		Pluck("match_players.match_id", &ids).Error; err != nil {
 		return 0, err

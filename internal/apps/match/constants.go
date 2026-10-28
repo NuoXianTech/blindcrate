@@ -33,6 +33,7 @@
 //   - 玩法自己的数据(出价、手牌等)放在玩法自己的表中, 按 match_id 关联; 入场费和奖励在钩子中调用 reward.Apply
 //
 // 阶段切换后推送 MessageUpdated 给对局中的真人玩家; 玩家看到的对局不区分真人和人机。
+// 玩法可以在玩家结算后释放对局(Phase.Release), 之后的阶段只用于展示, 玩家可以离开并加入新的队列。
 // 客户端断线重连后调用 GET /matches/current 恢复当前对局。
 package match
 

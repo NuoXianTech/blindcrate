@@ -367,7 +367,7 @@ func createMatch(ctx context.Context, mode Mode, queued []queuedUser) (*formResu
 		var busy []uint64
 		if err := tx.Model(&Player{}).
 			Joins("JOIN matches ON matches.id = match_players.match_id").
-			Where("match_players.user_id IN ? AND matches.status = ?", userIDs, StatusPlaying).
+			Where("match_players.user_id IN ? AND matches.status = ? AND matches.released_at IS NULL", userIDs, StatusPlaying).
 			Pluck("match_players.user_id", &busy).Error; err != nil {
 			return err
 		}

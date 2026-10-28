@@ -41,6 +41,7 @@ type Match struct {
 	Round       int32      `gorm:"not null;default:0" json:"round"`                                                  // 当前轮次, 由玩法定义
 	PhaseEndsAt *time.Time `gorm:"index:idx_matches_status_phase_ends_at,priority:2" json:"phase_ends_at"`           // 当前阶段的截止时间, 不限时或已结束时为空
 	Version     int64      `gorm:"not null;default:0" json:"version"`                                                // 每次切换阶段加 1, 用于丢弃过期的超时任务和推送
+	ReleasedAt  *time.Time `json:"released_at"`                                                                      // 玩家可以离开的时间, 之后不再算作进行中的对局; 为空表示还没释放
 	CreatedAt   time.Time  `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time  `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
 	FinishedAt  *time.Time `json:"finished_at"` // 结束或取消的时间
