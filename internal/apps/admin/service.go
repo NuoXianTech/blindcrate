@@ -41,6 +41,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
@@ -967,6 +968,147 @@ func QueryMatches(ctx context.Context, req *ListMatchesRequest) (int64, []match.
 		return 0, nil, err
 	}
 	return total, details, nil
+}
+
+// QueryLeaderboards 获取榜单列表, 按排序值排列
+func QueryLeaderboards(ctx context.Context, req *ListLeaderboardsRequest) (int64, []leaderboard.Board, error) {
+	offset := (req.Current - 1) * req.Size
+
+	query := db.DB(ctx).Model(&leaderboard.Board{})
+	if req.Keyword != "" {
+		keyword := "%" + likeEscaper.Replace(req.Keyword) + "%"
+		query = query.Where("code ILIKE ? OR name ILIKE ?", keyword, keyword)
+	}
+	if req.IsEnabled != nil {
+		query = query.Where("is_enabled = ?", *req.IsEnabled)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return 0, nil, err
+	}
+
+	boards := []leaderboard.Board{}
+	if err := query.Order("sort_order, id").Offset(offset).Limit(req.Size).Find(&boards).Error; err != nil {
+		return 0, nil, err
+	}
+	return total, boards, nil
+}
+
+// doCreateLeaderboard 新建榜单
+func doCreateLeaderboard(ctx context.Context, req *LeaderboardRequest) (*leaderboard.Board, error) {
+	target := &leaderboard.Board{}
+	tx := db.DB(ctx)
+	if err := applyLeaderboard(tx, target, req); err != nil {
+		return nil, err
+	}
+	if err := tx.Create(target).Error; err != nil {
+		if db.IsUniqueViolation(err) {
+			return nil, errors.New(leaderboard.CodeTaken)
+		}
+		return nil, err
+	}
+	return target, nil
+}
+
+// doUpdateLeaderboard 修改榜单, 返回修改后的榜单和本次修改的字段, 没有任何字段变化时不写库
+//
+// 修改后缓存的前 N 名随即失效。
+func doUpdateLeaderboard(ctx context.Context, boardID uint64, req *LeaderboardRequest) (*leaderboard.Board, map[string]interface{}, error) {
+	var (
+		target  leaderboard.Board
+		changes map[string]interface{}
+	)
+	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockLeaderboard(tx, &target, boardID); err != nil {
+			return err
+		}
+		old := target
+		if err := applyLeaderboard(tx, &target, req); err != nil {
+			return err
+		}
+		changes = leaderboardChanges(&old, &target)
+		if len(changes) == 0 {
+			return nil
+		}
+		return tx.Save(&target).Error
+	})
+	if err != nil {
+		if db.IsUniqueViolation(err) {
+			return nil, nil, errors.New(leaderboard.CodeTaken)
+		}
+		return nil, nil, err
+	}
+	return &target, changes, nil
+}
+
+// doDeleteLeaderboard 删除榜单, 统计数据不受影响
+func doDeleteLeaderboard(ctx context.Context, boardID uint64) (*leaderboard.Board, error) {
+	var target leaderboard.Board
+	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockLeaderboard(tx, &target, boardID); err != nil {
+			return err
+		}
+		return tx.Delete(&target).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &target, nil
+}
+
+// lockLeaderboard 锁定榜单, 防止并发修改和删除互相覆盖
+func lockLeaderboard(tx *gorm.DB, target *leaderboard.Board, boardID uint64) error {
+	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), boardID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New(leaderboard.BoardNotFound)
+		}
+		return err
+	}
+	return nil
+}
+
+// applyLeaderboard 写入榜单字段并校验
+func applyLeaderboard(tx *gorm.DB, target *leaderboard.Board, req *LeaderboardRequest) error {
+	target.Code = req.Code
+	target.Name = strings.TrimSpace(req.Name)
+	target.Description = strings.TrimSpace(req.Description)
+	target.Metric = req.Metric
+	target.Scope = req.Scope
+	target.Period = req.Period
+	target.Size = req.Size
+	target.MinMatches = req.MinMatches
+	target.SortOrder = req.SortOrder
+	target.IsEnabled = req.IsEnabled
+	return leaderboard.Validate(tx, target)
+}
+
+// leaderboardFields 榜单可修改的字段, 用于操作日志
+func leaderboardFields(target *leaderboard.Board) map[string]interface{} {
+	return map[string]interface{}{
+		"code":        target.Code,
+		"name":        target.Name,
+		"description": target.Description,
+		"metric":      target.Metric,
+		"scope":       target.Scope,
+		"period":      target.Period,
+		"size":        target.Size,
+		"min_matches": target.MinMatches,
+		"sort_order":  target.SortOrder,
+		"is_enabled":  target.IsEnabled,
+	}
+}
+
+// leaderboardChanges 本次修改了哪些字段, 用于操作日志
+func leaderboardChanges(old, next *leaderboard.Board) map[string]interface{} {
+	changes := map[string]interface{}{}
+	nextFields := leaderboardFields(next)
+	for key, oldValue := range leaderboardFields(old) {
+		if newValue := nextFields[key]; oldValue != newValue {
+			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
+		}
+	}
+	return changes
 }
 
 // queryUserInventory 获取指定用户背包中的物品

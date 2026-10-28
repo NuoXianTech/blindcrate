@@ -262,8 +262,8 @@ func evaluateOne(tx *gorm.DB, userID uint64, c *Condition) (*Progress, error) {
 	return progress, nil
 }
 
-// scopeName 统计范围的展示名称, 全部对局为空字符串
-func scopeName(tx *gorm.DB, scope string) (string, error) {
+// ScopeName 统计范围的展示名称, 如 "排位"、"码头仓库"; 全部对局为空字符串, 没有注册展示名称的类别为统计范围本身
+func ScopeName(tx *gorm.DB, scope string) (string, error) {
 	if scope == stats.ScopeAll {
 		return "", nil
 	}

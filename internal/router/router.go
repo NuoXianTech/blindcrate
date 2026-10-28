@@ -37,6 +37,7 @@ import (
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/economy" // 注册时发放新手资金
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
+	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
@@ -180,6 +181,14 @@ func Serve() {
 				auctionRouter.GET("/:match_id", auction.GetAuction)
 			}
 
+			// Leaderboard
+			leaderboardRouter := apiV1Router.Group("/leaderboards")
+			leaderboardRouter.Use(auth.LoginRequired())
+			{
+				leaderboardRouter.GET("", leaderboard.ListBoards)
+				leaderboardRouter.GET("/:code", leaderboard.GetBoard)
+			}
+
 			// Admin
 			adminRouter := apiV1Router.Group("/admin")
 			adminRouter.Use(auth.LoginRequired(), admin.LoginAdminRequired())
@@ -246,6 +255,16 @@ func Serve() {
 				{
 					matchAdminRouter.GET("", admin.ListMatches)
 					matchAdminRouter.POST("/:id/cancel", admin.CancelMatch)
+				}
+
+				// Leaderboard
+				leaderboardAdminRouter := adminRouter.Group("/leaderboards")
+				{
+					leaderboardAdminRouter.GET("", admin.ListLeaderboards)
+					leaderboardAdminRouter.GET("/metrics", admin.ListLeaderboardMetrics)
+					leaderboardAdminRouter.POST("", admin.CreateLeaderboard)
+					leaderboardAdminRouter.PUT("/:id", admin.UpdateLeaderboard)
+					leaderboardAdminRouter.DELETE("/:id", admin.DeleteLeaderboard)
 				}
 
 				// Inventory

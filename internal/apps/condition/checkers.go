@@ -223,7 +223,7 @@ func scopeStat(tx *gorm.DB, userID uint64, scope, period, metric string) (int64,
 	if err != nil {
 		return 0, "", err
 	}
-	name, err := scopeName(tx, scope)
+	name, err := ScopeName(tx, scope)
 	if err != nil {
 		return 0, "", err
 	}
