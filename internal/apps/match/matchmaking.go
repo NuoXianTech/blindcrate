@@ -27,6 +27,7 @@ package match
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand/v2"
 	"slices"
 	"strconv"
@@ -110,6 +111,20 @@ end
 return 0
 `)
 
+// dropScript 取出队列中的所有用户, 用于玩法已不存在的队列
+//
+// KEYS[1] 队列, KEYS[2] 用户所在的队列; ARGV[1] 玩法。返回取出的用户 ID。
+var dropScript = redis.NewScript(`
+local popped = redis.call('ZRANGE', KEYS[1], 0, -1)
+for _, member in ipairs(popped) do
+	redis.call('ZREM', KEYS[1], member)
+	if redis.call('HGET', KEYS[2], member) == ARGV[1] then
+		redis.call('HDEL', KEYS[2], member)
+	end
+end
+return popped
+`)
+
 // queuedUser 从队列中取出的用户
 type queuedUser struct {
 	UserID   uint64
@@ -144,9 +159,9 @@ type MatchmakingRejectedMessage struct {
 // 已在同一个队列中时不重复加入; 已在其他队列中返回 AlreadyQueued, 已在对局中返回 InMatch;
 // 玩法实现了 JoinChecker 且拒绝时返回 *RejectedError。
 func Join(ctx context.Context, userID uint64, modeCode string) (*MatchmakingStatus, error) {
-	mode, ok := modes[modeCode]
-	if !ok {
-		return nil, errors.New(ModeNotFound)
+	mode, err := lookupMode(ctx, modeCode)
+	if err != nil {
+		return nil, err
 	}
 	matchID, err := activeMatchID(db.DB(ctx), userID)
 	if err != nil {
@@ -225,9 +240,9 @@ func QueryMatchmakingStatus(ctx context.Context, userID uint64) (*MatchmakingSta
 // 加入队列、补位任务到期和巡检时调用, 多个实例同时调用是安全的。
 // 创建失败时这一批玩家已被移出队列, 推送 MessageMatchmakingFailed 让他们重新匹配, 避免同一个错误反复发生。
 func Form(ctx context.Context, modeCode string) error {
-	mode, ok := modes[modeCode]
-	if !ok {
-		return errors.New(ModeNotFound)
+	mode, err := lookupMode(ctx, modeCode)
+	if err != nil {
+		return err
 	}
 	count := mode.PlayerCount()
 	keys := []string{queueKeyPrefix + modeCode, queueUsersKey}
@@ -273,6 +288,20 @@ func Form(ctx context.Context, modeCode string) error {
 			return nil
 		}
 	}
+}
+
+// dropQueue 玩法已不存在(如地图被删除)时清空它的队列, 推送 MessageMatchmakingFailed 让这些用户重新匹配
+func dropQueue(ctx context.Context, modeCode string) error {
+	popped, err := dropScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey}, modeCode).Int64Slice()
+	if err != nil || len(popped) == 0 {
+		return err
+	}
+	users := make([]queuedUser, len(popped))
+	for i, userID := range popped {
+		users[i] = queuedUser{UserID: uint64(userID)}
+	}
+	pushMatchmakingFailed(ctx, modeCode, users)
+	return nil
 }
 
 // fillsWithBots 玩法是否用人机补齐空位
@@ -377,7 +406,10 @@ func createMatch(ctx context.Context, mode Mode, queued []queuedUser) (*formResu
 		for i, user := range admitted {
 			humans[i] = user.UserID
 		}
-		players := seatPlayers(m.ID, humans, mode.PlayerCount())
+		players, err := seatPlayers(m.ID, humans, mode)
+		if err != nil {
+			return err
+		}
 		if err := tx.Create(&players).Error; err != nil {
 			return err
 		}
@@ -407,8 +439,9 @@ func createMatch(ctx context.Context, mode Mode, queued []queuedUser) (*formResu
 	return result, nil
 }
 
-// seatPlayers 随机分配座位, 真人之外的座位由随机昵称和等级的人机补齐, 按座位号排序
-func seatPlayers(matchID uint64, humans []uint64, count int) []Player {
+// seatPlayers 随机分配座位, 真人之外的座位由随机昵称的人机补齐, 人机等级由玩法决定, 按座位号排序
+func seatPlayers(matchID uint64, humans []uint64, mode Mode) ([]Player, error) {
+	count := mode.PlayerCount()
 	seats := rand.Perm(count)
 	names := rand.Perm(len(botNames))
 	players := make([]Player, count)
@@ -418,9 +451,12 @@ func seatPlayers(matchID uint64, humans []uint64, count int) []Player {
 			player.UserID = humans[i]
 		} else {
 			player.BotName = botNames[names[(i-len(humans))%len(names)]]
-			player.BotLevel = BotLevelLow + int16(rand.IntN(int(BotLevelHigh-BotLevelLow+1)))
+			player.BotLevel = mode.BotLevel()
+			if player.BotLevel < BotLevelLow || player.BotLevel > BotLevelHigh {
+				return nil, fmt.Errorf("match: invalid bot level %d of mode %s", player.BotLevel, mode.Code())
+			}
 		}
 		players[player.Seat-1] = player
 	}
-	return players
+	return players, nil
 }

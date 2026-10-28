@@ -56,13 +56,6 @@ export function ItemRow({item, currency, onEdit, onToggle, onDelete}: ItemRowPro
           <span className="text-muted-foreground">不可出售</span>
         )}
       </TableCell>
-      <TableCell className="text-right">
-        {item.weight > 0 ? (
-          <span className="font-mono tabular-nums">{item.weight}</span>
-        ) : (
-          <span className="text-muted-foreground">不掉落</span>
-        )}
-      </TableCell>
       <TableCell className="text-muted-foreground">
         {item.width}×{item.height}
       </TableCell>

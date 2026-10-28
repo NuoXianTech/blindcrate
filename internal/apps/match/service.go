@@ -106,12 +106,16 @@ func Cancel(ctx context.Context, matchID uint64) (*Match, error) {
 		if err := tx.Where("match_id = ?", matchID).Order("seat").Find(&players).Error; err != nil {
 			return err
 		}
-		if mode, ok := modes[m.Mode]; ok {
+		mode, err := lookupMode(ctx, m.Mode)
+		switch {
+		case err != nil && err.Error() == ModeNotFound:
+			logger.WarnF(ctx, "[Match] mode %s of match %d is not registered, cancel without OnCancel", m.Mode, m.ID)
+		case err != nil:
+			return err
+		default:
 			if err := mode.OnCancel(tx, &m, players); err != nil {
 				return err
 			}
-		} else {
-			logger.WarnF(ctx, "[Match] mode %s of match %d is not registered, cancel without OnCancel", m.Mode, m.ID)
 		}
 
 		previous = m

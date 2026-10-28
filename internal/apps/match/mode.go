@@ -26,9 +26,9 @@ package match
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"maps"
-	"slices"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -55,6 +55,8 @@ type Mode interface {
 	MinHumans() int
 	// BotFillAfter 真人不够一局时, 排队至少 MinHumans 人且最早加入的人等满这个时间后用人机补齐, 0 表示立即补齐
 	BotFillAfter() time.Duration
+	// BotLevel 开局时为每个人机座位调用一次, 返回该人机的等级, BotLevelLow 到 BotLevelHigh
+	BotLevel() int16
 	// Admit 开局前为每个真人调用, 用于检查门槛和扣入场费, 在创建对局的事务中, 此时还没有座位
 	//
 	// 返回 Reject 的错误时该玩家不参加这一局, 其写入被撤销, 推送 MessageMatchmakingRejected 并移出队列;
@@ -86,31 +88,86 @@ func Reject(reason string) error {
 	return &RejectedError{Reason: reason}
 }
 
-// modes 已注册的玩法, 只在启动前写入
-var modes = map[string]Mode{}
+// Provider 按代码提供一组动态玩法, 如每张地图一种玩法, 玩法代码为 "<前缀>:<其余部分>"
+type Provider interface {
+	// Mode 返回代码对应的玩法, 不存在时返回 nil
+	//
+	// 已停用的玩法也要返回, 进行中的对局还要用它打完; 停用后拒绝加入由 CheckJoin 和 Admit 负责。
+	Mode(ctx context.Context, code string) (Mode, error)
+}
+
+var (
+	// modes 静态注册的玩法, 只在启动前写入
+	modes = map[string]Mode{}
+	// providers 动态玩法的提供者, 按代码前缀, 只在启动前写入
+	providers = map[string]Provider{}
+)
 
 // Register 注册一种玩法, 需要在启动前调用; 代码为空或过长、人数不合法或重复注册时 panic
 func Register(mode Mode) {
+	if err := validateMode(mode); err != nil {
+		panic(err.Error())
+	}
 	code := mode.Code()
-	if code == "" || len(code) > 32 {
-		panic(fmt.Sprintf("match: invalid mode code %q", code))
-	}
-	if n := mode.PlayerCount(); n < 1 || n > maxPlayers {
-		panic(fmt.Sprintf("match: invalid player count %d of mode %s", n, code))
-	}
-	if n := mode.MinHumans(); n < 1 || n > mode.PlayerCount() {
-		panic(fmt.Sprintf("match: invalid min humans %d of mode %s", n, code))
-	}
-	if mode.BotFillAfter() < 0 {
-		panic(fmt.Sprintf("match: invalid bot fill delay of mode %s", code))
-	}
 	if _, ok := modes[code]; ok {
 		panic(fmt.Sprintf("match: mode %s already registered", code))
 	}
 	modes[code] = mode
 }
 
-// modeCodes 已注册的玩法代码, 按代码排序
-func modeCodes() []string {
-	return slices.Sorted(maps.Keys(modes))
+// RegisterProvider 注册一组动态玩法, 代码以 prefix 加冒号开头的玩法由 provider 提供, 需要在启动前调用
+//
+// 前缀为空、包含冒号或重复注册时 panic。静态注册的玩法优先。
+func RegisterProvider(prefix string, provider Provider) {
+	if prefix == "" || strings.Contains(prefix, ":") {
+		panic(fmt.Sprintf("match: invalid provider prefix %q", prefix))
+	}
+	if _, ok := providers[prefix]; ok {
+		panic(fmt.Sprintf("match: provider %s already registered", prefix))
+	}
+	providers[prefix] = provider
+}
+
+// lookupMode 按代码查找玩法, 先查静态注册的玩法, 再按前缀查动态玩法; 不存在时返回 ModeNotFound
+func lookupMode(ctx context.Context, code string) (Mode, error) {
+	if mode, ok := modes[code]; ok {
+		return mode, nil
+	}
+	prefix, _, ok := strings.Cut(code, ":")
+	provider, found := providers[prefix]
+	if !ok || !found {
+		return nil, errors.New(ModeNotFound)
+	}
+	mode, err := provider.Mode(ctx, code)
+	if err != nil {
+		return nil, err
+	}
+	if mode == nil {
+		return nil, errors.New(ModeNotFound)
+	}
+	if err := validateMode(mode); err != nil {
+		return nil, err
+	}
+	if mode.Code() != code {
+		return nil, fmt.Errorf("match: provider %s returned mode %s for %s", prefix, mode.Code(), code)
+	}
+	return mode, nil
+}
+
+// validateMode 检查玩法的代码和人数
+func validateMode(mode Mode) error {
+	code := mode.Code()
+	if code == "" || len(code) > 32 {
+		return fmt.Errorf("match: invalid mode code %q", code)
+	}
+	if n := mode.PlayerCount(); n < 1 || n > maxPlayers {
+		return fmt.Errorf("match: invalid player count %d of mode %s", n, code)
+	}
+	if n := mode.MinHumans(); n < 1 || n > mode.PlayerCount() {
+		return fmt.Errorf("match: invalid min humans %d of mode %s", n, code)
+	}
+	if mode.BotFillAfter() < 0 {
+		return fmt.Errorf("match: invalid bot fill delay of mode %s", code)
+	}
+	return nil
 }

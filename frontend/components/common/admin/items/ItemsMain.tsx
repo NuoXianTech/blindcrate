@@ -156,7 +156,6 @@ export function ItemsMain() {
               <TableHead>物品</TableHead>
               <TableHead>品质</TableHead>
               <TableHead className="text-right">回收价</TableHead>
-              <TableHead className="text-right">掉落权重</TableHead>
               <TableHead>尺寸</TableHead>
               <TableHead className="text-right">持有人数</TableHead>
               <TableHead>状态</TableHead>
@@ -166,7 +165,7 @@ export function ItemsMain() {
           </TableHeader>
           <TableBody>
             {loading && !data ? (
-              <TableSkeleton cols={9} />
+              <TableSkeleton cols={8} />
             ) : data?.items.length ? (
               data.items.map((item) => (
                 <ItemRow
@@ -179,7 +178,7 @@ export function ItemsMain() {
                 />
               ))
             ) : (
-              <TableEmpty colSpan={9}>没有找到物品</TableEmpty>
+              <TableEmpty colSpan={8}>没有找到物品</TableEmpty>
             )}
           </TableBody>
         </Table>

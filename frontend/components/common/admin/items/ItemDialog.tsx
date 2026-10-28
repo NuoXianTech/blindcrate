@@ -17,7 +17,7 @@ import services from '@/lib/services';
 import type {AdminItem, Currency, ItemRequest} from '@/lib/services/admin';
 import {QUALITIES} from '@/lib/quality';
 import {amountInput, parseAmount} from '@/lib/utils';
-import {MAX_SELL_PRICE, MAX_SIZE, MAX_WEIGHT} from './constants';
+import {MAX_SELL_PRICE, MAX_SIZE} from './constants';
 
 /**
  * 物品对话框的Props接口
@@ -66,7 +66,6 @@ function ItemForm({item, currencies, onClose, onSaved}: Omit<ItemDialogProps, 'i
   const currency = currencies.find((c) => c.code === sellCurrency);
   const decimals = currency?.decimals ?? 0;
   const [sellPrice, setSellPrice] = useState(item ? amountInput(item.sell_price, decimals) : '0');
-  const [weight, setWeight] = useState(String(item?.weight ?? 0));
   const [width, setWidth] = useState(String(item?.width ?? 1));
   const [height, setHeight] = useState(String(item?.height ?? 1));
   const [enabled, setEnabled] = useState(item?.is_enabled ?? true);
@@ -79,7 +78,6 @@ function ItemForm({item, currencies, onClose, onSaved}: Omit<ItemDialogProps, 'i
       image_url: imageURL.trim(),
       sell_currency: sellCurrency,
       sell_price: parseAmount(sellPrice, decimals) ?? -1,
-      weight: parseAmount(weight) ?? -1,
       width: parseAmount(width) ?? 0,
       height: parseAmount(height) ?? 0,
       is_enabled: enabled,
@@ -88,7 +86,6 @@ function ItemForm({item, currencies, onClose, onSaved}: Omit<ItemDialogProps, 'i
     check([...body.description].length > 255 ? '描述最多 255 个字符' : null);
     check(body.image_url && !/^https?:\/\/\S+$/.test(body.image_url) ? '图片地址需以 http:// 或 https:// 开头' : null);
     check(body.sell_price < 0 || body.sell_price > MAX_SELL_PRICE ? '回收价格式不正确' : null);
-    check(body.weight < 0 || body.weight > MAX_WEIGHT ? `掉落权重需为 0-${MAX_WEIGHT} 的整数` : null);
     check(
       body.width < 1 || body.width > MAX_SIZE || body.height < 1 || body.height > MAX_SIZE ?
         `宽和高需为 1-${MAX_SIZE} 的整数` :
@@ -188,18 +185,7 @@ function ItemForm({item, currencies, onClose, onSaved}: Omit<ItemDialogProps, 'i
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="item-weight">掉落权重</Label>
-          <Input
-            id="item-weight"
-            inputMode="numeric"
-            placeholder="0 表示不掉落"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            disabled={pending}
-          />
-        </div>
+      <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="item-width">宽(格)</Label>
           <Input id="item-width" inputMode="numeric" value={width} onChange={(e) => setWidth(e.target.value)} disabled={pending} />
