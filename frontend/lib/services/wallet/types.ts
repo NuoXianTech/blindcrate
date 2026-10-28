@@ -1,5 +1,8 @@
 import type {PageParams} from '../core';
 
+/** 基础货币筹码的代码, 新手资金以筹码发放, 与后端 wallet.CurrencyChip 对应 */
+export const CURRENCY_CHIP = 'chip';
+
 /** 某种货币的余额, 对应后端 wallet.BalanceItem */
 export interface BalanceItem {
   currency: string;
