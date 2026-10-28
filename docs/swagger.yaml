@@ -261,8 +261,21 @@ definitions:
       total:
         type: integer
     type: object
+  admin.ListSettingRevisionsResponseData:
+    properties:
+      revisions:
+        items:
+          $ref: '#/definitions/admin.SettingRevisionItem'
+        type: array
+      total:
+        type: integer
+    type: object
   admin.ListSettingsResponseData:
     properties:
+      categories:
+        items:
+          $ref: '#/definitions/settings.Category'
+        type: array
       groups:
         items:
           $ref: '#/definitions/settings.GroupView'
@@ -400,11 +413,34 @@ definitions:
     required:
     - entries
     type: object
+  admin.ResetSettingRequest:
+    properties:
+      version:
+        description: 当前版本, 已被别人修改时返回 409
+        minimum: 0
+        type: integer
+    required:
+    - version
+    type: object
   admin.Response:
     properties:
       data: {}
       error_msg:
         type: string
+    type: object
+  admin.RollbackSettingRequest:
+    properties:
+      target:
+        description: 回滚到的版本
+        minimum: 0
+        type: integer
+      version:
+        description: 当前版本, 已被别人修改时返回 409
+        minimum: 0
+        type: integer
+    required:
+    - target
+    - version
     type: object
   admin.SetUserDisabledRequest:
     properties:
@@ -412,6 +448,25 @@ definitions:
         type: boolean
     required:
     - disabled
+    type: object
+  admin.SettingRevisionItem:
+    properties:
+      action:
+        type: string
+      changes:
+        additionalProperties: true
+        type: object
+      created_at:
+        type: string
+      from_version:
+        type: integer
+      updated_by:
+        type: integer
+      updated_by_username:
+        description: 系统操作或用户已不存在时为空
+        type: string
+      version:
+        type: integer
     type: object
   admin.TestMailRequest:
     properties:
@@ -432,8 +487,13 @@ definitions:
       value:
         description: 设置组的字段, 只需提交改动的字段, 没有提交的保持不变, 密钥字段留空表示不修改
         type: object
+      version:
+        description: 读取时的版本, 已被别人修改时返回 409
+        minimum: 0
+        type: integer
     required:
     - value
+    - version
     type: object
   admin.UpdateUserRequest:
     properties:
@@ -1401,27 +1461,44 @@ definitions:
         description: 正数获得, 负数消耗
         type: integer
     type: object
+  settings.Category:
+    properties:
+      key:
+        type: string
+      label:
+        type: string
+    type: object
   settings.Field:
     properties:
       help:
         type: string
       input:
-        description: text / textarea / password / switch / number
+        description: text / textarea / password / select / switch / number / list
         type: string
       key:
         type: string
       label:
         type: string
+      options:
+        description: 下拉框的可选值
+        items:
+          $ref: '#/definitions/settings.Option'
+        type: array
       public:
         type: boolean
       secret:
         type: boolean
       type:
-        description: string / bool / int
+        description: string / bool / int / int_list
+        type: string
+      unit:
+        description: '整数的单位: bp / second / millisecond'
         type: string
     type: object
   settings.GroupView:
     properties:
+      category:
+        type: string
       description:
         type: string
       fields:
@@ -1451,12 +1528,58 @@ definitions:
         additionalProperties: true
         description: 密钥字段固定为空字符串
         type: object
+      version:
+        description: 保存时原样提交, 未保存过为 0
+        type: integer
+    type: object
+  settings.Option:
+    properties:
+      label:
+        type: string
+      value:
+        type: string
     type: object
   settings.Response:
     properties:
       data: {}
       error_msg:
         type: string
+    type: object
+  settings.RevisionView:
+    properties:
+      action:
+        type: string
+      changes:
+        additionalProperties: true
+        description: 相对上一个版本改动的字段, 格式同操作日志
+        type: object
+      created_at:
+        type: string
+      from_version:
+        description: 回滚时为回滚到的版本, 其他为 0
+        type: integer
+      id:
+        type: integer
+      key:
+        type: string
+      secrets_broken:
+        description: 无法解密的密钥字段, 有这类字段时不能回滚到此版本
+        items:
+          type: string
+        type: array
+      secrets_set:
+        additionalProperties:
+          type: boolean
+        description: 密钥字段是否已设置
+        type: object
+      updated_by:
+        type: integer
+      value:
+        additionalProperties: true
+        description: 密钥字段固定为空字符串
+        type: object
+      version:
+        type: integer
     type: object
   venue.AuctionRule:
     properties:
@@ -2738,7 +2861,15 @@ paths:
       - admin
   /api/v1/admin/settings:
     get:
-      description: 包含表单描述和当前值, 密钥字段不返回明文
+      description: 包含表单描述和当前值, 密钥字段不返回明文; 可以按分类筛选
+      parameters:
+      - description: 为空时返回全部
+        enum:
+        - system
+        - game
+        in: query
+        name: category
+        type: string
       produces:
       - application/json
       responses:
@@ -2751,6 +2882,10 @@ paths:
                 data:
                   $ref: '#/definitions/admin.ListSettingsResponseData'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
         "401":
           description: Unauthorized
           schema:
@@ -2763,14 +2898,52 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/admin.Response'
-      summary: 获取全部系统设置
+      summary: 获取设置组
       tags:
       - admin
   /api/v1/admin/settings/{key}:
+    get:
+      parameters:
+      - description: setting group key
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/settings.GroupView'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取一个设置组
+      tags:
+      - admin
     put:
       consumes:
       - application/json
-      description: 保存后立即生效
+      description: 保存后立即生效, 并生成一个新版本
       parameters:
       - description: setting group key
         in: path
@@ -2811,11 +2984,229 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/admin.Response'
       summary: 保存一个设置组
+      tags:
+      - admin
+  /api/v1/admin/settings/{key}/reset:
+    post:
+      consumes:
+      - application/json
+      description: 恢复为代码中的默认值并生成一个新版本, 密钥字段会被清空
+      parameters:
+      - description: setting group key
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.ResetSettingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/settings.GroupView'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 恢复设置组的默认值
+      tags:
+      - admin
+  /api/v1/admin/settings/{key}/revisions:
+    get:
+      description: 按版本从新到旧排列, 不含快照内容
+      parameters:
+      - description: setting group key
+        in: path
+        name: key
+        required: true
+        type: string
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListSettingRevisionsResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取设置组的历史版本
+      tags:
+      - admin
+  /api/v1/admin/settings/{key}/revisions/{version}:
+    get:
+      description: 密钥字段不返回明文, 只返回是否已设置
+      parameters:
+      - description: setting group key
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: version
+        in: path
+        name: version
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/settings.RevisionView'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取设置组某个版本的快照
+      tags:
+      - admin
+  /api/v1/admin/settings/{key}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: 用旧版本的快照生成一个新版本, 立即生效; 快照中的密钥无法解密时不能回滚
+      parameters:
+      - description: setting group key
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.RollbackSettingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/settings.GroupView'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 回滚设置组
       tags:
       - admin
   /api/v1/admin/settings/mail/test:

@@ -1087,6 +1087,40 @@ func QueryInventoryTransactions(ctx context.Context, req *ListInventoryTransacti
 	return total, items, nil
 }
 
+// SettingRevisionItem 设置组的一个版本, 不含快照内容
+type SettingRevisionItem struct {
+	Version           int64                  `json:"version"`
+	Action            string                 `json:"action"`
+	FromVersion       int64                  `json:"from_version"`
+	Changes           map[string]interface{} `gorm:"serializer:json" json:"changes"`
+	UpdatedBy         uint64                 `json:"updated_by"`
+	UpdatedByUsername string                 `json:"updated_by_username"` // 系统操作或用户已不存在时为空
+	CreatedAt         time.Time              `json:"created_at"`
+}
+
+// QuerySettingRevisions 获取设置组的历史版本, 按版本从新到旧
+func QuerySettingRevisions(ctx context.Context, key string, req *ListSettingRevisionsRequest) (int64, []SettingRevisionItem, error) {
+	offset := (req.Current - 1) * req.Size
+	query := db.DB(ctx).Model(&settings.Revision{}).Where("setting_revisions.key = ?", key)
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return 0, nil, err
+	}
+
+	revisions := []SettingRevisionItem{}
+	if err := query.
+		Select("setting_revisions.version, setting_revisions.action, setting_revisions.from_version, setting_revisions.changes, " +
+			"setting_revisions.updated_by, setting_revisions.created_at, COALESCE(users.username, '') AS updated_by_username").
+		Joins("LEFT JOIN users ON users.id = setting_revisions.updated_by").
+		Order("setting_revisions.version DESC").Offset(offset).Limit(req.Size).
+		Scan(&revisions).Error; err != nil {
+		return 0, nil, err
+	}
+
+	return total, revisions, nil
+}
+
 // prepareTestMail 校验测试邮件的收件人, 并取出已保存的邮件设置
 //
 // 只使用已保存的设置, 不接受草稿: 否则改掉 SMTP 服务器后沿用已保存的密码, 就能把密码发到任意服务器。
@@ -1095,7 +1129,7 @@ func prepareTestMail(ctx context.Context, req *TestMailRequest) (string, *settin
 	if err != nil {
 		return "", nil, errors.New(auth.EmailInvalid)
 	}
-	mailConfig, err := settings.Mail(ctx)
+	mailConfig, err := settings.Mail.Get(ctx)
 	if err != nil {
 		return "", nil, err
 	}

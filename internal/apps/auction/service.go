@@ -207,7 +207,7 @@ func (vm *venueMode) practice(tx *gorm.DB, userID uint64) (bool, error) {
 	if v.Pve.PracticeOnly {
 		return true, nil
 	}
-	economy, err := settings.Economy(tx.Statement.Context)
+	economySettings, err := settings.Economy.Get(tx.Statement.Context)
 	if err != nil {
 		return false, err
 	}
@@ -215,7 +215,7 @@ func (vm *venueMode) practice(tx *gorm.DB, userID uint64) (bool, error) {
 		scope string
 		limit int64
 	}{
-		{stats.ScopeMode(venue.ModePve), int64(economy.PveDailyProfitCap)},
+		{stats.ScopeMode(venue.ModePve), int64(economySettings.PveDailyProfitCap)},
 		{stats.ScopeVenueMode(v.Code, venue.ModePve), v.Pve.DailyProfitCap},
 	}
 	today := stats.PeriodDay(time.Now())

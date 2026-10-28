@@ -65,7 +65,7 @@ func NormalizeAddress(address string) (string, error) {
 //
 // 未启用邮件时: 开发环境把邮件内容打印到日志便于联调, 其他环境返回 ErrDisabled。
 func Send(ctx context.Context, to, subject, body string) error {
-	mailConfig, err := settings.Mail(ctx)
+	mailConfig, err := settings.Mail.Get(ctx)
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func Send(ctx context.Context, to, subject, body string) error {
 func Deliver(ctx context.Context, mailConfig *settings.MailSettings, to, subject, body string) error {
 	fromName := mailConfig.FromName
 	if fromName == "" {
-		site, err := settings.Site(ctx)
+		site, err := settings.Site.Get(ctx)
 		if err != nil {
 			return err
 		}

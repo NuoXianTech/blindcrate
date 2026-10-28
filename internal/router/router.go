@@ -258,7 +258,12 @@ func Serve() {
 				settingsAdminRouter := adminRouter.Group("/settings")
 				{
 					settingsAdminRouter.GET("", admin.ListSettings)
+					settingsAdminRouter.GET("/:key", admin.GetSetting)
 					settingsAdminRouter.PUT("/:key", admin.UpdateSetting)
+					settingsAdminRouter.GET("/:key/revisions", admin.ListSettingRevisions)
+					settingsAdminRouter.GET("/:key/revisions/:version", admin.GetSettingRevision)
+					settingsAdminRouter.POST("/:key/rollback", admin.RollbackSetting)
+					settingsAdminRouter.POST("/:key/reset", admin.ResetSetting)
 					settingsAdminRouter.POST("/mail/test", ratelimit.ByUser("admin:mail_test", ratelimit.PerMinute(5)), admin.TestMail)
 				}
 
