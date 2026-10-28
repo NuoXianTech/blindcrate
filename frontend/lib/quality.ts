@@ -1,20 +1,55 @@
 /**
- * 物品品质, 与后端 internal/apps/item/constants.go 的品质常量对应, 数值越大越稀有
- * 类名写全, Tailwind 才能扫描到; 炫彩是流动渐变, 见 app/globals.css 的 quality-rainbow
+ * 物品品质, 对应后端 GET /api/v1/qualities, 由管理员在品质管理中修改; 等级越大越稀有
  */
-export const QUALITIES = [
-  {value: 1, label: '灰色', text: 'text-quality-gray', bar: 'bg-quality-gray'},
-  {value: 2, label: '绿色', text: 'text-quality-green', bar: 'bg-quality-green'},
-  {value: 3, label: '蓝色', text: 'text-quality-blue', bar: 'bg-quality-blue'},
-  {value: 4, label: '紫色', text: 'text-quality-purple', bar: 'bg-quality-purple'},
-  {value: 5, label: '金色', text: 'text-quality-gold', bar: 'bg-quality-gold'},
-  {value: 6, label: '红色', text: 'text-quality-red', bar: 'bg-quality-red'},
-  {value: 7, label: '炫彩', text: 'quality-rainbow bg-clip-text text-transparent', bar: 'quality-rainbow'},
-] as const;
+export interface Quality {
+  level: number;
+  code: string;
+  name: string;
+  /** #rrggbb */
+  color: string;
+  /** 特效, 空表示纯色, 见 QUALITY_EFFECT */
+  effect: string;
+  /** 开箱时扫描这一品质藏品的时长, 毫秒 */
+  scan_ms: number;
+  sort_order: number;
+}
 
-export type Quality = (typeof QUALITIES)[number];
+/** 品质特效, 与后端 internal/apps/item/constants.go 一致 */
+export const QUALITY_EFFECT = {
+  /** 炫彩: 文字和色条都用流动渐变, 见 app/globals.css 的 quality-rainbow */
+  rainbow: 'rainbow',
+} as const;
 
-/** 按数值取品质, 超出范围按灰色处理 */
-export function qualityOf(value: number): Quality {
-  return QUALITIES.find((q) => q.value === value) ?? QUALITIES[0];
+/** 页面上展示的品质: 名称和文字、色条的类名 */
+export interface QualityStyle {
+  level: number;
+  name: string;
+  text: string;
+  bar: string;
+}
+
+/** 等级不存在(品质已被删除)时的展示 */
+export const UNKNOWN_QUALITY: QualityStyle = {
+  level: 0,
+  name: '未知',
+  text: 'text-muted-foreground',
+  bar: 'bg-muted-foreground',
+};
+
+const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+
+/** 品质的展示样式; 纯色品质的类名由 qualityStyleSheet 生成 */
+export function qualityStyle(q: Quality): QualityStyle {
+  if (q.effect === QUALITY_EFFECT.rainbow) {
+    return {level: q.level, name: q.name, text: 'quality-rainbow bg-clip-text text-transparent', bar: 'quality-rainbow'};
+  }
+  return {level: q.level, name: q.name, text: `quality-text-${q.level}`, bar: `quality-bar-${q.level}`};
+}
+
+/** 纯色品质的样式表, 颜色来自接口, 不是 #rrggbb 的跳过 */
+export function qualityStyleSheet(qualities: Quality[]): string {
+  return qualities
+      .filter((q) => Number.isInteger(q.level) && COLOR_PATTERN.test(q.color))
+      .map((q) => `.quality-text-${q.level}{color:${q.color}}.quality-bar-${q.level}{background-color:${q.color}}`)
+      .join('');
 }

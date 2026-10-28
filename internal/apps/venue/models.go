@@ -115,7 +115,7 @@ type AuctionRule struct {
 	MaxCarry       int64   `json:"max_carry" label:"带入资金上限" binding:"min=1,max=1000000000000"` // 开局时冻结 min(可用余额, 上限), 出价不能超过它
 	Rounds         int32   `json:"rounds" label:"轮数" binding:"min=1,max=10"`
 	RoundSeconds   int32   `json:"round_seconds" label:"每轮时长" binding:"min=5,max=120"`
-	RevealSeconds  int32   `json:"reveal_seconds" label:"开箱后停留时长" binding:"min=3,max=60"`            // 全部藏品扫描完后再停留的时长, 扫描时长见设置组 auction
+	RevealSeconds  int32   `json:"reveal_seconds" label:"开箱后停留时长" binding:"min=3,max=60"`            // 全部藏品扫描完后再停留的时长, 扫描时长见品质的 scan_ms
 	QuickWin       []int32 `json:"quick_win" label:"速胜倍率" binding:"max=9,dive,min=10000,max=100000"` // 前 Rounds-1 轮的速胜倍率, 基点; 第一名不低于第二名的这么多倍时直接成交
 	MaxExtraRounds int32   `json:"max_extra_rounds" label:"加轮上限" binding:"min=0,max=5"`              // 最后一轮最高价并列时加轮, 之后按先出价的人成交
 }

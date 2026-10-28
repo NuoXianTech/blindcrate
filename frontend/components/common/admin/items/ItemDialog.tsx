@@ -12,10 +12,10 @@ import {Textarea} from '@/components/ui/textarea';
 import {SubmitButton} from '@/components/common/form';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
+import {useQualities} from '@/components/common/site';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminItem, Currency, ItemRequest} from '@/lib/services/admin';
-import {QUALITIES} from '@/lib/quality';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {MAX_SELL_PRICE, MAX_SIZE} from './constants';
 
@@ -58,9 +58,10 @@ export function ItemDialog({item, currencies, onClose, onSaved}: ItemDialogProps
  */
 function ItemForm({item, currencies, onClose, onSaved}: Omit<ItemDialogProps, 'item'> & { item: AdminItem | null }) {
   const {pending, submit} = useSubmit();
+  const {qualities} = useQualities();
   const [name, setName] = useState(item?.name ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
-  const [quality, setQuality] = useState(String(item?.quality ?? 1));
+  const [quality, setQuality] = useState(String(item?.quality ?? qualities[0]?.level ?? 1));
   const [imageURL, setImageURL] = useState(item?.image_url ?? '');
   const [sellCurrency, setSellCurrency] = useState(item?.sell_currency ?? currencies[0]?.code ?? 'chip');
   const currency = currencies.find((c) => c.code === sellCurrency);
@@ -116,9 +117,9 @@ function ItemForm({item, currencies, onClose, onSaved}: Omit<ItemDialogProps, 'i
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {QUALITIES.map((q) => (
-                <SelectItem key={q.value} value={String(q.value)}>
-                  <span className={q.text}>{q.label}</span>
+              {qualities.map((q) => (
+                <SelectItem key={q.level} value={String(q.level)}>
+                  <span className={q.text}>{q.name}</span>
                 </SelectItem>
               ))}
             </SelectContent>

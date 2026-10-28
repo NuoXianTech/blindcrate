@@ -5,7 +5,7 @@ export interface UserItem {
   item_id: number;
   name: string;
   description: string;
-  /** 品质 1-7, 见 lib/quality.ts */
+  /** 品质等级, 见 useQualities */
   quality: number;
   image_url: string;
   sell_currency: string;

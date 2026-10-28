@@ -24,15 +24,12 @@
 
 package item
 
-// 物品品质, 数值越大越稀有
+// PlaceholderQuality 占位物品的品质等级, 对应最低一档品质
+const PlaceholderQuality int16 = 1
+
+// 品质特效, 空表示纯色
 const (
-	QualityGray    int16 = iota + 1 // 灰
-	QualityGreen                    // 绿
-	QualityBlue                     // 蓝
-	QualityPurple                   // 紫
-	QualityGold                     // 金
-	QualityRed                      // 红
-	QualityRainbow                  // 炫彩
+	QualityEffectRainbow = "rainbow" // 炫彩: 文字和色条都用流动渐变
 )
 
 // PlaceholderSellPrice 占位物品的售价, 物品被删除或不存在时背包中的该物品按占位物品展示和结算

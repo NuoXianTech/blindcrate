@@ -44,7 +44,7 @@ type Response struct {
 type ListItemsRequest struct {
 	Current int    `json:"current" form:"current" binding:"min=1"`
 	Size    int    `json:"size" form:"size" binding:"min=1,max=100"`
-	Quality *int16 `json:"quality" form:"quality" binding:"omitempty,min=1,max=7"`
+	Quality *int16 `json:"quality" form:"quality" binding:"omitempty,min=1"` // 品质等级
 }
 
 // ListItemsResponseData 背包物品分页结果

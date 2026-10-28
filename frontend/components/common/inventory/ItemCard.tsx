@@ -1,8 +1,8 @@
 import {Check} from 'lucide-react';
 import {cn} from 'cn';
 import {ItemImage} from '@/components/common/item';
+import {useQualities} from '@/components/common/site';
 import type {UserItem} from '@/lib/services/inventory';
-import {qualityOf} from '@/lib/quality';
 
 /**
  * 网格里的物品卡片: 品质色条 + 图片 + 数量; 多选时右上角显示勾选状态
@@ -14,7 +14,7 @@ export function ItemCard({item, onClick, selected, disabled}: {
   selected?: boolean;
   disabled?: boolean;
 }) {
-  const q = qualityOf(item.quality);
+  const q = useQualities().qualityOf(item.quality);
   return (
     <button
       type="button"
@@ -49,7 +49,7 @@ export function ItemCard({item, onClick, selected, disabled}: {
           {item.name}
         </span>
         <span className="text-xs text-muted-foreground">
-          {q.label} · {item.width}×{item.height}
+          {q.name} · {item.width}×{item.height}
         </span>
       </span>
     </button>

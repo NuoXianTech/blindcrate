@@ -7,8 +7,10 @@ import type {
   AdjustInventoryRequest,
   AdminUser,
   AdminMatch,
+  AdminQuality,
   AdminVenue,
   ConditionType,
+  CreateQualityRequest,
   Currency,
   Item,
   ItemRequest,
@@ -32,6 +34,7 @@ import type {
   ListUsersParams,
   ListVenuesData,
   ListVenuesParams,
+  QualityRequest,
   LootEntryRequest,
   LootPool,
   LootPoolEntriesData,
@@ -147,6 +150,25 @@ export class AdminService extends BaseService {
   /** 按未保存的配置模拟仓库, 不写入数据 */
   static simulateVenue(body: VenueRequest) {
     return this.post<Simulation>('/venues/simulate', body);
+  }
+
+  /** 全部品质, 附带使用每个品质的物品数 */
+  static listQualities() {
+    return this.get<{ qualities: AdminQuality[] }>('/qualities');
+  }
+
+  static createQuality(body: CreateQualityRequest) {
+    return this.post<AdminQuality>('/qualities', body);
+  }
+
+  /** 新的扫描时长只影响之后开局的对局 */
+  static updateQuality(level: number, body: QualityRequest) {
+    return this.put<AdminQuality>(`/qualities/${level}`, body);
+  }
+
+  /** 还有物品使用该品质时不能删除 */
+  static deleteQuality(level: number) {
+    return this.delete<null>(`/qualities/${level}`);
   }
 
   static listLeaderboards(params: ListLeaderboardsParams) {

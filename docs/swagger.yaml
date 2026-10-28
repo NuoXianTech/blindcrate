@@ -86,6 +86,44 @@ definitions:
     required:
     - reason
     type: object
+  admin.CreateQualityRequest:
+    properties:
+      code:
+        description: 自然键, 小写字母、数字和下划线
+        maxLength: 32
+        type: string
+      color:
+        description: '#rrggbb'
+        maxLength: 7
+        type: string
+      effect:
+        description: 特效, 空表示纯色, rainbow 为流动渐变
+        maxLength: 16
+        type: string
+      level:
+        description: 等级, 越大越稀有
+        maximum: 999
+        minimum: 1
+        type: integer
+      name:
+        maxLength: 32
+        type: string
+      scan_ms:
+        description: 开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久
+        maximum: 10000
+        minimum: 100
+        type: integer
+      sort_order:
+        description: 筛选和图例中从小到大排列
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+    required:
+    - code
+    - color
+    - level
+    - name
+    type: object
   admin.DeleteItemResponseData:
     properties:
       holder_count:
@@ -155,7 +193,7 @@ definitions:
       name:
         type: string
       quality:
-        description: 见 constants.go
+        description: 品质等级, 见 Quality
         type: integer
       sell_currency:
         type: string
@@ -187,8 +225,7 @@ definitions:
         maxLength: 64
         type: string
       quality:
-        description: '1-7: 灰/绿/蓝/紫/金/红/炫彩'
-        maximum: 7
+        description: 品质等级, 必须存在
         minimum: 1
         type: integer
       sell_currency:
@@ -330,6 +367,13 @@ definitions:
       total:
         type: integer
     type: object
+  admin.ListQualitiesResponseData:
+    properties:
+      qualities:
+        items:
+          $ref: '#/definitions/admin.QualityListItem'
+        type: array
+    type: object
   admin.ListSettingRevisionsResponseData:
     properties:
       revisions:
@@ -469,6 +513,62 @@ definitions:
         type: string
     required:
     - code
+    - name
+    type: object
+  admin.QualityListItem:
+    properties:
+      code:
+        description: 自然键, 导入导出时用来对应
+        type: string
+      color:
+        description: '#rrggbb'
+        type: string
+      created_at:
+        type: string
+      effect:
+        description: 特效, 空表示纯色, 见 constants.go
+        type: string
+      item_count:
+        description: 使用该品质的未删除物品数, 不为 0 时不能删除
+        type: integer
+      level:
+        type: integer
+      name:
+        type: string
+      scan_ms:
+        description: 开箱时扫描这一品质藏品的时长, 毫秒
+        type: integer
+      sort_order:
+        description: 筛选和图例中从小到大排列
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  admin.QualityRequest:
+    properties:
+      color:
+        description: '#rrggbb'
+        maxLength: 7
+        type: string
+      effect:
+        description: 特效, 空表示纯色, rainbow 为流动渐变
+        maxLength: 16
+        type: string
+      name:
+        maxLength: 32
+        type: string
+      scan_ms:
+        description: 开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久
+        maximum: 10000
+        minimum: 100
+        type: integer
+      sort_order:
+        description: 筛选和图例中从小到大排列
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+    required:
+    - color
     - name
     type: object
   admin.ReplaceLootPoolEntriesRequest:
@@ -1379,7 +1479,7 @@ definitions:
       name:
         type: string
       quality:
-        description: 见 constants.go
+        description: 品质等级, 见 Quality
         type: integer
       sell_currency:
         type: string
@@ -1391,6 +1491,45 @@ definitions:
       width:
         description: 在仓库中占的格数
         type: integer
+    type: object
+  item.ListQualitiesResponseData:
+    properties:
+      qualities:
+        items:
+          $ref: '#/definitions/item.Quality'
+        type: array
+    type: object
+  item.Quality:
+    properties:
+      code:
+        description: 自然键, 导入导出时用来对应
+        type: string
+      color:
+        description: '#rrggbb'
+        type: string
+      created_at:
+        type: string
+      effect:
+        description: 特效, 空表示纯色, 见 constants.go
+        type: string
+      level:
+        type: integer
+      name:
+        type: string
+      scan_ms:
+        description: 开箱时扫描这一品质藏品的时长, 毫秒
+        type: integer
+      sort_order:
+        description: 筛选和图例中从小到大排列
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  item.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
     type: object
   leaderboard.Board:
     properties:
@@ -2005,7 +2144,7 @@ definitions:
         maxItems: 9
         type: array
       reveal_seconds:
-        description: 全部藏品扫描完后再停留的时长, 扫描时长见设置组 auction
+        description: 全部藏品扫描完后再停留的时长, 扫描时长见品质的 scan_ms
         maximum: 60
         minimum: 3
         type: integer
@@ -2698,8 +2837,8 @@ paths:
         maxLength: 64
         name: keyword
         type: string
-      - in: query
-        maximum: 7
+      - description: 品质等级
+        in: query
         minimum: 1
         name: quality
         type: integer
@@ -3560,6 +3699,175 @@ paths:
       summary: 取消进行中的对局
       tags:
       - admin
+  /api/v1/admin/qualities:
+    get:
+      description: 按排序值排列, 带上使用每个品质的物品数
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListQualitiesResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取品质列表
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.CreateQualityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/item.Quality'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 新建品质
+      tags:
+      - admin
+  /api/v1/admin/qualities/{level}:
+    delete:
+      description: 还有未删除的物品使用该品质时不能删除; 已开局对局中的藏品保留原等级
+      parameters:
+      - description: quality level
+        in: path
+        name: level
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 删除品质
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: 需提交全部字段, 等级和代码不能修改; 新的扫描时长只影响之后开局的对局
+      parameters:
+      - description: quality level
+        in: path
+        name: level
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.QualityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/item.Quality'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 修改品质
+      tags:
+      - admin
   /api/v1/admin/settings:
     get:
       description: 包含表单描述和当前值, 密钥字段不返回明文; 可以按分类筛选
@@ -4211,8 +4519,8 @@ paths:
         minimum: 1
         name: current
         type: integer
-      - in: query
-        maximum: 7
+      - description: 品质等级
+        in: query
         minimum: 1
         name: quality
         type: integer
@@ -5124,8 +5432,8 @@ paths:
         minimum: 1
         name: current
         type: integer
-      - in: query
-        maximum: 7
+      - description: 品质等级
+        in: query
         minimum: 1
         name: quality
         type: integer
@@ -5671,6 +5979,28 @@ paths:
       summary: 加入匹配队列
       tags:
       - match
+  /api/v1/qualities:
+    get:
+      description: 按排序值排列, 无需登录; 前端用来展示品质的名称和颜色
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/item.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/item.ListQualitiesResponseData'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/item.Response'
+      summary: 获取物品品质
+      tags:
+      - item
   /api/v1/ready:
     get:
       description: 检查已启用的 PostgreSQL 和 Redis 是否可用

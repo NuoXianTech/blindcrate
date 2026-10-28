@@ -10,13 +10,12 @@ import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, Di
 import {Input} from '@/components/ui/input';
 import {SubmitButton} from '@/components/common/form';
 import {ItemImage} from '@/components/common/item';
-import {useSite} from '@/components/common/site';
+import {useQualities, useSite} from '@/components/common/site';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {SellOrder} from '@/lib/services/inventory';
 import type {BalanceItem} from '@/lib/services/wallet';
-import {qualityOf} from '@/lib/quality';
 import {formatAmount, parseAmount} from '@/lib/utils';
 import {MAX_SELL_LINES, MAX_SELL_QUANTITY} from './constants';
 import {formatFeeRate, sellTotals, type SellLine} from './sell';
@@ -69,6 +68,7 @@ function quantityOf(line: DraftLine): number | null {
  */
 function SellForm({initial, currencies, onClose, onSold}: Omit<SellDialogProps, 'lines'> & { initial: SellLine[] }) {
   const {economy} = useSite();
+  const {qualityOf} = useQualities();
   const feeRate = economy.sell_fee_rate;
   const {pending, submit} = useSubmit();
   const [lines, setLines] = useState<DraftLine[]>(() => initial.map((l) => ({item: l.item, text: String(l.quantity)})));

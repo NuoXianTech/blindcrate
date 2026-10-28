@@ -6,7 +6,7 @@ import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
 import {Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList} from '@/components/ui/command';
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
-import {qualityOf} from '@/lib/quality';
+import {useQualities} from '@/components/common/site';
 
 /** 下拉框里的物品 */
 export interface ItemOption {
@@ -32,6 +32,7 @@ interface ItemComboboxProps {
  */
 export function ItemCombobox({options, value, onChange, placeholder, disabled}: ItemComboboxProps) {
   const [open, setOpen] = useState(false);
+  const {qualityOf} = useQualities();
   const selected = options.find((o) => o.id === value);
 
   return (

@@ -6,8 +6,8 @@ import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} fro
 import {Skeleton} from '@/components/ui/skeleton';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
+import {useQualities} from '@/components/common/site';
 import {BASIS_POINTS, MODES, formatRatio} from '@/lib/auction';
-import {qualityOf} from '@/lib/quality';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {OddsEntry, SlotOdds, Venue, VenueDetail} from '@/lib/services/venue';
@@ -219,6 +219,7 @@ function formatRange(min: number, max: number): string {
  * 仓库的一个档位: 出现概率、抽取次数, 以及掉落池按品质分组的概率表
  */
 function SlotCard({index, slot}: { index: number; slot: SlotOdds }) {
+  const {qualityOf} = useQualities();
   const groups = slot.odds ? groupByQuality(slot.odds.entries) : [];
   const total = groups.reduce((sum, g) => sum + g.probability, 0);
 
@@ -243,7 +244,7 @@ function SlotCard({index, slot}: { index: number; slot: SlotOdds }) {
                 <div className="flex items-center justify-between gap-4 text-sm">
                   <span className="flex items-center gap-2 font-medium">
                     <span className={cn('h-3 w-1 rounded-full', q.bar)} />
-                    <span className={q.text}>{g.quality > 0 ? q.label : '其他'}</span>
+                    <span className={q.text}>{g.quality > 0 ? q.name : '其他'}</span>
                   </span>
                   <span className="font-mono font-medium tabular-nums">{formatPercent(g.probability)}</span>
                 </div>

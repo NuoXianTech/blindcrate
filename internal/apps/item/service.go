@@ -25,10 +25,16 @@
 package item
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"regexp"
+	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
+	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Placeholder 生成占位物品, 保留原物品 ID
@@ -36,7 +42,7 @@ func Placeholder(id uint64) *Item {
 	return &Item{
 		ID:            id,
 		Name:          placeholderName(id),
-		Quality:       QualityGray,
+		Quality:       PlaceholderQuality,
 		SellCurrency:  wallet.CurrencyChip,
 		SellPrice:     PlaceholderSellPrice,
 		Width:         1,
@@ -72,4 +78,64 @@ func Resolve(tx *gorm.DB, ids []uint64) (map[uint64]*Item, error) {
 		}
 	}
 	return result, nil
+}
+
+var (
+	// qualityCodePattern 品质代码, 小写字母、数字和下划线
+	qualityCodePattern = regexp.MustCompile(`^[a-z0-9_]{1,32}$`)
+	// qualityColorPattern 品质颜色, 统一为小写的 #rrggbb
+	qualityColorPattern = regexp.MustCompile(`^#[0-9a-f]{6}$`)
+)
+
+// QueryQualities 获取全部品质, 按排序值和等级排列
+func QueryQualities(ctx context.Context) ([]Quality, error) {
+	qualities := []Quality{}
+	if err := db.DB(ctx).Order("sort_order, level").Find(&qualities).Error; err != nil {
+		return nil, err
+	}
+	return qualities, nil
+}
+
+// ValidateQuality 校验品质的代码、名称、颜色和特效
+func ValidateQuality(q *Quality) error {
+	if !qualityCodePattern.MatchString(q.Code) {
+		return errors.New(QualityCodeInvalid)
+	}
+	if n := utf8.RuneCountInString(q.Name); n < 1 || n > 32 {
+		return errors.New(QualityNameInvalid)
+	}
+	if !qualityColorPattern.MatchString(q.Color) {
+		return errors.New(QualityColorInvalid)
+	}
+	if q.Effect != "" && q.Effect != QualityEffectRainbow {
+		return errors.New(QualityEffectInvalid)
+	}
+	return nil
+}
+
+// CheckQuality 品质等级必须存在, 不存在时返回 QualityNotFound
+//
+// 对品质加共享锁, 防止保存物品时品质被并发删除。
+func CheckQuality(tx *gorm.DB, level int16) error {
+	var q Quality
+	if err := q.Exact(tx.Clauses(clause.Locking{Strength: "SHARE"}), level); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New(QualityNotFound)
+		}
+		return err
+	}
+	return nil
+}
+
+// ScanDurations 每个品质等级的扫描时长, 毫秒
+func ScanDurations(tx *gorm.DB) (map[int16]int32, error) {
+	var qualities []Quality
+	if err := tx.Select("level", "scan_ms").Find(&qualities).Error; err != nil {
+		return nil, err
+	}
+	durations := make(map[int16]int32, len(qualities))
+	for _, q := range qualities {
+		durations[q.Level] = q.ScanMs
+	}
+	return durations, nil
 }

@@ -37,6 +37,7 @@ import (
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/economy" // 注册时发放新手资金
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
+	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
@@ -126,6 +127,9 @@ func Serve() {
 
 			// Settings
 			apiV1Router.GET("/settings/public", settings.PublicSettings)
+
+			// Item
+			apiV1Router.GET("/qualities", item.ListQualities)
 
 			// WebSocket
 			apiV1Router.GET("/ws", auth.LoginRequired(), ws.Connect)
@@ -225,6 +229,15 @@ func Serve() {
 					itemAdminRouter.POST("", admin.CreateItem)
 					itemAdminRouter.PUT("/:id", admin.UpdateItem)
 					itemAdminRouter.DELETE("/:id", admin.DeleteItem)
+				}
+
+				// Quality
+				qualityAdminRouter := adminRouter.Group("/qualities")
+				{
+					qualityAdminRouter.GET("", admin.ListQualities)
+					qualityAdminRouter.POST("", admin.CreateQuality)
+					qualityAdminRouter.PUT("/:level", admin.UpdateQuality)
+					qualityAdminRouter.DELETE("/:level", admin.DeleteQuality)
 				}
 
 				// Loot

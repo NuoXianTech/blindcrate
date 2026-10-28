@@ -40,7 +40,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
-	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
@@ -314,7 +313,7 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 	if err != nil {
 		return nil, err
 	}
-	auctionSettings, err := settings.Auction.Get(tx.Statement.Context)
+	scanDurations, err := item.ScanDurations(tx)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +326,7 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 			MatchID:      m.ID,
 			RevealOrder:  int32(order[i] + 1),
 			ScanOrder:    scanOrder[i],
-			ScanMs:       scanMs(auctionSettings.ScanMs, piece.Quality),
+			ScanMs:       scanDurations[piece.Quality],
 			ItemID:       piece.ItemID,
 			Name:         target.Name,
 			ImageURL:     target.ImageURL,

@@ -559,8 +559,8 @@ func AdjustUserBalance(c *gin.Context) {
 type ListItemsRequest struct {
 	Current   int    `json:"current" form:"current" binding:"min=1"`
 	Size      int    `json:"size" form:"size" binding:"min=1,max=100"`
-	Keyword   string `json:"keyword" form:"keyword" binding:"max=64"` // 按名称搜索, 不区分大小写
-	Quality   *int16 `json:"quality" form:"quality" binding:"omitempty,min=1,max=7"`
+	Keyword   string `json:"keyword" form:"keyword" binding:"max=64"`          // 按名称搜索, 不区分大小写
+	Quality   *int16 `json:"quality" form:"quality" binding:"omitempty,min=1"` // 品质等级
 	IsEnabled *bool  `json:"is_enabled" form:"is_enabled"`
 }
 
@@ -602,7 +602,7 @@ func ListItems(c *gin.Context) {
 type ItemRequest struct {
 	Name         string `json:"name" binding:"required,max=64"`
 	Description  string `json:"description" binding:"max=255"`
-	Quality      int16  `json:"quality" binding:"required,min=1,max=7"` // 1-7: 灰/绿/蓝/紫/金/红/炫彩
+	Quality      int16  `json:"quality" binding:"required,min=1"` // 品质等级, 必须存在
 	ImageURL     string `json:"image_url" binding:"omitempty,max=1024,http_url"`
 	SellCurrency string `json:"sell_currency" binding:"required,max=32"`
 	SellPrice    int64  `json:"sell_price" binding:"min=0,max=1000000000000"` // 0 表示不可卖出
@@ -639,7 +639,7 @@ func CreateItem(c *gin.Context) {
 	created, err := doCreateItem(ctx, &req)
 	if err != nil {
 		switch err.Error() {
-		case item.ItemNameInvalid, wallet.CurrencyNotFound:
+		case item.ItemNameInvalid, item.QualityNotFound, wallet.CurrencyNotFound:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
 		case item.ItemNameTaken:
 			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
@@ -686,7 +686,7 @@ func UpdateItem(c *gin.Context) {
 	updated, changes, err := doUpdateItem(ctx, itemID, &req)
 	if err != nil {
 		switch err.Error() {
-		case item.ItemNameInvalid, wallet.CurrencyNotFound:
+		case item.ItemNameInvalid, item.QualityNotFound, wallet.CurrencyNotFound:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
 		case item.ItemNotFound:
 			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
@@ -751,6 +751,187 @@ func DeleteItem(c *gin.Context) {
 	})
 	logger.InfoF(ctx, "[DeleteItem] %d deleted item %d %s, %d holders", operator.ID, deleted.ID, deleted.Name, holders)
 	c.JSON(http.StatusOK, Response{Data: DeleteItemResponseData{HolderCount: holders}})
+}
+
+// ListQualitiesResponseData 品质列表
+type ListQualitiesResponseData struct {
+	Qualities []QualityListItem `json:"qualities"`
+}
+
+// ListQualities
+// @Tags admin
+// @Summary 获取品质列表
+// @Description 按排序值排列, 带上使用每个品质的物品数
+// @Produce json
+// @Success 200 {object} Response{data=ListQualitiesResponseData}
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/qualities [get]
+func ListQualities(c *gin.Context) {
+	ctx := c.Request.Context()
+	qualities, err := queryQualities(ctx)
+	if err != nil {
+		logger.ErrorF(ctx, "[ListQualities] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: ListQualitiesResponseData{Qualities: qualities}})
+}
+
+// QualityRequest 修改品质请求体, 等级和代码创建后不能修改
+type QualityRequest struct {
+	Name      string `json:"name" binding:"required,max=32"`
+	Color     string `json:"color" binding:"required,max=7"`                // #rrggbb
+	Effect    string `json:"effect" binding:"max=16"`                       // 特效, 空表示纯色, rainbow 为流动渐变
+	ScanMs    int32  `json:"scan_ms" binding:"min=100,max=10000"`           // 开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久
+	SortOrder int32  `json:"sort_order" binding:"min=-1000000,max=1000000"` // 筛选和图例中从小到大排列
+}
+
+// CreateQualityRequest 新建品质请求体
+type CreateQualityRequest struct {
+	Level int16  `json:"level" binding:"required,min=1,max=999"` // 等级, 越大越稀有
+	Code  string `json:"code" binding:"required,max=32"`         // 自然键, 小写字母、数字和下划线
+	QualityRequest
+}
+
+// qualityErrorStatus 品质配置错误对应的状态码, 不是配置错误时返回 0
+func qualityErrorStatus(err error) int {
+	switch err.Error() {
+	case item.QualityCodeInvalid, item.QualityNameInvalid, item.QualityColorInvalid, item.QualityEffectInvalid:
+		return http.StatusBadRequest
+	case item.QualityNotFound:
+		return http.StatusNotFound
+	case item.QualityTaken, item.QualityInUse:
+		return http.StatusConflict
+	}
+	return 0
+}
+
+// CreateQuality
+// @Tags admin
+// @Summary 新建品质
+// @Accept json
+// @Produce json
+// @Param request body CreateQualityRequest true "request body"
+// @Success 200 {object} Response{data=item.Quality}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 409 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/qualities [post]
+func CreateQuality(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req CreateQualityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	created, err := doCreateQuality(ctx, &req)
+	if err != nil {
+		if status := qualityErrorStatus(err); status != 0 {
+			c.JSON(status, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[CreateQuality] create failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionQualityCreate, audit.TargetQuality, uint64(created.Level), qualityFields(created))
+	logger.InfoF(ctx, "[CreateQuality] %d created quality %d %s", operator.ID, created.Level, created.Code)
+	c.JSON(http.StatusOK, Response{Data: created})
+}
+
+// UpdateQuality
+// @Tags admin
+// @Summary 修改品质
+// @Description 需提交全部字段, 等级和代码不能修改; 新的扫描时长只影响之后开局的对局
+// @Accept json
+// @Produce json
+// @Param level path int true "quality level"
+// @Param request body QualityRequest true "request body"
+// @Success 200 {object} Response{data=item.Quality}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 404 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/qualities/{level} [put]
+func UpdateQuality(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req QualityRequest
+	level, err := strconv.ParseInt(c.Param("level"), 10, 16)
+	if err != nil || c.ShouldBindJSON(&req) != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	updated, changes, err := doUpdateQuality(ctx, int16(level), &req)
+	if err != nil {
+		if status := qualityErrorStatus(err); status != 0 {
+			c.JSON(status, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[UpdateQuality] update failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	if len(changes) > 0 {
+		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionQualityUpdate, audit.TargetQuality, uint64(updated.Level), changes)
+		logger.InfoF(ctx, "[UpdateQuality] %d updated quality %d %s", operator.ID, updated.Level, updated.Code)
+	}
+	c.JSON(http.StatusOK, Response{Data: updated})
+}
+
+// DeleteQuality
+// @Tags admin
+// @Summary 删除品质
+// @Description 还有未删除的物品使用该品质时不能删除; 已开局对局中的藏品保留原等级
+// @Produce json
+// @Param level path int true "quality level"
+// @Success 200 {object} Response
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 404 {object} Response
+// @Failure 409 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/qualities/{level} [delete]
+func DeleteQuality(c *gin.Context) {
+	ctx := c.Request.Context()
+	level, err := strconv.ParseInt(c.Param("level"), 10, 16)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	deleted, err := doDeleteQuality(ctx, int16(level))
+	if err != nil {
+		if status := qualityErrorStatus(err); status != 0 {
+			c.JSON(status, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[DeleteQuality] delete failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionQualityDelete, audit.TargetQuality, uint64(deleted.Level), qualityFields(deleted))
+	logger.InfoF(ctx, "[DeleteQuality] %d deleted quality %d %s", operator.ID, deleted.Level, deleted.Code)
+	c.JSON(http.StatusOK, Response{})
 }
 
 // ListLootPoolsRequest 掉落池列表查询参数

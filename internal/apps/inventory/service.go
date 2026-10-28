@@ -227,7 +227,7 @@ type UserItemDetail struct {
 func QueryUserItems(ctx context.Context, userID uint64, req *ListItemsRequest) (int64, []UserItemDetail, error) {
 	offset := (req.Current - 1) * req.Size
 
-	quality := fmt.Sprintf("COALESCE(items.quality, %d)", item.QualityGray)
+	quality := fmt.Sprintf("COALESCE(items.quality, %d)", item.PlaceholderQuality)
 	query := db.DB(ctx).Model(&UserItem{}).
 		Joins("LEFT JOIN items ON items.id = inventory_items.item_id AND items.deleted_at IS NULL").
 		Where("inventory_items.user_id = ? AND inventory_items.quantity > 0", userID)

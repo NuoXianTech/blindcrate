@@ -5,7 +5,7 @@ import {AuthProvider} from '@/components/common/auth';
 import {SiteProvider} from '@/components/common/site';
 import {ThemeProvider} from '@/components/common/layout';
 import {Toaster} from '@/components/ui/sonner';
-import {DEFAULT_DESCRIPTION, getPublicSettings} from '@/lib/site';
+import {DEFAULT_DESCRIPTION, getPublicSettings, getQualities} from '@/lib/site';
 import './globals.css';
 
 // eslint-disable-next-line new-cap
@@ -44,7 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({children}: LayoutProps<'/'>) {
-  const settings = await getPublicSettings();
+  const [settings, qualities] = await Promise.all([getPublicSettings(), getQualities()]);
   return (
     <html
       lang="zh-CN"
@@ -53,7 +53,7 @@ export default async function RootLayout({children}: LayoutProps<'/'>) {
     >
       <body className="flex min-h-full flex-col">
         <ThemeProvider>
-          <SiteProvider settings={settings}>
+          <SiteProvider settings={settings} qualities={qualities}>
             <AuthProvider>{children}</AuthProvider>
           </SiteProvider>
           <Toaster />

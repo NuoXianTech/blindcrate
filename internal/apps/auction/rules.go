@@ -234,14 +234,6 @@ func scanOrders(pieces []venue.Piece) []int32 {
 	return orders
 }
 
-// scanMs 品质为 quality 的藏品的扫描时长, durations 按品质从低到高; 超出范围的品质按最接近的一档
-func scanMs(durations []int, quality int16) int32 {
-	if len(durations) == 0 {
-		return 0
-	}
-	return int32(durations[min(max(int(quality), 1), len(durations))-1])
-}
-
 // amountIn 一组变动中某种货币的金额
 func amountIn(bundle reward.Bundle, currency string) int64 {
 	var amount int64
