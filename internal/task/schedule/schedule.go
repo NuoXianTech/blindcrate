@@ -40,12 +40,16 @@ var (
 	// AsynqClient 投递任务的客户端, 业务代码用它把任务放进队列
 	AsynqClient *asynq.Client
 
+	// inspector 查询和删除队列中的任务, 用于取消定时器
+	inspector *asynq.Inspector
+
 	scheduler     *asynq.Scheduler
 	schedulerOnce sync.Once
 )
 
 func init() {
 	AsynqClient = asynq.NewClient(task.RedisOpt)
+	inspector = asynq.NewInspector(task.RedisOpt)
 }
 
 // StartScheduler 启动定时任务调度, 按 cron 把任务投递到队列, 阻塞到收到退出信号为止

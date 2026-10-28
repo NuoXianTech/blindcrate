@@ -36,5 +36,10 @@ const (
 	BizItemSell    = "item_sell"    // 出售物品入账, biz_id 为出售单 ID
 )
 
+// 推送给客户端的消息类型
+const (
+	MessageBalanceChanged = "wallet:balance_changed" // 余额变动, data 为 BalanceChangedMessage
+)
+
 // MaxAmount 单笔变动金额上限, 防止异常请求一次写入过大金额
 const MaxAmount int64 = 1_000_000_000_000

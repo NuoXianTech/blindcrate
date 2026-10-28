@@ -83,6 +83,12 @@ definitions:
         description: 删除时持有该物品的用户数
         type: integer
     type: object
+  admin.DeleteLootPoolResponseData:
+    properties:
+      entry_count:
+        description: 一同删除的条目数
+        type: integer
+    type: object
   admin.InventoryTransactionItem:
     properties:
       biz_id:
@@ -238,6 +244,15 @@ definitions:
       total:
         type: integer
     type: object
+  admin.ListLootPoolsResponseData:
+    properties:
+      pools:
+        items:
+          $ref: '#/definitions/admin.LootPoolListItem'
+        type: array
+      total:
+        type: integer
+    type: object
   admin.ListSettingsResponseData:
     properties:
       groups:
@@ -278,6 +293,95 @@ definitions:
         items:
           $ref: '#/definitions/admin.WalletTransactionItem'
         type: array
+    type: object
+  admin.LootPoolEntriesResponseData:
+    properties:
+      entries:
+        description: 按条目 ID 排序, 包含不参与抽取的条目
+        items:
+          $ref: '#/definitions/loot.EntryDetail'
+        type: array
+      pool:
+        $ref: '#/definitions/loot.Pool'
+    type: object
+  admin.LootPoolEntryRequest:
+    properties:
+      currency:
+        description: 掉落的货币
+        maxLength: 32
+        type: string
+      item_id:
+        description: 掉落的物品, 与 currency 二选一
+        type: integer
+      max_quantity:
+        maximum: 1000000000000
+        minimum: 1
+        type: integer
+      min_quantity:
+        description: 每次掉落的数量范围, 货币为金额, 物品最多 1000000
+        maximum: 1000000000000
+        minimum: 1
+        type: integer
+      weight:
+        description: 权重
+        maximum: 1000000
+        minimum: 1
+        type: integer
+    required:
+    - max_quantity
+    - min_quantity
+    - weight
+    type: object
+  admin.LootPoolListItem:
+    properties:
+      code:
+        description: 玩法中引用的代码, 如 crate_basic
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      entry_count:
+        type: integer
+      id:
+        type: integer
+      is_enabled:
+        description: 停用后不能再抽取
+        type: boolean
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  admin.LootPoolRequest:
+    properties:
+      code:
+        description: 玩法中引用的代码, 小写字母、数字和下划线
+        maxLength: 64
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      is_enabled:
+        description: 停用后不能再抽取
+        type: boolean
+      name:
+        maxLength: 64
+        type: string
+    required:
+    - code
+    - name
+    type: object
+  admin.ReplaceLootPoolEntriesRequest:
+    properties:
+      entries:
+        description: 提交空数组清空条目
+        items:
+          $ref: '#/definitions/admin.LootPoolEntryRequest'
+        maxItems: 200
+        type: array
+    required:
+    - entries
     type: object
   admin.Response:
     properties:
@@ -714,6 +818,83 @@ definitions:
       width:
         description: 在保险柜中占的格数
         type: integer
+    type: object
+  loot.EntryDetail:
+    properties:
+      created_at:
+        type: string
+      currency:
+        description: 掉落的货币
+        type: string
+      id:
+        type: integer
+      image_url:
+        description: 物品图片, 货币为空
+        type: string
+      is_available:
+        description: 物品已上架或货币已启用, 否则不参与抽取
+        type: boolean
+      item_id:
+        description: 掉落的物品, 与 Currency 二选一
+        type: integer
+      max_quantity:
+        type: integer
+      min_quantity:
+        description: 每次掉落的数量在该范围内均匀随机, 货币为金额
+        type: integer
+      name:
+        description: 物品或货币的名称, 已删除的物品为占位名称
+        type: string
+      pool_id:
+        type: integer
+      probability:
+        description: 当前每次抽中的概率, 不参与抽取时为 0
+        type: number
+      quality:
+        description: 物品品质, 货币为 0
+        type: integer
+      weight:
+        description: 抽中的概率为权重 / 池中可抽取条目的权重之和
+        type: integer
+    type: object
+  loot.Pool:
+    properties:
+      code:
+        description: 玩法中引用的代码, 如 crate_basic
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_enabled:
+        description: 停用后不能再抽取
+        type: boolean
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  loot.PoolOdds:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      entries:
+        description: 只含可抽取的条目
+        items:
+          $ref: '#/definitions/loot.EntryDetail'
+        type: array
+      name:
+        type: string
+    type: object
+  loot.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
     type: object
   settings.Field:
     properties:
@@ -1229,6 +1410,297 @@ paths:
           schema:
             $ref: '#/definitions/admin.Response'
       summary: 修改物品
+      tags:
+      - admin
+  /api/v1/admin/loot-pools:
+    get:
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - in: query
+        name: is_enabled
+        type: boolean
+      - description: 按代码或名称搜索, 不区分大小写
+        in: query
+        maxLength: 64
+        name: keyword
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListLootPoolsResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取掉落池列表
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: 新建后没有条目, 需要再替换条目
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.LootPoolRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/loot.Pool'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 新建掉落池
+      tags:
+      - admin
+  /api/v1/admin/loot-pools/{id}:
+    delete:
+      description: 连同条目一起删除, 仍使用该代码的玩法会找不到掉落池
+      parameters:
+      - description: loot pool id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.DeleteLootPoolResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 删除掉落池
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: 需提交全部字段; 修改代码后, 仍使用旧代码的玩法会找不到掉落池
+      parameters:
+      - description: loot pool id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.LootPoolRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/loot.Pool'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 修改掉落池
+      tags:
+      - admin
+  /api/v1/admin/loot-pools/{id}/entries:
+    get:
+      description: 包含已下架、已删除的物品和已停用的货币, 这些条目不参与抽取, 概率按其余条目计算
+      parameters:
+      - description: loot pool id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.LootPoolEntriesResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取掉落池的全部条目
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: 用提交的条目整体替换; 物品需未删除, 货币需存在, 已下架的物品和已停用的货币也可以加入, 恢复后才参与抽取
+      parameters:
+      - description: loot pool id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.ReplaceLootPoolEntriesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.LootPoolEntriesResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 替换掉落池的全部条目
       tags:
       - admin
   /api/v1/admin/settings:
@@ -2444,6 +2916,46 @@ paths:
       summary: 获取当前用户的背包流水
       tags:
       - inventory
+  /api/v1/loot-pools/{code}/odds:
+    get:
+      description: 只返回已启用的掉落池中可抽取的条目, 概率为每次抽取抽中该条目的概率
+      parameters:
+      - description: pool code
+        in: path
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/loot.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/loot.PoolOdds'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/loot.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/loot.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/loot.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/loot.Response'
+      summary: 获取掉落池的公示概率
+      tags:
+      - loot
   /api/v1/ready:
     get:
       description: 检查已启用的 PostgreSQL 和 Redis 是否可用

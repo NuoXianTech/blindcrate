@@ -28,6 +28,7 @@
 //   - 在这里定义任务类型, 格式为 <app>:<动作>, 如 dashboard:update_stats
 //   - 处理函数放在对应 app 的 tasks.go, 并在 worker.StartWorker 中注册
 //   - 定时任务在 schedule.StartScheduler 中注册, cron 表达式放在配置的 schedule 下
+//   - 对战阶段超时等一次性的定时器用 schedule.EnqueueOnce 投递, 提前结束时用 schedule.Cancel 取消
 //
 // 任务至少会执行一次: 失败重试或 worker 中途退出后, 同一个任务可能再次执行, 处理函数需要保证幂等。
 package task

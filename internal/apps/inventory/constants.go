@@ -30,5 +30,10 @@ const (
 	BizItemSell    = "item_sell"    // 出售物品, biz_id 为出售单 ID
 )
 
+// 推送给客户端的消息类型
+const (
+	MessageItemsChanged = "inventory:items_changed" // 背包物品数量变动, data 为 ItemsChangedMessage
+)
+
 // MaxQuantity 单笔变动数量上限, 防止异常请求一次写入过多物品
 const MaxQuantity int64 = 1_000_000
