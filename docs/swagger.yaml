@@ -156,7 +156,7 @@ definitions:
       updated_at:
         type: string
       width:
-        description: 在保险柜中占的格数
+        description: 在仓库中占的格数
         type: integer
     type: object
   admin.ItemRequest:
@@ -191,7 +191,7 @@ definitions:
         minimum: 0
         type: integer
       width:
-        description: 在保险柜中占的格数
+        description: 在仓库中占的格数
         maximum: 10
         minimum: 1
         type: integer
@@ -885,14 +885,26 @@ definitions:
       help:
         type: string
       input:
-        description: text / switch / number, 或选择器 currency / item / scope
+        description: text / switch / number, 或选择器 currency / item / scope / metric
         type: string
       key:
         type: string
       label:
         type: string
+      options:
+        description: 选择器 metric 的可选值
+        items:
+          $ref: '#/definitions/condition.Option'
+        type: array
       type:
         description: string / bool / int
+        type: string
+    type: object
+  condition.Option:
+    properties:
+      label:
+        type: string
+      value:
         type: string
     type: object
   condition.Progress:
@@ -1176,7 +1188,7 @@ definitions:
       updated_at:
         type: string
       width:
-        description: 在保险柜中占的格数
+        description: 在仓库中占的格数
         type: integer
     type: object
   loot.EntryDetail:

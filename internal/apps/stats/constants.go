@@ -22,13 +22,14 @@
  * SOFTWARE.
  */
 
-// Package stats 玩家的对局统计, 按统计范围和周期分别累加, 供条件检查、每日上限和排行榜使用
+// Package stats 玩家的统计数据, 按统计范围、周期和指标分别累加, 供条件检查、每日上限和排行榜使用
 //
-// 每个用户每个范围每个周期一行, 结算时在同一个事务中调用 Add 一次写入所有组合:
+// 每个用户每个范围每个周期每个指标一行, 结算时在同一个事务中调用 Add 一次写入所有组合:
 //   - 范围: 全部、某种模式、某张地图、某张地图的某种模式, 见 ScopeAll 和 Scope 开头的函数
 //   - 周期: 累计和当天, 见 PeriodTotal 和 PeriodDay; 日期按 schedule.time_zone 计算, 与定时任务一致
+//   - 指标: 对局数、胜利次数等计数指标用 RegisterMetric 注册, 可以在条件中使用; 净收益按货币分开, 见 MetricProfit
 //
-// 练习局不写统计。
+// 新增一种统计数据只需注册指标并在结算时写入, 不需要改表; 练习局不写统计。
 package stats
 
 // ScopeAll 统计范围: 全部对局
@@ -37,5 +38,15 @@ const ScopeAll = "all"
 // PeriodTotal 统计周期: 累计
 const PeriodTotal = "total"
 
-// maxScopeLength 统计范围的最大长度, 与 user_stats.scope 一致
-const maxScopeLength = 64
+// 通用的计数指标, 所有玩法结算时都会写入
+const (
+	MetricMatches = "matches" // 完成的对局数
+	MetricWins    = "wins"    // 胜利次数, 名次为第 1 的对局数
+)
+
+const (
+	// maxScopeLength 统计范围的最大长度, 与 stats.scope 一致
+	maxScopeLength = 64
+	// maxMetricLength 指标的最大长度, 与 stats.metric 一致
+	maxMetricLength = 64
+)

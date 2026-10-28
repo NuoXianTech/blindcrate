@@ -50,6 +50,7 @@ import (
 func init() {
 	match.RegisterProvider(venue.ModePve, &provider{kind: venue.ModePve})
 	match.RegisterProvider(venue.ModeRanked, &provider{kind: venue.ModeRanked})
+	stats.RegisterMetric(MetricBidWon, "成交次数")
 	ws.Handle(MessageBid, handleBid)
 }
 
@@ -218,16 +219,16 @@ func (vm *venueMode) practice(tx *gorm.DB, userID uint64) (bool, error) {
 		{stats.ScopeMode(venue.ModePve), int64(economySettings.PveDailyProfitCap)},
 		{stats.ScopeVenueMode(v.Code, venue.ModePve), v.Pve.DailyProfitCap},
 	}
-	today := stats.PeriodDay(time.Now())
+	today, metric := stats.PeriodDay(time.Now()), stats.MetricProfit(v.BidCurrency)
 	for _, c := range caps {
 		if c.limit == 0 {
 			continue
 		}
-		stat, err := stats.Get(tx, userID, c.scope, today)
+		profit, err := stats.Get(tx, userID, c.scope, today, metric)
 		if err != nil {
 			return false, err
 		}
-		if stat.Profit >= c.limit {
+		if profit >= c.limit {
 			return true, nil
 		}
 	}
@@ -255,7 +256,6 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 	a := &Match{
 		MatchID: m.ID,
 		VenueID: v.ID,
-		Mode:    vm.kind,
 		Venue: Snapshot{
 			Code:        v.Code,
 			Name:        v.Name,
@@ -315,7 +315,6 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 		bots = append(bots, Player{
 			MatchID:  m.ID,
 			Seat:     player.Seat,
-			BotLevel: player.BotLevel,
 			Carry:    v.Auction.MaxCarry,
 			Estimate: botEstimate(&v.Bots, player.BotLevel, warehouse.Value, rand.Int64N),
 			Feedback: []Feedback{},
@@ -575,14 +574,14 @@ func (st *state) settle(tx *gorm.DB, result verdict) error {
 			return err
 		}
 
-		delta := stats.Delta{Matches: 1, Profit: p.Profit}
+		values := stats.Values{stats.MetricMatches: 1, stats.MetricProfit(a.Venue.BidCurrency): p.Profit}
 		if ranks[p.Seat] == 1 {
-			delta.Wins = 1
+			values[stats.MetricWins] = 1
 		}
 		if won {
-			delta.BidWon = 1
+			values[MetricBidWon] = 1
 		}
-		if err := stats.Add(tx, p.UserID, stats.MatchScopes(a.Venue.Code, a.Mode), now, delta); err != nil {
+		if err := stats.Add(tx, p.UserID, stats.MatchScopes(a.Venue.Code, st.kind()), now, values); err != nil {
 			return err
 		}
 	}
@@ -643,7 +642,7 @@ func (st *state) changeWallet(tx *gorm.DB, p *Player, amount, frozen int64, bizT
 		BizType:        bizType,
 		BizID:          strconv.FormatUint(st.match.ID, 10),
 		IdempotencyKey: matchKey(st.match.ID, action, p.UserID),
-		Remark:         remarkOf(st.auction.Venue.Name, st.auction.Mode),
+		Remark:         remarkOf(st.auction.Venue.Name, st.kind()),
 	})
 	if err != nil {
 		return err
@@ -660,7 +659,7 @@ func (st *state) applyReward(tx *gorm.DB, p *Player, bundle reward.Bundle, bizTy
 		BizType:        bizType,
 		BizID:          strconv.FormatUint(st.match.ID, 10),
 		IdempotencyKey: matchKey(st.match.ID, action, p.UserID),
-		Remark:         remarkOf(st.auction.Venue.Name, st.auction.Mode),
+		Remark:         remarkOf(st.auction.Venue.Name, st.kind()),
 	})
 	if err != nil {
 		return err
@@ -716,6 +715,12 @@ func pushTransaction(tx *gorm.DB, txn *wallet.Transaction, replayed bool) {
 // matchKey 对局中资金变动的幂等键, 如 match:42:entry:7
 func matchKey(matchID uint64, action string, userID uint64) string {
 	return fmt.Sprintf("match:%d:%s:%d", matchID, action, userID)
+}
+
+// kind 这局的模式, venue.ModePve 或 venue.ModeRanked, 即玩法代码中冒号之前的部分
+func (st *state) kind() string {
+	kind, _, _ := strings.Cut(st.match.Mode, ":")
+	return kind
 }
 
 // remarkOf 资金流水的备注, 如 "码头仓库·人机"

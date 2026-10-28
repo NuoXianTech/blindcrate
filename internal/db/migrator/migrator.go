@@ -119,7 +119,7 @@ func runAutoMigrate() {
 		&loot.Entry{},
 		&match.Match{},
 		&match.Player{},
-		&stats.UserStat{},
+		&stats.Stat{},
 		&venue.Venue{},
 		&auction.Match{},
 		&auction.Player{},

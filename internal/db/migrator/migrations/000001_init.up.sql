@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS wallet_transactions
     balance_after   BIGINT       NOT NULL,            -- 变动后可用余额
     frozen_after    BIGINT       NOT NULL,            -- 变动后冻结余额
     biz_type        VARCHAR(32)  NOT NULL,            -- 业务类型, 如 admin_adjust
-    biz_id          VARCHAR(64)  NOT NULL DEFAULT '', -- 业务单号, 如保险柜 ID
+    biz_id          VARCHAR(64)  NOT NULL DEFAULT '', -- 业务单号, 如对局 ID
     idempotency_key VARCHAR(128) NOT NULL DEFAULT '', -- 幂等键, 非空时全局唯一
     operator_id     BIGINT       NOT NULL DEFAULT 0,  -- 操作人, 0 表示系统
     remark          VARCHAR(255) NOT NULL DEFAULT '',
@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS items
     image_url     VARCHAR(1024) NOT NULL DEFAULT '',
     sell_currency VARCHAR(32)   NOT NULL DEFAULT 'chip', -- 卖出得到的货币
     sell_price    BIGINT        NOT NULL DEFAULT 0,      -- 卖出价格, 0 表示不可卖出
-    width         SMALLINT      NOT NULL DEFAULT 1,      -- 在保险柜中占的格数
+    width         SMALLINT      NOT NULL DEFAULT 1,      -- 在仓库中占的格数
     height        SMALLINT      NOT NULL DEFAULT 1,
     is_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,  -- 下架后不会掉落, 也不能再发放, 已有的保留
     created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
@@ -300,19 +300,17 @@ CREATE TABLE IF NOT EXISTS match_players
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_match_players_match_id_seat ON match_players (match_id, seat);
 CREATE INDEX IF NOT EXISTS idx_match_players_user_id ON match_players (user_id);
 
--- 玩家的对局统计, 每个用户每个统计范围每个周期一行, 结算时累加
-CREATE TABLE IF NOT EXISTS user_stats
+-- 玩家的统计数据, 每个用户每个统计范围每个周期每个指标一行, 结算时累加; 新增指标不需要改表
+CREATE TABLE IF NOT EXISTS stats
 (
     user_id    BIGINT      NOT NULL,
     scope      VARCHAR(64) NOT NULL,           -- 统计范围, 如 all、mode:ranked、venue:dock
     period     VARCHAR(32) NOT NULL,           -- 统计周期, 如 total、day:2026-10-28
-    matches    BIGINT      NOT NULL DEFAULT 0, -- 完成的对局数
-    wins       BIGINT      NOT NULL DEFAULT 0, -- 胜利次数
-    profit     BIGINT      NOT NULL DEFAULT 0, -- 净收益, 可以为负
-    bid_won    BIGINT      NOT NULL DEFAULT 0, -- 成交次数
+    metric     VARCHAR(64) NOT NULL,           -- 指标, 如 matches、wins、profit:chip
+    value      BIGINT      NOT NULL DEFAULT 0, -- 累计值, 金额按最小单位计, 可以为负
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (user_id, scope, period)
+    PRIMARY KEY (user_id, scope, period, metric)
 );
 
 -- 地图(拍卖场), 每张地图有人机和排位两种玩法; 软删除, 代码在已删除的地图中也唯一
@@ -343,12 +341,11 @@ CREATE TABLE IF NOT EXISTS venues
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_venues_code ON venues (code);
 CREATE INDEX IF NOT EXISTS idx_venues_deleted_at ON venues (deleted_at);
 
--- 暗拍的对局级数据, 与 matches 一一对应, 开局时创建
+-- 暗拍的对局级数据, 与 matches 一一对应, 开局时创建; 模式取 matches.mode 中冒号之前的部分
 CREATE TABLE IF NOT EXISTS auction_matches
 (
     match_id     BIGINT PRIMARY KEY,
     venue_id     BIGINT      NOT NULL,
-    mode         VARCHAR(16) NOT NULL,              -- pve 或 ranked
     venue        JSONB       NOT NULL,              -- 开局时的地图配置快照
     value        BIGINT      NOT NULL,              -- 仓库价值, 出价货币的回收价之和
     piece_count  INTEGER     NOT NULL,              -- 藏品件数
@@ -369,7 +366,6 @@ CREATE TABLE IF NOT EXISTS auction_players
     match_id    BIGINT      NOT NULL,
     seat        SMALLINT    NOT NULL DEFAULT 0,
     user_id     BIGINT      NOT NULL DEFAULT 0,     -- 人机为 0
-    bot_level   SMALLINT    NOT NULL DEFAULT 0,
     is_practice BOOLEAN     NOT NULL DEFAULT FALSE, -- 练习局, 不扣入场代价、不冻结资金、不发藏品、不写统计
     entry_cost  JSONB       NOT NULL DEFAULT '{}',  -- 实际扣除的入场代价
     carry       BIGINT      NOT NULL DEFAULT 0,     -- 带入资金, 出价的上限

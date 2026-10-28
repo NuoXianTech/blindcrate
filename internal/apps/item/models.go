@@ -41,7 +41,7 @@ type Item struct {
 	ImageURL      string         `gorm:"size:1024;not null;default:''" json:"image_url"`
 	SellCurrency  string         `gorm:"size:32;not null;default:'chip'" json:"sell_currency"`
 	SellPrice     int64          `gorm:"not null;default:0;check:chk_items_sell_price,sell_price >= 0" json:"sell_price"` // 0 表示不可卖出
-	Width         int16          `gorm:"not null;default:1;check:chk_items_width,width >= 1" json:"width"`                // 在保险柜中占的格数
+	Width         int16          `gorm:"not null;default:1;check:chk_items_width,width >= 1" json:"width"`                // 在仓库中占的格数
 	Height        int16          `gorm:"not null;default:1;check:chk_items_height,height >= 1" json:"height"`
 	IsEnabled     bool           `gorm:"not null;default:false" json:"is_enabled"` // 下架后不会掉落, 也不能再发放
 	IsPlaceholder bool           `gorm:"-" json:"is_placeholder,omitempty"`        // 是否为占位物品, 只由 Resolve 生成

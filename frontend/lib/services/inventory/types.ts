@@ -11,7 +11,7 @@ export interface UserItem {
   sell_currency: string;
   /** 0 表示不可卖出 */
   sell_price: number;
-  /** 在保险柜中占的格数 */
+  /** 在仓库中占的格数 */
   width: number;
   height: number;
   /** 下架后不会再掉落或发放, 已有的仍在背包中 */

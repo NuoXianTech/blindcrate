@@ -30,4 +30,5 @@ const (
 	TypeNotFound      = "条件类型不存在"
 	ParamsInvalid     = "条件参数格式不正确"
 	ScopeInvalid      = "统计范围格式不正确"
+	MetricNotFound    = "统计数据不存在"
 )

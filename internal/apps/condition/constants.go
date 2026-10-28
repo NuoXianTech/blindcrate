@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-// Package condition 通用条件: 地图入场、角色解锁、活动等需要"满足什么才能做"的地方共用一套条件
+// Package condition 通用条件: 地图入场、商城购买、活动等需要"满足什么才能做"的地方共用一套条件
 //
 // 条件只做检查, 没有副作用; 需要扣除的代价(入场费、门票)用 reward.Bundle 配置, 不在这里。
 //   - 配置: 条件列表 []Condition 存进各模块的 JSONB 字段, 同一个列表中的条件需要全部满足; 保存前调用 Validate
@@ -36,12 +36,11 @@ package condition
 // 条件类型
 const (
 	TypeMinBalance    = "min_balance"    // 可用余额不少于
-	TypeMinMatches    = "min_matches"    // 完成的对局数不少于
-	TypeMinWins       = "min_wins"       // 胜利次数不少于
+	TypeMinStat       = "min_stat"       // 累计的统计数据不少于, 如对局数、胜利次数
 	TypeHasItem       = "has_item"       // 持有物品不少于, 不消耗
 	TypeAccountAge    = "account_age"    // 注册天数不少于
 	TypeEmailVerified = "email_verified" // 已验证邮箱
-	TypeDailyLimit    = "daily_limit"    // 今天的对局数少于
+	TypeDailyLimit    = "daily_limit"    // 今天的统计数据少于
 )
 
 // maxConditions 一个条件列表最多的条件数
