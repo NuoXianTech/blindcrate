@@ -8083,7 +8083,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "code": {
-                    "description": "自然键, 导入导出时用来对应",
+                    "description": "英文别名, 可以重复, 物品以 ID 区分",
                     "type": "string"
                 },
                 "created_at": {
@@ -8154,7 +8154,7 @@ const docTemplate = `{
                     "maxLength": 32
                 },
                 "code": {
-                    "description": "自然键, 小写字母、数字和下划线, 导入导出时用来对应",
+                    "description": "英文别名, 小写字母、数字和下划线, 可以重复",
                     "type": "string",
                     "maxLength": 64
                 },
@@ -10422,7 +10422,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "code": {
-                    "description": "自然键, 导入导出时用来对应",
+                    "description": "英文别名, 可以重复, 物品以 ID 区分",
                     "type": "string"
                 },
                 "created_at": {

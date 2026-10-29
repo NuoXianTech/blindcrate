@@ -100,7 +100,7 @@ export type CreateCurrencyRequest = CurrencyRequest & Pick<Currency, 'code'>;
 /** 物品定义, 对应后端 item.Item */
 export interface Item {
   id: number;
-  /** 自然键, 导入导出时用来对应 */
+  /** 英文别名, 可以重复, 物品以 ID 区分 */
   code: string;
   name: string;
   description: string;

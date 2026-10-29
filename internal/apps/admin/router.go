@@ -719,7 +719,7 @@ func ListItems(c *gin.Context) {
 
 // ItemRequest 新建或修改物品请求体
 type ItemRequest struct {
-	Code         string `json:"code" binding:"required,max=64"` // 自然键, 小写字母、数字和下划线, 导入导出时用来对应
+	Code         string `json:"code" binding:"required,max=64"` // 英文别名, 小写字母、数字和下划线, 可以重复
 	Name         string `json:"name" binding:"required,max=64"`
 	Description  string `json:"description" binding:"max=255"`
 	Quality      int16  `json:"quality" binding:"required,min=1"`   // 品质等级, 必须存在
@@ -762,7 +762,7 @@ func CreateItem(c *gin.Context) {
 		switch err.Error() {
 		case item.ItemCodeInvalid, item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case item.ItemCodeTaken, item.ItemNameTaken:
+		case item.ItemNameTaken:
 			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
 		default:
 			logger.ErrorF(ctx, "[CreateItem] create failed: %v", err)
@@ -811,7 +811,7 @@ func UpdateItem(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
 		case item.ItemNotFound:
 			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case item.ItemCodeTaken, item.ItemNameTaken:
+		case item.ItemNameTaken:
 			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
 		default:
 			logger.ErrorF(ctx, "[UpdateItem] update failed: %v", err)
