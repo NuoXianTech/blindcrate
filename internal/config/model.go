@@ -104,6 +104,7 @@ type scheduleConfig struct {
 	TimeZone     string `mapstructure:"time_zone"`     // cron 表达式按这个时区解析
 	MatchSweep   string `mapstructure:"match_sweep"`   // 巡检到期未推进的对局和排队的 cron 表达式
 	StatsCleanup string `mapstructure:"stats_cleanup"` // 清理过期的按天统计的 cron 表达式, 留空时不清理
+	SeasonSettle string `mapstructure:"season_settle"` // 给已结束的赛季发放赛季奖励的 cron 表达式, 留空时不发放
 }
 
 // workerConfig 任务处理配置

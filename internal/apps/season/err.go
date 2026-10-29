@@ -36,4 +36,12 @@ const (
 	SeasonEnded    = "赛季已结束, 只能修改名称"
 	DeleteStarted  = "只能删除未开始的赛季"
 	EndNotActive   = "只能提前结束进行中的赛季"
+
+	RewardsTooMany      = "赛季奖励最多 10 档"
+	RewardRatingInvalid = "奖励的分数线需为 0-1000000"
+	RewardRatingTaken   = "奖励的分数线不能重复"
+	RewardEmpty         = "每档奖励至少一项"
+	RewardLinesTooMany  = "每档奖励最多 8 项"
+	RewardAmountInvalid = "奖励的数量需大于 0"
+	RewardNotFound      = "奖励中的货币或物品不存在"
 )

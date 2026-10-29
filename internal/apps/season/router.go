@@ -42,14 +42,15 @@ type Response struct {
 
 // GetCurrentResponseData 当前和下一个赛季
 type GetCurrentResponseData struct {
-	Current *View `json:"current"` // 进行中的赛季, 没有时为空
-	Next    *View `json:"next"`    // 下一个未开始的赛季, 没有时为空
+	Current *View        `json:"current"` // 进行中的赛季, 没有时为空
+	Next    *View        `json:"next"`    // 下一个未开始的赛季, 没有时为空
+	Rewards []RewardView `json:"rewards"` // 进行中的赛季的奖励, 带货币和物品的名称; 没有进行中的赛季时为空列表
 }
 
 // GetCurrent
 // @Tags season
 // @Summary 获取当前赛季
-// @Description 进行中的赛季和下一个未开始的赛季, 都可能为空
+// @Description 进行中的赛季和下一个未开始的赛季, 都可能为空; 带进行中的赛季的奖励
 // @Produce json
 // @Success 200 {object} Response{data=GetCurrentResponseData}
 // @Failure 401 {object} Response
@@ -72,10 +73,15 @@ func GetCurrent(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	data := GetCurrentResponseData{}
+	data := GetCurrentResponseData{Rewards: []RewardView{}}
 	if current != nil {
 		view := NewView(current, now)
 		data.Current = &view
+		if data.Rewards, err = ResolveRewards(tx, current.Rewards); err != nil {
+			logger.ErrorF(ctx, "[GetCurrentSeason] resolve rewards failed: %v", err)
+			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+			return
+		}
 	}
 	if next != nil {
 		view := NewView(next, now)

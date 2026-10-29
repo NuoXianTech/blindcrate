@@ -6,13 +6,25 @@ import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
+import {Skeleton} from '@/components/ui/skeleton';
 import {SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {SeasonRequest} from '@/lib/services/admin';
+import type {AdminItem, Currency, SeasonRequest} from '@/lib/services/admin';
+import type {Tier} from '@/lib/services/ranked';
 import {SEASON_STATUS, type Season} from '@/lib/services/season';
 import {parseAmount} from '@/lib/utils';
-import {CODE_PATTERN, DEFAULT_DAYS, DEFAULT_RATING_CARRY, fromLocalInput, toLocalInput} from './constants';
+import {RewardsEditor} from './RewardsEditor';
+import {CODE_PATTERN, DEFAULT_DAYS, DEFAULT_RATING_CARRY, MAX_REWARDS, fromLocalInput, toLocalInput} from './constants';
+import {fromRewardDrafts, toRewardDrafts} from './rewards';
+
+/** 编辑赛季奖励用到的物品、货币和段位 */
+export interface SeasonOptions {
+  items: AdminItem[];
+  currencies: Currency[];
+  tiers: Tier[];
+  loaded: boolean;
+}
 
 /**
  * 赛季对话框的Props接口
@@ -20,6 +32,7 @@ import {CODE_PATTERN, DEFAULT_DAYS, DEFAULT_RATING_CARRY, fromLocalInput, toLoca
 interface SeasonDialogProps {
   /** null: 关闭; "new": 新建; 赛季: 编辑 */
   season: Season | 'new' | null;
+  options: SeasonOptions;
   onClose: () => void;
   /** 保存成功后刷新列表 */
   onSaved: () => void;
@@ -32,13 +45,20 @@ export function SeasonDialog({season, ...props}: SeasonDialogProps) {
   const editing = season && season !== 'new' ? season : null;
   return (
     <Dialog open={!!season} onOpenChange={(open) => !open && props.onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{editing ? `编辑 ${editing.name}` : '新建赛季'}</DialogTitle>
           <DialogDescription>赛季之间的时间不能重叠; 进行中的赛季会额外统计赛季数据, 赛季排行榜按它排名</DialogDescription>
         </DialogHeader>
+        {season && !props.options.loaded && (
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-9" />
+            <Skeleton className="h-9" />
+            <Skeleton className="h-9" />
+          </div>
+        )}
         {/* key 保证切换赛季时表单重置 */}
-        {season && <SeasonForm key={editing?.id ?? 'new'} season={editing} {...props} />}
+        {season && props.options.loaded && <SeasonForm key={editing?.id ?? 'new'} season={editing} {...props} />}
       </DialogContent>
     </Dialog>
   );
@@ -54,7 +74,7 @@ function defaultStart(): Date {
 /**
  * 赛季表单, season 为 null 时新建
  */
-function SeasonForm({season, onClose, onSaved}: Omit<SeasonDialogProps, 'season'> & { season: Season | null }) {
+function SeasonForm({season, options, onClose, onSaved}: Omit<SeasonDialogProps, 'season'> & { season: Season | null }) {
   const {pending, submit} = useSubmit();
   const [code, setCode] = useState(season?.code ?? '');
   const [name, setName] = useState(season?.name ?? '');
@@ -66,6 +86,7 @@ function SeasonForm({season, onClose, onSaved}: Omit<SeasonDialogProps, 'season'
     return toLocalInput(end);
   });
   const [carry, setCarry] = useState(String(season?.rating_carry ?? DEFAULT_RATING_CARRY));
+  const [rewards, setRewards] = useState(() => toRewardDrafts(season?.rewards ?? [], options.currencies));
 
   const status = season?.status ?? SEASON_STATUS.upcoming;
   const startLocked = status !== SEASON_STATUS.upcoming;
@@ -83,6 +104,8 @@ function SeasonForm({season, onClose, onSaved}: Omit<SeasonDialogProps, 'season'
       starts_at: season && startsAt === toLocalInput(season.starts_at) ? season.starts_at : starts!,
       ends_at: season && endsAt === toLocalInput(season.ends_at) ? season.ends_at : ends!,
       rating_carry: ratingCarry!,
+      // 结束后不能修改, 原样提交
+      rewards: season && endLocked ? season.rewards : fromRewardDrafts(rewards, options.currencies),
     };
     check(body.name.length === 0 || [...body.name].length > 64 ? '名称需为 1-64 个字符' : null);
     check(new Date(body.ends_at) <= new Date(body.starts_at) ? '结束时间需晚于开始时间' : null);
@@ -171,6 +194,21 @@ function SeasonForm({season, onClose, onSaved}: Omit<SeasonDialogProps, 'season'
         <span className="text-xs text-muted-foreground">
           初始分 = 基础分 + (上赛季的段位分 - 基础分) × 比例; 0 为全部重置, 100 为原样继承, 上赛季没打过排位时为基础分; 赛季开始后不能修改
         </span>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label>赛季奖励</Label>
+        <span className="text-xs text-muted-foreground">
+          赛季结束后按本赛季的最高段位分发放满足条件的最高一档, 只发给打过排位的人, 停用和封禁中的账号不发; 已下架的物品按回收价折成货币; 最多 {MAX_REWARDS} 档, 赛季结束后不能修改
+        </span>
+        <RewardsEditor
+          drafts={rewards}
+          onChange={setRewards}
+          items={options.items}
+          currencies={options.currencies}
+          tiers={options.tiers}
+          disabled={pending || endLocked}
+        />
       </div>
 
       <DialogFooter>

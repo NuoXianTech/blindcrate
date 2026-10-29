@@ -374,12 +374,13 @@ ON CONFLICT (code) DO NOTHING;
 CREATE TABLE IF NOT EXISTS seasons
 (
     id           BIGSERIAL PRIMARY KEY,
-    code         VARCHAR(24) NOT NULL,            -- 自然键, 拼进统计周期 season:<code>, 创建后不能修改
+    code         VARCHAR(24) NOT NULL,              -- 自然键, 拼进统计周期 season:<code>, 创建后不能修改
     name         VARCHAR(64) NOT NULL,
-    starts_at    TIMESTAMPTZ NOT NULL,            -- 包含
-    ends_at      TIMESTAMPTZ NOT NULL,            -- 不包含
-    settled_at   TIMESTAMPTZ,                     -- 赛季奖励发完的时间
-    rating_carry SMALLINT    NOT NULL DEFAULT 50, -- 段位分继承上一个赛季的百分比
+    starts_at    TIMESTAMPTZ NOT NULL,              -- 包含
+    ends_at      TIMESTAMPTZ NOT NULL,              -- 不包含
+    settled_at   TIMESTAMPTZ,                       -- 赛季奖励发完的时间
+    rating_carry SMALLINT    NOT NULL DEFAULT 50,   -- 段位分继承上一个赛季的百分比
+    rewards      JSONB       NOT NULL DEFAULT '[]', -- 赛季奖励, [{min_rating, bundle}], 按分数线从低到高
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_seasons_time CHECK (ends_at > starts_at),

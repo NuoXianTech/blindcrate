@@ -12,6 +12,15 @@ export const DEFAULT_DAYS = 30;
 /** 新建赛季时默认的段位分继承比例, 百分比 */
 export const DEFAULT_RATING_CARRY = 50;
 
+/** 赛季奖励最多的档数, 与后端 season 一致 */
+export const MAX_REWARDS = 10;
+
+/** 每档奖励最多的行数, 与后端 season 一致 */
+export const MAX_REWARD_LINES = 8;
+
+/** 奖励分数线的上限, 与段位的分数线一致 */
+export const MAX_REWARD_RATING = 1_000_000;
+
 /** 赛季状态的名称 */
 export const STATUS_LABELS: Record<SeasonStatus, string> = {
   [SEASON_STATUS.upcoming]: '未开始',

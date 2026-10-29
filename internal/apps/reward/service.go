@@ -30,6 +30,7 @@ import (
 	"strconv"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
+	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"gorm.io/gorm"
 )
@@ -123,6 +124,36 @@ func Apply(tx *gorm.DB, req *ApplyRequest) (*Result, bool, error) {
 		return nil, false, errors.New(IdempotencyConflict)
 	}
 	return result, lines > 0 && replayedLines == lines, nil
+}
+
+// Deliverable 发放前把已下架或已删除的物品换成货币, 这些物品不能再发放
+//
+// prices 为物品 ID -> 折算的货币和单价, 没有时按物品当前的回收价; 单价为 0 的物品不折算。
+func Deliverable(tx *gorm.DB, bundle Bundle, prices map[uint64]CurrencyLine) (Bundle, error) {
+	itemIDs := make([]uint64, len(bundle.Items))
+	for i, line := range bundle.Items {
+		itemIDs[i] = line.ItemID
+	}
+	items, err := item.Resolve(tx, itemIDs)
+	if err != nil {
+		return Bundle{}, err
+	}
+	result := Bundle{Currencies: append([]CurrencyLine{}, bundle.Currencies...)}
+	for _, line := range bundle.Items {
+		target := items[line.ItemID]
+		if !target.IsPlaceholder && target.IsEnabled {
+			result.Items = append(result.Items, line)
+			continue
+		}
+		price, ok := prices[line.ItemID]
+		if !ok {
+			price = CurrencyLine{Currency: target.SellCurrency, Amount: target.SellPrice}
+		}
+		if price.Amount > 0 {
+			result.Currencies = append(result.Currencies, CurrencyLine{Currency: price.Currency, Amount: price.Amount * line.Quantity})
+		}
+	}
+	return result, nil
 }
 
 // lineKey 每一行的幂等键, 货币和物品的流水在不同的表中, 不会互相冲突

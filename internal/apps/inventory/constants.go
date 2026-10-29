@@ -32,6 +32,8 @@ const (
 	BizMatchEntryFee = "match_entry_fee" // 对局的入场代价, biz_id 为对局 ID
 	BizMatchRefund   = "match_refund"    // 流拍或取消时退还入场代价, biz_id 为对局 ID
 	BizMatchReward   = "match_reward"    // 成交者获得的藏品, biz_id 为对局 ID
+
+	BizSeasonReward = "season_reward" // 赛季结束后按最高段位分发放的奖励, biz_id 为赛季代码
 )
 
 // 推送给客户端的消息类型
