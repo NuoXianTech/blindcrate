@@ -51,6 +51,8 @@ const DriverLocal = "local"
 type Storage interface {
 	// Put 写入文件, key 已存在时覆盖
 	Put(ctx context.Context, key string, r io.Reader, contentType string) error
+	// Open 读取文件, 文件不存在时返回 fs.ErrNotExist
+	Open(ctx context.Context, key string) (io.ReadCloser, error)
 	// Delete 删除文件, 文件不存在时不报错
 	Delete(ctx context.Context, key string) error
 	// URL 文件的访问地址
@@ -105,6 +107,16 @@ func Local() (dir, prefix string, ok bool) {
 		return "", "", false
 	}
 	return cfg.LocalDir, prefix, true
+}
+
+// KeyOf 地址为本站存储的文件时返回文件的 key, 如导出配置时打包上传的图片
+func KeyOf(s string) (string, bool) {
+	prefix := publicURL()
+	if prefix == "" || !strings.HasPrefix(s, prefix+"/") {
+		return "", false
+	}
+	key := strings.TrimPrefix(s, prefix+"/")
+	return key, keyPattern.MatchString(key)
 }
 
 // ValidURL 图片地址是否可以保存: http(s) 链接, 或访问前缀为站内路径时本站存储的文件地址

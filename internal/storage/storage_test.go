@@ -60,3 +60,18 @@ func TestValidURL(t *testing.T) {
 		}
 	}
 }
+
+func TestKeyOf(t *testing.T) {
+	prefix := publicURL()
+	if prefix == "" {
+		t.Skip("storage.public_url is empty")
+	}
+	if key, ok := KeyOf(prefix + "/item/ab/abcd.png"); !ok || key != "item/ab/abcd.png" {
+		t.Errorf("got %q %v", key, ok)
+	}
+	for _, s := range []string{"", "https://example.com/a.png", prefix + "/item/../a.png", prefix + "item/a.png", prefix + "/"} {
+		if _, ok := KeyOf(s); ok {
+			t.Errorf("%q: want not ok", s)
+		}
+	}
+}

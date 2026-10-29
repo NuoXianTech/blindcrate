@@ -28,7 +28,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"strings"
 	"time"
@@ -90,36 +92,65 @@ func CheckPurpose(ctx context.Context, purpose string, isAdmin bool) error {
 	return nil
 }
 
+// Check 按保存的规则检查并处理图片, 不保存, 返回保存后的访问地址, 如预览导入的配置包时; 返回的错误同 Save
+//
+// 处理的结果是确定的, 同一张原图保存后的地址与这里返回的相同。
+func Check(ctx context.Context, req *SaveRequest) (string, error) {
+	img, err := prepare(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	store, err := storage.Default()
+	if err != nil {
+		return "", err
+	}
+	key, _ := img.key(req.Purpose)
+	return store.URL(key), nil
+}
+
+// Stored 同一用途的这张图片已经保存过时返回访问地址, data 为保存后的文件内容, 如导出后再导入的配置包中的图片
+//
+// 文件按内容命名, 内容与 key 一致且记录和文件都在时直接复用; 重新编码 JPEG 会得到不同的文件, 因此不能再按原图保存。
+func Stored(ctx context.Context, purpose, key string, data []byte) (string, bool, error) {
+	sum := sha256.Sum256(data)
+	hash := hex.EncodeToString(sum[:])
+	if !strings.HasPrefix(key, fmt.Sprintf("%s/%s/%s.", purpose, hash[:2], hash)) {
+		return "", false, nil
+	}
+	var count int64
+	if err := db.DB(ctx).Model(&Upload{}).Where("key = ?", key).Count(&count).Error; err != nil {
+		return "", false, err
+	}
+	if count == 0 {
+		return "", false, nil
+	}
+	store, err := storage.Default()
+	if err != nil {
+		return "", false, err
+	}
+	rc, err := store.Open(ctx, key)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	_ = rc.Close()
+	return store.URL(key), true, nil
+}
+
 // Save 检查并保存一张图片, 返回访问地址
 //
 // 按内容识别格式, 按用途缩小尺寸并重新编码后按内容的 sha256 命名;
 // 同一用途的相同图片只存一份, 再次上传时复用原来的记录并刷新上传时间, 避免刚上传就被清理。
 // 图片不符合要求时返回 *InvalidError, 没有权限时返回 *ForbiddenError。
 func Save(ctx context.Context, req *SaveRequest) (*View, error) {
-	if err := CheckPurpose(ctx, req.Purpose, req.IsAdmin); err != nil {
-		return nil, err
-	}
-	cfg, err := settings.Upload.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if len(req.Data) == 0 {
-		return nil, &InvalidError{Reason: FileRequired}
-	}
-	if int64(len(req.Data)) > int64(cfg.MaxSizeKB)<<10 {
-		return nil, &InvalidError{Reason: fmt.Sprintf(FileTooLarge, cfg.MaxSizeKB)}
-	}
-	if err := checkFormat(cfg, http.DetectContentType(req.Data)); err != nil {
-		return nil, err
-	}
-	img, err := process(req.Data, purposes[req.Purpose])
+	img, err := prepare(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	sum := sha256.Sum256(img.data)
-	hash := hex.EncodeToString(sum[:])
-	key := fmt.Sprintf("%s/%s/%s%s", req.Purpose, hash[:2], hash, img.ext)
+	key, hash := img.key(req.Purpose)
 	store, err := storage.Default()
 	if err != nil {
 		return nil, err
@@ -167,6 +198,27 @@ func Save(ctx context.Context, req *SaveRequest) (*View, error) {
 		Width:       upload.Width,
 		Height:      upload.Height,
 	}, nil
+}
+
+// prepare 检查用途、大小和格式, 按用途缩小尺寸并重新编码
+func prepare(ctx context.Context, req *SaveRequest) (*processed, error) {
+	if err := CheckPurpose(ctx, req.Purpose, req.IsAdmin); err != nil {
+		return nil, err
+	}
+	cfg, err := settings.Upload.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(req.Data) == 0 {
+		return nil, &InvalidError{Reason: FileRequired}
+	}
+	if int64(len(req.Data)) > int64(cfg.MaxSizeKB)<<10 {
+		return nil, &InvalidError{Reason: fmt.Sprintf(FileTooLarge, cfg.MaxSizeKB)}
+	}
+	if err := checkFormat(cfg, http.DetectContentType(req.Data)); err != nil {
+		return nil, err
+	}
+	return process(req.Data, purposes[req.Purpose])
 }
 
 // checkFormat 原图格式是否为设置中允许的格式

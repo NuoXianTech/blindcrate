@@ -30,6 +30,7 @@ import (
 	"errors"
 	"log"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auction"
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
@@ -139,6 +140,7 @@ func runAutoMigrate() {
 		&shop.Item{},
 		&shop.Order{},
 		&upload.Upload{},
+		&admin.Import{},
 	); err != nil {
 		log.Fatalf("[PostgreSQL] auto migrate failed: %v\n", err)
 	}

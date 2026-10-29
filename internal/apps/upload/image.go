@@ -26,7 +26,9 @@ package upload
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -47,6 +49,13 @@ type processed struct {
 }
 
 func (p *processed) reader() io.Reader { return bytes.NewReader(p.data) }
+
+// key 文件在存储中的 key, 按用途和内容的 sha256 命名
+func (p *processed) key(purpose string) (key, hash string) {
+	sum := sha256.Sum256(p.data)
+	hash = hex.EncodeToString(sum[:])
+	return fmt.Sprintf("%s/%s/%s%s", purpose, hash[:2], hash, p.ext), hash
+}
 
 // process 解码原图, 按用途裁剪和缩小, 按 EXIF 方向转正后重新编码
 //

@@ -619,3 +619,23 @@ CREATE INDEX IF NOT EXISTS idx_uploads_user_id ON uploads (user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_uploads_key ON uploads (key) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_uploads_created_at ON uploads (created_at);
 CREATE INDEX IF NOT EXISTS idx_uploads_deleted_at ON uploads (deleted_at);
+
+-- 导入配置包的记录, 只增不改
+CREATE TABLE IF NOT EXISTS imports
+(
+    id         BIGSERIAL PRIMARY KEY,
+    user_id    BIGINT      NOT NULL,              -- 导入的管理员
+    name       VARCHAR(64) NOT NULL,              -- 配置包的名称
+    author     VARCHAR(64) NOT NULL DEFAULT '',
+    version    INTEGER     NOT NULL,              -- 配置包的格式版本
+    digest     VARCHAR(64) NOT NULL,              -- 文件的 sha256
+    size       BIGINT      NOT NULL,              -- 文件大小, 字节
+    created    INTEGER     NOT NULL DEFAULT 0,
+    updated    INTEGER     NOT NULL DEFAULT 0,
+    skipped    INTEGER     NOT NULL DEFAULT 0,    -- 跳过的项, 包括与已有配置相同的项
+    entries    JSONB       NOT NULL DEFAULT '[]', -- 每一项的处理结果
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_imports_user_id ON imports (user_id);
+CREATE INDEX IF NOT EXISTS idx_imports_created_at ON imports (created_at);

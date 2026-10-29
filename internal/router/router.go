@@ -377,6 +377,16 @@ func Serve() {
 					settingsAdminRouter.POST("/mail/test", ratelimit.ByUser("admin:mail_test", ratelimit.PerMinute(5)), admin.TestMail)
 				}
 
+				// Pack
+				packAdminRouter := adminRouter.Group("/packs")
+				{
+					packAdminRouter.POST("/export", ratelimit.ByUser("admin:pack_export", ratelimit.PerMinute(10)), admin.ExportPack)
+					packAdminRouter.POST("/preview", ratelimit.ByUser("admin:pack_import", ratelimit.PerMinute(20)), admin.PreviewPack)
+					packAdminRouter.POST("/import", ratelimit.ByUser("admin:pack_import", ratelimit.PerMinute(20)), admin.ImportPack)
+					packAdminRouter.GET("/imports", admin.ListPackImports)
+					packAdminRouter.GET("/imports/:id", admin.GetPackImport)
+				}
+
 				// Audit Log
 				adminRouter.GET("/audit-logs", admin.ListAuditLogs)
 			}

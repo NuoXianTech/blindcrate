@@ -67,6 +67,13 @@ func (s *local) Put(_ context.Context, key string, r io.Reader, _ string) error 
 	return os.Rename(tmp.Name(), path)
 }
 
+func (s *local) Open(_ context.Context, key string) (io.ReadCloser, error) {
+	if err := CheckKey(key); err != nil {
+		return nil, err
+	}
+	return os.Open(filepath.Join(s.dir, filepath.FromSlash(key)))
+}
+
 func (s *local) Delete(_ context.Context, key string) error {
 	if err := CheckKey(key); err != nil {
 		return err

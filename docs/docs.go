@@ -1739,6 +1739,405 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/packs/export": {
+            "post": {
+                "description": "zip 文件, 包含 manifest.json、每种配置一个 JSON 文件, 以及 images/ 下引用到的本站图片;\n已删除的配置不导出, 掉落池中已删除物品的条目也不导出; 物品按 ID 导出, 设置只导出游戏分类且不含密钥字段",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/zip"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "导出配置包",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.ExportPackRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/packs/import": {
+            "post": {
+                "description": "multipart 表单, 在一个事务中按依赖顺序写入, 全部成功或全部回滚; 只新增或覆盖配置, 不会停用或删除已有配置, 也不改动玩家数据, 已有商品的剩余库存保持不变;\n有未跳过的冲突项时返回 409, data 为每一项的结果; 设置按版本保存, 来源为 import, 之后可以回滚",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "导入配置包",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "配置包",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "处理方式, PackAction 的 JSON 数组, 没有提交的项按覆盖处理",
+                        "name": "actions",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.Import"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/admin.PackEntryResult"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/packs/imports": {
+            "get": {
+                "description": "按导入时间从晚到早排列, 每一项的结果见导入记录详情",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取导入记录列表",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListPackImportsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/packs/imports/{id}": {
+            "get": {
+                "description": "包括每一项的处理结果",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取导入记录详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "import id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.Import"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/packs/preview": {
+            "post": {
+                "description": "multipart 表单, 按依赖顺序列出每一项与已有配置的比较结果: 新增、覆盖、相同或冲突(带原因), 不写入任何内容;\n在回滚的事务中按处理方式试着导入, 校验规则与导入相同; 货币、掉落池、地图、商品、榜单按代码对应, 品质按等级, 物品按 ID, 设置按设置组",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "预览配置包",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "配置包",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "处理方式, PackAction 的 JSON 数组, 没有提交的项按覆盖处理",
+                        "name": "actions",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.PackPreview"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/qualities": {
             "get": {
                 "description": "按排序值排列, 带上使用每个品质的物品数",
@@ -8026,6 +8425,84 @@ const docTemplate = `{
                 }
             }
         },
+        "admin.ExportPackRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "sections"
+            ],
+            "properties": {
+                "author": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "name": {
+                    "description": "配置包的名称",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "sections": {
+                    "description": "导出的配置种类: currencies、qualities、items、loot_pools、venues、shop_items、leaderboards、settings",
+                    "type": "array",
+                    "maxItems": 8,
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "admin.Import": {
+            "type": "object",
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "created": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "digest": {
+                    "description": "文件的 sha256",
+                    "type": "string"
+                },
+                "entries": {
+                    "description": "每一项的处理结果, 列表中不返回",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/admin.PackEntryResult"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "配置包的名称",
+                    "type": "string"
+                },
+                "size": {
+                    "description": "文件大小, 字节",
+                    "type": "integer"
+                },
+                "skipped": {
+                    "description": "跳过的项, 包括与已有配置相同的项",
+                    "type": "integer"
+                },
+                "updated": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "description": "导入的管理员",
+                    "type": "integer"
+                },
+                "version": {
+                    "description": "配置包的格式版本",
+                    "type": "integer"
+                }
+            }
+        },
         "admin.InventoryTransactionItem": {
             "type": "object",
             "properties": {
@@ -8387,6 +8864,21 @@ const docTemplate = `{
                 }
             }
         },
+        "admin.ListPackImportsResponseData": {
+            "type": "object",
+            "properties": {
+                "imports": {
+                    "description": "不含每一项的结果",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/admin.Import"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "admin.ListQualitiesResponseData": {
             "type": "object",
             "properties": {
@@ -8676,6 +9168,89 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "maxLength": 64
+                }
+            }
+        },
+        "admin.PackEntryResult": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "见 PackAction 开头的常量",
+                    "type": "string"
+                },
+                "code": {
+                    "description": "改名导入时的新代码",
+                    "type": "string"
+                },
+                "key": {
+                    "description": "包中的代码, 品质为等级, 物品为 ID, 设置为设置组的 key",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "包中的名称",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "无法导入的原因",
+                    "type": "string"
+                },
+                "section": {
+                    "description": "配置种类, 见 Pack 开头的常量",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "见 PackStatus 开头的常量, 跳过的项为与已有配置比较的结果",
+                    "type": "string"
+                }
+            }
+        },
+        "admin.PackManifest": {
+            "type": "object",
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "exported_at": {
+                    "type": "string"
+                },
+                "format": {
+                    "description": "固定为 blindcrate-pack",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sections": {
+                    "description": "包含的配置种类, 见 Pack 开头的常量",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "version": {
+                    "description": "格式版本",
+                    "type": "integer"
+                }
+            }
+        },
+        "admin.PackPreview": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "description": "文件的 sha256",
+                    "type": "string"
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/admin.PackEntryResult"
+                    }
+                },
+                "manifest": {
+                    "$ref": "#/definitions/admin.PackManifest"
+                },
+                "size": {
+                    "type": "integer"
                 }
             }
         },
