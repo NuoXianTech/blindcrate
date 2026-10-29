@@ -13,12 +13,14 @@ export const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
 ];
 
 /** 与后端 ItemRequest 的校验一致 */
+export const CODE_PATTERN = /^[a-z0-9_]{1,64}$/;
 export const MAX_SELL_PRICE = 1_000_000_000_000;
 export const MAX_SIZE = 10;
 
 /** 物品转为修改接口的请求体, 修改接口需要提交全部字段 */
 export function toRequest(item: AdminItem): ItemRequest {
   return {
+    code: item.code,
     name: item.name,
     description: item.description,
     quality: item.quality,

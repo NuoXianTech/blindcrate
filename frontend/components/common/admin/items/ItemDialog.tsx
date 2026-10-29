@@ -18,7 +18,7 @@ import services from '@/lib/services';
 import type {AdminItem, Currency, ItemCategory, ItemRequest} from '@/lib/services/admin';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {checkImageURL} from '@/lib/validation';
-import {MAX_SELL_PRICE, MAX_SIZE} from './constants';
+import {CODE_PATTERN, MAX_SELL_PRICE, MAX_SIZE} from './constants';
 
 /**
  * 物品对话框的Props接口
@@ -65,6 +65,7 @@ function ItemForm({item, currencies, categories, onClose, onSaved}: Omit<ItemDia
   const {pending, submit} = useSubmit();
   const {qualities} = useQualities();
   const {economy} = useSite();
+  const [code, setCode] = useState(item?.code ?? '');
   const [name, setName] = useState(item?.name ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
   const [quality, setQuality] = useState(String(item?.quality ?? qualities[0]?.level ?? 1));
@@ -80,6 +81,7 @@ function ItemForm({item, currencies, categories, onClose, onSaved}: Omit<ItemDia
 
   const handleSubmit = submit(async () => {
     const body: ItemRequest = {
+      code: code.trim(),
       name: name.trim(),
       description: description.trim(),
       quality: Number(quality),
@@ -91,6 +93,7 @@ function ItemForm({item, currencies, categories, onClose, onSaved}: Omit<ItemDia
       height: parseAmount(height) ?? 0,
       is_enabled: enabled,
     };
+    check(CODE_PATTERN.test(body.code) ? null : '物品代码需为 1-64 个小写字母、数字或下划线');
     check(body.name.length === 0 || [...body.name].length > 64 ? '物品名称需为 1-64 个字符' : null);
     check([...body.description].length > 255 ? '描述最多 255 个字符' : null);
     check(checkImageURL(body.image_url));
@@ -113,11 +116,26 @@ function ItemForm({item, currencies, categories, onClose, onSaved}: Omit<ItemDia
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-      <div className="grid grid-cols-[1fr_7rem_7rem] gap-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="item-code">代码</Label>
+          <Input
+            id="item-code"
+            maxLength={64}
+            placeholder="如 bronze_mirror"
+            className="font-mono"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            disabled={pending}
+          />
+        </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="item-name">名称</Label>
           <Input id="item-name" maxLength={64} value={name} onChange={(e) => setName(e.target.value)} disabled={pending} />
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">
           <Label>品质</Label>
           <Select value={quality} onValueChange={setQuality} disabled={pending}>

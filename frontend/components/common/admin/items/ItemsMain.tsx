@@ -107,7 +107,7 @@ export function ItemsMain() {
       <div className="flex flex-col gap-2 sm:flex-row">
         <form onSubmit={handleSearch} className="flex flex-1 gap-2">
           <Input
-            placeholder="物品名称"
+            placeholder="代码或名称"
             value={keywordInput}
             onChange={(e) => setKeywordInput(e.target.value)}
             className="sm:max-w-xs"

@@ -27,6 +27,8 @@ package item
 const (
 	ItemNotFound    = "物品不存在"
 	ItemDisabled    = "物品已下架"
+	ItemCodeInvalid = "物品代码需为 1-64 个小写字母、数字或下划线"
+	ItemCodeTaken   = "物品代码已存在"
 	ItemNameInvalid = "物品名称需为 1-64 个字符"
 	ItemNameTaken   = "物品名称已存在"
 

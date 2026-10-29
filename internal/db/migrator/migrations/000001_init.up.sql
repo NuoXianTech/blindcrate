@@ -169,6 +169,7 @@ ON CONFLICT (level) DO NOTHING;
 CREATE TABLE IF NOT EXISTS items
 (
     id            BIGSERIAL PRIMARY KEY,
+    code          VARCHAR(64)   NOT NULL,                       -- 自然键, 导入导出时用来对应
     name          VARCHAR(64)   NOT NULL,
     description   VARCHAR(255)  NOT NULL DEFAULT '',
     quality       SMALLINT      NOT NULL DEFAULT 1,             -- 品质等级, 见 qualities
@@ -188,6 +189,7 @@ CREATE TABLE IF NOT EXISTS items
 );
 
 CREATE INDEX IF NOT EXISTS idx_items_deleted_at ON items (deleted_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_items_code ON items (code) WHERE deleted_at IS NULL; -- 已删除的物品不占用代码
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_items_name ON items (name) WHERE deleted_at IS NULL; -- 已删除的物品不占用名称
 
 -- 用户背包, 每个用户每种物品一行, 首次获得时创建, 数量扣到 0 也保留

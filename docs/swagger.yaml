@@ -252,6 +252,9 @@ definitions:
       category:
         description: 类别代码, 见 RegisterCategory
         type: string
+      code:
+        description: 自然键, 导入导出时用来对应
+        type: string
       created_at:
         type: string
       description:
@@ -293,6 +296,10 @@ definitions:
         description: 类别代码, 必须已注册
         maxLength: 32
         type: string
+      code:
+        description: 自然键, 小写字母、数字和下划线, 导入导出时用来对应
+        maxLength: 64
+        type: string
       description:
         maxLength: 255
         type: string
@@ -328,6 +335,7 @@ definitions:
         type: integer
     required:
     - category
+    - code
     - height
     - name
     - quality
@@ -1846,6 +1854,9 @@ definitions:
     properties:
       category:
         description: 类别代码, 见 RegisterCategory
+        type: string
+      code:
+        description: 自然键, 导入导出时用来对应
         type: string
       created_at:
         type: string
@@ -3663,7 +3674,7 @@ paths:
       - in: query
         name: is_enabled
         type: boolean
-      - description: 按名称搜索, 不区分大小写
+      - description: 按代码或名称搜索, 不区分大小写
         in: query
         maxLength: 64
         name: keyword

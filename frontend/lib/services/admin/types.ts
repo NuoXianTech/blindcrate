@@ -100,6 +100,8 @@ export type CreateCurrencyRequest = CurrencyRequest & Pick<Currency, 'code'>;
 /** 物品定义, 对应后端 item.Item */
 export interface Item {
   id: number;
+  /** 自然键, 导入导出时用来对应 */
+  code: string;
   name: string;
   description: string;
   /** 品质等级, 见 useQualities */
@@ -145,7 +147,7 @@ export interface AdminItem extends Item {
 }
 
 export interface ListItemsParams extends PageParams {
-  /** 按名称搜索, 不区分大小写 */
+  /** 按代码或名称搜索, 不区分大小写 */
   keyword?: string;
   quality?: number;
   category?: string;
@@ -160,6 +162,7 @@ export interface ListItemsData {
 /** 新建或修改物品, 修改时也需提交全部字段 */
 export type ItemRequest = Pick<
   Item,
+  | 'code'
   | 'name'
   | 'description'
   | 'quality'

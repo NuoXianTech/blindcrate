@@ -330,7 +330,8 @@ func QueryItems(ctx context.Context, req *ListItemsRequest) (int64, []ItemListIt
 
 	query := db.DB(ctx).Model(&item.Item{})
 	if req.Keyword != "" {
-		query = query.Where("name ILIKE ?", "%"+likeEscaper.Replace(req.Keyword)+"%")
+		keyword := "%" + likeEscaper.Replace(req.Keyword) + "%"
+		query = query.Where("name ILIKE ? OR code ILIKE ?", keyword, keyword)
 	}
 	if req.Quality != nil {
 		query = query.Where("quality = ?", *req.Quality)
@@ -437,8 +438,23 @@ func lockItem(tx *gorm.DB, target *item.Item, itemID uint64) error {
 	return nil
 }
 
+// itemCodePattern 物品代码, 小写字母、数字和下划线
+var itemCodePattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
+
 // applyItem 校验请求并写入物品字段, 品质、类别和卖出货币必须存在, 已停用的货币也可以选
+//
+// 名称和代码都有唯一索引, 撞上时只能报一种错误, 所以代码先查一次, 唯一索引冲突统一按名称已存在处理。
 func applyItem(tx *gorm.DB, target *item.Item, req *ItemRequest) error {
+	if !itemCodePattern.MatchString(req.Code) {
+		return errors.New(item.ItemCodeInvalid)
+	}
+	var taken int64
+	if err := tx.Model(&item.Item{}).Where("code = ? AND id <> ?", req.Code, target.ID).Count(&taken).Error; err != nil {
+		return err
+	}
+	if taken > 0 {
+		return errors.New(item.ItemCodeTaken)
+	}
 	name := strings.TrimSpace(req.Name)
 	if n := utf8.RuneCountInString(name); n < 1 || n > 64 {
 		return errors.New(item.ItemNameInvalid)
@@ -457,6 +473,7 @@ func applyItem(tx *gorm.DB, target *item.Item, req *ItemRequest) error {
 		return err
 	}
 
+	target.Code = req.Code
 	target.Name = name
 	target.Description = strings.TrimSpace(req.Description)
 	target.Quality = req.Quality
@@ -473,6 +490,7 @@ func applyItem(tx *gorm.DB, target *item.Item, req *ItemRequest) error {
 // itemFields 物品可修改的字段, 用于操作日志
 func itemFields(target *item.Item) map[string]interface{} {
 	return map[string]interface{}{
+		"code":          target.Code,
 		"name":          target.Name,
 		"description":   target.Description,
 		"quality":       target.Quality,
