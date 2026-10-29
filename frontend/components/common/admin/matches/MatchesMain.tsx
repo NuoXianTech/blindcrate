@@ -1,7 +1,8 @@
 'use client';
 
 import {useCallback, useEffect, useState} from 'react';
-import {Search} from 'lucide-react';
+import {useSearchParams} from 'next/navigation';
+import {Search, X} from 'lucide-react';
 import {toast} from 'sonner';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
@@ -9,6 +10,7 @@ import {Input} from '@/components/ui/input';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {useAuth} from '@/components/common/auth';
+import {parseID} from '@/components/common/admin/transactions/constants';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {MODES, modeLabel, parseMode, type ModeKind} from '@/lib/auction';
 import services from '@/lib/services';
@@ -25,14 +27,17 @@ const VENUE_LIMIT = 100;
 
 /**
  * 对局管理: 按状态、模式、地图和玩家筛选对局, 查看详情, 取消卡住的对局
+ * 可从可疑名单带 ?user_id=&other_id= 跳转过来, 查看两个人一起打的对局
  */
 export function MatchesMain() {
   const isAdmin = !!useAuth().user?.is_admin;
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState(ALL);
   const [kind, setKind] = useState(ALL);
   const [venue, setVenue] = useState(ALL);
-  const [userInput, setUserInput] = useState('');
-  const [userID, setUserID] = useState<number | undefined>();
+  const [userID, setUserID] = useState(() => parseID(searchParams.get('user_id')));
+  const [userInput, setUserInput] = useState(userID?.toString() ?? '');
+  const [otherID, setOtherID] = useState(() => parseID(searchParams.get('other_id')));
   const [current, setCurrent] = useState(1);
   const [data, setData] = useState<ListAdminMatchesData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,13 +72,14 @@ export function MatchesMain() {
         prefix: kind === ALL ? undefined : kind,
         suffix: venue === ALL ? undefined : venue,
         user_id: userID,
+        other_id: otherID,
       }));
     } catch (err) {
       toast.error(toErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [current, status, kind, venue, userID, isAdmin]);
+  }, [current, status, kind, venue, userID, otherID, isAdmin]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 翻页和筛选时重新拉取
@@ -114,6 +120,22 @@ export function MatchesMain() {
             <Search />
             筛选
           </Button>
+          {otherID !== undefined && (
+            <Badge variant="secondary" className="h-9 gap-1 px-3">
+              且与 #{otherID} 同局
+              <button
+                type="button"
+                className="cursor-pointer text-muted-foreground hover:text-foreground"
+                aria-label="取消同局筛选"
+                onClick={() => {
+                  setOtherID(undefined);
+                  setCurrent(1);
+                }}
+              >
+                <X className="size-3.5" />
+              </button>
+            </Badge>
+          )}
         </form>
         <Select value={status} onValueChange={changeFilter(setStatus)}>
           <SelectTrigger className="sm:w-32" aria-label="状态">

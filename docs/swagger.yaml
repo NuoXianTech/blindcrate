@@ -467,6 +467,15 @@ definitions:
           $ref: '#/definitions/admin.QualityListItem'
         type: array
     type: object
+  admin.ListRankedSuspectsResponseData:
+    properties:
+      suspects:
+        items:
+          $ref: '#/definitions/auction.Suspect'
+        type: array
+      total:
+        type: integer
+    type: object
   admin.ListRankedTiersResponseData:
     properties:
       tiers:
@@ -722,6 +731,25 @@ definitions:
       data: {}
       error_msg:
         type: string
+    type: object
+  admin.ReviewRankedSuspectRequest:
+    properties:
+      last_match_id:
+        description: 处理到的对局, 即名单中的 last_match_id
+        type: integer
+      note:
+        description: 处理结果, 如已封禁、正常组队
+        maxLength: 255
+        type: string
+      user_a:
+        type: integer
+      user_b:
+        description: 大于 user_a
+        type: integer
+    required:
+    - last_match_id
+    - user_a
+    - user_b
     type: object
   admin.RollbackSettingRequest:
     properties:
@@ -1197,6 +1225,68 @@ definitions:
       submitted:
         description: 本轮是否已出价
         type: boolean
+    type: object
+  auction.Suspect:
+    properties:
+      last_match_at:
+        type: string
+      last_match_id:
+        type: integer
+      low_wins:
+        description: 其中一人低价成交的局数
+        type: integer
+      matches:
+        description: 一起打的排位局数
+        type: integer
+      price_rate:
+        description: 其中一人成交时成交价占仓库价值的平均比例, 基点; 没有成交时为 0
+        type: integer
+      review:
+        allOf:
+        - $ref: '#/definitions/auction.SuspectReview'
+        description: 最近一次处理记录, 没处理过时为空
+      user_a:
+        allOf:
+        - $ref: '#/definitions/auction.SuspectUser'
+        description: 用户 ID 较小的一个
+      user_b:
+        $ref: '#/definitions/auction.SuspectUser'
+      wins:
+        description: 其中一人成交的局数
+        type: integer
+    type: object
+  auction.SuspectReview:
+    properties:
+      created_at:
+        type: string
+      last_match_id:
+        description: 处理时两人最近一起打的对局
+        type: integer
+      note:
+        type: string
+      reviewed_by:
+        type: integer
+      updated_at:
+        type: string
+      user_a:
+        description: 较小的用户 ID
+        type: integer
+      user_b:
+        description: 较大的用户 ID
+        type: integer
+    type: object
+  auction.SuspectUser:
+    properties:
+      banned_until:
+        type: string
+      id:
+        type: integer
+      is_disabled:
+        type: boolean
+      nickname:
+        type: string
+      username:
+        type: string
     type: object
   auction.VenueInfo:
     properties:
@@ -3913,6 +4003,10 @@ paths:
         minimum: 1
         name: current
         type: integer
+      - description: 只看该用户也参与的对局, 与 user_id 一起用于查看两个人一起打的对局
+        in: query
+        name: other_id
+        type: integer
       - description: 玩法代码冒号前的部分, 如 pve
         in: query
         maxLength: 32
@@ -4237,6 +4331,97 @@ paths:
           schema:
             $ref: '#/definitions/admin.Response'
       summary: 修改品质
+      tags:
+      - admin
+  /api/v1/admin/ranked/suspects:
+    get:
+      description: 最近若干天已结束的排位中, 一起打的局数较多, 或同局时其中一人多次低价成交的两个账号; 天数和次数见排位设置。其中一人低价成交多的排在前面
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: 为空返回全部; false 只返回待处理的, 即没处理过或处理后又一起打过排位; true 只返回其余的
+        in: query
+        name: reviewed
+        type: boolean
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListRankedSuspectsResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取排位的可疑名单
+      tags:
+      - admin
+  /api/v1/admin/ranked/suspects/review:
+    post:
+      consumes:
+      - application/json
+      description: 封禁等处理在用户管理中进行; 已处理过时覆盖上一次的记录, 之后两人又一起打了排位时重新进入待处理
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.ReviewRankedSuspectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/auction.SuspectReview'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 把一对可疑账号标记为已处理
       tags:
       - admin
   /api/v1/admin/ranked/tiers:

@@ -1,6 +1,7 @@
 'use client';
 
 import {useCallback, useEffect, useState} from 'react';
+import {useSearchParams} from 'next/navigation';
 import {Search} from 'lucide-react';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
@@ -22,12 +23,14 @@ import {PAGE_SIZE, STATUS_FILTERS, statusParams, type StatusFilter} from './cons
 
 /**
  * 用户管理: 搜索、状态筛选, 编辑资料、封禁、停用, 调整钱包和背包
+ * 可从可疑名单带 ?keyword= 跳转过来
  */
 export function UsersMain() {
   const {user: me} = useAuth();
   const isAdmin = !!me?.is_admin;
-  const [keywordInput, setKeywordInput] = useState('');
-  const [keyword, setKeyword] = useState('');
+  const searchParams = useSearchParams();
+  const [keywordInput, setKeywordInput] = useState(searchParams.get('keyword') ?? '');
+  const [keyword, setKeyword] = useState(keywordInput.trim());
   const [status, setStatus] = useState<StatusFilter>('all');
   const [current, setCurrent] = useState(1);
   const [data, setData] = useState<{ total: number; users: AdminUser[] } | null>(null);

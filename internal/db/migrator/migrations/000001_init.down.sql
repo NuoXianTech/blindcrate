@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS auction_suspect_reviews;
 DROP TABLE IF EXISTS auction_warehouse_items;
 DROP TABLE IF EXISTS auction_bids;
 DROP TABLE IF EXISTS auction_players;

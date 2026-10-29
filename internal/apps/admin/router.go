@@ -1623,7 +1623,8 @@ type ListMatchesRequest struct {
 	Prefix  string  `json:"prefix" form:"prefix" binding:"max=32"` // 玩法代码冒号前的部分, 如 pve
 	Suffix  string  `json:"suffix" form:"suffix" binding:"max=32"` // 玩法代码冒号后的部分, 如地图代码
 	Status  string  `json:"status" form:"status" binding:"omitempty,oneof=playing finished cancelled"`
-	UserID  *uint64 `json:"user_id" form:"user_id"` // 只看该用户参与的对局
+	UserID  *uint64 `json:"user_id" form:"user_id"`   // 只看该用户参与的对局
+	OtherID *uint64 `json:"other_id" form:"other_id"` // 只看该用户也参与的对局, 与 user_id 一起用于查看两个人一起打的对局
 }
 
 // ListMatchesResponseData 对局列表分页结果
@@ -2383,6 +2384,96 @@ func DeleteRankedTier(c *gin.Context) {
 	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionRankedTierDelete, audit.TargetRankedTier, deleted.ID, rankedTierFields(deleted))
 	logger.InfoF(ctx, "[DeleteRankedTier] %d deleted ranked tier %d %s", operator.ID, deleted.ID, deleted.Name)
 	c.JSON(http.StatusOK, Response{})
+}
+
+// ListRankedSuspectsRequest 可疑名单查询参数
+type ListRankedSuspectsRequest struct {
+	Current  int   `json:"current" form:"current" binding:"min=1"`
+	Size     int   `json:"size" form:"size" binding:"min=1,max=100"`
+	Reviewed *bool `json:"reviewed" form:"reviewed"` // 为空返回全部; false 只返回待处理的, 即没处理过或处理后又一起打过排位; true 只返回其余的
+}
+
+// ListRankedSuspectsResponseData 可疑名单分页结果
+type ListRankedSuspectsResponseData struct {
+	Total    int64             `json:"total"`
+	Suspects []auction.Suspect `json:"suspects"`
+}
+
+// ListRankedSuspects
+// @Tags admin
+// @Summary 获取排位的可疑名单
+// @Description 最近若干天已结束的排位中, 一起打的局数较多, 或同局时其中一人多次低价成交的两个账号; 天数和次数见排位设置。其中一人低价成交多的排在前面
+// @Produce json
+// @Param request query ListRankedSuspectsRequest true "request query"
+// @Success 200 {object} Response{data=ListRankedSuspectsResponseData}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/ranked/suspects [get]
+func ListRankedSuspects(c *gin.Context) {
+	ctx := c.Request.Context()
+	req := &ListRankedSuspectsRequest{}
+	if err := c.ShouldBindQuery(req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	total, suspects, err := auction.QuerySuspects(ctx, req.Reviewed, (req.Current-1)*req.Size, req.Size)
+	if err != nil {
+		logger.ErrorF(ctx, "[ListRankedSuspects] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: ListRankedSuspectsResponseData{Total: total, Suspects: suspects}})
+}
+
+// ReviewRankedSuspectRequest 处理可疑账号请求体
+type ReviewRankedSuspectRequest struct {
+	UserA       uint64 `json:"user_a" binding:"required"`
+	UserB       uint64 `json:"user_b" binding:"required,gtfield=UserA"` // 大于 user_a
+	LastMatchID uint64 `json:"last_match_id" binding:"required"`        // 处理到的对局, 即名单中的 last_match_id
+	Note        string `json:"note" binding:"max=255"`                  // 处理结果, 如已封禁、正常组队
+}
+
+// ReviewRankedSuspect
+// @Tags admin
+// @Summary 把一对可疑账号标记为已处理
+// @Description 封禁等处理在用户管理中进行; 已处理过时覆盖上一次的记录, 之后两人又一起打了排位时重新进入待处理
+// @Accept json
+// @Produce json
+// @Param request body ReviewRankedSuspectRequest true "request body"
+// @Success 200 {object} Response{data=auction.SuspectReview}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/ranked/suspects/review [post]
+func ReviewRankedSuspect(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req ReviewRankedSuspectRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	note := strings.TrimSpace(req.Note)
+	review, err := auction.ReviewSuspect(ctx, operator.ID, req.UserA, req.UserB, req.LastMatchID, note)
+	if err != nil {
+		logger.ErrorF(ctx, "[ReviewRankedSuspect] review failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSuspectReview, audit.TargetSuspect, req.UserA, map[string]interface{}{
+		"user_b":        req.UserB,
+		"last_match_id": req.LastMatchID,
+		"note":          note,
+	})
+	logger.InfoF(ctx, "[ReviewRankedSuspect] %d reviewed suspects %d and %d up to match %d", operator.ID, req.UserA, req.UserB, req.LastMatchID)
+	c.JSON(http.StatusOK, Response{Data: review})
 }
 
 // ListUserInventoryResponseData 指定用户背包物品分页结果
