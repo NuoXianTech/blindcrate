@@ -48,6 +48,7 @@ export const ACTION_LABELS: Record<string, string> = {
   'admin.ranked_tier_create': '新建段位',
   'admin.ranked_tier_update': '修改段位',
   'admin.ranked_tier_delete': '删除段位',
+  'admin.suspect_review': '处理可疑账号',
   'admin.settings_update': '修改系统设置',
   'admin.settings_rollback': '回滚系统设置',
   'admin.settings_reset': '恢复系统设置默认值',

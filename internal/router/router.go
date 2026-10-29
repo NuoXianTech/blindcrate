@@ -319,6 +319,11 @@ func Serve() {
 					rankedTierAdminRouter.PUT("/:id", admin.UpdateRankedTier)
 					rankedTierAdminRouter.DELETE("/:id", admin.DeleteRankedTier)
 				}
+				rankedSuspectAdminRouter := adminRouter.Group("/ranked/suspects")
+				{
+					rankedSuspectAdminRouter.GET("", admin.ListRankedSuspects)
+					rankedSuspectAdminRouter.POST("/review", admin.ReviewRankedSuspect)
+				}
 
 				// Inventory
 				inventoryAdminRouter := adminRouter.Group("/inventory")

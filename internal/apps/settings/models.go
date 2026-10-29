@@ -143,7 +143,7 @@ var (
 	Ranked = Register(Group[RankedSettings]{
 		Key:         KeyRanked,
 		Label:       "排位",
-		Description: "段位分的初始分、每局按名次的加减分、挂机禁赛和防串通",
+		Description: "段位分的初始分、每局按名次的加减分、挂机禁赛、防串通和可疑名单",
 		Category:    CategoryGame,
 		Sort:        20,
 		Defaults: func() *RankedSettings {
@@ -154,6 +154,10 @@ var (
 				AfkBans:      []int{300, 1800, 7200},
 				SeparateIP:   true,
 				AvoidRecent:  3,
+				WatchDays:    7,
+				WatchMatches: 10,
+				WatchLowRate: 5000,
+				WatchLowWins: 3,
 			}
 		},
 	})
@@ -199,7 +203,7 @@ type EconomySettings struct {
 	PveDailyProfitCap int    `json:"pve_daily_profit_cap" label:"人机每日收益上限" help:"玩家当天在人机模式的净收益达到上限后, 当天剩下的人机对局变为练习局, 不扣入场费也不发藏品; 按各地图的出价货币分别计算; 0 表示不限制, 地图可以单独设置更低的上限" binding:"min=0,max=1000000000" public:"true"`
 }
 
-// RankedSettings 排位: 段位分的初始分和加减分, 挂机禁赛, 防串通
+// RankedSettings 排位: 段位分的初始分和加减分, 挂机禁赛, 防串通和可疑名单
 type RankedSettings struct {
 	BaseRating   int   `json:"base_rating" label:"基础分" help:"第一次打排位时的段位分, 新赛季的初始分也向它靠拢, 见赛季的段位分继承比例" binding:"min=0,max=100000"`
 	RankDeltas   []int `json:"rank_deltas" label:"按名次加减分" help:"依次为第 1 名、第 2 名……的加减分, 负数为扣分, 扣到 0 为止; 没有配置的名次不加不减; 流拍不计分" binding:"min=1,max=8,dive,min=-1000,max=1000"`
@@ -207,4 +211,8 @@ type RankedSettings struct {
 	AfkBans      []int `json:"afk_bans" label:"挂机禁赛时长" help:"依次为达到次数时、再挂机一次时……的禁赛时长, 超出的次数使用最后一个时长" binding:"min=1,max=10,dive,min=1,max=604800" unit:"second"`
 	SeparateIP   bool  `json:"separate_ip" label:"同一 IP 不同局" help:"开启后同一 IP 的账号不会排进同一局, 同一网络下(如同一个宿舍)的玩家也无法同局; 同一设备(浏览器)的账号始终不会排进同一局"`
 	AvoidRecent  int   `json:"avoid_recent" label:"避开最近同局" help:"最近这么多局排位中一起打过的人优先不再排到一起, 最早排队的人等到人机补位时间后放宽; 0 表示不避开" binding:"min=0,max=20"`
+	WatchDays    int   `json:"watch_days" label:"可疑名单统计天数" help:"可疑名单统计最近这么多天的排位" binding:"min=1,max=90"`
+	WatchMatches int   `json:"watch_matches" label:"可疑同局次数" help:"统计天数内两个账号一起打的排位达到这个局数时进入可疑名单" binding:"min=2,max=10000"`
+	WatchLowRate int   `json:"watch_low_rate" label:"低价成交比例" help:"成交价低于仓库价值的这个比例时算作低价成交" binding:"min=0,max=10000" unit:"bp"`
+	WatchLowWins int   `json:"watch_low_wins" label:"可疑低价成交次数" help:"统计天数内两个账号同局时其中一人低价成交达到这个次数时进入可疑名单" binding:"min=1,max=10000"`
 }

@@ -38,12 +38,16 @@ import type {
   ListLootPoolsParams,
   ListSeasonsData,
   ListSeasonsParams,
+  ListSuspectsData,
+  ListSuspectsParams,
   ListUsersData,
   ListUsersParams,
   ListVenuesData,
   ListVenuesParams,
   QualityRequest,
+  ReviewSuspectRequest,
   SeasonRequest,
+  SuspectReview,
   TierRequest,
   LootEntryRequest,
   LootPool,
@@ -260,6 +264,16 @@ export class AdminService extends BaseService {
   /** 段位分不受影响, 原来在这个段位的人按剩下的分数线重新计算段位 */
   static deleteTier(id: number) {
     return this.delete<null>(`/ranked/tiers/${id}`);
+  }
+
+  /** 排位的可疑名单, 其中一人低价成交多的排在前面; 统计天数和次数见排位设置 */
+  static listSuspects(params: ListSuspectsParams) {
+    return this.get<ListSuspectsData>('/ranked/suspects', {params});
+  }
+
+  /** 标记为已处理, 之后两人又一起打了排位时重新进入待处理 */
+  static reviewSuspect(body: ReviewSuspectRequest) {
+    return this.post<SuspectReview>('/ranked/suspects/review', body);
   }
 
   static listConditionTypes() {

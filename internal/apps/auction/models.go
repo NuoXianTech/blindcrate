@@ -139,3 +139,19 @@ type WarehouseItem struct {
 
 // TableName 自定义表名
 func (WarehouseItem) TableName() string { return "auction_warehouse_items" }
+
+// SuspectReview 管理员处理过的一对可疑账号, 见 QuerySuspects
+//
+// 两个账号之后又一起打了排位时重新进入待处理。
+type SuspectReview struct {
+	UserA       uint64    `gorm:"primaryKey;autoIncrement:false" json:"user_a"` // 较小的用户 ID
+	UserB       uint64    `gorm:"primaryKey;autoIncrement:false" json:"user_b"` // 较大的用户 ID
+	LastMatchID uint64    `gorm:"not null" json:"last_match_id"`                // 处理时两人最近一起打的对局
+	Note        string    `gorm:"size:255;not null;default:''" json:"note"`
+	ReviewedBy  uint64    `gorm:"not null;default:0" json:"reviewed_by"`
+	CreatedAt   time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+	UpdatedAt   time.Time `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
+}
+
+// TableName 自定义表名
+func (SuspectReview) TableName() string { return "auction_suspect_reviews" }

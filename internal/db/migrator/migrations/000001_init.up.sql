@@ -533,3 +533,15 @@ CREATE TABLE IF NOT EXISTS auction_warehouse_items
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_warehouse_items_match_id_reveal_order ON auction_warehouse_items (match_id, reveal_order);
+
+CREATE TABLE IF NOT EXISTS auction_suspect_reviews
+(
+    user_a        BIGINT       NOT NULL,            -- 较小的用户 ID
+    user_b        BIGINT       NOT NULL,            -- 较大的用户 ID
+    last_match_id BIGINT       NOT NULL,            -- 处理时两人最近一起打的对局, 之后又一起打了排位时重新进入待处理
+    note          VARCHAR(255) NOT NULL DEFAULT '',
+    reviewed_by   BIGINT       NOT NULL DEFAULT 0,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_a, user_b)
+);

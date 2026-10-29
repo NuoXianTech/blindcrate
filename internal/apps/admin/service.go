@@ -1199,6 +1199,9 @@ func QueryMatches(ctx context.Context, req *ListMatchesRequest) (int64, []match.
 	if req.UserID != nil {
 		query = query.Where("id IN (SELECT match_id FROM match_players WHERE user_id = ?)", *req.UserID)
 	}
+	if req.OtherID != nil {
+		query = query.Where("id IN (SELECT match_id FROM match_players WHERE user_id = ?)", *req.OtherID)
+	}
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {

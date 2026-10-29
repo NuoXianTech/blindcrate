@@ -1481,6 +1481,12 @@
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "description": "只看该用户也参与的对局, 与 user_id 一起用于查看两个人一起打的对局",
+                        "name": "other_id",
+                        "in": "query"
+                    },
+                    {
                         "maxLength": 32,
                         "type": "string",
                         "description": "玩法代码冒号前的部分, 如 pve",
@@ -1980,6 +1986,153 @@
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/ranked/suspects": {
+            "get": {
+                "description": "最近若干天已结束的排位中, 一起打的局数较多, 或同局时其中一人多次低价成交的两个账号; 天数和次数见排位设置。其中一人低价成交多的排在前面",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取排位的可疑名单",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "为空返回全部; false 只返回待处理的, 即没处理过或处理后又一起打过排位; true 只返回其余的",
+                        "name": "reviewed",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListRankedSuspectsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/ranked/suspects/review": {
+            "post": {
+                "description": "封禁等处理在用户管理中进行; 已处理过时覆盖上一次的记录, 之后两人又一起打了排位时重新进入待处理",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "把一对可疑账号标记为已处理",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.ReviewRankedSuspectRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auction.SuspectReview"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/admin.Response"
                         }
@@ -7444,6 +7597,20 @@
                 }
             }
         },
+        "admin.ListRankedSuspectsResponseData": {
+            "type": "object",
+            "properties": {
+                "suspects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.Suspect"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "admin.ListRankedTiersResponseData": {
             "type": "object",
             "properties": {
@@ -7809,6 +7976,32 @@
                 "data": {},
                 "error_msg": {
                     "type": "string"
+                }
+            }
+        },
+        "admin.ReviewRankedSuspectRequest": {
+            "type": "object",
+            "required": [
+                "last_match_id",
+                "user_a",
+                "user_b"
+            ],
+            "properties": {
+                "last_match_id": {
+                    "description": "处理到的对局, 即名单中的 last_match_id",
+                    "type": "integer"
+                },
+                "note": {
+                    "description": "处理结果, 如已封禁、正常组队",
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "user_a": {
+                    "type": "integer"
+                },
+                "user_b": {
+                    "description": "大于 user_a",
+                    "type": "integer"
                 }
             }
         },
@@ -8500,6 +8693,101 @@
                 "submitted": {
                     "description": "本轮是否已出价",
                     "type": "boolean"
+                }
+            }
+        },
+        "auction.Suspect": {
+            "type": "object",
+            "properties": {
+                "last_match_at": {
+                    "type": "string"
+                },
+                "last_match_id": {
+                    "type": "integer"
+                },
+                "low_wins": {
+                    "description": "其中一人低价成交的局数",
+                    "type": "integer"
+                },
+                "matches": {
+                    "description": "一起打的排位局数",
+                    "type": "integer"
+                },
+                "price_rate": {
+                    "description": "其中一人成交时成交价占仓库价值的平均比例, 基点; 没有成交时为 0",
+                    "type": "integer"
+                },
+                "review": {
+                    "description": "最近一次处理记录, 没处理过时为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/auction.SuspectReview"
+                        }
+                    ]
+                },
+                "user_a": {
+                    "description": "用户 ID 较小的一个",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/auction.SuspectUser"
+                        }
+                    ]
+                },
+                "user_b": {
+                    "$ref": "#/definitions/auction.SuspectUser"
+                },
+                "wins": {
+                    "description": "其中一人成交的局数",
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.SuspectReview": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "last_match_id": {
+                    "description": "处理时两人最近一起打的对局",
+                    "type": "integer"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "reviewed_by": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_a": {
+                    "description": "较小的用户 ID",
+                    "type": "integer"
+                },
+                "user_b": {
+                    "description": "较大的用户 ID",
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.SuspectUser": {
+            "type": "object",
+            "properties": {
+                "banned_until": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_disabled": {
+                    "type": "boolean"
+                },
+                "nickname": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
                 }
             }
         },

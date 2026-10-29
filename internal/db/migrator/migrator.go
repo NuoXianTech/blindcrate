@@ -133,6 +133,7 @@ func runAutoMigrate() {
 		&auction.Player{},
 		&auction.Bid{},
 		&auction.WarehouseItem{},
+		&auction.SuspectReview{},
 	); err != nil {
 		log.Fatalf("[PostgreSQL] auto migrate failed: %v\n", err)
 	}

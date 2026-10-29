@@ -43,6 +43,7 @@ const (
 	TargetCurrency    = "currency" // target_id 固定为 0, 货币代码见 detail.code
 	TargetSeason      = "season"
 	TargetRankedTier  = "ranked_tier"
+	TargetSuspect     = "suspect" // target_id 为较小的用户 ID, 另一个见 detail.user_b
 )
 
 // 操作类型, 格式为 "模块.动作"
@@ -87,6 +88,7 @@ const (
 	ActionRankedTierCreate      = "admin.ranked_tier_create"
 	ActionRankedTierUpdate      = "admin.ranked_tier_update"
 	ActionRankedTierDelete      = "admin.ranked_tier_delete"
+	ActionSuspectReview         = "admin.suspect_review"
 	ActionSettingsUpdate        = "admin.settings_update"
 	ActionSettingsRollback      = "admin.settings_rollback"
 	ActionSettingsReset         = "admin.settings_reset"
