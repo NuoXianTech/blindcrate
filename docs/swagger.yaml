@@ -462,6 +462,14 @@ definitions:
           $ref: '#/definitions/admin.QualityListItem'
         type: array
     type: object
+  admin.ListRankedTiersResponseData:
+    properties:
+      tiers:
+        description: 按分数线从低到高
+        items:
+          $ref: '#/definitions/ranked.Tier'
+        type: array
+    type: object
   admin.ListSeasonsResponseData:
     properties:
       seasons:
@@ -664,6 +672,22 @@ definitions:
         maximum: 1000000
         minimum: -1000000
         type: integer
+    required:
+    - color
+    - name
+    type: object
+  admin.RankedTierRequest:
+    properties:
+      color:
+        description: '#rrggbb'
+        maxLength: 7
+        type: string
+      min_rating:
+        description: 分数线, 段位分不低于它时属于这个段位, 0-1000000
+        type: integer
+      name:
+        maxLength: 32
+        type: string
     required:
     - color
     - name
@@ -2088,10 +2112,35 @@ definitions:
       error_msg:
         type: string
     type: object
+  ranked.ListTiersResponseData:
+    properties:
+      tiers:
+        description: 按分数线从低到高
+        items:
+          $ref: '#/definitions/ranked.Tier'
+        type: array
+    type: object
   ranked.Response:
     properties:
       data: {}
       error_msg:
+        type: string
+    type: object
+  ranked.Tier:
+    properties:
+      color:
+        description: '#rrggbb'
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      min_rating:
+        description: 分数线, 包含
+        type: integer
+      name:
+        type: string
+      updated_at:
         type: string
     type: object
   ranked.View:
@@ -2099,6 +2148,10 @@ definitions:
       matches:
         description: 本赛季计分的排位局数, 0 表示还没打过, 段位分为初始分
         type: integer
+      next_tier:
+        allOf:
+        - $ref: '#/definitions/ranked.Tier'
+        description: 下一个段位, 已是最高段位时为空
       peak:
         type: integer
       rating:
@@ -2107,6 +2160,10 @@ definitions:
         allOf:
         - $ref: '#/definitions/season.View'
         description: 进行中的赛季, 赛季之外为空
+      tier:
+        allOf:
+        - $ref: '#/definitions/ranked.Tier'
+        description: 当前的段位, 低于最低的分数线时为空
     type: object
   reward.Bundle:
     properties:
@@ -4116,6 +4173,175 @@ paths:
           schema:
             $ref: '#/definitions/admin.Response'
       summary: 修改品质
+      tags:
+      - admin
+  /api/v1/admin/ranked/tiers:
+    get:
+      description: 全部段位, 按分数线从低到高
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListRankedTiersResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取段位列表
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.RankedTierRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/ranked.Tier'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 新建段位
+      tags:
+      - admin
+  /api/v1/admin/ranked/tiers/{id}:
+    delete:
+      description: 删除后原来在这个段位的人按剩下的分数线重新计算段位, 段位分不受影响
+      parameters:
+      - description: ranked tier id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 删除段位
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: 需提交全部字段; 段位按段位分实时计算, 修改分数线后所有人的段位随即变化
+      parameters:
+      - description: ranked tier id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.RankedTierRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/ranked.Tier'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 修改段位
       tags:
       - admin
   /api/v1/admin/seasons:
@@ -6604,7 +6830,7 @@ paths:
       - item
   /api/v1/ranked/rating:
     get:
-      description: 当前赛季的段位分, 赛季之外为赛季 0 的段位分; 本赛季还没打过排位时为初始分
+      description: 当前赛季的段位分和段位, 赛季之外为赛季 0 的段位分; 本赛季还没打过排位时为初始分
       produces:
       - application/json
       responses:
@@ -6630,6 +6856,36 @@ paths:
           schema:
             $ref: '#/definitions/ranked.Response'
       summary: 获取当前用户的段位分
+      tags:
+      - ranked
+  /api/v1/ranked/tiers:
+    get:
+      description: 全部段位, 按分数线从低到高; 段位分低于最低的分数线时没有段位
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/ranked.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/ranked.ListTiersResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ranked.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ranked.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ranked.Response'
+      summary: 获取段位列表
       tags:
       - ranked
   /api/v1/ready:

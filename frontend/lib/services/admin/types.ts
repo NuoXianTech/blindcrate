@@ -3,6 +3,7 @@ import type {Bundle} from '../auction';
 import type {PageParams} from '../core';
 import type {InventoryTransaction} from '../inventory';
 import type {LeaderboardPeriod} from '../leaderboard';
+import type {Tier} from '../ranked';
 import type {Season, SeasonStatus} from '../season';
 import type {AuctionRule, Grid} from '../venue';
 import type {WalletTransaction} from '../wallet';
@@ -597,6 +598,9 @@ export type SeasonRequest = Pick<Season, 'name' | 'starts_at' | 'ends_at' | 'rat
 
 /** 新建赛季 */
 export type CreateSeasonRequest = SeasonRequest & Pick<Season, 'code'>;
+
+/** 新建或修改段位, 修改时也需提交全部字段 */
+export type TierRequest = Pick<Tier, 'name' | 'min_rating' | 'color'>;
 
 /** 可以排名的指标, 对应后端 stats.Metric */
 export interface StatMetric {

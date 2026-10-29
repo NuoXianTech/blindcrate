@@ -203,7 +203,12 @@ func Serve() {
 			apiV1Router.GET("/seasons/current", auth.LoginRequired(), season.GetCurrent)
 
 			// Ranked
-			apiV1Router.GET("/ranked/rating", auth.LoginRequired(), ranked.GetRating)
+			rankedRouter := apiV1Router.Group("/ranked")
+			rankedRouter.Use(auth.LoginRequired())
+			{
+				rankedRouter.GET("/rating", ranked.GetRating)
+				rankedRouter.GET("/tiers", ranked.ListTiers)
+			}
 
 			// Admin
 			adminRouter := apiV1Router.Group("/admin")
@@ -304,6 +309,15 @@ func Serve() {
 					seasonAdminRouter.PUT("/:id", admin.UpdateSeason)
 					seasonAdminRouter.DELETE("/:id", admin.DeleteSeason)
 					seasonAdminRouter.POST("/:id/end", admin.EndSeason)
+				}
+
+				// Ranked
+				rankedTierAdminRouter := adminRouter.Group("/ranked/tiers")
+				{
+					rankedTierAdminRouter.GET("", admin.ListRankedTiers)
+					rankedTierAdminRouter.POST("", admin.CreateRankedTier)
+					rankedTierAdminRouter.PUT("/:id", admin.UpdateRankedTier)
+					rankedTierAdminRouter.DELETE("/:id", admin.DeleteRankedTier)
 				}
 
 				// Inventory

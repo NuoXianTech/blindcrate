@@ -1993,6 +1993,275 @@
                 }
             }
         },
+        "/api/v1/admin/ranked/tiers": {
+            "get": {
+                "description": "全部段位, 按分数线从低到高",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取段位列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListRankedTiersResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "新建段位",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.RankedTierRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/ranked.Tier"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/ranked/tiers/{id}": {
+            "put": {
+                "description": "需提交全部字段; 段位按段位分实时计算, 修改分数线后所有人的段位随即变化",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "修改段位",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ranked tier id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.RankedTierRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/ranked.Tier"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "删除后原来在这个段位的人按剩下的分数线重新计算段位, 段位分不受影响",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "删除段位",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ranked tier id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/seasons": {
             "get": {
                 "description": "按开始时间从晚到早排列",
@@ -5942,7 +6211,7 @@
         },
         "/api/v1/ranked/rating": {
             "get": {
-                "description": "当前赛季的段位分, 赛季之外为赛季 0 的段位分; 本赛季还没打过排位时为初始分",
+                "description": "当前赛季的段位分和段位, 赛季之外为赛季 0 的段位分; 本赛季还没打过排位时为初始分",
                 "produces": [
                     "application/json"
                 ],
@@ -5963,6 +6232,56 @@
                                     "properties": {
                                         "data": {
                                             "$ref": "#/definitions/ranked.View"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ranked.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ranked.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ranked.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ranked/tiers": {
+            "get": {
+                "description": "全部段位, 按分数线从低到高; 段位分低于最低的分数线时没有段位",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ranked"
+                ],
+                "summary": "获取段位列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/ranked.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/ranked.ListTiersResponseData"
                                         }
                                     }
                                 }
@@ -7118,6 +7437,18 @@
                 }
             }
         },
+        "admin.ListRankedTiersResponseData": {
+            "type": "object",
+            "properties": {
+                "tiers": {
+                    "description": "按分数线从低到高",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ranked.Tier"
+                    }
+                }
+            }
+        },
         "admin.ListSeasonsResponseData": {
             "type": "object",
             "properties": {
@@ -7411,6 +7742,28 @@
                     "type": "integer",
                     "maximum": 1000000,
                     "minimum": -1000000
+                }
+            }
+        },
+        "admin.RankedTierRequest": {
+            "type": "object",
+            "required": [
+                "color",
+                "name"
+            ],
+            "properties": {
+                "color": {
+                    "description": "#rrggbb",
+                    "type": "string",
+                    "maxLength": 7
+                },
+                "min_rating": {
+                    "description": "分数线, 段位分不低于它时属于这个段位, 0-1000000",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 32
                 }
             }
         },
@@ -9485,11 +9838,48 @@
                 }
             }
         },
+        "ranked.ListTiersResponseData": {
+            "type": "object",
+            "properties": {
+                "tiers": {
+                    "description": "按分数线从低到高",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ranked.Tier"
+                    }
+                }
+            }
+        },
         "ranked.Response": {
             "type": "object",
             "properties": {
                 "data": {},
                 "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "ranked.Tier": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "description": "#rrggbb",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "min_rating": {
+                    "description": "分数线, 包含",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -9500,6 +9890,14 @@
                 "matches": {
                     "description": "本赛季计分的排位局数, 0 表示还没打过, 段位分为初始分",
                     "type": "integer"
+                },
+                "next_tier": {
+                    "description": "下一个段位, 已是最高段位时为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ranked.Tier"
+                        }
+                    ]
                 },
                 "peak": {
                     "type": "integer"
@@ -9512,6 +9910,14 @@
                     "allOf": [
                         {
                             "$ref": "#/definitions/season.View"
+                        }
+                    ]
+                },
+                "tier": {
+                    "description": "当前的段位, 低于最低的分数线时为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ranked.Tier"
                         }
                     ]
                 }

@@ -25,13 +25,14 @@
 package leaderboard
 
 const (
-	BoardNotFound     = "排行榜不存在"
-	CodeInvalid       = "代码需为 1-64 个小写字母、数字或下划线"
-	CodeTaken         = "代码已存在"
-	NameInvalid       = "名称需为 1-64 个字符"
-	MetricInvalid     = "统计数据不存在"
-	ScopeInvalid      = "统计范围格式不正确"
-	PeriodInvalid     = "统计周期不合法"
-	SizeInvalid       = "上榜人数需为 10-500"
-	MinMatchesInvalid = "上榜最少局数不能为负数"
+	BoardNotFound      = "排行榜不存在"
+	CodeInvalid        = "代码需为 1-64 个小写字母、数字或下划线"
+	CodeTaken          = "代码已存在"
+	NameInvalid        = "名称需为 1-64 个字符"
+	MetricInvalid      = "统计数据不存在"
+	ScopeInvalid       = "统计范围格式不正确"
+	PeriodInvalid      = "统计周期不合法"
+	SizeInvalid        = "上榜人数需为 10-500"
+	MinMatchesInvalid  = "上榜最少局数不能为负数"
+	RatingBoardInvalid = "段位分榜单的统计范围需为全部对局, 统计周期需为赛季"
 )

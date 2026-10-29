@@ -43,7 +43,7 @@ type Response struct {
 // GetRating
 // @Tags ranked
 // @Summary 获取当前用户的段位分
-// @Description 当前赛季的段位分, 赛季之外为赛季 0 的段位分; 本赛季还没打过排位时为初始分
+// @Description 当前赛季的段位分和段位, 赛季之外为赛季 0 的段位分; 本赛季还没打过排位时为初始分
 // @Produce json
 // @Success 200 {object} Response{data=View}
 // @Failure 401 {object} Response
@@ -64,4 +64,30 @@ func GetRating(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: view})
+}
+
+// ListTiersResponseData 段位列表
+type ListTiersResponseData struct {
+	Tiers []Tier `json:"tiers"` // 按分数线从低到高
+}
+
+// ListTiers
+// @Tags ranked
+// @Summary 获取段位列表
+// @Description 全部段位, 按分数线从低到高; 段位分低于最低的分数线时没有段位
+// @Produce json
+// @Success 200 {object} Response{data=ListTiersResponseData}
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/ranked/tiers [get]
+func ListTiers(c *gin.Context) {
+	ctx := c.Request.Context()
+	tiers, err := QueryTiers(db.DB(ctx))
+	if err != nil {
+		logger.ErrorF(ctx, "[ListTiers] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: ListTiersResponseData{Tiers: tiers}})
 }

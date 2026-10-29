@@ -24,7 +24,11 @@
 
 package ranked
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // Rating 用户在一个赛季中的段位分, 第一次结算排位时创建
 type Rating struct {
@@ -39,3 +43,24 @@ type Rating struct {
 
 // TableName 自定义表名
 func (Rating) TableName() string { return "ranked_ratings" }
+
+// Tier 段位, 段位分不低于分数线时属于分数线最高的那个段位; 低于最低的分数线时没有段位
+type Tier struct {
+	ID        uint64    `gorm:"primaryKey" json:"id"`
+	Name      string    `gorm:"size:32;not null" json:"name"`
+	MinRating int32     `gorm:"not null;uniqueIndex:uniq_ranked_tiers_min_rating;check:chk_ranked_tiers_min_rating,min_rating >= 0" json:"min_rating"` // 分数线, 包含
+	Color     string    `gorm:"size:7;not null" json:"color"`                                                                                          // #rrggbb
+	CreatedAt time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
+}
+
+// TableName 自定义表名
+func (Tier) TableName() string { return "ranked_tiers" }
+
+// Exact 按 ID 获取段位
+func (t *Tier) Exact(tx *gorm.DB, id uint64) error {
+	if err := tx.Where("id = ?", id).First(t).Error; err != nil {
+		return err
+	}
+	return nil
+}

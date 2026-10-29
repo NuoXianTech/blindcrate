@@ -42,6 +42,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
+	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
@@ -1835,7 +1836,7 @@ type LeaderboardRequest struct {
 func leaderboardErrorStatus(err error) int {
 	switch err.Error() {
 	case leaderboard.CodeInvalid, leaderboard.NameInvalid, leaderboard.MetricInvalid, leaderboard.ScopeInvalid,
-		leaderboard.PeriodInvalid, leaderboard.SizeInvalid, leaderboard.MinMatchesInvalid:
+		leaderboard.PeriodInvalid, leaderboard.SizeInvalid, leaderboard.MinMatchesInvalid, leaderboard.RatingBoardInvalid:
 		return http.StatusBadRequest
 	case leaderboard.BoardNotFound:
 		return http.StatusNotFound
@@ -2207,6 +2208,178 @@ func EndSeason(c *gin.Context) {
 	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSeasonEnd, audit.TargetSeason, ended.ID, changes)
 	logger.InfoF(ctx, "[EndSeason] %d ended season %d %s", operator.ID, ended.ID, ended.Code)
 	c.JSON(http.StatusOK, Response{Data: ended})
+}
+
+// ListRankedTiersResponseData 段位列表
+type ListRankedTiersResponseData struct {
+	Tiers []ranked.Tier `json:"tiers"` // 按分数线从低到高
+}
+
+// ListRankedTiers
+// @Tags admin
+// @Summary 获取段位列表
+// @Description 全部段位, 按分数线从低到高
+// @Produce json
+// @Success 200 {object} Response{data=ListRankedTiersResponseData}
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/ranked/tiers [get]
+func ListRankedTiers(c *gin.Context) {
+	ctx := c.Request.Context()
+	tiers, err := queryRankedTiers(ctx)
+	if err != nil {
+		logger.ErrorF(ctx, "[ListRankedTiers] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: ListRankedTiersResponseData{Tiers: tiers}})
+}
+
+// RankedTierRequest 新建或修改段位请求体
+type RankedTierRequest struct {
+	Name      string `json:"name" binding:"required,max=32"`
+	MinRating int32  `json:"min_rating"`                     // 分数线, 段位分不低于它时属于这个段位, 0-1000000
+	Color     string `json:"color" binding:"required,max=7"` // #rrggbb
+}
+
+// rankedTierErrorStatus 段位配置错误对应的状态码, 不是配置错误时返回 0
+func rankedTierErrorStatus(err error) int {
+	switch err.Error() {
+	case ranked.TierNameInvalid, ranked.TierRatingInvalid, ranked.TierColorInvalid:
+		return http.StatusBadRequest
+	case ranked.TierNotFound:
+		return http.StatusNotFound
+	case ranked.TierRatingTaken:
+		return http.StatusConflict
+	}
+	return 0
+}
+
+// CreateRankedTier
+// @Tags admin
+// @Summary 新建段位
+// @Accept json
+// @Produce json
+// @Param request body RankedTierRequest true "request body"
+// @Success 200 {object} Response{data=ranked.Tier}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 409 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/ranked/tiers [post]
+func CreateRankedTier(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req RankedTierRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	created, err := doCreateRankedTier(ctx, &req)
+	if err != nil {
+		if status := rankedTierErrorStatus(err); status != 0 {
+			c.JSON(status, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[CreateRankedTier] create failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionRankedTierCreate, audit.TargetRankedTier, created.ID, rankedTierFields(created))
+	logger.InfoF(ctx, "[CreateRankedTier] %d created ranked tier %d %s", operator.ID, created.ID, created.Name)
+	c.JSON(http.StatusOK, Response{Data: created})
+}
+
+// UpdateRankedTier
+// @Tags admin
+// @Summary 修改段位
+// @Description 需提交全部字段; 段位按段位分实时计算, 修改分数线后所有人的段位随即变化
+// @Accept json
+// @Produce json
+// @Param id path int true "ranked tier id"
+// @Param request body RankedTierRequest true "request body"
+// @Success 200 {object} Response{data=ranked.Tier}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 404 {object} Response
+// @Failure 409 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/ranked/tiers/{id} [put]
+func UpdateRankedTier(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req RankedTierRequest
+	tierID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || c.ShouldBindJSON(&req) != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	updated, changes, err := doUpdateRankedTier(ctx, tierID, &req)
+	if err != nil {
+		if status := rankedTierErrorStatus(err); status != 0 {
+			c.JSON(status, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[UpdateRankedTier] update failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	if len(changes) > 0 {
+		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionRankedTierUpdate, audit.TargetRankedTier, updated.ID, changes)
+		logger.InfoF(ctx, "[UpdateRankedTier] %d updated ranked tier %d %s", operator.ID, updated.ID, updated.Name)
+	}
+	c.JSON(http.StatusOK, Response{Data: updated})
+}
+
+// DeleteRankedTier
+// @Tags admin
+// @Summary 删除段位
+// @Description 删除后原来在这个段位的人按剩下的分数线重新计算段位, 段位分不受影响
+// @Produce json
+// @Param id path int true "ranked tier id"
+// @Success 200 {object} Response
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 404 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/ranked/tiers/{id} [delete]
+func DeleteRankedTier(c *gin.Context) {
+	ctx := c.Request.Context()
+	tierID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	deleted, err := doDeleteRankedTier(ctx, tierID)
+	if err != nil {
+		if err.Error() == ranked.TierNotFound {
+			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[DeleteRankedTier] delete failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionRankedTierDelete, audit.TargetRankedTier, deleted.ID, rankedTierFields(deleted))
+	logger.InfoF(ctx, "[DeleteRankedTier] %d deleted ranked tier %d %s", operator.ID, deleted.ID, deleted.Name)
+	c.JSON(http.StatusOK, Response{})
 }
 
 // ListUserInventoryResponseData 指定用户背包物品分页结果

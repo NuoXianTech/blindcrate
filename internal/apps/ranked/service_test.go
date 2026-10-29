@@ -73,3 +73,61 @@ func TestCarry(t *testing.T) {
 		}
 	}
 }
+
+func TestTierOf(t *testing.T) {
+	tiers := []Tier{{Name: "青铜", MinRating: 0}, {Name: "白银", MinRating: 1100}, {Name: "黄金", MinRating: 1250}}
+	cases := []struct {
+		rating  int32
+		current string
+		next    string
+	}{
+		{0, "青铜", "白银"},
+		{1099, "青铜", "白银"},
+		{1100, "白银", "黄金"},
+		{1250, "黄金", ""},
+		{5000, "黄金", ""},
+	}
+	name := func(tier *Tier) string {
+		if tier == nil {
+			return ""
+		}
+		return tier.Name
+	}
+	for _, c := range cases {
+		current, next := TierOf(tiers, c.rating)
+		if name(current) != c.current || name(next) != c.next {
+			t.Errorf("rating %d: got %s/%s, want %s/%s", c.rating, name(current), name(next), c.current, c.next)
+		}
+	}
+	if current, next := TierOf(tiers[1:], 900); current != nil || next == nil || next.Name != "白银" {
+		t.Errorf("below lowest: got %v/%v", current, next)
+	}
+	if current, next := TierOf(nil, 900); current != nil || next != nil {
+		t.Errorf("no tiers: got %v/%v", current, next)
+	}
+}
+
+func TestValidateTier(t *testing.T) {
+	valid := Tier{Name: "白银", MinRating: 1100, Color: "#c0c0c0"}
+	if err := ValidateTier(&valid); err != nil {
+		t.Fatalf("valid: got %v", err)
+	}
+	cases := []struct {
+		name   string
+		modify func(t *Tier)
+		want   string
+	}{
+		{"name empty", func(t *Tier) { t.Name = "" }, TierNameInvalid},
+		{"rating negative", func(t *Tier) { t.MinRating = -1 }, TierRatingInvalid},
+		{"rating over", func(t *Tier) { t.MinRating = MaxTierRating + 1 }, TierRatingInvalid},
+		{"color upper", func(t *Tier) { t.Color = "#C0C0C0" }, TierColorInvalid},
+		{"color short", func(t *Tier) { t.Color = "#ccc" }, TierColorInvalid},
+	}
+	for _, c := range cases {
+		tier := valid
+		c.modify(&tier)
+		if err := ValidateTier(&tier); err == nil || err.Error() != c.want {
+			t.Errorf("%s: got %v, want %s", c.name, err, c.want)
+		}
+	}
+}
