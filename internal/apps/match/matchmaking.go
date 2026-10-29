@@ -26,13 +26,16 @@ package match
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand/v2"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/ws"
@@ -40,9 +43,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// joinScript 用户不在任何队列中时加入队列
+// joinScript 用户不在任何队列中时加入队列, 同时记录来源, 来源为空时删除旧的来源
 //
-// KEYS[1] 队列, KEYS[2] 用户所在的队列; ARGV[1] 用户 ID, ARGV[2] 玩法, ARGV[3] 当前毫秒时间戳。
+// KEYS[1] 队列, KEYS[2] 用户所在的队列, KEYS[3] 来源; ARGV[1] 用户 ID, ARGV[2] 玩法, ARGV[3] 当前毫秒时间戳, ARGV[4] 来源。
 // 返回 {0, 加入时间}: 新加入; {1, 加入时间}: 已在同一个队列中; {2, 玩法}: 已在其他队列中。
 var joinScript = redis.NewScript(`
 local current = redis.call('HGET', KEYS[2], ARGV[1])
@@ -54,49 +57,138 @@ if current then
 end
 redis.call('HSET', KEYS[2], ARGV[1], ARGV[2])
 redis.call('ZADD', KEYS[1], ARGV[3], ARGV[1])
+if ARGV[4] == '' then
+	redis.call('HDEL', KEYS[3], ARGV[1])
+else
+	redis.call('HSET', KEYS[3], ARGV[1], ARGV[4])
+end
 return {0, ARGV[3]}
 `)
 
 // leaveScript 用户仍在这个队列中时移出
 //
-// KEYS[1] 队列, KEYS[2] 用户所在的队列; ARGV[1] 用户 ID, ARGV[2] 玩法。
+// KEYS[1] 队列, KEYS[2] 用户所在的队列, KEYS[3] 来源; ARGV[1] 用户 ID, ARGV[2] 玩法。
 var leaveScript = redis.NewScript(`
 if redis.call('HGET', KEYS[2], ARGV[1]) == ARGV[2] then
 	redis.call('HDEL', KEYS[2], ARGV[1])
+	redis.call('HDEL', KEYS[3], ARGV[1])
 	redis.call('ZREM', KEYS[1], ARGV[1])
 	return 1
 end
 return 0
 `)
 
-// popScript 凑够一局时取出最早加入的 ARGV[1] 人; 不够一局但至少有 ARGV[2] 人且最早加入的人已等到补位时间时全部取出, 由人机补齐
+// popScript 按加入顺序挑出可以同局的人: 凑满 ARGV[1] 人时取出; 凑不满时, 最早加入的人等到补位时间后至少有 ARGV[2] 人也取出, 由人机补齐
 //
-// KEYS[1] 队列, KEYS[2] 用户所在的队列; ARGV[1] 每局最多的真人数, ARGV[2] 开局至少需要的真人数,
+// 同一 IP 或同一设备的人不同局; 最近一起打过的人优先不同局, 最早加入的人等到补位时间(不补位的玩法为立即)后放宽:
+// 放宽后能凑满时取凑满的一批, 否则依次尝试不放宽、放宽时挑出的人。没有来源的人不受限制, 来源见 queueOrigin。
+//
+// KEYS[1] 队列, KEYS[2] 用户所在的队列, KEYS[3] 来源; ARGV[1] 每局最多的真人数, ARGV[2] 开局至少需要的真人数,
 // ARGV[3] 加入时间不晚于它的人可以补位, 为空表示不补位, ARGV[4] 玩法。
-// 返回 {用户 ID, 加入时间, ...}。取出和移出队列是原子的, 多个实例同时组局也不会把同一个人放进两局。
+// 返回 {用户 ID, 加入时间, ...}。取出和移出队列是原子的, 多个实例同时组局也不会把同一个人放进两局; 来源由 forgetScript 清理。
 var popScript = redis.NewScript(`
 local count = tonumber(ARGV[1])
-local size = redis.call('ZCARD', KEYS[1])
-if size == 0 then
+local least = tonumber(ARGV[2])
+local members = redis.call('ZRANGE', KEYS[1], 0, -1, 'WITHSCORES')
+if #members == 0 then
 	return {}
 end
-if size < count then
-	if ARGV[3] == '' or size < tonumber(ARGV[2]) then
-		return {}
+
+local origins = {}
+local function origin(member)
+	if origins[member] == nil then
+		local raw = redis.call('HGET', KEYS[3], member)
+		origins[member] = raw and cjson.decode(raw) or {}
 	end
-	local oldest = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
-	if tonumber(oldest[2]) > tonumber(ARGV[3]) then
-		return {}
+	return origins[member]
+end
+local function same(a, b)
+	return type(a) == 'string' and a ~= '' and a == b
+end
+local function contains(list, value)
+	if type(list) ~= 'table' then
+		return false
+	end
+	for _, v in ipairs(list) do
+		if v == value then
+			return true
+		end
+	end
+	return false
+end
+local function conflicts(a, b, strict)
+	local oa, ob = origin(a), origin(b)
+	if same(oa.ip, ob.ip) or same(oa.device, ob.device) then
+		return true
+	end
+	return strict and (contains(oa.recent, b) or contains(ob.recent, a))
+end
+-- 按加入顺序挑人, 和已挑中的人都不冲突时挑中, 返回在 members 中的下标; 最早加入的人总会被挑中
+local function pick(strict)
+	local picked = {}
+	for i = 1, #members, 2 do
+		local ok = true
+		for _, j in ipairs(picked) do
+			if conflicts(members[i], members[j], strict) then
+				ok = false
+				break
+			end
+		end
+		if ok then
+			picked[#picked + 1] = i
+			if #picked == count then
+				break
+			end
+		end
+	end
+	return picked
+end
+local function take(picked)
+	local popped = {}
+	for _, i in ipairs(picked) do
+		redis.call('ZREM', KEYS[1], members[i])
+		if redis.call('HGET', KEYS[2], members[i]) == ARGV[4] then
+			redis.call('HDEL', KEYS[2], members[i])
+		end
+		popped[#popped + 1] = members[i]
+		popped[#popped + 1] = members[i + 1]
+	end
+	return popped
+end
+
+local strict = pick(true)
+if #strict == count then
+	return take(strict)
+end
+if ARGV[3] ~= '' and tonumber(members[2]) > tonumber(ARGV[3]) then
+	return {}
+end
+local relaxed = pick(false)
+if #relaxed == count then
+	return take(relaxed)
+end
+if ARGV[3] == '' then
+	return {}
+end
+if #strict >= least then
+	return take(strict)
+end
+if #relaxed >= least then
+	return take(relaxed)
+end
+return {}
+`)
+
+// forgetScript 删除已不在任何队列中的用户的来源, 处理完取出的一批人后调用; 放回队列和已重新加入的人保留
+//
+// KEYS[1] 用户所在的队列, KEYS[2] 来源; ARGV 为用户 ID。
+var forgetScript = redis.NewScript(`
+for _, member in ipairs(ARGV) do
+	if redis.call('HEXISTS', KEYS[1], member) == 0 then
+		redis.call('HDEL', KEYS[2], member)
 	end
 end
-local popped = redis.call('ZRANGE', KEYS[1], 0, count - 1, 'WITHSCORES')
-for i = 1, #popped, 2 do
-	redis.call('ZREM', KEYS[1], popped[i])
-	if redis.call('HGET', KEYS[2], popped[i]) == ARGV[4] then
-		redis.call('HDEL', KEYS[2], popped[i])
-	end
-end
-return popped
+return 0
 `)
 
 // requeueScript 把取出后没能开局的用户按原来的加入时间放回队列, 已在其他队列中的用户跳过
@@ -113,17 +205,31 @@ return 0
 
 // dropScript 取出队列中的所有用户, 用于玩法已不存在的队列
 //
-// KEYS[1] 队列, KEYS[2] 用户所在的队列; ARGV[1] 玩法。返回取出的用户 ID。
+// KEYS[1] 队列, KEYS[2] 用户所在的队列, KEYS[3] 来源; ARGV[1] 玩法。返回取出的用户 ID。
 var dropScript = redis.NewScript(`
 local popped = redis.call('ZRANGE', KEYS[1], 0, -1)
 for _, member in ipairs(popped) do
 	redis.call('ZREM', KEYS[1], member)
 	if redis.call('HGET', KEYS[2], member) == ARGV[1] then
 		redis.call('HDEL', KEYS[2], member)
+		redis.call('HDEL', KEYS[3], member)
 	end
 end
 return popped
 `)
+
+// Origin 加入队列时的来源, 用于防串通
+type Origin struct {
+	IP     string // 客户端 IP
+	Device string // 设备标识, 见 deviceCookieName
+}
+
+// queueOrigin 存在 queueOriginsKey 中的来源, 只有每局不止一个真人的玩法记录
+type queueOrigin struct {
+	IP     string   `json:"ip,omitempty"`     // 关闭同 IP 限制时为空
+	Device string   `json:"device,omitempty"` // 没有设备标识时为空
+	Recent []string `json:"recent,omitempty"` // 同一类玩法最近几局中一起打过的真人
+}
 
 // queuedUser 从队列中取出的用户
 type queuedUser struct {
@@ -165,8 +271,8 @@ type MatchmakingRejectedMessage struct {
 // Join 加入玩法的匹配队列, 凑够一局时立即创建对局, 返回加入后的匹配状态
 //
 // 已在同一个队列中时不重复加入; 已在其他队列中返回 AlreadyQueued, 已在对局中返回 InMatch;
-// 玩法实现了 JoinChecker 且拒绝时返回 *RejectedError。
-func Join(ctx context.Context, userID uint64, modeCode string) (*MatchmakingStatus, error) {
+// 玩法实现了 JoinChecker 且拒绝时返回 *RejectedError。每局不止一个真人的玩法记录来源, 组局时防串通。
+func Join(ctx context.Context, userID uint64, modeCode string, from Origin) (*MatchmakingStatus, error) {
 	mode, err := lookupMode(ctx, modeCode)
 	if err != nil {
 		return nil, err
@@ -183,9 +289,13 @@ func Join(ctx context.Context, userID uint64, modeCode string) (*MatchmakingStat
 			return nil, err
 		}
 	}
+	origin, err := encodeOrigin(ctx, mode, userID, from)
+	if err != nil {
+		return nil, err
+	}
 
 	now := time.Now().UnixMilli()
-	result, err := joinScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey}, userID, modeCode, now).Slice()
+	result, err := joinScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey, queueOriginsKey}, userID, modeCode, now, origin).Slice()
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +326,7 @@ func Leave(ctx context.Context, userID uint64) error {
 	if err != nil {
 		return err
 	}
-	left, err := leaveScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey}, userID, modeCode).Int()
+	left, err := leaveScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey, queueOriginsKey}, userID, modeCode).Int()
 	if err != nil {
 		return err
 	}
@@ -258,7 +368,7 @@ func QueryMatchmakingStatus(ctx context.Context, userID uint64) (*MatchmakingSta
 	return status, nil
 }
 
-// Form 从玩法的队列中取出玩家创建对局, 直到不够一局且没有人等到补位时间; 取出过玩家时把新的人数推送给队列中剩下的人
+// Form 从玩法的队列中取出玩家创建对局, 直到挑不出可以开局的一批人; 取出过玩家时把新的人数推送给队列中剩下的人
 //
 // 补位任务到期和巡检时调用, 多个实例同时调用是安全的。
 // 创建失败时这一批玩家已被移出队列, 推送 MessageMatchmakingFailed 让他们重新匹配, 避免同一个错误反复发生。
@@ -277,7 +387,7 @@ func form(ctx context.Context, modeCode string) (bool, error) {
 		return false, err
 	}
 	count := mode.MaxHumans()
-	keys := []string{queueKeyPrefix + modeCode, queueUsersKey}
+	keys := []string{queueKeyPrefix + modeCode, queueUsersKey, queueOriginsKey}
 	changed := false
 	for {
 		cutoff := ""
@@ -300,6 +410,7 @@ func form(ctx context.Context, modeCode string) (bool, error) {
 		result, err := createMatch(ctx, mode, queued)
 		if err != nil {
 			pushMatchmakingFailed(ctx, modeCode, queued)
+			forgetOrigins(ctx, queued)
 			return true, err
 		}
 		for _, rejected := range result.Rejected {
@@ -312,22 +423,22 @@ func form(ctx context.Context, modeCode string) (bool, error) {
 			if len(result.Requeue) > 0 {
 				if err := requeue(ctx, modeCode, result.Requeue); err != nil {
 					pushMatchmakingFailed(ctx, modeCode, result.Requeue)
+					forgetOrigins(ctx, queued)
 					return true, err
 				}
 			}
+			forgetOrigins(ctx, queued)
 			return true, nil
 		}
+		forgetOrigins(ctx, queued)
 		afterChange(ctx, nil, result.Match, result.Players)
 		result.Hooks.run(ctx)
-		if len(queued) < count {
-			return true, nil
-		}
 	}
 }
 
 // dropQueue 玩法已不存在(如地图被删除)时清空它的队列, 推送 MessageMatchmakingFailed 让这些用户重新匹配
 func dropQueue(ctx context.Context, modeCode string) error {
-	popped, err := dropScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey}, modeCode).Int64Slice()
+	popped, err := dropScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey, queueOriginsKey}, modeCode).Int64Slice()
 	if err != nil || len(popped) == 0 {
 		return err
 	}
@@ -354,6 +465,65 @@ func requeue(ctx context.Context, modeCode string, users []queuedUser) error {
 		args = append(args, user.UserID, user.JoinedAt)
 	}
 	return requeueScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey}, args...).Err()
+}
+
+// encodeOrigin 每局不止一个真人的玩法返回要记录的来源 JSON, 否则返回空字符串
+//
+// 是否限制同 IP 和避开最近几局按排位设置; 最近几局只看同一类玩法, 即代码前缀相同(如 ranked)的对局。
+func encodeOrigin(ctx context.Context, mode Mode, userID uint64, from Origin) (string, error) {
+	if mode.MaxHumans() <= 1 {
+		return "", nil
+	}
+	cfg, err := settings.Ranked.Get(ctx)
+	if err != nil {
+		return "", err
+	}
+	origin := queueOrigin{Device: from.Device}
+	if cfg.SeparateIP {
+		origin.IP = from.IP
+	}
+	if cfg.AvoidRecent > 0 {
+		prefix, _, _ := strings.Cut(mode.Code(), ":")
+		if origin.Recent, err = recentOpponents(db.DB(ctx), userID, prefix, cfg.AvoidRecent); err != nil {
+			return "", err
+		}
+	}
+	raw, err := json.Marshal(origin)
+	if err != nil {
+		return "", err
+	}
+	return string(raw), nil
+}
+
+// recentOpponents 用户在代码前缀为 prefix 的玩法中最近 n 局一起打过的真人
+func recentOpponents(tx *gorm.DB, userID uint64, prefix string, n int) ([]string, error) {
+	recent := tx.Model(&Player{}).
+		Joins("JOIN matches ON matches.id = match_players.match_id").
+		Where("match_players.user_id = ? AND matches.mode LIKE ?", userID, prefix+":%").
+		Order("match_players.match_id DESC").Limit(n).
+		Select("match_players.match_id")
+	var userIDs []uint64
+	if err := tx.Model(&Player{}).
+		Where("match_id IN (?) AND user_id NOT IN ?", recent, []uint64{0, userID}).
+		Distinct("user_id").Pluck("user_id", &userIDs).Error; err != nil {
+		return nil, err
+	}
+	members := make([]string, len(userIDs))
+	for i, id := range userIDs {
+		members[i] = strconv.FormatUint(id, 10)
+	}
+	return members, nil
+}
+
+// forgetOrigins 处理完取出的一批人后删除已不在队列中的人的来源, 失败只记录日志
+func forgetOrigins(ctx context.Context, users []queuedUser) {
+	args := make([]interface{}, len(users))
+	for i, user := range users {
+		args[i] = user.UserID
+	}
+	if err := forgetScript.Run(ctx, db.Redis, []string{queueUsersKey, queueOriginsKey}, args...).Err(); err != nil {
+		logger.ErrorF(ctx, "[Match] forget origins failed: %v", err)
+	}
 }
 
 // pushQueueCount 把队列中的人数推送给队列中的每个人, 失败只记录日志
