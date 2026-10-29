@@ -198,6 +198,7 @@ func Serve() {
 			auctionRouter.Use(auth.LoginRequired())
 			{
 				auctionRouter.GET("/:match_id", auction.GetAuction)
+				auctionRouter.GET("/:match_id/items", auction.ListUsableItems)
 			}
 
 			// Leaderboard
@@ -265,6 +266,7 @@ func Serve() {
 				{
 					itemAdminRouter.GET("", admin.ListItems)
 					itemAdminRouter.GET("/categories", admin.ListItemCategories)
+					itemAdminRouter.GET("/effects", admin.ListItemEffects)
 					itemAdminRouter.POST("", admin.CreateItem)
 					itemAdminRouter.PUT("/:id", admin.UpdateItem)
 					itemAdminRouter.DELETE("/:id", admin.DeleteItem)

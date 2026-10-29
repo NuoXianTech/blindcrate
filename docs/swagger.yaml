@@ -315,6 +315,13 @@ definitions:
         type: string
       description:
         type: string
+      effect:
+        description: 使用效果代码, 空表示不能使用, 藏品没有效果; 见 effect 模块
+        type: string
+      effect_params:
+        additionalProperties: {}
+        description: 效果参数, 结构由效果决定, 没有效果时为空对象
+        type: object
       height:
         type: integer
       holder_count:
@@ -359,6 +366,13 @@ definitions:
       description:
         maxLength: 255
         type: string
+      effect:
+        description: 使用效果代码, 空表示不能使用; 藏品不能配置
+        maxLength: 32
+        type: string
+      effect_params:
+        description: 效果参数, 结构见 GET /admin/items/effects
+        type: object
       height:
         maximum: 10
         minimum: 1
@@ -479,6 +493,13 @@ definitions:
       categories:
         items:
           $ref: '#/definitions/item.Category'
+        type: array
+    type: object
+  admin.ListItemEffectsResponseData:
+    properties:
+      effects:
+        items:
+          $ref: '#/definitions/effect.TypeView'
         type: array
     type: object
   admin.ListItemsResponseData:
@@ -1120,6 +1141,10 @@ definitions:
         description: 小写字母、数字和下划线, 创建后不能修改
         maxLength: 24
         type: string
+      consumables:
+        allOf:
+        - $ref: '#/definitions/venue.ConsumableRule'
+        description: 对局中使用道具的规则
       description:
         maxLength: 255
         type: string
@@ -1232,6 +1257,11 @@ definitions:
         type: integer
       status:
         type: string
+      uses:
+        description: 全部座位用过的道具和得到的情报, 按使用顺序
+        items:
+          $ref: '#/definitions/auction.Use'
+        type: array
       venue:
         $ref: '#/definitions/auction.VenueInfo'
       version:
@@ -1307,6 +1337,47 @@ definitions:
       x:
         type: integer
       "y":
+        type: integer
+    type: object
+  auction.Intel:
+    properties:
+      counts:
+        description: 最低品质及以上各品质的件数, 品质从高到低, 没有的品质不列出
+        items:
+          $ref: '#/definitions/auction.QualityCount'
+        type: array
+      min_quality:
+        description: 统计或查看的最低品质
+        type: integer
+      pieces:
+        description: 看到品质或名称的藏品, 按扫描顺序; 没有符合条件的藏品时为空
+        items:
+          $ref: '#/definitions/auction.PieceIntel'
+        type: array
+      value_max:
+        type: integer
+      value_min:
+        description: 仓库价值的区间, 出价货币
+        type: integer
+    type: object
+  auction.ListUsableItemsResponseData:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/auction.UsableItem'
+        type: array
+    type: object
+  auction.PieceIntel:
+    properties:
+      image_url:
+        description: 同 Name
+        type: string
+      name:
+        description: 只有看名称的道具有
+        type: string
+      quality:
+        type: integer
+      scan_order:
         type: integer
     type: object
   auction.PieceView:
@@ -1391,6 +1462,13 @@ definitions:
         description: 人机为 0
         type: integer
     type: object
+  auction.QualityCount:
+    properties:
+      count:
+        type: integer
+      quality:
+        type: integer
+    type: object
   auction.Response:
     properties:
       data: {}
@@ -1448,6 +1526,11 @@ definitions:
         type: integer
       seat:
         type: integer
+      uses:
+        description: 用过的道具, 按第一次使用的顺序, 不公开得到的情报
+        items:
+          $ref: '#/definitions/auction.UseCount'
+        type: array
     type: object
   auction.SelfView:
     properties:
@@ -1476,6 +1559,14 @@ definitions:
       submitted:
         description: 本轮是否已出价
         type: boolean
+      uses:
+        description: 自己用过的道具和得到的情报, 按使用顺序
+        items:
+          $ref: '#/definitions/auction.UseView'
+        type: array
+      uses_left:
+        description: 本局还能用几个道具, 练习局为 0; 不考虑阶段和轮次
+        type: integer
     type: object
   auction.Suspect:
     properties:
@@ -1539,8 +1630,85 @@ definitions:
       username:
         type: string
     type: object
+  auction.UsableItem:
+    properties:
+      description:
+        type: string
+      effect:
+        type: string
+      image_url:
+        type: string
+      item_id:
+        type: integer
+      name:
+        type: string
+      quality:
+        type: integer
+      quantity:
+        type: integer
+    type: object
+  auction.Use:
+    properties:
+      created_at:
+        type: string
+      effect:
+        description: 使用时的效果代码
+        type: string
+      id:
+        type: integer
+      item_id:
+        type: integer
+      match_id:
+        type: integer
+      name:
+        description: 使用时的物品名称
+        type: string
+      params:
+        additionalProperties: {}
+        description: 使用时的效果参数
+        type: object
+      result:
+        allOf:
+        - $ref: '#/definitions/auction.Intel'
+        description: 得到的情报, 只给使用者看
+      round:
+        type: integer
+      seat:
+        type: integer
+    type: object
+  auction.UseCount:
+    properties:
+      count:
+        type: integer
+      item_id:
+        type: integer
+      name:
+        type: string
+    type: object
+  auction.UseView:
+    properties:
+      created_at:
+        type: string
+      effect:
+        description: 效果代码, 前端按它展示 Result
+        type: string
+      item_id:
+        type: integer
+      name:
+        description: 使用时的物品名称
+        type: string
+      result:
+        $ref: '#/definitions/auction.Intel'
+      round:
+        type: integer
+    type: object
   auction.VenueInfo:
     properties:
+      allowed_items:
+        description: 可以用的道具, 为空表示所有对局中可用的道具
+        items:
+          type: integer
+        type: array
       bid_currency:
         type: string
       code:
@@ -1548,6 +1716,9 @@ definitions:
       grid:
         $ref: '#/definitions/venue.Grid'
       max_extra_rounds:
+        type: integer
+      max_uses:
+        description: 这个模式每局最多使用几个道具, 0 表示不能用
         type: integer
       name:
         type: string
@@ -1683,7 +1854,8 @@ definitions:
       help:
         type: string
       input:
-        description: text / switch / number, 或选择器 currency / item / scope / metric
+        description: text / switch / number, 或选择器 currency / item / quality / scope
+          / metric
         type: string
       key:
         type: string
@@ -1732,6 +1904,26 @@ definitions:
       label:
         type: string
       type:
+        type: string
+    type: object
+  effect.TypeView:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      fields:
+        description: 参数的表单描述, 与条件类型相同
+        items:
+          $ref: '#/definitions/condition.Field'
+        type: array
+      label:
+        type: string
+      scene:
+        description: 场景, 见 Scene 开头的常量
+        type: string
+      scene_name:
+        description: 场景的展示名称, 如 "对局中"
         type: string
     type: object
   github_com_NuoXianTech_blindcrate_internal_apps_stats.Metric:
@@ -1986,6 +2178,13 @@ definitions:
         type: string
       description:
         type: string
+      effect:
+        description: 使用效果代码, 空表示不能使用, 藏品没有效果; 见 effect 模块
+        type: string
+      effect_params:
+        additionalProperties: {}
+        description: 效果参数, 结构由效果决定, 没有效果时为空对象
+        type: object
       height:
         type: integer
       id:
@@ -3166,6 +3365,27 @@ definitions:
         minItems: 1
         type: array
     type: object
+  venue.ConsumableLimit:
+    properties:
+      max_per_match:
+        description: 0 表示这个模式不能用道具
+        maximum: 10
+        minimum: 0
+        type: integer
+    type: object
+  venue.ConsumableRule:
+    properties:
+      allowed:
+        description: 物品 ID, 为空表示所有对局中可用的道具都可以用
+        items:
+          type: integer
+        maxItems: 50
+        type: array
+      pve:
+        $ref: '#/definitions/venue.ConsumableLimit'
+      ranked:
+        $ref: '#/definitions/venue.ConsumableLimit'
+    type: object
   venue.CostLine:
     properties:
       amount:
@@ -3356,6 +3576,10 @@ definitions:
       code:
         description: 拼进玩法代码和统计范围, 创建后不能修改
         type: string
+      consumables:
+        allOf:
+        - $ref: '#/definitions/venue.ConsumableRule'
+        description: 对局中使用道具的规则
       created_at:
         type: string
       description:
@@ -4012,6 +4236,32 @@ paths:
           schema:
             $ref: '#/definitions/admin.Response'
       summary: 获取物品类别
+      tags:
+      - admin
+  /api/v1/admin/items/effects:
+    get:
+      description: 由代码注册的全部效果, 按注册顺序; fields 为参数的表单描述, 与条件类型相同
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListItemEffectsResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取物品的使用效果
       tags:
       - admin
   /api/v1/admin/leaderboards:
@@ -7223,8 +7473,8 @@ paths:
       - admin
   /api/v1/auctions/{match_id}:
     get:
-      description: 进行中时只公开已公开品质的藏品和自己的出价与反馈, 结算后公开全部藏品和每个座位的出价; 断线重连后用它恢复, 之后以 ws
-        推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交
+      description: 进行中时只公开已公开品质的藏品和自己的出价与反馈, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以
+        ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用
       parameters:
       - description: match id
         in: path
@@ -7264,6 +7514,51 @@ paths:
           schema:
             $ref: '#/definitions/auction.Response'
       summary: 获取当前用户参与的一局暗拍
+      tags:
+      - auction
+  /api/v1/auctions/{match_id}/items:
+    get:
+      description: 效果属于对局场景、地图的道具规则允许且数量大于 0 的物品; 不检查阶段、剩余次数和练习局, 以 self.uses_left
+        为准。道具通过 ws 消息 auction:use 使用
+      parameters:
+      - description: match id
+        in: path
+        name: match_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/auction.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/auction.ListUsableItemsResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auction.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auction.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auction.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/auction.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auction.Response'
+      summary: 获取背包中这局可以用的道具
       tags:
       - auction
   /api/v1/auth/email/code:

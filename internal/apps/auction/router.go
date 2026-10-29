@@ -43,7 +43,7 @@ type Response struct {
 // GetAuction
 // @Tags auction
 // @Summary 获取当前用户参与的一局暗拍
-// @Description 进行中时只公开已公开品质的藏品和自己的出价与反馈, 结算后公开全部藏品和每个座位的出价; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交
+// @Description 进行中时只公开已公开品质的藏品和自己的出价与反馈, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用
 // @Produce json
 // @Param match_id path int true "match id"
 // @Success 200 {object} Response{data=AuctionView}
@@ -76,4 +76,47 @@ func GetAuction(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: view})
+}
+
+// ListUsableItemsResponseData 这局可以用的道具
+type ListUsableItemsResponseData struct {
+	Items []UsableItem `json:"items"`
+}
+
+// ListUsableItems
+// @Tags auction
+// @Summary 获取背包中这局可以用的道具
+// @Description 效果属于对局场景、地图的道具规则允许且数量大于 0 的物品; 不检查阶段、剩余次数和练习局, 以 self.uses_left 为准。道具通过 ws 消息 auction:use 使用
+// @Produce json
+// @Param match_id path int true "match id"
+// @Success 200 {object} Response{data=ListUsableItemsResponseData}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 404 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/auctions/{match_id}/items [get]
+func ListUsableItems(c *gin.Context) {
+	ctx := c.Request.Context()
+	matchID, err := strconv.ParseUint(c.Param("match_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	user, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	items, err := QueryUsableItems(ctx, user.ID, matchID)
+	if err != nil {
+		if err.Error() == match.MatchNotFound {
+			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[ListUsableItems] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: ListUsableItemsResponseData{Items: items}})
 }

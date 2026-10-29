@@ -496,6 +496,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/items/effects": {
+            "get": {
+                "description": "由代码注册的全部效果, 按注册顺序; fields 为参数的表单描述, 与条件类型相同",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取物品的使用效果",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListItemEffectsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/items/{id}": {
             "put": {
                 "description": "需提交全部字段; 修改名称不影响已有流水中的名称",
@@ -5741,7 +5785,7 @@ const docTemplate = `{
         },
         "/api/v1/auctions/{match_id}": {
             "get": {
-                "description": "进行中时只公开已公开品质的藏品和自己的出价与反馈, 结算后公开全部藏品和每个座位的出价; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交",
+                "description": "进行中时只公开已公开品质的藏品和自己的出价与反馈, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用",
                 "produces": [
                     "application/json"
                 ],
@@ -5771,6 +5815,77 @@ const docTemplate = `{
                                     "properties": {
                                         "data": {
                                             "$ref": "#/definitions/auction.AuctionView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auctions/{match_id}/items": {
+            "get": {
+                "description": "效果属于对局场景、地图的道具规则允许且数量大于 0 的物品; 不检查阶段、剩余次数和练习局, 以 self.uses_left 为准。道具通过 ws 消息 auction:use 使用",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auction"
+                ],
+                "summary": "获取背包中这局可以用的道具",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "match id",
+                        "name": "match_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/auction.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auction.ListUsableItemsResponseData"
                                         }
                                     }
                                 }
@@ -8569,6 +8684,15 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "effect": {
+                    "description": "使用效果代码, 空表示不能使用, 藏品没有效果; 见 effect 模块",
+                    "type": "string"
+                },
+                "effect_params": {
+                    "description": "效果参数, 结构由效果决定, 没有效果时为空对象",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
                 "height": {
                     "type": "integer"
                 },
@@ -8638,6 +8762,15 @@ const docTemplate = `{
                 "description": {
                     "type": "string",
                     "maxLength": 255
+                },
+                "effect": {
+                    "description": "使用效果代码, 空表示不能使用; 藏品不能配置",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "effect_params": {
+                    "description": "效果参数, 结构见 GET /admin/items/effects",
+                    "type": "object"
                 },
                 "height": {
                     "type": "integer",
@@ -8793,6 +8926,17 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/item.Category"
+                    }
+                }
+            }
+        },
+        "admin.ListItemEffectsResponseData": {
+            "type": "object",
+            "properties": {
+                "effects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/effect.TypeView"
                     }
                 }
             }
@@ -9733,6 +9877,14 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 24
                 },
+                "consumables": {
+                    "description": "对局中使用道具的规则",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.ConsumableRule"
+                        }
+                    ]
+                },
                 "description": {
                     "type": "string",
                     "maxLength": 255
@@ -9894,6 +10046,13 @@ const docTemplate = `{
                 "status": {
                     "type": "string"
                 },
+                "uses": {
+                    "description": "全部座位用过的道具和得到的情报, 按使用顺序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.Use"
+                    }
+                },
                 "venue": {
                     "$ref": "#/definitions/auction.VenueInfo"
                 },
@@ -10005,6 +10164,66 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "y": {
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.Intel": {
+            "type": "object",
+            "properties": {
+                "counts": {
+                    "description": "最低品质及以上各品质的件数, 品质从高到低, 没有的品质不列出",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.QualityCount"
+                    }
+                },
+                "min_quality": {
+                    "description": "统计或查看的最低品质",
+                    "type": "integer"
+                },
+                "pieces": {
+                    "description": "看到品质或名称的藏品, 按扫描顺序; 没有符合条件的藏品时为空",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.PieceIntel"
+                    }
+                },
+                "value_max": {
+                    "type": "integer"
+                },
+                "value_min": {
+                    "description": "仓库价值的区间, 出价货币",
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.ListUsableItemsResponseData": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.UsableItem"
+                    }
+                }
+            }
+        },
+        "auction.PieceIntel": {
+            "type": "object",
+            "properties": {
+                "image_url": {
+                    "description": "同 Name",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "只有看名称的道具有",
+                    "type": "string"
+                },
+                "quality": {
+                    "type": "integer"
+                },
+                "scan_order": {
                     "type": "integer"
                 }
             }
@@ -10128,6 +10347,17 @@ const docTemplate = `{
                 }
             }
         },
+        "auction.QualityCount": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "quality": {
+                    "type": "integer"
+                }
+            }
+        },
         "auction.Response": {
             "type": "object",
             "properties": {
@@ -10208,6 +10438,13 @@ const docTemplate = `{
                 },
                 "seat": {
                     "type": "integer"
+                },
+                "uses": {
+                    "description": "用过的道具, 按第一次使用的顺序, 不公开得到的情报",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.UseCount"
+                    }
                 }
             }
         },
@@ -10250,6 +10487,17 @@ const docTemplate = `{
                 "submitted": {
                     "description": "本轮是否已出价",
                     "type": "boolean"
+                },
+                "uses": {
+                    "description": "自己用过的道具和得到的情报, 按使用顺序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.UseView"
+                    }
+                },
+                "uses_left": {
+                    "description": "本局还能用几个道具, 练习局为 0; 不考虑阶段和轮次",
+                    "type": "integer"
                 }
             }
         },
@@ -10348,9 +10596,125 @@ const docTemplate = `{
                 }
             }
         },
+        "auction.UsableItem": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "effect": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "quality": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.Use": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "effect": {
+                    "description": "使用时的效果代码",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "match_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "使用时的物品名称",
+                    "type": "string"
+                },
+                "params": {
+                    "description": "使用时的效果参数",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "result": {
+                    "description": "得到的情报, 只给使用者看",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/auction.Intel"
+                        }
+                    ]
+                },
+                "round": {
+                    "type": "integer"
+                },
+                "seat": {
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.UseCount": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "auction.UseView": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "effect": {
+                    "description": "效果代码, 前端按它展示 Result",
+                    "type": "string"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "使用时的物品名称",
+                    "type": "string"
+                },
+                "result": {
+                    "$ref": "#/definitions/auction.Intel"
+                },
+                "round": {
+                    "type": "integer"
+                }
+            }
+        },
         "auction.VenueInfo": {
             "type": "object",
             "properties": {
+                "allowed_items": {
+                    "description": "可以用的道具, 为空表示所有对局中可用的道具",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "bid_currency": {
                     "type": "string"
                 },
@@ -10361,6 +10725,10 @@ const docTemplate = `{
                     "$ref": "#/definitions/venue.Grid"
                 },
                 "max_extra_rounds": {
+                    "type": "integer"
+                },
+                "max_uses": {
+                    "description": "这个模式每局最多使用几个道具, 0 表示不能用",
                     "type": "integer"
                 },
                 "name": {
@@ -10563,7 +10931,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "input": {
-                    "description": "text / switch / number, 或选择器 currency / item / scope / metric",
+                    "description": "text / switch / number, 或选择器 currency / item / quality / scope / metric",
                     "type": "string"
                 },
                 "key": {
@@ -10635,6 +11003,35 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "effect.TypeView": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "fields": {
+                    "description": "参数的表单描述, 与条件类型相同",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Field"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "scene": {
+                    "description": "场景, 见 Scene 开头的常量",
+                    "type": "string"
+                },
+                "scene_name": {
+                    "description": "场景的展示名称, 如 \"对局中\"",
                     "type": "string"
                 }
             }
@@ -11005,6 +11402,15 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
+                },
+                "effect": {
+                    "description": "使用效果代码, 空表示不能使用, 藏品没有效果; 见 effect 模块",
+                    "type": "string"
+                },
+                "effect_params": {
+                    "description": "效果参数, 结构由效果决定, 没有效果时为空对象",
+                    "type": "object",
+                    "additionalProperties": {}
                 },
                 "height": {
                     "type": "integer"
@@ -12738,6 +13144,36 @@ const docTemplate = `{
                 }
             }
         },
+        "venue.ConsumableLimit": {
+            "type": "object",
+            "properties": {
+                "max_per_match": {
+                    "description": "0 表示这个模式不能用道具",
+                    "type": "integer",
+                    "maximum": 10,
+                    "minimum": 0
+                }
+            }
+        },
+        "venue.ConsumableRule": {
+            "type": "object",
+            "properties": {
+                "allowed": {
+                    "description": "物品 ID, 为空表示所有对局中可用的道具都可以用",
+                    "type": "array",
+                    "maxItems": 50,
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "pve": {
+                    "$ref": "#/definitions/venue.ConsumableLimit"
+                },
+                "ranked": {
+                    "$ref": "#/definitions/venue.ConsumableLimit"
+                }
+            }
+        },
         "venue.CostLine": {
             "type": "object",
             "properties": {
@@ -13017,6 +13453,14 @@ const docTemplate = `{
                 "code": {
                     "description": "拼进玩法代码和统计范围, 创建后不能修改",
                     "type": "string"
+                },
+                "consumables": {
+                    "description": "对局中使用道具的规则",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.ConsumableRule"
+                        }
+                    ]
                 },
                 "created_at": {
                     "type": "string"

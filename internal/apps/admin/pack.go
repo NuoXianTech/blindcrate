@@ -247,6 +247,8 @@ func itemPack(it *item.Item, image func(string) string) packItem {
 		SellPrice:    it.SellPrice,
 		Width:        it.Width,
 		Height:       it.Height,
+		Effect:       it.Effect,
+		EffectParams: it.EffectParams,
 		IsEnabled:    it.IsEnabled,
 	}}
 }
@@ -285,6 +287,7 @@ func venuePack(v *venue.Venue, image func(string) string) VenueRequest {
 		Auction:       v.Auction,
 		Bots:          v.Bots,
 		Pve:           v.Pve,
+		Consumables:   v.Consumables,
 	}
 }
 

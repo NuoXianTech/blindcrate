@@ -34,6 +34,10 @@
 //
 // 练习局不扣入场代价、不冻结资金、不发藏品, 也不写统计, 结算页的盈亏按正式局计算供参考。
 // 玩家通过 ws 消息 auction:bid 出价, 断线重连后用 GET /auctions/{match_id} 恢复。
+//
+// 道具: 出价阶段可以通过 ws 消息 auction:use 使用效果属于对局场景的物品(见 effect 模块和 effects.go), 每用一个扣一个;
+// 次数和可用的道具由地图的道具规则决定, 练习局不能用; 得到的情报只给使用者看, 开箱后公开每个座位用了哪些道具。
+// 对局被取消时退还用掉的道具, 流拍不退。
 package auction
 
 import "time"
@@ -67,6 +71,7 @@ const (
 // ws 消息类型
 const (
 	MessageBid     = "auction:bid"     // 客户端出价, data 为 BidRequest, 回复的 data 为 AuctionView
+	MessageUse     = "auction:use"     // 客户端使用道具, data 为 UseRequest, 回复的 data 为 AuctionView
 	MessageUpdated = "auction:updated" // 开局、每轮结束和开箱时推送给对局中的真人, data 为 AuctionView
 )
 

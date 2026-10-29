@@ -136,6 +136,7 @@ func runAutoMigrate() {
 		&auction.Player{},
 		&auction.Bid{},
 		&auction.WarehouseItem{},
+		&auction.Use{},
 		&auction.SuspectReview{},
 		&shop.Item{},
 		&shop.Order{},

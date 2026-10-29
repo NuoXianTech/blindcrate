@@ -59,13 +59,14 @@ func (a *Match) CanBid(seat int16) bool {
 
 // Snapshot 开局时快照的地图配置
 type Snapshot struct {
-	Code        string            `json:"code"`
-	Name        string            `json:"name"`
-	BidCurrency string            `json:"bid_currency"`
-	EntryCost   reward.Bundle     `json:"entry_cost"`
-	Grid        venue.Grid        `json:"grid"`
-	Auction     venue.AuctionRule `json:"auction"`
-	Bots        venue.BotRule     `json:"bots"`
+	Code        string               `json:"code"`
+	Name        string               `json:"name"`
+	BidCurrency string               `json:"bid_currency"`
+	EntryCost   reward.Bundle        `json:"entry_cost"`
+	Grid        venue.Grid           `json:"grid"`
+	Auction     venue.AuctionRule    `json:"auction"`
+	Bots        venue.BotRule        `json:"bots"`
+	Consumables venue.ConsumableRule `json:"consumables"`
 }
 
 // Player 一局暗拍中的一个座位
@@ -139,6 +140,48 @@ type WarehouseItem struct {
 
 // TableName 自定义表名
 func (WarehouseItem) TableName() string { return "auction_warehouse_items" }
+
+// Use 对局中用掉的一个道具, 结果在使用时算出并保存, 之后直接读取
+//
+// 唯一索引 uniq_auction_uses_match_id_seat_item_id_round 保证每人每轮同一种道具只用一次。
+type Use struct {
+	ID        uint64         `gorm:"primaryKey" json:"id"`
+	MatchID   uint64         `gorm:"not null;uniqueIndex:uniq_auction_uses_match_id_seat_item_id_round,priority:1" json:"match_id"`
+	Seat      int16          `gorm:"not null;uniqueIndex:uniq_auction_uses_match_id_seat_item_id_round,priority:2" json:"seat"`
+	ItemID    uint64         `gorm:"not null;uniqueIndex:uniq_auction_uses_match_id_seat_item_id_round,priority:3" json:"item_id"`
+	Round     int32          `gorm:"not null;uniqueIndex:uniq_auction_uses_match_id_seat_item_id_round,priority:4" json:"round"`
+	Name      string         `gorm:"size:64;not null" json:"name"`                                   // 使用时的物品名称
+	Effect    string         `gorm:"size:32;not null" json:"effect"`                                 // 使用时的效果代码
+	Params    map[string]any `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"params"` // 使用时的效果参数
+	Result    Intel          `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"result"` // 得到的情报, 只给使用者看
+	CreatedAt time.Time      `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+}
+
+// TableName 自定义表名
+func (Use) TableName() string { return "auction_uses" }
+
+// PieceIntel 道具看到的一件藏品, 以扫描顺序对应 Footprint
+type PieceIntel struct {
+	ScanOrder int32  `json:"scan_order"`
+	Quality   int16  `json:"quality"`
+	Name      string `json:"name,omitempty"`      // 只有看名称的道具有
+	ImageURL  string `json:"image_url,omitempty"` // 同 Name
+}
+
+// QualityCount 一种品质的藏品件数
+type QualityCount struct {
+	Quality int16 `json:"quality"`
+	Count   int32 `json:"count"`
+}
+
+// Intel 使用一个道具得到的情报, 字段按效果使用其中的一部分
+type Intel struct {
+	Pieces     []PieceIntel   `json:"pieces,omitempty"`      // 看到品质或名称的藏品, 按扫描顺序; 没有符合条件的藏品时为空
+	MinQuality int16          `json:"min_quality,omitempty"` // 统计或查看的最低品质
+	Counts     []QualityCount `json:"counts,omitempty"`      // 最低品质及以上各品质的件数, 品质从高到低, 没有的品质不列出
+	ValueMin   int64          `json:"value_min,omitempty"`   // 仓库价值的区间, 出价货币
+	ValueMax   int64          `json:"value_max,omitempty"`
+}
 
 // SuspectReview 管理员处理过的一对可疑账号, 见 QuerySuspects
 //

@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
@@ -55,6 +56,8 @@ func init() {
 	match.RegisterProvider(venue.ModeRanked, &provider{kind: venue.ModeRanked})
 	stats.RegisterMetric(MetricBidWon, "成交次数")
 	ws.Handle(MessageBid, handleBid)
+	ws.Handle(MessageUse, handleUse)
+	registerEffects()
 }
 
 // provider 按地图提供一种模式的玩法
@@ -309,6 +312,7 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 			Grid:        v.Warehouse.Grid,
 			Auction:     v.Auction,
 			Bots:        v.Bots,
+			Consumables: v.Consumables,
 		},
 		Value:      warehouse.Value,
 		PieceCount: int32(len(warehouse.Pieces)),
@@ -397,7 +401,7 @@ func (vm *venueMode) OnTimeout(tx *gorm.DB, m *match.Match, _ []match.Player) (*
 	return nil, fmt.Errorf("auction: unknown phase %s of match %d", m.Phase, m.ID)
 }
 
-// OnCancel 还没结算时退还正式局真人的入场代价并解冻带入资金; 已结算(开箱阶段)时什么都不做
+// OnCancel 还没结算时退还正式局真人的入场代价和用掉的道具, 并解冻带入资金; 已结算(开箱阶段)时什么都不做
 func (vm *venueMode) OnCancel(tx *gorm.DB, m *match.Match, _ []match.Player) error {
 	st, err := loadState(tx, m)
 	if err != nil {
@@ -407,12 +411,19 @@ func (vm *venueMode) OnCancel(tx *gorm.DB, m *match.Match, _ []match.Player) err
 	if a.Outcome != "" {
 		return nil
 	}
+	uses, err := loadUses(tx, m.ID)
+	if err != nil {
+		return err
+	}
 	for i := range st.players {
 		p := &st.players[i]
 		if p.UserID == 0 || p.IsPractice {
 			continue
 		}
 		if err := st.refund(tx, p); err != nil {
+			return err
+		}
+		if err := st.refundUses(tx, p, uses); err != nil {
 			return err
 		}
 		if err := st.release(tx, p, p.Frozen); err != nil {
@@ -767,6 +778,31 @@ func (st *state) refund(tx *gorm.DB, p *Player) error {
 	return st.applyReward(tx, p, bundle, wallet.BizMatchRefund, "refund")
 }
 
+// refundUses 退还 p 在这局用掉的道具, 已下架或已删除的按当前回收价折成货币
+func (st *state) refundUses(tx *gorm.DB, p *Player, uses []Use) error {
+	items := map[uint64]int64{}
+	for _, use := range uses {
+		if use.Seat == p.Seat {
+			items[use.ItemID]++
+		}
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	result, replayed, err := effect.Refund(tx, &effect.RefundRequest{
+		UserID:         p.UserID,
+		Items:          items,
+		BizID:          strconv.FormatUint(st.match.ID, 10),
+		IdempotencyKey: matchKey(st.match.ID, "use_refund", p.UserID),
+		Remark:         remarkOf(st.auction.Venue.Name, st.kind()),
+	})
+	if err != nil {
+		return err
+	}
+	pushResult(tx, result, replayed)
+	return nil
+}
+
 // release 解冻 p 剩余的带入资金
 func (st *state) release(tx *gorm.DB, p *Player, amount int64) error {
 	if amount <= 0 {
@@ -841,14 +877,14 @@ func remarkOf(venueName, kind string) string {
 	return venueName + "·" + venue.ModeName(kind)
 }
 
-// bidError 出价被拒绝, 原因展示给玩家
+// bidError 出价或使用道具被拒绝, 原因展示给玩家
 type bidError struct {
 	reason string
 }
 
 func (e *bidError) Error() string { return e.reason }
 
-// rejectBid 拒绝出价
+// rejectBid 拒绝出价或使用道具
 func rejectBid(format string, args ...any) error {
 	if len(args) == 0 {
 		return &bidError{reason: format}
@@ -924,6 +960,188 @@ func PlaceBid(ctx context.Context, userID uint64, req *BidRequest) (*AuctionView
 	return QueryAuction(ctx, userID, req.MatchID)
 }
 
+// UseRequest 使用道具
+type UseRequest struct {
+	MatchID uint64 `json:"match_id"`
+	Round   int32  `json:"round"`   // 使用时的轮次, 与当前轮次不一致时拒绝
+	ItemID  uint64 `json:"item_id"` // 效果属于对局场景的物品
+}
+
+// UseItem 真人在出价阶段使用一个道具: 扣除一个, 按效果算出情报并保存, 返回使用后自己的视角; 不影响出价和本轮的判定
+//
+// 本轮已出过价也可以用, 情报留到之后几轮; 不满足使用规则时返回 *bidError, 原因可以直接展示。
+func UseItem(ctx context.Context, userID uint64, req *UseRequest) (*AuctionView, error) {
+	_, err := match.Advance(ctx, req.MatchID, func(tx *gorm.DB, m *match.Match, players []match.Player) (*match.Phase, error) {
+		var seat int16
+		for _, player := range players {
+			if !player.IsBot() && player.UserID == userID {
+				seat = player.Seat
+			}
+		}
+		if seat == 0 {
+			return nil, rejectBid(match.MatchNotFound)
+		}
+		if m.Phase != PhaseBidding {
+			return nil, rejectBid(NotBidding)
+		}
+		if m.Round != req.Round || (m.PhaseEndsAt != nil && time.Now().After(*m.PhaseEndsAt)) {
+			return nil, rejectBid(RoundClosed)
+		}
+		st, err := loadState(tx, m)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, rejectBid(match.MatchNotFound)
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		p := st.player(seat)
+		a := &st.auction
+		rule := &a.Venue.Consumables
+		limit := rule.MaxPerMatch(st.kind())
+		switch {
+		case p.IsPractice:
+			return nil, rejectBid(UsePractice)
+		case !a.CanBid(seat):
+			return nil, rejectBid(NotContender)
+		case limit == 0:
+			return nil, rejectBid(UseDisabled)
+		case !rule.Allows(req.ItemID):
+			return nil, rejectBid(UseNotAllowed)
+		}
+		var target item.Item
+		if err := tx.Where("id = ?", req.ItemID).Limit(1).Find(&target).Error; err != nil {
+			return nil, err
+		}
+		if target.ID == 0 || effect.SceneOf(target.Effect) != effect.SceneMatch {
+			return nil, rejectBid(UseUnusable)
+		}
+		var uses []Use
+		if err := tx.Where("match_id = ? AND seat = ?", m.ID, seat).Order("id").Find(&uses).Error; err != nil {
+			return nil, err
+		}
+		if len(uses) >= int(limit) {
+			return nil, rejectBid(UseLimitReached, limit)
+		}
+		for _, use := range uses {
+			if use.ItemID == req.ItemID && use.Round == m.Round {
+				return nil, rejectBid(UseRepeated)
+			}
+		}
+
+		result, replayed, err := effect.Consume(tx, &effect.UseRequest{
+			UserID:         userID,
+			ItemID:         req.ItemID,
+			BizID:          strconv.FormatUint(m.ID, 10),
+			IdempotencyKey: fmt.Sprintf("%s:%d", matchKey(m.ID, "use", userID), len(uses)+1),
+			Remark:         remarkOf(a.Venue.Name, st.kind()),
+			Scopes:         stats.MatchScopes(a.Venue.Code, st.kind()),
+		})
+		if err != nil {
+			if err.Error() == inventory.InsufficientQuantity {
+				return nil, rejectBid(UseQuantityShort)
+			}
+			return nil, err
+		}
+		pushResult(tx, result, replayed)
+
+		items, err := loadItems(tx, m.ID)
+		if err != nil {
+			return nil, err
+		}
+		useCtx := newUseContext(m.Round, a.PieceCount, a.Value, items, uses, rand.Int64N)
+		intel, err := effect.Apply[*UseContext, Intel](effect.SceneMatch, target.Effect, useCtx, target.EffectParams)
+		if err != nil {
+			return nil, err
+		}
+		return nil, tx.Create(&Use{
+			MatchID: m.ID,
+			Seat:    seat,
+			ItemID:  target.ID,
+			Round:   m.Round,
+			Name:    target.Name,
+			Effect:  target.Effect,
+			Params:  target.EffectParams,
+			Result:  intel,
+		}).Error
+	})
+	if err != nil {
+		switch err.Error() {
+		case match.MatchNotFound, match.MatchNotPlaying:
+			return nil, &bidError{reason: err.Error()}
+		}
+		return nil, err
+	}
+	return QueryAuction(ctx, userID, req.MatchID)
+}
+
+// loadUses 一局中用掉的全部道具, 按使用顺序
+func loadUses(tx *gorm.DB, matchID uint64) ([]Use, error) {
+	var uses []Use
+	if err := tx.Where("match_id = ?", matchID).Order("id").Find(&uses).Error; err != nil {
+		return nil, err
+	}
+	return uses, nil
+}
+
+// UsableItem 背包中这局可以用的一种道具
+type UsableItem struct {
+	ItemID      uint64 `json:"item_id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Quality     int16  `json:"quality"`
+	ImageURL    string `json:"image_url"`
+	Effect      string `json:"effect"`
+	Quantity    int64  `json:"quantity"`
+}
+
+// QueryUsableItems 用户背包中这局可以用的道具: 效果属于对局场景且地图的道具规则允许, 按品质从高到低
+//
+// 只看地图规则和背包, 不检查阶段、次数和练习局; 这个模式不能用道具时为空。
+// 对局不存在、不是暗拍或用户不是该局的真人玩家时返回 match.MatchNotFound。
+func QueryUsableItems(ctx context.Context, userID, matchID uint64) ([]UsableItem, error) {
+	tx := db.DB(ctx)
+	var m match.Match
+	if err := m.Exact(tx, matchID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New(match.MatchNotFound)
+		}
+		return nil, err
+	}
+	var a Match
+	if err := tx.Where("match_id = ?", matchID).Limit(1).Find(&a).Error; err != nil {
+		return nil, err
+	}
+	var joined int64
+	if err := tx.Model(&Player{}).Where("match_id = ? AND user_id = ?", matchID, userID).Count(&joined).Error; err != nil {
+		return nil, err
+	}
+	if a.MatchID == 0 || userID == 0 || joined == 0 {
+		return nil, errors.New(match.MatchNotFound)
+	}
+
+	usable := []UsableItem{}
+	kind, _, _ := strings.Cut(m.Mode, ":")
+	rule := &a.Venue.Consumables
+	if rule.MaxPerMatch(kind) == 0 {
+		return usable, nil
+	}
+	var rows []UsableItem
+	if err := tx.Model(&inventory.UserItem{}).
+		Select("items.id AS item_id, items.name, items.description, items.quality, items.image_url, items.effect, inventory_items.quantity").
+		Joins("JOIN items ON items.id = inventory_items.item_id AND items.deleted_at IS NULL").
+		Where("inventory_items.user_id = ? AND inventory_items.quantity > 0 AND items.effect <> ''", userID).
+		Order("items.quality DESC, items.id").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		if effect.SceneOf(row.Effect) == effect.SceneMatch && rule.Allows(row.ItemID) {
+			usable = append(usable, row)
+		}
+	}
+	return usable, nil
+}
+
 // VenueInfo 对局中展示的地图参数, 来自开局时的快照
 type VenueInfo struct {
 	Code           string     `json:"code"`
@@ -934,6 +1152,8 @@ type VenueInfo struct {
 	Rounds         int32      `json:"rounds"`
 	QuickWin       []int32    `json:"quick_win"` // 前 Rounds-1 轮的速胜倍率, 基点
 	MaxExtraRounds int32      `json:"max_extra_rounds"`
+	MaxUses        int32      `json:"max_uses"`      // 这个模式每局最多使用几个道具, 0 表示不能用
+	AllowedItems   []uint64   `json:"allowed_items"` // 可以用的道具, 为空表示所有对局中可用的道具
 }
 
 // RevealedPiece 已公开品质的藏品
@@ -962,12 +1182,32 @@ type SelfView struct {
 	Submitted  bool          `json:"submitted"`  // 本轮是否已出价
 	CanBid     bool          `json:"can_bid"`    // 现在是否可以出价
 	Feedback   []Feedback    `json:"feedback"`   // 每轮结束后的反馈
+	Uses       []UseView     `json:"uses"`       // 自己用过的道具和得到的情报, 按使用顺序
+	UsesLeft   int32         `json:"uses_left"`  // 本局还能用几个道具, 练习局为 0; 不考虑阶段和轮次
+}
+
+// UseView 自己用过的一个道具
+type UseView struct {
+	Round     int32     `json:"round"`
+	ItemID    uint64    `json:"item_id"`
+	Name      string    `json:"name"`   // 使用时的物品名称
+	Effect    string    `json:"effect"` // 效果代码, 前端按它展示 Result
+	Result    Intel     `json:"result"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// UseCount 开箱后公开的一个座位用某种道具的个数
+type UseCount struct {
+	ItemID uint64 `json:"item_id"`
+	Name   string `json:"name"`
+	Count  int32  `json:"count"`
 }
 
 // SeatResult 开箱后公开的一个座位的出价
 type SeatResult struct {
-	Seat int16 `json:"seat"`
-	Bid  int64 `json:"bid"` // 最后的出价, 0 表示没出过价
+	Seat int16      `json:"seat"`
+	Bid  int64      `json:"bid"`  // 最后的出价, 0 表示没出过价
+	Uses []UseCount `json:"uses"` // 用过的道具, 按第一次使用的顺序, 不公开得到的情报
 }
 
 // PieceView 开箱后公开的一件藏品
@@ -1027,10 +1267,11 @@ type AuctionView struct {
 type AdminView struct {
 	PublicView
 	Players []Player `json:"players"` // 按座位号排序
+	Uses    []Use    `json:"uses"`    // 全部座位用过的道具和得到的情报, 按使用顺序
 }
 
 // view 以 viewerID 的视角查看, 不是这局的真人玩家时返回 nil
-func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
+func (st *state) view(viewerID uint64, items []WarehouseItem, uses []Use) *AuctionView {
 	var self *Player
 	for i := range st.players {
 		if viewerID != 0 && st.players[i].UserID == viewerID {
@@ -1043,7 +1284,7 @@ func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
 	m, a := st.match, &st.auction
 	submitted := st.submitted[self.Seat]
 	view := &AuctionView{
-		PublicView: st.publicView(items),
+		PublicView: st.publicView(items, uses),
 		Self: SelfView{
 			Seat:       self.Seat,
 			IsPractice: self.IsPractice,
@@ -1053,7 +1294,16 @@ func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
 			Submitted:  submitted,
 			CanBid:     m.Status == match.StatusPlaying && m.Phase == PhaseBidding && a.CanBid(self.Seat) && !submitted,
 			Feedback:   self.Feedback,
+			Uses:       []UseView{},
 		},
+	}
+	for _, use := range uses {
+		if use.Seat == self.Seat {
+			view.Self.Uses = append(view.Self.Uses, UseView{Round: use.Round, ItemID: use.ItemID, Name: use.Name, Effect: use.Effect, Result: use.Result, CreatedAt: use.CreatedAt})
+		}
+	}
+	if !self.IsPractice {
+		view.Self.UsesLeft = max(view.Venue.MaxUses-int32(len(view.Self.Uses)), 0)
 	}
 	if view.Result != nil {
 		view.Result.Profit, view.Result.RatingDelta, view.Result.Rating = self.Profit, self.RatingDelta, self.Rating
@@ -1062,7 +1312,7 @@ func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
 }
 
 // publicView 所有人都看得到的部分, 结算结果中不含盈亏
-func (st *state) publicView(items []WarehouseItem) PublicView {
+func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
 	m, a := st.match, &st.auction
 	rule := &a.Venue.Auction
 	view := PublicView{
@@ -1082,6 +1332,8 @@ func (st *state) publicView(items []WarehouseItem) PublicView {
 			Rounds:         rule.Rounds,
 			QuickWin:       rule.QuickWin,
 			MaxExtraRounds: rule.MaxExtraRounds,
+			MaxUses:        a.Venue.Consumables.MaxPerMatch(st.kind()),
+			AllowedItems:   a.Venue.Consumables.Allowed,
 		},
 		PieceCount: a.PieceCount,
 		Footprints: make([]Footprint, len(items)),
@@ -1131,10 +1383,27 @@ func (st *state) publicView(items []WarehouseItem) PublicView {
 		}
 	}
 	for i, p := range st.players {
-		result.Seats[i] = SeatResult{Seat: p.Seat, Bid: p.Bid}
+		result.Seats[i] = SeatResult{Seat: p.Seat, Bid: p.Bid, Uses: useCounts(uses, p.Seat)}
 	}
 	view.Result = result
 	return view
+}
+
+// useCounts 座位 seat 用过的各种道具的个数, 按第一次使用的顺序
+func useCounts(uses []Use, seat int16) []UseCount {
+	counts := []UseCount{}
+	for _, use := range uses {
+		if use.Seat != seat {
+			continue
+		}
+		i := slices.IndexFunc(counts, func(c UseCount) bool { return c.ItemID == use.ItemID })
+		if i < 0 {
+			counts = append(counts, UseCount{ItemID: use.ItemID, Name: use.Name})
+			i = len(counts) - 1
+		}
+		counts[i].Count++
+	}
+	return counts
 }
 
 // loadItems 仓库里的藏品, 按扫描顺序
@@ -1146,37 +1415,41 @@ func loadItems(tx *gorm.DB, matchID uint64) ([]WarehouseItem, error) {
 	return items, nil
 }
 
-// queryState 读出一局暗拍的状态和藏品, 对局不存在或不是暗拍时返回 match.MatchNotFound
-func queryState(ctx context.Context, matchID uint64) (*state, []WarehouseItem, error) {
+// queryState 读出一局暗拍的状态、藏品和用掉的道具, 对局不存在或不是暗拍时返回 match.MatchNotFound
+func queryState(ctx context.Context, matchID uint64) (*state, []WarehouseItem, []Use, error) {
 	tx := db.DB(ctx)
 	var m match.Match
 	if err := m.Exact(tx, matchID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil, errors.New(match.MatchNotFound)
+			return nil, nil, nil, errors.New(match.MatchNotFound)
 		}
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	st, err := loadState(tx, &m)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil, errors.New(match.MatchNotFound)
+		return nil, nil, nil, errors.New(match.MatchNotFound)
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	items, err := loadItems(tx, matchID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return st, items, nil
+	uses, err := loadUses(tx, matchID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return st, items, uses, nil
 }
 
 // QueryAuction 获取用户参与的一局暗拍, 对局不存在、不是暗拍或用户不是该局的真人玩家时返回 match.MatchNotFound
 func QueryAuction(ctx context.Context, userID, matchID uint64) (*AuctionView, error) {
-	st, items, err := queryState(ctx, matchID)
+	st, items, uses, err := queryState(ctx, matchID)
 	if err != nil {
 		return nil, err
 	}
-	view := st.view(userID, items)
+	view := st.view(userID, items, uses)
 	if view == nil {
 		return nil, errors.New(match.MatchNotFound)
 	}
@@ -1185,9 +1458,9 @@ func QueryAuction(ctx context.Context, userID, matchID uint64) (*AuctionView, er
 
 // QueryAdminAuction 管理员查看一局暗拍, 对局不存在或不是暗拍时返回 match.MatchNotFound
 func QueryAdminAuction(ctx context.Context, matchID uint64) (*AdminView, error) {
-	st, items, err := queryState(ctx, matchID)
+	st, items, uses, err := queryState(ctx, matchID)
 	if err != nil {
 		return nil, err
 	}
-	return &AdminView{PublicView: st.publicView(items), Players: st.players}, nil
+	return &AdminView{PublicView: st.publicView(items, uses), Players: st.players, Uses: uses}, nil
 }

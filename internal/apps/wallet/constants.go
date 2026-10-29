@@ -47,6 +47,8 @@ const (
 	BizMatchRefund       = "match_refund"        // 流拍或取消时退还入场代价, biz_id 为对局 ID
 	BizMatchReward       = "match_reward"        // 成交者获得的藏品, 已下架的藏品按回收价折成货币, biz_id 为对局 ID
 
+	BizItemUseRefund = "item_use_refund" // 退还用掉的物品时, 已下架或已删除的物品按回收价折成货币, biz_id 由场景决定
+
 	BizSeasonReward = "season_reward" // 赛季结束后按最高段位分发放的奖励, 已下架的物品按回收价折成货币, biz_id 为赛季代码
 
 	BizShopBuy    = "shop_buy"    // 商城购买时扣除的价格, biz_id 为订单 ID

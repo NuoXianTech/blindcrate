@@ -39,6 +39,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
@@ -465,6 +466,10 @@ func applyItem(tx *gorm.DB, target *item.Item, req *ItemRequest) error {
 		}
 		return err
 	}
+	params, err := effect.Validate(tx, req.Category, req.Effect, req.EffectParams)
+	if err != nil {
+		return err
+	}
 
 	target.Code = req.Code
 	target.Name = name
@@ -476,6 +481,8 @@ func applyItem(tx *gorm.DB, target *item.Item, req *ItemRequest) error {
 	target.SellPrice = req.SellPrice
 	target.Width = req.Width
 	target.Height = req.Height
+	target.Effect = req.Effect
+	target.EffectParams = params
 	target.IsEnabled = req.IsEnabled
 	return nil
 }
@@ -493,16 +500,18 @@ func itemFields(target *item.Item) map[string]interface{} {
 		"sell_price":    target.SellPrice,
 		"width":         target.Width,
 		"height":        target.Height,
+		"effect":        target.Effect,
+		"effect_params": target.EffectParams,
 		"is_enabled":    target.IsEnabled,
 	}
 }
 
-// itemChanges 本次修改了哪些字段, 用于操作日志
+// itemChanges 本次修改了哪些字段, 用于操作日志; 效果参数是 map, 按内容比较
 func itemChanges(old, next *item.Item) map[string]interface{} {
 	changes := map[string]interface{}{}
 	nextFields := itemFields(next)
 	for key, oldValue := range itemFields(old) {
-		if newValue := nextFields[key]; oldValue != newValue {
+		if newValue := nextFields[key]; !reflect.DeepEqual(oldValue, newValue) {
 			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
 		}
 	}
@@ -1173,6 +1182,7 @@ func applyVenue(target *venue.Venue, req *VenueRequest) {
 	target.Auction = req.Auction
 	target.Bots = req.Bots
 	target.Pve = req.Pve
+	target.Consumables = req.Consumables
 }
 
 // venueFields 地图可修改的字段, 用于操作日志
@@ -1193,6 +1203,7 @@ func venueFields(target *venue.Venue) map[string]interface{} {
 		"auction":        target.Auction,
 		"bots":           target.Bots,
 		"pve":            target.Pve,
+		"consumables":    target.Consumables,
 	}
 }
 
