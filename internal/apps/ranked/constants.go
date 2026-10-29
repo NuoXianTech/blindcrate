@@ -29,6 +29,7 @@
 //   - 加减: 成交的排位局按名次加减, 人机占名次但不计分, 流拍不计分; 扣到 0 为止, 见 Settle
 //   - 条件: 注册条件类型 min_rating, 地图可以按段位分限制入场
 //   - 赛季奖励: 赛季结束后按赛季中的最高段位分发放, 见 HandleSeasonSettle
+//   - 挂机: 一局中所有轮次都没有提交出价记为一次挂机, 写入统计指标 afk; 24 小时内次数达到设置时禁止排位, 见 RecordAfk、AfkBanReason
 package ranked
 
 import "time"
@@ -36,10 +37,23 @@ import "time"
 // TypeMinRating 条件类型: 当前赛季的段位分不少于
 const TypeMinRating = "min_rating"
 
+// MetricAfk 统计指标: 排位挂机次数, 结算时累加
+const MetricAfk = "afk"
+
 // 发放赛季奖励
 const (
 	// settleDelay 赛季结束多久之后发放, 等结束前开始结算的对局写完段位分
 	settleDelay = time.Minute
 	// settleBatch 每批发放的人数
 	settleBatch = 200
+)
+
+// 挂机禁赛
+const (
+	// afkWindow 统计挂机次数的时间窗口
+	afkWindow = 24 * time.Hour
+	// afkKeyPrefix 每个用户一个有序集合, 成员为挂机的对局 ID, 分数为记录时间的毫秒时间戳
+	afkKeyPrefix = "blindcrate:ranked:afk:"
+	// afkBanKeyPrefix 禁赛中的用户, 过期时间即禁赛结束的时间
+	afkBanKeyPrefix = "blindcrate:ranked:afk_ban:"
 )

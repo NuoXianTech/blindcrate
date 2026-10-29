@@ -143,10 +143,12 @@ var (
 	Ranked = Register(Group[RankedSettings]{
 		Key:         KeyRanked,
 		Label:       "排位",
-		Description: "段位分的初始分和每局按名次的加减分",
+		Description: "段位分的初始分、每局按名次的加减分和挂机禁赛",
 		Category:    CategoryGame,
 		Sort:        20,
-		Defaults:    func() *RankedSettings { return &RankedSettings{BaseRating: 1000, RankDeltas: []int{30, 10, -10, -30}} },
+		Defaults: func() *RankedSettings {
+			return &RankedSettings{BaseRating: 1000, RankDeltas: []int{30, 10, -10, -30}, AfkThreshold: 2, AfkBans: []int{300, 1800, 7200}}
+		},
 	})
 )
 
@@ -190,8 +192,10 @@ type EconomySettings struct {
 	PveDailyProfitCap int    `json:"pve_daily_profit_cap" label:"人机每日收益上限" help:"玩家当天在人机模式的净收益达到上限后, 当天剩下的人机对局变为练习局, 不扣入场费也不发藏品; 按各地图的出价货币分别计算; 0 表示不限制, 地图可以单独设置更低的上限" binding:"min=0,max=1000000000" public:"true"`
 }
 
-// RankedSettings 排位: 段位分的初始分和加减分
+// RankedSettings 排位: 段位分的初始分和加减分, 挂机禁赛
 type RankedSettings struct {
-	BaseRating int   `json:"base_rating" label:"基础分" help:"第一次打排位时的段位分, 新赛季的初始分也向它靠拢, 见赛季的段位分继承比例" binding:"min=0,max=100000"`
-	RankDeltas []int `json:"rank_deltas" label:"按名次加减分" help:"依次为第 1 名、第 2 名……的加减分, 负数为扣分, 扣到 0 为止; 没有配置的名次不加不减; 流拍不计分" binding:"min=1,max=8,dive,min=-1000,max=1000"`
+	BaseRating   int   `json:"base_rating" label:"基础分" help:"第一次打排位时的段位分, 新赛季的初始分也向它靠拢, 见赛季的段位分继承比例" binding:"min=0,max=100000"`
+	RankDeltas   []int `json:"rank_deltas" label:"按名次加减分" help:"依次为第 1 名、第 2 名……的加减分, 负数为扣分, 扣到 0 为止; 没有配置的名次不加不减; 流拍不计分" binding:"min=1,max=8,dive,min=-1000,max=1000"`
+	AfkThreshold int   `json:"afk_threshold" label:"挂机禁赛次数" help:"一局排位中所有轮次都没有提交出价(包括不加价)记为一次挂机, 24 小时内达到这个次数时禁止排位一段时间; 0 表示不禁赛" binding:"min=0,max=100"`
+	AfkBans      []int `json:"afk_bans" label:"挂机禁赛时长" help:"依次为达到次数时、再挂机一次时……的禁赛时长, 超出的次数使用最后一个时长" binding:"min=1,max=10,dive,min=1,max=604800" unit:"second"`
 }

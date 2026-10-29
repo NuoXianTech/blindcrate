@@ -36,12 +36,14 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 func init() {
 	condition.Register(TypeMinRating, "段位分", "当前赛季的段位分不少于指定值, 本赛季还没打过排位时按初始分计算", checkMinRating)
+	stats.RegisterMetric(MetricAfk, "排位挂机次数")
 }
 
 // colorPattern 段位颜色, #rrggbb 小写

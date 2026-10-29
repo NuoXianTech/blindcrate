@@ -30,4 +30,5 @@ const (
 	TierRatingInvalid = "分数线需为 0-1000000"
 	TierColorInvalid  = "颜色需为 #RRGGBB 格式"
 	TierRatingTaken   = "已有相同分数线的段位"
+	AfkBanned         = "挂机次数过多, 暂时不能排位, %s后解除"
 )
