@@ -29,6 +29,15 @@ export interface PublicSettings {
     /** 人机每日收益上限, 0 表示不限制 */
     pve_daily_profit_cap: number;
   };
+  upload: {
+    /** 原图的大小上限, 单位 KB */
+    max_size_kb: number;
+    allow_png: boolean;
+    allow_jpeg: boolean;
+    allow_webp: boolean;
+    /** 关闭后玩家只能填写头像链接, 管理员不受影响 */
+    avatar_enabled: boolean;
+  };
 }
 
 /** 缓存标签, 管理员保存设置后按标签刷新, 见 lib/site-actions.ts */
@@ -39,6 +48,7 @@ const DEFAULT_SETTINGS: PublicSettings = {
   site: {name: 'BlindCrate', description: '', logo_url: '', announcement: '', icp: '', contact_email: ''},
   auth: {register_enabled: true, email_login_enabled: true},
   economy: {base_currency: 'chip', sell_fee_rate: 500, signup_grant: 5000, pve_daily_profit_cap: 5000},
+  upload: {max_size_kb: 5120, allow_png: true, allow_jpeg: true, allow_webp: true, avatar_enabled: true},
 };
 
 /** 站点简介为空时使用 */
@@ -55,6 +65,7 @@ async function fetchPublicSettings(): Promise<PublicSettings | null> {
       site: {...DEFAULT_SETTINGS.site, ...data?.site},
       auth: {...DEFAULT_SETTINGS.auth, ...data?.auth},
       economy: {...DEFAULT_SETTINGS.economy, ...data?.economy},
+      upload: {...DEFAULT_SETTINGS.upload, ...data?.upload},
     };
   } catch {
     return null;

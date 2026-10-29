@@ -8,6 +8,7 @@ import {RankedService} from './ranked';
 import {SeasonService} from './season';
 import {ShopService} from './shop';
 import {StatsService} from './stats';
+import {UploadService} from './upload';
 import {VenueService} from './venue';
 import {WalletService} from './wallet';
 
@@ -52,6 +53,8 @@ const services = {
   stats: StatsService,
   /** 商城 */
   shop: ShopService,
+  /** 图片上传 */
+  upload: UploadService,
   /** 仓库暗拍 */
   auction: AuctionService,
   /** 管理后台 */

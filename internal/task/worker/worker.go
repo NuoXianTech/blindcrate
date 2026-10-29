@@ -32,6 +32,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
+	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/NuoXianTech/blindcrate/internal/task"
@@ -68,6 +69,7 @@ func StartWorker() error {
 	mux.HandleFunc(task.TypeMatchSweep, match.HandleSweep)
 	mux.HandleFunc(task.TypeStatsCleanup, stats.HandleCleanup)
 	mux.HandleFunc(task.TypeSeasonSettle, ranked.HandleSeasonSettle)
+	mux.HandleFunc(task.TypeUploadCleanup, upload.HandleCleanup)
 
 	// 启动服务
 	return asynqServer.Run(mux)

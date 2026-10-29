@@ -3,6 +3,8 @@
 import {Label} from '@/components/ui/label';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Textarea} from '@/components/ui/textarea';
+import {ImageUploadField} from '@/components/common/form';
+import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
 import type {Currency} from '@/lib/services/admin';
 import {InputField, SwitchField} from './Fields';
@@ -52,13 +54,18 @@ export function BasicTab({form, onChange, disabled, editing, currencies}: FormTa
       </div>
 
       <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
-        <InputField
+        <ImageUploadField
           id="venue-image"
           label="封面图片"
-          placeholder="选填, http(s) 地址"
-          maxLength={1024}
+          purpose="venue"
+          placeholder="选填, http(s) 地址或上传图片"
           value={form.imageURL}
           onChange={(imageURL) => onChange({imageURL})}
+          preview={
+            <span className="flex h-9 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background">
+              <ItemImage item={{name: form.name || '封面', image_url: form.imageURL.trim()}} className="object-cover" />
+            </span>
+          }
           disabled={disabled}
         />
         <InputField

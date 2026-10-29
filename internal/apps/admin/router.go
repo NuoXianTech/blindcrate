@@ -723,7 +723,7 @@ type ItemRequest struct {
 	Description  string `json:"description" binding:"max=255"`
 	Quality      int16  `json:"quality" binding:"required,min=1"`   // 品质等级, 必须存在
 	Category     string `json:"category" binding:"required,max=32"` // 类别代码, 必须已注册
-	ImageURL     string `json:"image_url" binding:"omitempty,max=1024,http_url"`
+	ImageURL     string `json:"image_url" binding:"omitempty,max=1024,image_url"`
 	SellCurrency string `json:"sell_currency" binding:"required,max=32"`
 	SellPrice    int64  `json:"sell_price" binding:"min=0,max=1000000000000"` // 0 表示不可卖出
 	Width        int16  `json:"width" binding:"required,min=1,max=10"`        // 在仓库中占的格数
@@ -1413,7 +1413,7 @@ type VenueRequest struct {
 	Code          string                `json:"code" binding:"required,max=24"` // 小写字母、数字和下划线, 创建后不能修改
 	Name          string                `json:"name" binding:"required,max=64"`
 	Description   string                `json:"description" binding:"max=255"`
-	ImageURL      string                `json:"image_url" binding:"omitempty,max=1024,http_url"`
+	ImageURL      string                `json:"image_url" binding:"omitempty,max=1024,image_url"`
 	SortOrder     int32                 `json:"sort_order" binding:"min=-1000000,max=1000000"` // 大厅中从小到大排列
 	IsEnabled     bool                  `json:"is_enabled"`
 	PveEnabled    bool                  `json:"pve_enabled"`
@@ -2528,7 +2528,7 @@ type ShopItemRequest struct {
 	Code          string                `json:"code" binding:"required,max=32"` // 小写字母、数字和下划线, 创建后不能修改
 	Name          string                `json:"name" binding:"required,max=64"`
 	Description   string                `json:"description" binding:"max=255"`
-	ImageURL      string                `json:"image_url" binding:"omitempty,max=1024,http_url"`
+	ImageURL      string                `json:"image_url" binding:"omitempty,max=1024,image_url"`
 	Tab           string                `json:"tab" binding:"max=16"`
 	SortOrder     int32                 `json:"sort_order" binding:"min=-1000000,max=1000000"` // 商城中从小到大排列
 	IsEnabled     bool                  `json:"is_enabled"`

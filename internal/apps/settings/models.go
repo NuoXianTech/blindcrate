@@ -50,6 +50,7 @@ const (
 	KeyMail    = "mail"
 	KeyEconomy = "economy"
 	KeyStats   = "stats"
+	KeyUpload  = "upload"
 	KeyRanked  = "ranked"
 )
 
@@ -129,6 +130,16 @@ var (
 		Sort:        40,
 		Defaults:    func() *StatsSettings { return &StatsSettings{DayRetention: 60} },
 	})
+	Upload = Register(Group[UploadSettings]{
+		Key:         KeyUpload,
+		Label:       "图片上传",
+		Description: "上传图片的大小、格式和未使用图片的保留时间",
+		Category:    CategorySystem,
+		Sort:        50,
+		Defaults: func() *UploadSettings {
+			return &UploadSettings{MaxSizeKB: 5120, AllowPNG: true, AllowJPEG: true, AllowWebP: true, AvatarEnabled: true, RetentionDays: 7}
+		},
+	})
 	Economy = Register(Group[EconomySettings]{
 		Key:         KeyEconomy,
 		Label:       "经济",
@@ -193,6 +204,16 @@ type MailSettings struct {
 // StatsSettings 数据统计
 type StatsSettings struct {
 	DayRetention int `json:"day_retention" label:"按天统计保留天数" help:"含今天, 更早的按天统计每天定时清理, 累计统计不受影响; 个人数据页展示最近 7 天, 因此不能少于 7 天" binding:"min=7,max=3650"`
+}
+
+// UploadSettings 图片上传: 头像、物品图片、地图封面和商品图片
+type UploadSettings struct {
+	MaxSizeKB     int  `json:"max_size_kb" label:"图片大小上限" help:"原图的大小上限, 单位 KB; 保存时会按用途缩小尺寸并重新编码" binding:"min=64,max=20480" public:"true"`
+	AllowPNG      bool `json:"allow_png" label:"允许 PNG" public:"true"`
+	AllowJPEG     bool `json:"allow_jpeg" label:"允许 JPEG" public:"true"`
+	AllowWebP     bool `json:"allow_webp" label:"允许 WebP" help:"WebP 图片保存时转为 PNG 或 JPEG" public:"true"`
+	AvatarEnabled bool `json:"avatar_enabled" label:"允许玩家上传头像" help:"关闭后玩家只能填写头像链接, 管理员不受影响" public:"true"`
+	RetentionDays int  `json:"retention_days" label:"未使用图片保留天数" help:"上传后超过这么多天仍没有被头像、物品、地图、商品或设置使用的图片每天定时删除" binding:"min=1,max=3650"`
 }
 
 // EconomySettings 经济: 基础货币、出售手续费、新手资金和人机模式的收益上限

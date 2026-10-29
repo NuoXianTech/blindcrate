@@ -26,3 +26,11 @@ export function checkNickname(nickname: string): string | null {
 export function checkPasswordConfirm(password: string, confirm: string): string | null {
   return password === confirm ? null : '两次输入的密码不一致';
 }
+
+/** http(s) 链接或本站上传的图片(站内路径), 后端按 internal/storage 的 ValidURL 严格校验 */
+const IMAGE_URL_PATTERN = /^(https?:\/\/\S+|\/(?!\/)\S+)$/;
+
+/** 图片地址, 调用方先去掉首尾空白; 为空表示不设置 */
+export function checkImageURL(url: string): string | null {
+  return !url || (url.length <= 1024 && IMAGE_URL_PATTERN.test(url)) ? null : '图片地址需为 http(s) 链接或上传的图片';
+}

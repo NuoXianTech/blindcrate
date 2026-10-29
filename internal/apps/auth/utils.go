@@ -29,11 +29,11 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/url"
 	"regexp"
 	"strconv"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/storage"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -97,16 +97,12 @@ func validateNickname(nickname string) error {
 	return nil
 }
 
-// validateAvatarURL 头像地址允许为空(清除头像), 否则必须是 http(s) 链接
+// validateAvatarURL 头像地址允许为空(清除头像), 否则必须是 http(s) 链接或上传的图片, 见 storage.ValidURL
 func validateAvatarURL(avatarURL string) error {
 	if avatarURL == "" {
 		return nil
 	}
-	if len(avatarURL) > 1024 {
-		return errors.New(AvatarURLInvalid)
-	}
-	u, err := url.Parse(avatarURL)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+	if len(avatarURL) > 1024 || !storage.ValidURL(avatarURL) {
 		return errors.New(AvatarURLInvalid)
 	}
 	return nil

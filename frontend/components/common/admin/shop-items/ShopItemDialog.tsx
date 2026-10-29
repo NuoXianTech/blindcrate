@@ -19,12 +19,13 @@ import {
 } from '@/components/common/admin/editors';
 import {fromLocalInput, toLocalInput} from '@/components/common/admin/seasons/constants';
 import {FieldGroup, InputField, SwitchField} from '@/components/common/admin/venues/Fields';
-import {SubmitButton} from '@/components/common/form';
+import {ImageUploadField, SubmitButton} from '@/components/common/form';
 import {ItemImage} from '@/components/common/item';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminItem, AdminShopItem, ConditionType, Currency, ShopItemRequest} from '@/lib/services/admin';
 import {parseAmount} from '@/lib/utils';
+import {checkImageURL} from '@/lib/validation';
 import {CODE_PATTERN, MAX_BUNDLE_LINES, MAX_LIMIT, MAX_REQUIREMENTS, MAX_TAB_LENGTH} from './constants';
 
 /** 编辑商品用到的物品、货币、条件类型、统计范围和已有页签 */
@@ -158,7 +159,7 @@ function ShopItemForm({target, options, onClose, onSaved}: Omit<ShopItemDialogPr
     check(CODE_PATTERN.test(body.code) ? null : '代码需为 1-32 个小写字母、数字或下划线');
     check(body.name.length === 0 || [...body.name].length > 64 ? '名称需为 1-64 个字符' : null);
     check([...body.tab].length > MAX_TAB_LENGTH ? `页签最多 ${MAX_TAB_LENGTH} 个字符` : null);
-    check(body.image_url && !/^https?:\/\/\S+$/.test(body.image_url) ? '图片地址需以 http:// 或 https:// 开头' : null);
+    check(checkImageURL(body.image_url));
     check(goods.length === 0 ? '商品不能为空' : null);
     check(body.starts_at && body.ends_at && new Date(body.ends_at) <= new Date(body.starts_at) ? '下架时间需晚于上架时间' : null);
     if (editing) {
@@ -227,22 +228,20 @@ function ShopItemForm({target, options, onClose, onSaved}: Omit<ShopItemDialogPr
             disabled={pending}
           />
         </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="shop-item-image">图片地址</Label>
-          <div className="flex gap-3">
+        <ImageUploadField
+          id="shop-item-image"
+          label="图片地址"
+          purpose="shop"
+          placeholder="选填, 留空时显示第一件商品的图片"
+          value={imageURL}
+          onChange={setImageURL}
+          preview={
             <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background">
               <ItemImage item={{name: name || '预览', image_url: imageURL.trim()}} />
             </span>
-            <Input
-              id="shop-item-image"
-              type="url"
-              placeholder="选填, 留空时显示第一件商品的图片"
-              value={imageURL}
-              onChange={(e) => setImageURL(e.target.value)}
-              disabled={pending}
-            />
-          </div>
-        </div>
+          }
+          disabled={pending}
+        />
         <SwitchField
           id="shop-item-enabled"
           label="上架"

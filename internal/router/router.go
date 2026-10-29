@@ -46,11 +46,13 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/shop"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
+	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/NuoXianTech/blindcrate/internal/ratelimit"
+	"github.com/NuoXianTech/blindcrate/internal/storage"
 	"github.com/NuoXianTech/blindcrate/internal/ws"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
@@ -75,6 +77,15 @@ func Serve() {
 	// 只采信可信代理转发的 X-Forwarded-For, 否则客户端可以伪造 IP 绕过按 IP 的限流
 	if err := r.SetTrustedProxies(config.Config.App.TrustedProxies); err != nil {
 		log.Fatalf("[API] set trusted proxies failed: %v\n", err)
+	}
+
+	// 本地存储的上传文件, 访问前缀为站内路径时由 API 提供访问, 不需要会话
+	if _, err := storage.Default(); err != nil {
+		log.Fatalf("[API] init storage failed: %v\n", err)
+	}
+	if dir, prefix, ok := storage.Local(); ok {
+		r.GET(prefix+"/*key", storage.LocalHandler(dir))
+		r.HEAD(prefix+"/*key", storage.LocalHandler(dir))
 	}
 
 	// Session
@@ -218,6 +229,9 @@ func Serve() {
 				shopRouter.GET("/orders", shop.ListOrders)
 				shopRouter.POST("/orders", ratelimit.ByUser("shop:buy", ratelimit.PerMinute(60)), shop.CreateOrder)
 			}
+
+			// Upload
+			apiV1Router.POST("/uploads", auth.LoginRequired(), ratelimit.ByUser("upload", ratelimit.PerHour(60)), upload.CreateUpload)
 
 			// Admin
 			adminRouter := apiV1Router.Group("/admin")

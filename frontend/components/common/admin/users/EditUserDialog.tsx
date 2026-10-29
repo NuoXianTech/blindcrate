@@ -7,11 +7,12 @@ import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, Di
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {useAuth} from '@/components/common/auth';
-import {SubmitButton} from '@/components/common/form';
+import {ImageUploadField, SubmitButton} from '@/components/common/form';
+import {UserAvatar} from '@/components/common/user';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminUser, UpdateUserRequest} from '@/lib/services/admin';
-import {checkNickname, checkUsername} from '@/lib/validation';
+import {checkImageURL, checkNickname, checkUsername} from '@/lib/validation';
 
 /**
  * 用户对话框的Props接口
@@ -61,6 +62,7 @@ function EditUserForm({user, onClose, onSaved}: UserDialogProps & { user: AdminU
     check(Object.keys(body).length === 0 ? '资料没有变化, 无需保存' : null);
     if (body.username !== undefined) check(checkUsername(body.username));
     if (body.nickname !== undefined) check(checkNickname(body.nickname));
+    if (body.avatar_url !== undefined) check(checkImageURL(body.avatar_url));
     await services.admin.updateUser(user.id, body);
     toast.success(`已保存 ${body.username ?? user.username} 的资料`);
     // 改的是自己时同步 dock 上的信息
@@ -79,17 +81,16 @@ function EditUserForm({user, onClose, onSaved}: UserDialogProps & { user: AdminU
         <Label htmlFor="edit-nickname">昵称</Label>
         <Input id="edit-nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} disabled={pending} />
       </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="edit-avatar">头像地址</Label>
-        <Input
-          id="edit-avatar"
-          type="url"
-          placeholder="留空则清除头像"
-          value={avatarURL}
-          onChange={(e) => setAvatarURL(e.target.value)}
-          disabled={pending}
-        />
-      </div>
+      <ImageUploadField
+        id="edit-avatar"
+        label="头像"
+        purpose="avatar"
+        placeholder="留空则清除头像"
+        value={avatarURL}
+        onChange={setAvatarURL}
+        preview={<UserAvatar user={{nickname: nickname || user.nickname, avatar_url: avatarURL.trim()}} className="size-9" />}
+        disabled={pending}
+      />
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
           取消
