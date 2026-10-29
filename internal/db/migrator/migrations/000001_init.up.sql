@@ -545,3 +545,55 @@ CREATE TABLE IF NOT EXISTS auction_suspect_reviews
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     PRIMARY KEY (user_a, user_b)
 );
+
+-- 商品, 一份商品为一组货币和物品; 删除为软删除, 代码在已删除的商品中也唯一
+CREATE TABLE IF NOT EXISTS shop_items
+(
+    id             BIGSERIAL PRIMARY KEY,
+    code           VARCHAR(32)   NOT NULL,              -- 拼进限购计数的指标 shop_buy:<code>, 创建后不能修改
+    name           VARCHAR(64)   NOT NULL,
+    description    VARCHAR(255)  NOT NULL DEFAULT '',
+    image_url      VARCHAR(1024) NOT NULL DEFAULT '',
+    tab            VARCHAR(16)   NOT NULL DEFAULT '',   -- 页签, 为空时归入默认页签
+    sort_order     INTEGER       NOT NULL DEFAULT 0,    -- 商城中从小到大排列
+    goods          JSONB         NOT NULL DEFAULT '{}', -- 一份商品 reward.Bundle, 数量为正数
+    price          JSONB         NOT NULL DEFAULT '{}', -- 一份的价格 reward.Bundle, 数量为正数, 为空时免费
+    original_price JSONB         NOT NULL DEFAULT '{}', -- 原价, 只用于展示折扣
+    requirements   JSONB         NOT NULL DEFAULT '[]', -- 购买条件 []condition.Condition
+    limits         JSONB         NOT NULL DEFAULT '{}', -- 每人限购的份数: total、daily、season, 0 表示不限
+    stock          BIGINT,                              -- 全服剩余库存, 为空时不限
+    sold           BIGINT        NOT NULL DEFAULT 0,    -- 已售出的份数, 退款时扣回
+    starts_at      TIMESTAMPTZ,                         -- 上架时间, 包含, 为空时不限
+    ends_at        TIMESTAMPTZ,                         -- 下架时间, 不包含, 为空时不限
+    is_enabled     BOOLEAN       NOT NULL DEFAULT FALSE,
+    created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    deleted_at     TIMESTAMPTZ,
+    CONSTRAINT chk_shop_items_stock CHECK (stock >= 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_shop_items_code ON shop_items (code);
+CREATE INDEX IF NOT EXISTS idx_shop_items_deleted_at ON shop_items (deleted_at);
+
+-- 订单, 记录下单时的商品名称、总价和全部商品
+CREATE TABLE IF NOT EXISTS shop_orders
+(
+    id              BIGSERIAL PRIMARY KEY,
+    user_id         BIGINT      NOT NULL,
+    idempotency_key VARCHAR(64) NOT NULL,                -- 幂等键, 同一用户内唯一
+    shop_item_id    BIGINT      NOT NULL,
+    item_code       VARCHAR(32) NOT NULL,
+    name            VARCHAR(64) NOT NULL,                -- 下单时的商品名称
+    quantity        BIGINT      NOT NULL,                -- 购买的份数
+    price           JSONB       NOT NULL DEFAULT '{}',   -- 实际支付的总价 reward.Bundle
+    goods           JSONB       NOT NULL DEFAULT '{}',   -- 实际得到的全部商品 reward.Bundle
+    status          VARCHAR(16) NOT NULL DEFAULT 'paid', -- paid 或 refunded
+    refunded_at     TIMESTAMPTZ,
+    refunded_by     BIGINT      NOT NULL DEFAULT 0,      -- 退款的管理员, 没有退款时为 0
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_shop_orders_quantity CHECK (quantity > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_shop_orders_user_id ON shop_orders (user_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_shop_orders_idempotency_key ON shop_orders (user_id, idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_shop_orders_shop_item_id ON shop_orders (shop_item_id);

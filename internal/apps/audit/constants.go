@@ -44,6 +44,8 @@ const (
 	TargetSeason      = "season"
 	TargetRankedTier  = "ranked_tier"
 	TargetSuspect     = "suspect" // target_id 为较小的用户 ID, 另一个见 detail.user_b
+	TargetShopItem    = "shop_item"
+	TargetShopOrder   = "shop_order"
 )
 
 // 操作类型, 格式为 "模块.动作"
@@ -89,6 +91,10 @@ const (
 	ActionRankedTierUpdate      = "admin.ranked_tier_update"
 	ActionRankedTierDelete      = "admin.ranked_tier_delete"
 	ActionSuspectReview         = "admin.suspect_review"
+	ActionShopItemCreate        = "admin.shop_item_create"
+	ActionShopItemUpdate        = "admin.shop_item_update"
+	ActionShopItemDelete        = "admin.shop_item_delete"
+	ActionShopOrderRefund       = "admin.shop_order_refund"
 	ActionSettingsUpdate        = "admin.settings_update"
 	ActionSettingsRollback      = "admin.settings_rollback"
 	ActionSettingsReset         = "admin.settings_reset"

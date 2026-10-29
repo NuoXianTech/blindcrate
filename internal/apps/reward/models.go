@@ -53,6 +53,17 @@ type Bundle struct {
 	Items      []ItemLine     `json:"items,omitempty"`
 }
 
+// Line 一种货币或物品的数量, 带名称便于展示, 见 Lines
+type Line struct {
+	Currency string `json:"currency,omitempty"` // 与 item_id 二选一
+	ItemID   uint64 `json:"item_id,omitempty"`
+	Name     string `json:"name"`
+	ImageURL string `json:"image_url"`
+	Quality  int16  `json:"quality"`  // 物品的品质等级, 货币为 0
+	Decimals int16  `json:"decimals"` // 货币的展示用小数位, 物品为 0
+	Amount   int64  `json:"amount"`   // 货币金额或物品数量
+}
+
 // Add 把 other 追加到 b 之后, 不合并同类项
 func (b *Bundle) Add(other Bundle) {
 	b.Currencies = append(b.Currencies, other.Currencies...)

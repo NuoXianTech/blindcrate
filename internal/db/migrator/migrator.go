@@ -41,6 +41,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/apps/shop"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
@@ -134,6 +135,8 @@ func runAutoMigrate() {
 		&auction.Bid{},
 		&auction.WarehouseItem{},
 		&auction.SuspectReview{},
+		&shop.Item{},
+		&shop.Order{},
 	); err != nil {
 		log.Fatalf("[PostgreSQL] auto migrate failed: %v\n", err)
 	}

@@ -7,7 +7,7 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Table, TableBody, TableHead, TableHeader, TableRow} from '@/components/ui/table';
-import type {ScopeOption} from '@/components/common/admin/editors';
+import {scopeOptions} from '@/components/common/admin/editors';
 import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
@@ -17,7 +17,7 @@ import {toErrorMessage} from '@/lib/services/core';
 import {DeleteVenueDialog} from './DeleteVenueDialog';
 import {VenueDialog, type VenueOptions} from './VenueDialog';
 import {VenueRow} from './VenueRow';
-import {MODES, PAGE_SIZE, STATUS_FILTERS, toRequest, type StatusFilter} from './constants';
+import {PAGE_SIZE, STATUS_FILTERS, toRequest, type StatusFilter} from './constants';
 
 /** 档位可选的掉落池数量上限, 与列表接口的分页上限一致 */
 const POOL_LIMIT = 100;
@@ -81,20 +81,12 @@ export function VenuesMain() {
 
   const venues = data?.venues;
   const options = useMemo<VenueOptions>(() => {
-    const scopes: ScopeOption[] = [
-      {value: 'all', label: '全部对局'},
-      ...MODES.map((m) => ({value: `mode:${m.value}`, label: `全部${m.label}对局`})),
-      ...(venues ?? []).flatMap((v) => [
-        {value: `venue:${v.code}`, label: v.name},
-        ...MODES.map((m) => ({value: `venue:${v.code}:${m.value}`, label: `${v.name} ${m.label}`})),
-      ]),
-    ];
     return {
       items: catalog.items,
       currencies: catalog.currencies,
       pools: pools ?? [],
       types: types ?? [],
-      scopes,
+      scopes: scopeOptions(venues ?? []),
       loaded: catalog.loaded && pools !== null && types !== null,
     };
   }, [catalog.items, catalog.currencies, catalog.loaded, pools, types, venues]);

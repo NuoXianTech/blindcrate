@@ -34,6 +34,10 @@ const (
 	BizMatchReward   = "match_reward"    // 成交者获得的藏品, biz_id 为对局 ID
 
 	BizSeasonReward = "season_reward" // 赛季结束后按最高段位分发放的奖励, biz_id 为赛季代码
+
+	BizShopBuy    = "shop_buy"    // 商城购买时扣除的价格, biz_id 为订单 ID
+	BizShopGrant  = "shop_grant"  // 商城购买得到的商品, biz_id 为订单 ID
+	BizShopRefund = "shop_refund" // 管理员退款: 退还价格并收回商品, biz_id 为订单 ID
 )
 
 // 推送给客户端的消息类型
