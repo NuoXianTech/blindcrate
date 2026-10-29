@@ -86,12 +86,13 @@ func (s *local) URL(key string) string {
 // 文件内容按 key 不变, 可以长期缓存; 不存在的文件返回 404 且不缓存, 不列出目录。
 func LocalHandler(dir string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// key 只能是本站生成的格式, 拼出的路径不会越出目录
 		key := strings.TrimPrefix(c.Param("key"), "/")
-		path := filepath.Join(dir, filepath.FromSlash(key))
-		if CheckKey(key) != nil {
+		if !keyPattern.MatchString(key) {
 			c.Status(http.StatusNotFound)
 			return
 		}
+		path := filepath.Join(dir, filepath.FromSlash(key))
 		if info, err := os.Stat(path); err != nil || !info.Mode().IsRegular() {
 			c.Status(http.StatusNotFound)
 			return
