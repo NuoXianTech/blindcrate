@@ -40,6 +40,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
+	_ "github.com/NuoXianTech/blindcrate/internal/apps/season" // 注册赛季统计周期, 结算时写入进行中的赛季
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"

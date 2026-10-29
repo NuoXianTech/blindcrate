@@ -43,6 +43,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
+	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
@@ -1823,7 +1824,7 @@ type LeaderboardRequest struct {
 	Description string `json:"description" binding:"max=255"`
 	Metric      string `json:"metric" binding:"required,max=64"`              // 排名的指标, 见可以排名的指标
 	Scope       string `json:"scope" binding:"required,max=64"`               // 统计范围, 如 all、mode:ranked、venue:dock
-	Period      string `json:"period" binding:"required"`                     // total 累计或 day 当天
+	Period      string `json:"period" binding:"required"`                     // total 累计、day 当天或 season 当前赛季
 	Size        int32  `json:"size"`                                          // 展示前多少名, 10-500
 	MinMatches  int64  `json:"min_matches"`                                   // 同一范围和周期内至少完成多少局才上榜
 	SortOrder   int32  `json:"sort_order" binding:"min=-1000000,max=1000000"` // 玩家页面的页签从小到大排列
@@ -1968,6 +1969,243 @@ func DeleteLeaderboard(c *gin.Context) {
 	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLeaderboardDelete, audit.TargetLeaderboard, deleted.ID, leaderboardFields(deleted))
 	logger.InfoF(ctx, "[DeleteLeaderboard] %d deleted leaderboard %d %s", operator.ID, deleted.ID, deleted.Code)
 	c.JSON(http.StatusOK, Response{})
+}
+
+// ListSeasonsRequest 赛季列表查询参数
+type ListSeasonsRequest struct {
+	Current int    `json:"current" form:"current" binding:"min=1"`
+	Size    int    `json:"size" form:"size" binding:"min=1,max=100"`
+	Keyword string `json:"keyword" form:"keyword" binding:"max=64"`                                      // 按代码或名称搜索, 不区分大小写
+	Status  string `json:"status" form:"status" binding:"omitempty,oneof=upcoming active ended settled"` // 按状态筛选, 为空时不筛选
+}
+
+// ListSeasonsResponseData 赛季列表分页结果
+type ListSeasonsResponseData struct {
+	Total   int64         `json:"total"`
+	Seasons []season.View `json:"seasons"`
+}
+
+// ListSeasons
+// @Tags admin
+// @Summary 获取赛季列表
+// @Description 按开始时间从晚到早排列
+// @Produce json
+// @Param request query ListSeasonsRequest true "request query"
+// @Success 200 {object} Response{data=ListSeasonsResponseData}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/seasons [get]
+func ListSeasons(c *gin.Context) {
+	ctx := c.Request.Context()
+	req := &ListSeasonsRequest{}
+	if err := c.ShouldBindQuery(req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	total, seasons, err := QuerySeasons(ctx, req)
+	if err != nil {
+		logger.ErrorF(ctx, "[ListSeasons] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: ListSeasonsResponseData{Total: total, Seasons: seasons}})
+}
+
+// SeasonRequest 修改赛季请求体, 代码创建后不能修改; 时间精确到分钟, 秒会被舍去
+type SeasonRequest struct {
+	Name     string    `json:"name" binding:"required,max=64"`
+	StartsAt time.Time `json:"starts_at" binding:"required"` // RFC3339, 包含; 赛季开始后不能修改
+	EndsAt   time.Time `json:"ends_at" binding:"required"`   // RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改
+}
+
+// CreateSeasonRequest 新建赛季请求体
+type CreateSeasonRequest struct {
+	Code string `json:"code" binding:"required,max=24"` // 自然键, 小写字母、数字和下划线
+	SeasonRequest
+}
+
+// seasonErrorStatus 赛季配置错误对应的状态码, 不是配置错误时返回 0
+func seasonErrorStatus(err error) int {
+	switch err.Error() {
+	case season.CodeInvalid, season.NameInvalid, season.TimeInvalid:
+		return http.StatusBadRequest
+	case season.SeasonNotFound:
+		return http.StatusNotFound
+	case season.CodeTaken, season.TimeOverlapped, season.StartLocked, season.SeasonEnded, season.DeleteStarted, season.EndNotActive:
+		return http.StatusConflict
+	}
+	return 0
+}
+
+// CreateSeason
+// @Tags admin
+// @Summary 新建赛季
+// @Description 时间不能与其他赛季重叠
+// @Accept json
+// @Produce json
+// @Param request body CreateSeasonRequest true "request body"
+// @Success 200 {object} Response{data=season.View}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 409 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/seasons [post]
+func CreateSeason(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req CreateSeasonRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	created, err := doCreateSeason(ctx, &req)
+	if err != nil {
+		if status := seasonErrorStatus(err); status != 0 {
+			c.JSON(status, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[CreateSeason] create failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSeasonCreate, audit.TargetSeason, created.ID, seasonFields(&created.Season))
+	logger.InfoF(ctx, "[CreateSeason] %d created season %d %s", operator.ID, created.ID, created.Code)
+	c.JSON(http.StatusOK, Response{Data: created})
+}
+
+// UpdateSeason
+// @Tags admin
+// @Summary 修改赛季
+// @Description 需提交全部字段; 赛季开始后不能修改开始时间, 结束后只能修改名称, 时间不能与其他赛季重叠
+// @Accept json
+// @Produce json
+// @Param id path int true "season id"
+// @Param request body SeasonRequest true "request body"
+// @Success 200 {object} Response{data=season.View}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 404 {object} Response
+// @Failure 409 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/seasons/{id} [put]
+func UpdateSeason(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req SeasonRequest
+	seasonID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || c.ShouldBindJSON(&req) != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	updated, changes, err := doUpdateSeason(ctx, seasonID, &req)
+	if err != nil {
+		if status := seasonErrorStatus(err); status != 0 {
+			c.JSON(status, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[UpdateSeason] update failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	if len(changes) > 0 {
+		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSeasonUpdate, audit.TargetSeason, updated.ID, changes)
+		logger.InfoF(ctx, "[UpdateSeason] %d updated season %d %s", operator.ID, updated.ID, updated.Code)
+	}
+	c.JSON(http.StatusOK, Response{Data: updated})
+}
+
+// DeleteSeason
+// @Tags admin
+// @Summary 删除赛季
+// @Description 只能删除未开始的赛季
+// @Produce json
+// @Param id path int true "season id"
+// @Success 200 {object} Response
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 404 {object} Response
+// @Failure 409 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/seasons/{id} [delete]
+func DeleteSeason(c *gin.Context) {
+	ctx := c.Request.Context()
+	seasonID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	deleted, err := doDeleteSeason(ctx, seasonID)
+	if err != nil {
+		if status := seasonErrorStatus(err); status != 0 {
+			c.JSON(status, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[DeleteSeason] delete failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSeasonDelete, audit.TargetSeason, deleted.ID, seasonFields(deleted))
+	logger.InfoF(ctx, "[DeleteSeason] %d deleted season %d %s", operator.ID, deleted.ID, deleted.Code)
+	c.JSON(http.StatusOK, Response{})
+}
+
+// EndSeason
+// @Tags admin
+// @Summary 提前结束赛季
+// @Description 把进行中的赛季的结束时间改为当前时间, 之后的对局不再计入该赛季
+// @Produce json
+// @Param id path int true "season id"
+// @Success 200 {object} Response{data=season.View}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 404 {object} Response
+// @Failure 409 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/seasons/{id}/end [post]
+func EndSeason(c *gin.Context) {
+	ctx := c.Request.Context()
+	seasonID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	ended, changes, err := doEndSeason(ctx, seasonID)
+	if err != nil {
+		if status := seasonErrorStatus(err); status != 0 {
+			c.JSON(status, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[EndSeason] end failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSeasonEnd, audit.TargetSeason, ended.ID, changes)
+	logger.InfoF(ctx, "[EndSeason] %d ended season %d %s", operator.ID, ended.ID, ended.Code)
+	c.JSON(http.StatusOK, Response{Data: ended})
 }
 
 // ListUserInventoryResponseData 指定用户背包物品分页结果

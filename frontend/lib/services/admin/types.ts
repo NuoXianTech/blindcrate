@@ -3,6 +3,7 @@ import type {Bundle} from '../auction';
 import type {PageParams} from '../core';
 import type {InventoryTransaction} from '../inventory';
 import type {LeaderboardPeriod} from '../leaderboard';
+import type {Season, SeasonStatus} from '../season';
 import type {AuctionRule, Grid} from '../venue';
 import type {WalletTransaction} from '../wallet';
 
@@ -579,6 +580,23 @@ export interface ListLeaderboardsData {
 
 /** 新建或修改榜单, 修改时也需提交全部字段 */
 export type LeaderboardRequest = Omit<AdminLeaderboard, 'id' | 'created_at' | 'updated_at'>;
+
+export interface ListSeasonsParams extends PageParams {
+  /** 按代码或名称搜索, 不区分大小写 */
+  keyword?: string;
+  status?: SeasonStatus;
+}
+
+export interface ListSeasonsData {
+  total: number;
+  seasons: Season[];
+}
+
+/** 修改赛季, 需提交全部字段; 时间精确到分钟, 开始后不能修改开始时间, 结束后只能修改名称 */
+export type SeasonRequest = Pick<Season, 'name' | 'starts_at' | 'ends_at'>;
+
+/** 新建赛季 */
+export type CreateSeasonRequest = SeasonRequest & Pick<Season, 'code'>;
 
 /** 可以排名的指标, 对应后端 stats.Metric */
 export interface StatMetric {

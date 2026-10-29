@@ -38,7 +38,7 @@ type Board struct {
 	Description string    `gorm:"size:255;not null;default:''" json:"description"`
 	Metric      string    `gorm:"size:64;not null" json:"metric"`        // 排名的指标, 如 wins、profit:chip
 	Scope       string    `gorm:"size:64;not null" json:"scope"`         // 统计范围, 如 all、mode:ranked
-	Period      string    `gorm:"size:16;not null" json:"period"`        // 统计周期, total 或 day
+	Period      string    `gorm:"size:16;not null" json:"period"`        // 统计周期, total、day 或 season
 	Size        int32     `gorm:"not null;default:100" json:"size"`      // 展示前多少名
 	MinMatches  int64     `gorm:"not null;default:0" json:"min_matches"` // 同一范围和周期内至少完成多少局才上榜
 	SortOrder   int32     `gorm:"not null;default:0" json:"sort_order"`

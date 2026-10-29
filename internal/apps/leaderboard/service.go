@@ -35,6 +35,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -62,7 +63,7 @@ func Validate(tx *gorm.DB, b *Board) error {
 	if !stats.ValidScope(b.Scope) {
 		return errors.New(ScopeInvalid)
 	}
-	if b.Period != PeriodTotal && b.Period != PeriodDay {
+	if b.Period != PeriodTotal && b.Period != PeriodDay && b.Period != PeriodSeason {
 		return errors.New(PeriodInvalid)
 	}
 	if b.Size < MinSize || b.Size > MaxSize {
@@ -112,12 +113,21 @@ func profitName(currency string) string {
 	return "净收益(" + currency + ")"
 }
 
-// statsPeriod 榜单在 now 时对应的统计周期, 如 total、day:2026-10-28
-func statsPeriod(period string, now time.Time) string {
-	if period == PeriodDay {
-		return stats.PeriodDay(now)
+// statsPeriod 榜单在 now 时对应的统计周期, 如 total、day:2026-10-28、season:s1, 以及赛季榜单对应的赛季
+//
+// 还没有赛季时返回的周期为空。
+func statsPeriod(tx *gorm.DB, period string, now time.Time) (string, *season.Season, error) {
+	switch period {
+	case PeriodDay:
+		return stats.PeriodDay(now), nil, nil
+	case PeriodSeason:
+		latest, err := season.Latest(tx, now)
+		if err != nil || latest == nil {
+			return "", nil, err
+		}
+		return season.Period(latest.Code), latest, nil
 	}
-	return stats.PeriodTotal
+	return stats.PeriodTotal, nil, nil
 }
 
 // BoardView 玩家看到的榜单
@@ -130,7 +140,7 @@ type BoardView struct {
 	Currency    string `json:"currency"`    // 指标为某种货币的净收益时为货币代码, 数值按该货币的最小单位计; 否则为空
 	Scope       string `json:"scope"`
 	ScopeName   string `json:"scope_name"` // 统计范围的展示名称, 全部对局为空
-	Period      string `json:"period"`     // total 或 day
+	Period      string `json:"period"`     // total、day 或 season
 	Size        int32  `json:"size"`
 	MinMatches  int64  `json:"min_matches"`
 }
@@ -153,7 +163,9 @@ type Mine struct {
 // BoardDetail 榜单的前 N 名和自己的名次
 type BoardDetail struct {
 	BoardView
-	CurrentPeriod string  `json:"current_period"` // 当前的统计周期, 如 total、day:2026-10-28
+	CurrentPeriod string  `json:"current_period"` // 当前的统计周期, 如 total、day:2026-10-28、season:s1; 赛季榜单还没有赛季时为空
+	SeasonName    string  `json:"season_name"`    // 赛季榜单对应的赛季名称, 其他榜单为空
+	SeasonEnded   bool    `json:"season_ended"`   // 赛季榜单对应的赛季已经结束, 名次不再变化
 	Entries       []Entry `json:"entries"`        // 按名次排列, 最多 Size 名
 	Mine          Mine    `json:"mine"`
 }
@@ -196,12 +208,25 @@ func QueryBoard(ctx context.Context, userID uint64, code string) (*BoardDetail, 
 		return nil, err
 	}
 
-	period := statsPeriod(board.Period, time.Now())
+	now := time.Now()
+	period, current, err := statsPeriod(tx, board.Period, now)
+	if err != nil {
+		return nil, err
+	}
+	detail := &BoardDetail{BoardView: *view, CurrentPeriod: period, Entries: []Entry{}}
+	if current != nil {
+		detail.SeasonName = current.Name
+		detail.SeasonEnded = !now.Before(current.EndsAt)
+	}
+	if period == "" {
+		return detail, nil
+	}
+
 	top, err := loadTop(ctx, &board, period)
 	if err != nil {
 		return nil, err
 	}
-	detail := &BoardDetail{BoardView: *view, CurrentPeriod: period, Entries: make([]Entry, len(top))}
+	detail.Entries = make([]Entry, len(top))
 	for i, row := range top {
 		detail.Entries[i] = Entry{
 			Rank:      int64(i + 1),

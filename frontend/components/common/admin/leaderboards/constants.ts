@@ -17,6 +17,7 @@ export const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
 export const PERIODS: { value: LeaderboardPeriod; label: string }[] = [
   {value: LEADERBOARD_PERIOD.total, label: '累计'},
   {value: LEADERBOARD_PERIOD.day, label: '当天'},
+  {value: LEADERBOARD_PERIOD.season, label: '当前赛季'},
 ];
 
 /** 与后端 leaderboard 的校验一致 */
