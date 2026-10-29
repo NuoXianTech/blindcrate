@@ -18,6 +18,7 @@ import {
   type MatchmakingFailedMessage,
   type MatchmakingRejectedMessage,
   type MatchmakingStatus,
+  type QueueUpdatedMessage,
 } from '@/lib/services/match';
 import type {Venue} from '@/lib/services/venue';
 import {MatchmakingBar} from './MatchmakingBar';
@@ -28,7 +29,7 @@ import {VenueDetailDialog} from './VenueDetailDialog';
 
 /**
  * 游戏大厅: 当前赛季和段位分、地图列表、地图详情和匹配
- * 加入后凑够一局时直接进入对局; 排队时等待 match:updated 推送, 被拒绝或开局失败时提示
+ * 加入后凑够一局时直接进入对局; 排队时等待 match:updated 推送, 被拒绝或开局失败时提示, 队列人数变化时更新人数
  * 推送不保证送达, 连上 WebSocket 后重新拉取匹配状态
  */
 export function LobbyMain() {
@@ -78,6 +79,10 @@ export function LobbyMain() {
     void loadStatus();
   });
 
+  useWsEvent<QueueUpdatedMessage>(MATCH_MESSAGES.queueUpdated, (msg) => {
+    setStatus((prev) => prev?.queue?.mode === msg.mode ? {...prev, queue: {...prev.queue, count: msg.count}} : prev);
+  });
+
   useWsEvent<MatchmakingFailedMessage>(MATCH_MESSAGES.matchmakingFailed, () => {
     toast.error('开局失败, 请重新匹配');
     void loadStatus();
@@ -112,7 +117,23 @@ export function LobbyMain() {
     }
   };
 
+  // 排位人少时改打人机: 先离开队列再加入人机
+  const switchToPve = async (venue: Venue) => {
+    setLeaving(true);
+    try {
+      await services.match.leaveMatchmaking();
+    } catch (err) {
+      toast.error(toErrorMessage(err));
+      void loadStatus();
+      return;
+    } finally {
+      setLeaving(false);
+    }
+    await join(venue, 'pve');
+  };
+
   const queued = status?.queue ? parseMode(status.queue.mode) : null;
+  const queuedVenue = venues?.find((v) => v.code === queued?.venue);
   const busy = !!status && (status.queue !== null || status.match_id !== 0);
 
   return (
@@ -128,9 +149,10 @@ export function LobbyMain() {
       {status && (
         <MatchmakingBar
           status={status}
-          venueName={venues?.find((v) => v.code === queued?.venue)?.name}
+          venueName={queuedVenue?.name}
           leaving={leaving}
           onLeave={leave}
+          onSwitchPve={queuedVenue?.pve_enabled ? () => void switchToPve(queuedVenue) : undefined}
         />
       )}
 

@@ -51,6 +51,7 @@ const (
 	MessageUpdated             = "match:updated"              // 对局开始、切换阶段或结束, data 为 MatchView
 	MessageMatchmakingFailed   = "match:matchmaking_failed"   // 创建对局失败, 已移出队列, data 为 MatchmakingFailedMessage
 	MessageMatchmakingRejected = "match:matchmaking_rejected" // 开局时不满足玩法的条件, 已移出队列, data 为 MatchmakingRejectedMessage
+	MessageQueueUpdated        = "match:queue_updated"        // 队列中的人数变化, 推送给仍在队列中的人, data 为 QueueUpdatedMessage
 )
 
 // 人机等级, 等级越高利用的信息越多, 具体含义由玩法决定

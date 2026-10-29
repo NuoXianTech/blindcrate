@@ -135,6 +135,8 @@ type queuedUser struct {
 type QueueStatus struct {
 	Mode     string    `json:"mode"`
 	JoinedAt time.Time `json:"joined_at"`
+	Count    int64     `json:"count"`    // 队列中的人数, 含自己
+	Capacity int       `json:"capacity"` // 凑够多少人立即开局, 玩法已不存在时为 0
 }
 
 // MatchmakingStatus 用户的匹配状态, 排队和对局最多只有一个
@@ -146,6 +148,12 @@ type MatchmakingStatus struct {
 // MatchmakingFailedMessage MessageMatchmakingFailed 的 data
 type MatchmakingFailedMessage struct {
 	Mode string `json:"mode"`
+}
+
+// QueueUpdatedMessage MessageQueueUpdated 的 data
+type QueueUpdatedMessage struct {
+	Mode  string `json:"mode"`
+	Count int64  `json:"count"` // 队列中的人数, 含自己
 }
 
 // MatchmakingRejectedMessage MessageMatchmakingRejected 的 data
@@ -191,9 +199,10 @@ func Join(ctx context.Context, userID uint64, modeCode string) (*MatchmakingStat
 				logger.ErrorF(ctx, "[Match] enqueue bot fill of %s failed: %v", modeCode, err)
 			}
 		}
-		if err := Form(ctx, modeCode); err != nil {
+		if _, err := form(ctx, modeCode); err != nil {
 			logger.ErrorF(ctx, "[Match] form %s failed: %v", modeCode, err)
 		}
+		pushQueueCount(ctx, modeCode)
 	}
 	return QueryMatchmakingStatus(ctx, userID)
 }
@@ -207,7 +216,14 @@ func Leave(ctx context.Context, userID uint64) error {
 	if err != nil {
 		return err
 	}
-	return leaveScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey}, userID, modeCode).Err()
+	left, err := leaveScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey}, userID, modeCode).Int()
+	if err != nil {
+		return err
+	}
+	if left == 1 {
+		pushQueueCount(ctx, modeCode)
+	}
+	return nil
 }
 
 // QueryMatchmakingStatus 获取用户的匹配状态
@@ -226,6 +242,13 @@ func QueryMatchmakingStatus(ctx context.Context, userID uint64) (*MatchmakingSta
 		}
 		if err == nil {
 			status.Queue = &QueueStatus{Mode: modeCode, JoinedAt: time.UnixMilli(int64(score))}
+			if status.Queue.Count, err = db.Redis.ZCard(ctx, queueKeyPrefix+modeCode).Result(); err != nil {
+				return nil, err
+			}
+			// 玩法已不存在时队列会在巡检时清空, 这里只是少了开局人数
+			if mode, err := lookupMode(ctx, modeCode); err == nil {
+				status.Queue.Capacity = mode.MaxHumans()
+			}
 		}
 	}
 
@@ -235,17 +258,27 @@ func QueryMatchmakingStatus(ctx context.Context, userID uint64) (*MatchmakingSta
 	return status, nil
 }
 
-// Form 从玩法的队列中取出玩家创建对局, 直到不够一局且没有人等到补位时间
+// Form 从玩法的队列中取出玩家创建对局, 直到不够一局且没有人等到补位时间; 取出过玩家时把新的人数推送给队列中剩下的人
 //
-// 加入队列、补位任务到期和巡检时调用, 多个实例同时调用是安全的。
+// 补位任务到期和巡检时调用, 多个实例同时调用是安全的。
 // 创建失败时这一批玩家已被移出队列, 推送 MessageMatchmakingFailed 让他们重新匹配, 避免同一个错误反复发生。
 func Form(ctx context.Context, modeCode string) error {
+	popped, err := form(ctx, modeCode)
+	if popped {
+		pushQueueCount(ctx, modeCode)
+	}
+	return err
+}
+
+// form 同 Form, 但不推送人数, 返回是否取出过玩家
+func form(ctx context.Context, modeCode string) (bool, error) {
 	mode, err := lookupMode(ctx, modeCode)
 	if err != nil {
-		return err
+		return false, err
 	}
 	count := mode.MaxHumans()
 	keys := []string{queueKeyPrefix + modeCode, queueUsersKey}
+	changed := false
 	for {
 		cutoff := ""
 		if fillsWithBots(mode) {
@@ -253,11 +286,12 @@ func Form(ctx context.Context, modeCode string) error {
 		}
 		popped, err := popScript.Run(ctx, db.Redis, keys, count, mode.MinHumans(), cutoff, modeCode).Int64Slice()
 		if err != nil {
-			return err
+			return changed, err
 		}
 		if len(popped) == 0 {
-			return nil
+			return changed, nil
 		}
+		changed = true
 		queued := make([]queuedUser, 0, len(popped)/2)
 		for i := 0; i < len(popped); i += 2 {
 			queued = append(queued, queuedUser{UserID: uint64(popped[i]), JoinedAt: popped[i+1]})
@@ -266,7 +300,7 @@ func Form(ctx context.Context, modeCode string) error {
 		result, err := createMatch(ctx, mode, queued)
 		if err != nil {
 			pushMatchmakingFailed(ctx, modeCode, queued)
-			return err
+			return true, err
 		}
 		for _, rejected := range result.Rejected {
 			if err := ws.SendToUser(ctx, rejected.UserID, MessageMatchmakingRejected, MatchmakingRejectedMessage{Mode: modeCode, Reason: rejected.Reason}); err != nil {
@@ -278,15 +312,15 @@ func Form(ctx context.Context, modeCode string) error {
 			if len(result.Requeue) > 0 {
 				if err := requeue(ctx, modeCode, result.Requeue); err != nil {
 					pushMatchmakingFailed(ctx, modeCode, result.Requeue)
-					return err
+					return true, err
 				}
 			}
-			return nil
+			return true, nil
 		}
 		afterChange(ctx, nil, result.Match, result.Players)
 		result.Hooks.run(ctx)
 		if len(queued) < count {
-			return nil
+			return true, nil
 		}
 	}
 }
@@ -320,6 +354,24 @@ func requeue(ctx context.Context, modeCode string, users []queuedUser) error {
 		args = append(args, user.UserID, user.JoinedAt)
 	}
 	return requeueScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey}, args...).Err()
+}
+
+// pushQueueCount 把队列中的人数推送给队列中的每个人, 失败只记录日志
+func pushQueueCount(ctx context.Context, modeCode string) {
+	members, err := db.Redis.ZRange(ctx, queueKeyPrefix+modeCode, 0, -1).Result()
+	if err != nil {
+		logger.ErrorF(ctx, "[Match] load queue %s failed: %v", modeCode, err)
+		return
+	}
+	userIDs := make([]uint64, 0, len(members))
+	for _, member := range members {
+		if userID, err := strconv.ParseUint(member, 10, 64); err == nil {
+			userIDs = append(userIDs, userID)
+		}
+	}
+	if err := ws.SendToUsers(ctx, userIDs, MessageQueueUpdated, QueueUpdatedMessage{Mode: modeCode, Count: int64(len(members))}); err != nil {
+		logger.ErrorF(ctx, "[Match] push queue count of %s failed: %v", modeCode, err)
+	}
 }
 
 // pushMatchmakingFailed 通知被移出队列的用户重新匹配
