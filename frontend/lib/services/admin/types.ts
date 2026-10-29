@@ -592,8 +592,8 @@ export interface ListSeasonsData {
   seasons: Season[];
 }
 
-/** 修改赛季, 需提交全部字段; 时间精确到分钟, 开始后不能修改开始时间, 结束后只能修改名称 */
-export type SeasonRequest = Pick<Season, 'name' | 'starts_at' | 'ends_at'>;
+/** 修改赛季, 需提交全部字段; 时间精确到分钟, 开始后不能修改开始时间和段位分继承比例, 结束后只能修改名称 */
+export type SeasonRequest = Pick<Season, 'name' | 'starts_at' | 'ends_at' | 'rating_carry'>;
 
 /** 新建赛季 */
 export type CreateSeasonRequest = SeasonRequest & Pick<Season, 'code'>;

@@ -4,6 +4,7 @@ import {AuthService} from './auth';
 import {InventoryService} from './inventory';
 import {LeaderboardService} from './leaderboard';
 import {MatchService} from './match';
+import {RankedService} from './ranked';
 import {SeasonService} from './season';
 import {StatsService} from './stats';
 import {VenueService} from './venue';
@@ -44,6 +45,8 @@ const services = {
   leaderboard: LeaderboardService,
   /** 赛季 */
   season: SeasonService,
+  /** 段位分 */
+  ranked: RankedService,
   /** 个人数据 */
   stats: StatsService,
   /** 仓库暗拍 */

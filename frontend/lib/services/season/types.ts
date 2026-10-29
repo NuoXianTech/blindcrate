@@ -20,6 +20,8 @@ export interface Season {
   ends_at: string;
   /** 赛季奖励发完的时间, 没有发完时为空 */
   settled_at: string | null;
+  /** 段位分继承上一个赛季的百分比, 初始分 = 基础分 + (上赛季的段位分 - 基础分) × 比例 */
+  rating_carry: number;
   status: SeasonStatus;
   created_at: string;
   updated_at: string;

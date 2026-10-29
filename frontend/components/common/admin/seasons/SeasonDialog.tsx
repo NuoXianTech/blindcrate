@@ -11,7 +11,8 @@ import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {SeasonRequest} from '@/lib/services/admin';
 import {SEASON_STATUS, type Season} from '@/lib/services/season';
-import {CODE_PATTERN, DEFAULT_DAYS, fromLocalInput, toLocalInput} from './constants';
+import {parseAmount} from '@/lib/utils';
+import {CODE_PATTERN, DEFAULT_DAYS, DEFAULT_RATING_CARRY, fromLocalInput, toLocalInput} from './constants';
 
 /**
  * 赛季对话框的Props接口
@@ -25,7 +26,7 @@ interface SeasonDialogProps {
 }
 
 /**
- * 新建或编辑赛季: 代码创建后不能修改, 开始后不能修改开始时间, 结束后只能修改名称
+ * 新建或编辑赛季: 代码创建后不能修改, 开始后不能修改开始时间和段位分继承比例, 结束后只能修改名称
  */
 export function SeasonDialog({season, ...props}: SeasonDialogProps) {
   const editing = season && season !== 'new' ? season : null;
@@ -64,6 +65,7 @@ function SeasonForm({season, onClose, onSaved}: Omit<SeasonDialogProps, 'season'
     end.setDate(end.getDate() + DEFAULT_DAYS);
     return toLocalInput(end);
   });
+  const [carry, setCarry] = useState(String(season?.rating_carry ?? DEFAULT_RATING_CARRY));
 
   const status = season?.status ?? SEASON_STATUS.upcoming;
   const startLocked = status !== SEASON_STATUS.upcoming;
@@ -73,11 +75,14 @@ function SeasonForm({season, onClose, onSaved}: Omit<SeasonDialogProps, 'season'
     const starts = fromLocalInput(startsAt);
     const ends = fromLocalInput(endsAt);
     check(!starts || !ends ? '请填写开始和结束时间' : null);
+    const ratingCarry = parseAmount(carry);
+    check(ratingCarry === null || ratingCarry < 0 || ratingCarry > 100 ? '段位分继承比例需为 0-100' : null);
     const body: SeasonRequest = {
       name: name.trim(),
       // 没有修改的时间原样提交, 后端按分钟比较
       starts_at: season && startsAt === toLocalInput(season.starts_at) ? season.starts_at : starts!,
       ends_at: season && endsAt === toLocalInput(season.ends_at) ? season.ends_at : ends!,
+      rating_carry: ratingCarry!,
     };
     check(body.name.length === 0 || [...body.name].length > 64 ? '名称需为 1-64 个字符' : null);
     check(new Date(body.ends_at) <= new Date(body.starts_at) ? '结束时间需晚于开始时间' : null);
@@ -149,9 +154,24 @@ function SeasonForm({season, onClose, onSaved}: Omit<SeasonDialogProps, 'season'
         {endLocked ?
           '赛季已结束, 只能修改名称' :
           startLocked ?
-            '赛季已开始, 不能修改开始时间; 结束时间需晚于现在, 要立即结束请使用提前结束' :
+            '赛季已开始, 不能修改开始时间和段位分继承比例; 结束时间需晚于现在, 要立即结束请使用提前结束' :
             '按本地时间, 精确到分钟; 包含开始时间, 不包含结束时间, 结束时间需晚于现在'}
       </span>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="season-rating-carry">段位分继承比例 (%)</Label>
+        <Input
+          id="season-rating-carry"
+          inputMode="numeric"
+          className="w-32 font-mono tabular-nums"
+          value={carry}
+          onChange={(e) => setCarry(e.target.value)}
+          disabled={pending || startLocked}
+        />
+        <span className="text-xs text-muted-foreground">
+          初始分 = 基础分 + (上赛季的段位分 - 基础分) × 比例; 0 为全部重置, 100 为原样继承, 上赛季没打过排位时为基础分; 赛季开始后不能修改
+        </span>
+      </div>
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose} disabled={pending}>

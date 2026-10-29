@@ -186,6 +186,14 @@ function MatchRow({match: m, decimalsOf}: { match: MatchView; decimalsOf: (curre
           <>
             {self.rank}
             <span className="text-muted-foreground"> / {m.players.length}</span>
+            {!!s?.rating_delta && (
+              <span
+                className={cn('ml-2 text-xs', s.rating_delta > 0 ? 'text-quality-green' : 'text-quality-red')}
+                title="段位分变化"
+              >
+                {formatAmount(s.rating_delta, 0, {signed: true})} 分
+              </span>
+            )}
           </>
         ) : (
           '-'

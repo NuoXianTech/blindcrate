@@ -5949,6 +5949,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/ranked/rating": {
+            "get": {
+                "description": "当前赛季的段位分, 赛季之外为赛季 0 的段位分; 本赛季还没打过排位时为初始分",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ranked"
+                ],
+                "summary": "获取当前用户的段位分",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/ranked.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/ranked.View"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ranked.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ranked.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ranked.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ready": {
             "get": {
                 "description": "检查已启用的 PostgreSQL 和 Redis 是否可用",
@@ -6656,6 +6706,12 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "maxLength": 64
+                },
+                "rating_carry": {
+                    "description": "段位分继承上一个赛季的百分比; 赛季开始后不能修改",
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
                 },
                 "starts_at": {
                     "description": "RFC3339, 包含; 赛季开始后不能修改",
@@ -7440,6 +7496,12 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 64
                 },
+                "rating_carry": {
+                    "description": "段位分继承上一个赛季的百分比; 赛季开始后不能修改",
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
                 "starts_at": {
                     "description": "RFC3339, 包含; 赛季开始后不能修改",
                     "type": "string"
@@ -7938,6 +8000,14 @@ const docTemplate = `{
                     "description": "结算后的盈亏, 出价货币; 练习局按正式局计算",
                     "type": "integer"
                 },
+                "rating": {
+                    "description": "结算后的段位分, 只有排位成交时有",
+                    "type": "integer"
+                },
+                "rating_delta": {
+                    "description": "本局段位分的变化, 只有排位成交时有",
+                    "type": "integer"
+                },
                 "seat": {
                     "type": "integer"
                 },
@@ -7978,6 +8048,14 @@ const docTemplate = `{
                 },
                 "profit": {
                     "description": "自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0",
+                    "type": "integer"
+                },
+                "rating": {
+                    "description": "自己结算后的段位分, 只有排位成交时有; 管理员查看时为 0",
+                    "type": "integer"
+                },
+                "rating_delta": {
+                    "description": "自己段位分的变化, 只有排位成交时有; 管理员查看时为 0",
                     "type": "integer"
                 },
                 "scan_from": {
@@ -9416,6 +9494,38 @@ const docTemplate = `{
                 }
             }
         },
+        "ranked.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "ranked.View": {
+            "type": "object",
+            "properties": {
+                "matches": {
+                    "description": "本赛季计分的排位局数, 0 表示还没打过, 段位分为初始分",
+                    "type": "integer"
+                },
+                "peak": {
+                    "type": "integer"
+                },
+                "rating": {
+                    "type": "integer"
+                },
+                "season": {
+                    "description": "进行中的赛季, 赛季之外为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/season.View"
+                        }
+                    ]
+                }
+            }
+        },
         "reward.Bundle": {
             "type": "object",
             "properties": {
@@ -9506,6 +9616,10 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "rating_carry": {
+                    "description": "段位分继承上一个赛季的百分比, 初始分 = 基础分 + (上赛季的段位分 - 基础分) × 比例; 0 有效, 模型中不设默认值",
+                    "type": "integer"
                 },
                 "settled_at": {
                     "description": "赛季奖励发完的时间, 没有发完时为空",

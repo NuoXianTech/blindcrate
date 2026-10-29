@@ -9,6 +9,9 @@ export const CODE_PATTERN = /^[a-z0-9_]{1,24}$/;
 /** 新建赛季时默认的时长 */
 export const DEFAULT_DAYS = 30;
 
+/** 新建赛季时默认的段位分继承比例, 百分比 */
+export const DEFAULT_RATING_CARRY = 50;
+
 /** 赛季状态的名称 */
 export const STATUS_LABELS: Record<SeasonStatus, string> = {
   [SEASON_STATUS.upcoming]: '未开始',

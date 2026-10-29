@@ -72,21 +72,23 @@ type Snapshot struct {
 //
 // 真人在准入时创建, 此时还没有座位, 开局时写入座位号; 人机在开局时创建。
 type Player struct {
-	ID         uint64        `gorm:"primaryKey" json:"id"`
-	MatchID    uint64        `gorm:"not null;index:idx_auction_players_match_id" json:"match_id"`
-	Seat       int16         `gorm:"not null;default:0" json:"seat"`
-	UserID     uint64        `gorm:"not null;default:0" json:"user_id"`                                  // 人机为 0
-	IsPractice bool          `gorm:"not null;default:false" json:"is_practice"`                          // 练习局, 准入时决定, 之后不再变化
-	EntryCost  reward.Bundle `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"entry_cost"` // 实际扣除的入场代价, 练习局和人机为空
-	Carry      int64         `gorm:"not null;default:0" json:"carry"`                                    // 带入资金, 出价的上限
-	Frozen     int64         `gorm:"not null;default:0" json:"frozen"`                                   // 冻结的带入资金, 练习局和人机为 0
-	Estimate   int64         `gorm:"not null;default:0" json:"estimate"`                                 // 人机对仓库价值的估值, 真人为 0
-	Bid        int64         `gorm:"not null;default:0" json:"bid"`                                      // 当前出价, 0 表示还没出过价
-	BidAt      *time.Time    `json:"bid_at"`                                                             // 当前出价的提交时间, 加轮用完仍并列时先出价的人成交
-	Feedback   []Feedback    `gorm:"type:jsonb;serializer:json;not null;default:'[]'" json:"feedback"`   // 每轮结束后的反馈, 只给真人
-	Profit     int64         `gorm:"not null;default:0" json:"profit"`                                   // 结算后的盈亏, 出价货币; 练习局按正式局计算
-	CreatedAt  time.Time     `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
-	UpdatedAt  time.Time     `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
+	ID          uint64        `gorm:"primaryKey" json:"id"`
+	MatchID     uint64        `gorm:"not null;index:idx_auction_players_match_id" json:"match_id"`
+	Seat        int16         `gorm:"not null;default:0" json:"seat"`
+	UserID      uint64        `gorm:"not null;default:0" json:"user_id"`                                  // 人机为 0
+	IsPractice  bool          `gorm:"not null;default:false" json:"is_practice"`                          // 练习局, 准入时决定, 之后不再变化
+	EntryCost   reward.Bundle `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"entry_cost"` // 实际扣除的入场代价, 练习局和人机为空
+	Carry       int64         `gorm:"not null;default:0" json:"carry"`                                    // 带入资金, 出价的上限
+	Frozen      int64         `gorm:"not null;default:0" json:"frozen"`                                   // 冻结的带入资金, 练习局和人机为 0
+	Estimate    int64         `gorm:"not null;default:0" json:"estimate"`                                 // 人机对仓库价值的估值, 真人为 0
+	Bid         int64         `gorm:"not null;default:0" json:"bid"`                                      // 当前出价, 0 表示还没出过价
+	BidAt       *time.Time    `json:"bid_at"`                                                             // 当前出价的提交时间, 加轮用完仍并列时先出价的人成交
+	Feedback    []Feedback    `gorm:"type:jsonb;serializer:json;not null;default:'[]'" json:"feedback"`   // 每轮结束后的反馈, 只给真人
+	Profit      int64         `gorm:"not null;default:0" json:"profit"`                                   // 结算后的盈亏, 出价货币; 练习局按正式局计算
+	RatingDelta int32         `gorm:"not null;default:0" json:"rating_delta"`                             // 本局段位分的变化, 只有排位成交时有
+	Rating      int32         `gorm:"not null;default:0" json:"rating"`                                   // 结算后的段位分, 只有排位成交时有
+	CreatedAt   time.Time     `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+	UpdatedAt   time.Time     `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
 }
 
 // TableName 自定义表名

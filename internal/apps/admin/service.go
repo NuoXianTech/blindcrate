@@ -1398,10 +1398,11 @@ func QuerySeasons(ctx context.Context, req *ListSeasonsRequest) (int64, []season
 func doCreateSeason(ctx context.Context, req *CreateSeasonRequest) (*season.View, error) {
 	now := time.Now()
 	target := &season.Season{
-		Code:     req.Code,
-		Name:     strings.TrimSpace(req.Name),
-		StartsAt: req.StartsAt.Truncate(time.Minute),
-		EndsAt:   req.EndsAt.Truncate(time.Minute),
+		Code:        req.Code,
+		Name:        strings.TrimSpace(req.Name),
+		StartsAt:    req.StartsAt.Truncate(time.Minute),
+		EndsAt:      req.EndsAt.Truncate(time.Minute),
+		RatingCarry: req.RatingCarry,
 	}
 	if err := season.Validate(target); err != nil {
 		return nil, err
@@ -1430,7 +1431,7 @@ func doCreateSeason(ctx context.Context, req *CreateSeasonRequest) (*season.View
 
 // doUpdateSeason 修改赛季, 返回修改后的赛季和本次修改的字段, 没有任何字段变化时不写库
 //
-// 时间按分钟比较, 与原来在同一分钟内视为没有修改; 赛季开始后不能修改开始时间, 结束后只能修改名称。
+// 时间按分钟比较, 与原来在同一分钟内视为没有修改; 赛季开始后不能修改开始时间和段位分继承比例, 结束后只能修改名称。
 func doUpdateSeason(ctx context.Context, seasonID uint64, req *SeasonRequest) (*season.View, map[string]interface{}, error) {
 	var (
 		target  season.Season
@@ -1448,19 +1449,21 @@ func doUpdateSeason(ctx context.Context, seasonID uint64, req *SeasonRequest) (*
 		startsAt, endsAt := req.StartsAt.Truncate(time.Minute), req.EndsAt.Truncate(time.Minute)
 		startChanged := !startsAt.Equal(target.StartsAt.Truncate(time.Minute))
 		endChanged := !endsAt.Equal(target.EndsAt.Truncate(time.Minute))
+		carryChanged := req.RatingCarry != target.RatingCarry
 		switch target.StatusAt(now) {
 		case season.StatusUpcoming:
 		case season.StatusActive:
-			if startChanged {
+			if startChanged || carryChanged {
 				return errors.New(season.StartLocked)
 			}
 		default:
-			if startChanged || endChanged {
+			if startChanged || endChanged || carryChanged {
 				return errors.New(season.SeasonEnded)
 			}
 		}
 
 		target.Name = strings.TrimSpace(req.Name)
+		target.RatingCarry = req.RatingCarry
 		if startChanged {
 			target.StartsAt = startsAt
 		}
@@ -1549,10 +1552,11 @@ func lockSeason(tx *gorm.DB, target *season.Season, seasonID uint64) error {
 // seasonFields 赛季可修改的字段, 用于操作日志; 时间统一为 UTC 的 RFC3339 格式, 便于比较
 func seasonFields(target *season.Season) map[string]interface{} {
 	return map[string]interface{}{
-		"code":      target.Code,
-		"name":      target.Name,
-		"starts_at": target.StartsAt.UTC().Format(time.RFC3339),
-		"ends_at":   target.EndsAt.UTC().Format(time.RFC3339),
+		"code":         target.Code,
+		"name":         target.Name,
+		"starts_at":    target.StartsAt.UTC().Format(time.RFC3339),
+		"ends_at":      target.EndsAt.UTC().Format(time.RFC3339),
+		"rating_carry": target.RatingCarry,
 	}
 }
 

@@ -41,6 +41,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
+	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
@@ -200,6 +201,9 @@ func Serve() {
 
 			// Season
 			apiV1Router.GET("/seasons/current", auth.LoginRequired(), season.GetCurrent)
+
+			// Ranked
+			apiV1Router.GET("/ranked/rating", auth.LoginRequired(), ranked.GetRating)
 
 			// Admin
 			adminRouter := apiV1Router.Group("/admin")
