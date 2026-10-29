@@ -57,6 +57,8 @@ export const ACTION_LABELS: Record<string, string> = {
   'admin.settings_rollback': '回滚系统设置',
   'admin.settings_reset': '恢复系统设置默认值',
   'admin.mail_test': '发送测试邮件',
+  'admin.pack_export': '导出配置包',
+  'admin.pack_import': '导入配置包',
 };
 
 /** 日志来源名称 */

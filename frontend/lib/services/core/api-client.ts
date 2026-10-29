@@ -10,11 +10,14 @@ export const UNAUTHORIZED_EVENT = 'blindcrate:unauthorized';
 /** 请求失败的错误, message 为后端返回的 error_msg, 没有时为按失败原因生成的提示 */
 export class ApiError extends Error {
   status?: number;
+  /** 后端随错误返回的 data, 如导入配置包冲突时每一项的结果 */
+  data?: unknown;
 
-  constructor(message: string, status?: number) {
+  constructor(message: string, status?: number, data?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -31,13 +34,18 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.response.use(
     (response) => response,
-    (error: AxiosError<ApiResponse>) => {
+    async (error: AxiosError<ApiResponse | Blob>) => {
       const status = error.response?.status;
       if (status === 401 && typeof window !== 'undefined') {
         window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
       }
 
-      let message = error.response?.data?.error_msg;
+      let body = error.response?.data;
+      // 下载文件的请求失败时响应体也是 Blob, 读出其中的 JSON
+      if (body instanceof Blob) {
+        body = await body.text().then((text) => JSON.parse(text) as ApiResponse).catch(() => undefined);
+      }
+      let message = body?.error_msg;
       if (!message) {
         if (error.code === 'ECONNABORTED') {
           message = '服务器响应超时, 请稍后重试';
@@ -51,7 +59,7 @@ apiClient.interceptors.response.use(
           message = `请求没有成功 (HTTP ${status}), 请刷新页面后重试`;
         }
       }
-      return Promise.reject(new ApiError(message, status));
+      return Promise.reject(new ApiError(message, status, body?.data));
     },
 );
 

@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {usePathname} from 'next/navigation';
 import {useTheme} from 'next-themes';
 import {
+  ArrowDownUp,
   Backpack,
   CalendarRange,
   ChartColumn,
@@ -87,6 +88,7 @@ export function ManagementBar() {
         {title: '商城订单', icon: <ShoppingBag />, href: ROUTES.adminShopOrders, active: pathname.startsWith(ROUTES.adminShopOrders)},
         {title: '流水查询', icon: <ReceiptText />, href: ROUTES.adminTransactions, active: pathname.startsWith(ROUTES.adminTransactions)},
         {title: '操作日志', icon: <ScrollText />, href: ROUTES.adminAuditLogs, active: pathname.startsWith(ROUTES.adminAuditLogs)},
+        {title: '导入导出', icon: <ArrowDownUp />, href: ROUTES.adminPacks, active: pathname.startsWith(ROUTES.adminPacks)},
         {title: '系统设置', icon: <Settings />, href: ROUTES.adminSettings, active: pathname.startsWith(ROUTES.adminSettings)},
     );
   }
