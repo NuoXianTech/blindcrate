@@ -1,4 +1,4 @@
-import {SHOP_ORDER_STATUS, type ShopOrderStatus} from '@/lib/services/admin';
+import {SHOP_ORDER_STATUS, type ShopOrderStatus} from '@/lib/services/shop';
 
 /** 订单每页条数 */
 export const PAGE_SIZE = 20;

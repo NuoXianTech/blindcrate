@@ -1,14 +1,13 @@
 'use client';
 
 import {useState} from 'react';
-import {Minus, Plus, X} from 'lucide-react';
+import {X} from 'lucide-react';
 import {nanoid} from 'nanoid';
 import {toast} from 'sonner';
 import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
-import {Input} from '@/components/ui/input';
-import {SubmitButton} from '@/components/common/form';
+import {QuantityStepper, SubmitButton} from '@/components/common/form';
 import {ItemImage} from '@/components/common/item';
 import {useQualities, useSite} from '@/components/common/site';
 import {CurrencyIcon} from '@/components/common/wallet';
@@ -142,6 +141,7 @@ function SellForm({initial, currencies, onClose, onSold}: Omit<SellDialogProps, 
                 </span>
               </div>
               <QuantityStepper
+                label="出售数量"
                 text={l.text}
                 max={Math.min(l.item.quantity, MAX_SELL_QUANTITY)}
                 invalid={quantity === null}
@@ -208,57 +208,6 @@ function SummaryRow({label, currency, value, muted, strong}: {
         <CurrencyIcon currency={currency} className="size-4" />
         <span className="font-mono tabular-nums">{value}</span>
       </dd>
-    </div>
-  );
-}
-
-/**
- * 数量步进器: 减、输入框、加, 以及一键填入全部
- */
-function QuantityStepper({text, max, invalid, onChange, disabled}: {
-  text: string;
-  max: number;
-  invalid: boolean;
-  onChange: (text: string) => void;
-  disabled?: boolean;
-}) {
-  const value = parseAmount(text) ?? 0;
-  return (
-    <div className="flex shrink-0 items-center gap-1">
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="size-8"
-        aria-label="减少"
-        onClick={() => onChange(String(Math.min(max, Math.max(1, value - 1))))}
-        disabled={disabled || value <= 1}
-      >
-        <Minus />
-      </Button>
-      <Input
-        inputMode="numeric"
-        aria-label="出售数量"
-        aria-invalid={invalid}
-        className="h-8 w-16 text-center font-mono tabular-nums"
-        value={text}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-      />
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="size-8"
-        aria-label="增加"
-        onClick={() => onChange(String(Math.min(max, Math.max(1, value + 1))))}
-        disabled={disabled || value >= max}
-      >
-        <Plus />
-      </Button>
-      <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => onChange(String(max))} disabled={disabled || value === max}>
-        全部
-      </Button>
     </div>
   );
 }
