@@ -45,6 +45,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
+	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/ws"
 	"gorm.io/gorm"
 )
@@ -159,8 +160,17 @@ func (vm *venueMode) BotLevel() int16 {
 	return pickBotLevel(vm.venue.Bots.LevelWeights, rand.Int64N)
 }
 
-// CheckJoin 加入队列前检查地图和模式已开放、满足入场条件; 入场代价和带入资金在准入时检查
+// CheckJoin 加入队列前检查排位没有因挂机禁赛, 地图和模式已开放、满足入场条件; 入场代价和带入资金在准入时检查
 func (vm *venueMode) CheckJoin(ctx context.Context, userID uint64) error {
+	if vm.kind == venue.ModeRanked {
+		reason, err := ranked.AfkBanReason(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if reason != "" {
+			return match.Reject(reason)
+		}
+	}
 	return vm.checkEntry(db.DB(ctx), userID)
 }
 
@@ -585,7 +595,7 @@ func (st *state) humanCanBid() bool {
 
 // settle 结算: 成交时扣除成交价并发放藏品, 流拍时退还入场代价; 解冻剩余的带入资金, 写入盈亏、名次和统计; 排位成交时结算段位分
 //
-// 练习局只计算盈亏, 不变动资金也不写统计; 人机只计算盈亏。
+// 练习局只计算盈亏, 不变动资金也不写统计; 人机只计算盈亏。排位中挂机的真人计入统计, 提交后记录挂机次数。
 func (st *state) settle(tx *gorm.DB, result verdict) error {
 	a := &st.auction
 	now := time.Now()
@@ -593,6 +603,10 @@ func (st *state) settle(tx *gorm.DB, result verdict) error {
 	var ranks map[int16]int16
 	if sold {
 		ranks = rankSeats(st.bidders(), result.Winner, result.Price, a.Value)
+	}
+	afk, err := st.afkUsers(tx)
+	if err != nil {
+		return err
 	}
 
 	for i := range st.players {
@@ -638,6 +652,9 @@ func (st *state) settle(tx *gorm.DB, result verdict) error {
 		if won {
 			values[MetricBidWon] = 1
 		}
+		if slices.Contains(afk, p.UserID) {
+			values[ranked.MetricAfk] = 1
+		}
 		if err := stats.Add(tx, p.UserID, stats.MatchScopes(a.Venue.Code, st.kind()), now, values); err != nil {
 			return err
 		}
@@ -647,12 +664,50 @@ func (st *state) settle(tx *gorm.DB, result verdict) error {
 			return err
 		}
 	}
+	if len(afk) > 0 {
+		matchID := st.match.ID
+		match.AfterCommit(tx, func(ctx context.Context) { recordAfk(ctx, matchID, afk) })
+	}
 	if err := match.SetRanks(tx, st.match.ID, ranks); err != nil {
 		return err
 	}
 
 	a.Outcome, a.WinnerSeat, a.Price, a.SettledAt, a.Contenders = result.Outcome, result.Winner, result.Price, &now, []int16{}
 	return tx.Model(a).Select("outcome", "winner_seat", "price", "settled_at", "contenders").Updates(a).Error
+}
+
+// afkUsers 排位中所有轮次都没有提交出价的真人, 练习局和其他模式不算
+//
+// 每轮都可以提交"不加价", 一次都没有提交说明人不在; 轮次到期时没提交的人没有出价记录。
+func (st *state) afkUsers(tx *gorm.DB) ([]uint64, error) {
+	if st.kind() != venue.ModeRanked {
+		return nil, nil
+	}
+	var seats []int16
+	if err := tx.Model(&Bid{}).Where("match_id = ?", st.match.ID).Distinct("seat").Pluck("seat", &seats).Error; err != nil {
+		return nil, err
+	}
+	var afk []uint64
+	for _, p := range st.players {
+		if p.UserID != 0 && !p.IsPractice && !slices.Contains(seats, p.Seat) {
+			afk = append(afk, p.UserID)
+		}
+	}
+	return afk, nil
+}
+
+// recordAfk 记录挂机次数, 达到次数时禁赛; 失败只记录日志, 只是少算一次
+func recordAfk(ctx context.Context, matchID uint64, userIDs []uint64) {
+	for _, userID := range userIDs {
+		ban, err := ranked.RecordAfk(ctx, userID, matchID)
+		if err != nil {
+			logger.ErrorF(ctx, "[Auction] record afk of user %d in match %d failed: %v", userID, matchID, err)
+			continue
+		}
+		if ban > 0 {
+			logger.InfoF(ctx, "[Auction] user %d is banned from ranked for %s after afk in match %d", userID, ban, matchID)
+		}
+	}
 }
 
 // settleRatings 按名次结算真人的段位分, 练习局不计分

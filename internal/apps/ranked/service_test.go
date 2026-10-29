@@ -24,7 +24,10 @@
 
 package ranked
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestDeltaOf(t *testing.T) {
 	deltas := []int{30, 10, -10, -30}
@@ -128,6 +131,24 @@ func TestValidateTier(t *testing.T) {
 		c.modify(&tier)
 		if err := ValidateTier(&tier); err == nil || err.Error() != c.want {
 			t.Errorf("%s: got %v, want %s", c.name, err, c.want)
+		}
+	}
+}
+
+func TestFormatRemaining(t *testing.T) {
+	cases := []struct {
+		d    time.Duration
+		want string
+	}{
+		{time.Second, "1 分钟"},
+		{5 * time.Minute, "5 分钟"},
+		{5*time.Minute + time.Millisecond, "6 分钟"},
+		{2 * time.Hour, "2 小时"},
+		{90 * time.Minute, "1 小时 30 分钟"},
+	}
+	for _, c := range cases {
+		if got := formatRemaining(c.d); got != c.want {
+			t.Errorf("%s: got %q, want %q", c.d, got, c.want)
 		}
 	}
 }
