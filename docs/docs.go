@@ -9844,6 +9844,14 @@ const docTemplate = `{
         "match.QueueStatus": {
             "type": "object",
             "properties": {
+                "capacity": {
+                    "description": "凑够多少人立即开局, 玩法已不存在时为 0",
+                    "type": "integer"
+                },
+                "count": {
+                    "description": "队列中的人数, 含自己",
+                    "type": "integer"
+                },
                 "joined_at": {
                     "type": "string"
                 },

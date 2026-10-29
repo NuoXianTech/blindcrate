@@ -13,6 +13,8 @@ export const MATCH_MESSAGES = {
   matchmakingFailed: 'match:matchmaking_failed',
   /** 开局时不满足玩法的条件, 已移出队列, data 为 MatchmakingRejectedMessage */
   matchmakingRejected: 'match:matchmaking_rejected',
+  /** 队列中的人数变化, 推送给仍在队列中的人, data 为 QueueUpdatedMessage */
+  queueUpdated: 'match:queue_updated',
 } as const;
 
 /** 排队状态 */
@@ -20,6 +22,10 @@ export interface QueueStatus {
   /** 玩法代码, 如 pve:dock */
   mode: string;
   joined_at: string;
+  /** 队列中的人数, 含自己 */
+  count: number;
+  /** 凑够多少人立即开局, 玩法已不存在时为 0 */
+  capacity: number;
 }
 
 /** 匹配状态, 排队和对局最多只有一个 */
@@ -99,6 +105,12 @@ export interface ListMatchesData {
 
 export interface MatchmakingFailedMessage {
   mode: string;
+}
+
+export interface QueueUpdatedMessage {
+  mode: string;
+  /** 队列中的人数, 含自己 */
+  count: number;
 }
 
 export interface MatchmakingRejectedMessage {
