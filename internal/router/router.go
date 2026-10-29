@@ -33,22 +33,38 @@ import (
 	_ "github.com/NuoXianTech/blindcrate/docs"
 	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auction"
+	"github.com/NuoXianTech/blindcrate/internal/apps/auction/auctionadmin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit/auditadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/auth/authadmin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/condition/conditionadmin"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/economy" // 注册时发放新手资金
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
+	"github.com/NuoXianTech/blindcrate/internal/apps/inventory/inventoryadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/item/itemadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
+	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard/leaderboardadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
+	"github.com/NuoXianTech/blindcrate/internal/apps/loot/lootadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
+	"github.com/NuoXianTech/blindcrate/internal/apps/match/matchadmin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
+	"github.com/NuoXianTech/blindcrate/internal/apps/ranked/rankedadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
+	"github.com/NuoXianTech/blindcrate/internal/apps/season/seasonadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings/settingsadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/shop"
+	"github.com/NuoXianTech/blindcrate/internal/apps/shop/shopadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
+	"github.com/NuoXianTech/blindcrate/internal/apps/venue/venueadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
+	"github.com/NuoXianTech/blindcrate/internal/apps/wallet/walletadmin"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/NuoXianTech/blindcrate/internal/ratelimit"
@@ -241,156 +257,167 @@ func Serve() {
 				// User
 				userAdminRouter := adminRouter.Group("/users")
 				{
-					userAdminRouter.GET("", admin.ListUsers)
-					userAdminRouter.PATCH("/:id", admin.UpdateUser)
-					userAdminRouter.PUT("/:id/ban", admin.BanUser)
-					userAdminRouter.DELETE("/:id/ban", admin.UnbanUser)
-					userAdminRouter.PUT("/:id/disabled", admin.SetUserDisabled)
-					userAdminRouter.GET("/:id/wallet/balances", admin.ListUserBalances)
-					userAdminRouter.POST("/:id/wallet/adjust", admin.AdjustUserBalance)
-					userAdminRouter.GET("/:id/inventory", admin.ListUserInventory)
-					userAdminRouter.POST("/:id/inventory/adjust", admin.AdjustUserInventory)
+					userAdminRouter.GET("", authadmin.ListUsers)
+					userAdminRouter.PATCH("/:id", authadmin.UpdateUser)
+					userAdminRouter.PUT("/:id/ban", authadmin.BanUser)
+					userAdminRouter.DELETE("/:id/ban", authadmin.UnbanUser)
+					userAdminRouter.PUT("/:id/disabled", authadmin.SetUserDisabled)
+					userAdminRouter.GET("/:id/wallet/balances", walletadmin.ListUserBalances)
+					userAdminRouter.POST("/:id/wallet/adjust", walletadmin.AdjustUserBalance)
+					userAdminRouter.GET("/:id/inventory/items", inventoryadmin.ListUserInventory)
+					userAdminRouter.POST("/:id/inventory/adjust", inventoryadmin.AdjustUserInventory)
+				}
+
+				// Currency
+				currencyAdminRouter := adminRouter.Group("/currencies")
+				{
+					currencyAdminRouter.GET("", walletadmin.ListCurrencies)
+					currencyAdminRouter.POST("", walletadmin.CreateCurrency)
+					currencyAdminRouter.PUT("/:code", walletadmin.UpdateCurrency)
 				}
 
 				// Wallet
 				walletAdminRouter := adminRouter.Group("/wallet")
 				{
-					walletAdminRouter.GET("/currencies", admin.ListCurrencies)
-					walletAdminRouter.POST("/currencies", admin.CreateCurrency)
-					walletAdminRouter.PUT("/currencies/:code", admin.UpdateCurrency)
-					walletAdminRouter.GET("/transactions", admin.ListWalletTransactions)
+					walletAdminRouter.GET("/transactions", walletadmin.ListWalletTransactions)
 				}
 
 				// Item
 				itemAdminRouter := adminRouter.Group("/items")
 				{
-					itemAdminRouter.GET("", admin.ListItems)
-					itemAdminRouter.GET("/categories", admin.ListItemCategories)
-					itemAdminRouter.GET("/effects", admin.ListItemEffects)
-					itemAdminRouter.POST("", admin.CreateItem)
-					itemAdminRouter.PUT("/:id", admin.UpdateItem)
-					itemAdminRouter.DELETE("/:id", admin.DeleteItem)
+					itemAdminRouter.GET("", itemadmin.ListItems)
+					itemAdminRouter.GET("/categories", itemadmin.ListItemCategories)
+					itemAdminRouter.GET("/effects", itemadmin.ListItemEffects)
+					itemAdminRouter.POST("", itemadmin.CreateItem)
+					itemAdminRouter.PUT("/:id", itemadmin.UpdateItem)
+					itemAdminRouter.DELETE("/:id", itemadmin.DeleteItem)
 				}
 
 				// Quality
 				qualityAdminRouter := adminRouter.Group("/qualities")
 				{
-					qualityAdminRouter.GET("", admin.ListQualities)
-					qualityAdminRouter.POST("", admin.CreateQuality)
-					qualityAdminRouter.PUT("/:level", admin.UpdateQuality)
-					qualityAdminRouter.DELETE("/:level", admin.DeleteQuality)
+					qualityAdminRouter.GET("", itemadmin.ListQualities)
+					qualityAdminRouter.POST("", itemadmin.CreateQuality)
+					qualityAdminRouter.PUT("/:level", itemadmin.UpdateQuality)
+					qualityAdminRouter.DELETE("/:level", itemadmin.DeleteQuality)
 				}
 
 				// Loot
 				lootPoolAdminRouter := adminRouter.Group("/loot-pools")
 				{
-					lootPoolAdminRouter.GET("", admin.ListLootPools)
-					lootPoolAdminRouter.POST("", admin.CreateLootPool)
-					lootPoolAdminRouter.PUT("/:id", admin.UpdateLootPool)
-					lootPoolAdminRouter.DELETE("/:id", admin.DeleteLootPool)
-					lootPoolAdminRouter.GET("/:id/entries", admin.ListLootPoolEntries)
-					lootPoolAdminRouter.PUT("/:id/entries", admin.ReplaceLootPoolEntries)
+					lootPoolAdminRouter.GET("", lootadmin.ListLootPools)
+					lootPoolAdminRouter.POST("", lootadmin.CreateLootPool)
+					lootPoolAdminRouter.PUT("/:id", lootadmin.UpdateLootPool)
+					lootPoolAdminRouter.DELETE("/:id", lootadmin.DeleteLootPool)
+					lootPoolAdminRouter.GET("/:id/entries", lootadmin.ListLootPoolEntries)
+					lootPoolAdminRouter.PUT("/:id/entries", lootadmin.ReplaceLootPoolEntries)
 				}
 
 				// Venue
 				venueAdminRouter := adminRouter.Group("/venues")
 				{
-					venueAdminRouter.GET("", admin.ListVenues)
-					venueAdminRouter.POST("", admin.CreateVenue)
-					venueAdminRouter.POST("/simulate", ratelimit.ByUser("admin:venue_simulate", ratelimit.PerMinute(30)), admin.SimulateVenue)
-					venueAdminRouter.PUT("/:id", admin.UpdateVenue)
-					venueAdminRouter.DELETE("/:id", admin.DeleteVenue)
+					venueAdminRouter.GET("", venueadmin.ListVenues)
+					venueAdminRouter.POST("", venueadmin.CreateVenue)
+					venueAdminRouter.POST("/simulate", ratelimit.ByUser("admin:venue_simulate", ratelimit.PerMinute(30)), venueadmin.SimulateVenue)
+					venueAdminRouter.PUT("/:id", venueadmin.UpdateVenue)
+					venueAdminRouter.DELETE("/:id", venueadmin.DeleteVenue)
 				}
 
 				// Condition
 				conditionAdminRouter := adminRouter.Group("/conditions")
 				{
-					conditionAdminRouter.GET("/types", admin.ListConditionTypes)
+					conditionAdminRouter.GET("/types", conditionadmin.ListConditionTypes)
 				}
 
 				// Match
 				matchAdminRouter := adminRouter.Group("/matches")
 				{
-					matchAdminRouter.GET("", admin.ListMatches)
-					matchAdminRouter.GET("/:id/auction", admin.GetMatchAuction)
-					matchAdminRouter.POST("/:id/cancel", admin.CancelMatch)
+					matchAdminRouter.GET("", matchadmin.ListMatches)
+					matchAdminRouter.POST("/:id/cancel", matchadmin.CancelMatch)
+				}
+
+				// Auction
+				auctionAdminRouter := adminRouter.Group("/auctions")
+				{
+					auctionAdminRouter.GET("/:match_id", auctionadmin.GetAuction)
 				}
 
 				// Leaderboard
 				leaderboardAdminRouter := adminRouter.Group("/leaderboards")
 				{
-					leaderboardAdminRouter.GET("", admin.ListLeaderboards)
-					leaderboardAdminRouter.GET("/metrics", admin.ListLeaderboardMetrics)
-					leaderboardAdminRouter.POST("", admin.CreateLeaderboard)
-					leaderboardAdminRouter.PUT("/:id", admin.UpdateLeaderboard)
-					leaderboardAdminRouter.DELETE("/:id", admin.DeleteLeaderboard)
+					leaderboardAdminRouter.GET("", leaderboardadmin.ListLeaderboards)
+					leaderboardAdminRouter.GET("/metrics", leaderboardadmin.ListLeaderboardMetrics)
+					leaderboardAdminRouter.POST("", leaderboardadmin.CreateLeaderboard)
+					leaderboardAdminRouter.PUT("/:id", leaderboardadmin.UpdateLeaderboard)
+					leaderboardAdminRouter.DELETE("/:id", leaderboardadmin.DeleteLeaderboard)
 				}
 
 				// Season
 				seasonAdminRouter := adminRouter.Group("/seasons")
 				{
-					seasonAdminRouter.GET("", admin.ListSeasons)
-					seasonAdminRouter.POST("", admin.CreateSeason)
-					seasonAdminRouter.PUT("/:id", admin.UpdateSeason)
-					seasonAdminRouter.DELETE("/:id", admin.DeleteSeason)
-					seasonAdminRouter.POST("/:id/end", admin.EndSeason)
+					seasonAdminRouter.GET("", seasonadmin.ListSeasons)
+					seasonAdminRouter.POST("", seasonadmin.CreateSeason)
+					seasonAdminRouter.PUT("/:id", seasonadmin.UpdateSeason)
+					seasonAdminRouter.DELETE("/:id", seasonadmin.DeleteSeason)
+					seasonAdminRouter.POST("/:id/end", seasonadmin.EndSeason)
 				}
 
 				// Ranked
 				rankedTierAdminRouter := adminRouter.Group("/ranked/tiers")
 				{
-					rankedTierAdminRouter.GET("", admin.ListRankedTiers)
-					rankedTierAdminRouter.POST("", admin.CreateRankedTier)
-					rankedTierAdminRouter.PUT("/:id", admin.UpdateRankedTier)
-					rankedTierAdminRouter.DELETE("/:id", admin.DeleteRankedTier)
+					rankedTierAdminRouter.GET("", rankedadmin.ListRankedTiers)
+					rankedTierAdminRouter.POST("", rankedadmin.CreateRankedTier)
+					rankedTierAdminRouter.PUT("/:id", rankedadmin.UpdateRankedTier)
+					rankedTierAdminRouter.DELETE("/:id", rankedadmin.DeleteRankedTier)
 				}
 				rankedSuspectAdminRouter := adminRouter.Group("/ranked/suspects")
 				{
-					rankedSuspectAdminRouter.GET("", admin.ListRankedSuspects)
-					rankedSuspectAdminRouter.POST("/review", admin.ReviewRankedSuspect)
+					rankedSuspectAdminRouter.GET("", rankedadmin.ListRankedSuspects)
+					rankedSuspectAdminRouter.POST("/review", rankedadmin.ReviewRankedSuspect)
 				}
 
+				// Shop
 				shopAdminRouter := adminRouter.Group("/shop")
 				{
-					shopAdminRouter.GET("/items", admin.ListShopItems)
-					shopAdminRouter.POST("/items", admin.CreateShopItem)
-					shopAdminRouter.PUT("/items/:id", admin.UpdateShopItem)
-					shopAdminRouter.DELETE("/items/:id", admin.DeleteShopItem)
-					shopAdminRouter.GET("/orders", admin.ListShopOrders)
-					shopAdminRouter.POST("/orders/:id/refund", admin.RefundShopOrder)
+					shopAdminRouter.GET("/items", shopadmin.ListShopItems)
+					shopAdminRouter.POST("/items", shopadmin.CreateShopItem)
+					shopAdminRouter.PUT("/items/:id", shopadmin.UpdateShopItem)
+					shopAdminRouter.DELETE("/items/:id", shopadmin.DeleteShopItem)
+					shopAdminRouter.GET("/orders", shopadmin.ListShopOrders)
+					shopAdminRouter.POST("/orders/:id/refund", shopadmin.RefundShopOrder)
 				}
 
 				// Inventory
 				inventoryAdminRouter := adminRouter.Group("/inventory")
 				{
-					inventoryAdminRouter.GET("/transactions", admin.ListInventoryTransactions)
+					inventoryAdminRouter.GET("/transactions", inventoryadmin.ListInventoryTransactions)
 				}
 
 				// Settings
 				settingsAdminRouter := adminRouter.Group("/settings")
 				{
-					settingsAdminRouter.GET("", admin.ListSettings)
-					settingsAdminRouter.GET("/:key", admin.GetSetting)
-					settingsAdminRouter.PUT("/:key", admin.UpdateSetting)
-					settingsAdminRouter.GET("/:key/revisions", admin.ListSettingRevisions)
-					settingsAdminRouter.GET("/:key/revisions/:version", admin.GetSettingRevision)
-					settingsAdminRouter.POST("/:key/rollback", admin.RollbackSetting)
-					settingsAdminRouter.POST("/:key/reset", admin.ResetSetting)
-					settingsAdminRouter.POST("/mail/test", ratelimit.ByUser("admin:mail_test", ratelimit.PerMinute(5)), admin.TestMail)
+					settingsAdminRouter.GET("", settingsadmin.ListSettings)
+					settingsAdminRouter.GET("/:key", settingsadmin.GetSetting)
+					settingsAdminRouter.PUT("/:key", settingsadmin.UpdateSetting)
+					settingsAdminRouter.GET("/:key/revisions", settingsadmin.ListSettingRevisions)
+					settingsAdminRouter.GET("/:key/revisions/:version", settingsadmin.GetSettingRevision)
+					settingsAdminRouter.POST("/:key/rollback", settingsadmin.RollbackSetting)
+					settingsAdminRouter.POST("/:key/reset", settingsadmin.ResetSetting)
+					settingsAdminRouter.POST("/mail/test", ratelimit.ByUser("admin:mail_test", ratelimit.PerMinute(5)), settingsadmin.TestMail)
 				}
 
 				// Pack
 				packAdminRouter := adminRouter.Group("/packs")
 				{
-					packAdminRouter.POST("/export", ratelimit.ByUser("admin:pack_export", ratelimit.PerMinute(10)), admin.ExportPack)
-					packAdminRouter.POST("/preview", ratelimit.ByUser("admin:pack_import", ratelimit.PerMinute(20)), admin.PreviewPack)
-					packAdminRouter.POST("/import", ratelimit.ByUser("admin:pack_import", ratelimit.PerMinute(20)), admin.ImportPack)
-					packAdminRouter.GET("/imports", admin.ListPackImports)
-					packAdminRouter.GET("/imports/:id", admin.GetPackImport)
+					packAdminRouter.POST("/export", ratelimit.ByUser("admin:pack_export", ratelimit.PerMinute(10)), pack.ExportPack)
+					packAdminRouter.POST("/preview", ratelimit.ByUser("admin:pack_import", ratelimit.PerMinute(20)), pack.PreviewPack)
+					packAdminRouter.POST("/import", ratelimit.ByUser("admin:pack_import", ratelimit.PerMinute(20)), pack.ImportPack)
+					packAdminRouter.GET("/imports", pack.ListPackImports)
+					packAdminRouter.GET("/imports/:id", pack.GetPackImport)
 				}
 
 				// Audit Log
-				adminRouter.GET("/audit-logs", admin.ListAuditLogs)
+				adminRouter.GET("/audit-logs", auditadmin.ListAuditLogs)
 			}
 		}
 	}

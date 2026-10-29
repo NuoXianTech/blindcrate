@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package admin
+package pack
 
 import "time"
 

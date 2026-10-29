@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package admin
+package pack
 
 import (
 	"archive/zip"
@@ -46,13 +46,19 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/item/itemadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
+	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard/leaderboardadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
+	"github.com/NuoXianTech/blindcrate/internal/apps/loot/lootadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/shop"
+	"github.com/NuoXianTech/blindcrate/internal/apps/shop/shopadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
+	"github.com/NuoXianTech/blindcrate/internal/apps/venue/venueadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
+	"github.com/NuoXianTech/blindcrate/internal/apps/wallet/walletadmin"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/storage"
@@ -103,15 +109,15 @@ type PackPreview struct {
 type (
 	packCurrency struct {
 		Code string `json:"code" binding:"required,max=32"`
-		CurrencyRequest
+		walletadmin.CurrencyRequest
 	}
 	packItem struct {
 		ID uint64 `json:"id" binding:"required"` // 物品以 ID 对应, 导入时沿用
-		ItemRequest
+		itemadmin.ItemRequest
 	}
 	packLootPool struct {
-		LootPoolRequest
-		Entries []LootPoolEntryRequest `json:"entries" binding:"dive"`
+		lootadmin.LootPoolRequest
+		Entries []lootadmin.LootPoolEntryRequest `json:"entries" binding:"dive"`
 	}
 )
 
@@ -121,12 +127,12 @@ type pack struct {
 	digest       string
 	size         int64
 	currencies   []packCurrency
-	qualities    []CreateQualityRequest
+	qualities    []itemadmin.CreateQualityRequest
 	items        []packItem
 	lootPools    []packLootPool
-	venues       []VenueRequest
-	shopItems    []ShopItemRequest
-	leaderboards []LeaderboardRequest
+	venues       []venueadmin.VenueRequest
+	shopItems    []shopadmin.ShopItemRequest
+	leaderboards []leaderboardadmin.LeaderboardRequest
 	settings     map[string]json.RawMessage // 按设置组的 key
 	images       map[string]*zip.File       // 按包中的路径, 如 images/item/ab/abcd.png
 }
@@ -217,7 +223,7 @@ func utcMinute(t *time.Time) *time.Time {
 }
 
 func currencyPack(c *wallet.Currency) packCurrency {
-	return packCurrency{Code: c.Code, CurrencyRequest: CurrencyRequest{
+	return packCurrency{Code: c.Code, CurrencyRequest: walletadmin.CurrencyRequest{
 		Name:      c.Name,
 		Decimals:  c.Decimals,
 		SortOrder: c.SortOrder,
@@ -225,8 +231,8 @@ func currencyPack(c *wallet.Currency) packCurrency {
 	}}
 }
 
-func qualityPack(q *item.Quality) CreateQualityRequest {
-	return CreateQualityRequest{Level: q.Level, Code: q.Code, QualityRequest: QualityRequest{
+func qualityPack(q *item.Quality) itemadmin.CreateQualityRequest {
+	return itemadmin.CreateQualityRequest{Level: q.Level, Code: q.Code, QualityRequest: itemadmin.QualityRequest{
 		Name:      q.Name,
 		Color:     q.Color,
 		Effect:    q.Effect,
@@ -236,7 +242,7 @@ func qualityPack(q *item.Quality) CreateQualityRequest {
 }
 
 func itemPack(it *item.Item, image func(string) string) packItem {
-	return packItem{ID: it.ID, ItemRequest: ItemRequest{
+	return packItem{ID: it.ID, ItemRequest: itemadmin.ItemRequest{
 		Code:         it.Code,
 		Name:         it.Name,
 		Description:  it.Description,
@@ -255,11 +261,11 @@ func itemPack(it *item.Item, image func(string) string) packItem {
 
 func lootPoolPack(pool *loot.Pool, entries []loot.Entry) packLootPool {
 	result := packLootPool{
-		LootPoolRequest: LootPoolRequest{Code: pool.Code, Name: pool.Name, Description: pool.Description, IsEnabled: pool.IsEnabled},
-		Entries:         make([]LootPoolEntryRequest, len(entries)),
+		LootPoolRequest: lootadmin.LootPoolRequest{Code: pool.Code, Name: pool.Name, Description: pool.Description, IsEnabled: pool.IsEnabled},
+		Entries:         make([]lootadmin.LootPoolEntryRequest, len(entries)),
 	}
 	for i, entry := range entries {
-		result.Entries[i] = LootPoolEntryRequest{
+		result.Entries[i] = lootadmin.LootPoolEntryRequest{
 			ItemID:      entry.ItemID,
 			Currency:    entry.Currency,
 			Weight:      entry.Weight,
@@ -270,8 +276,8 @@ func lootPoolPack(pool *loot.Pool, entries []loot.Entry) packLootPool {
 	return result
 }
 
-func venuePack(v *venue.Venue, image func(string) string) VenueRequest {
-	return VenueRequest{
+func venuePack(v *venue.Venue, image func(string) string) venueadmin.VenueRequest {
+	return venueadmin.VenueRequest{
 		Code:          v.Code,
 		Name:          v.Name,
 		Description:   v.Description,
@@ -291,8 +297,8 @@ func venuePack(v *venue.Venue, image func(string) string) VenueRequest {
 	}
 }
 
-func shopItemPack(it *shop.Item, image func(string) string) ShopItemRequest {
-	return ShopItemRequest{
+func shopItemPack(it *shop.Item, image func(string) string) shopadmin.ShopItemRequest {
+	return shopadmin.ShopItemRequest{
 		Code:          it.Code,
 		Name:          it.Name,
 		Description:   it.Description,
@@ -311,8 +317,8 @@ func shopItemPack(it *shop.Item, image func(string) string) ShopItemRequest {
 	}
 }
 
-func leaderboardPack(b *leaderboard.Board) LeaderboardRequest {
-	return LeaderboardRequest{
+func leaderboardPack(b *leaderboard.Board) leaderboardadmin.LeaderboardRequest {
+	return leaderboardadmin.LeaderboardRequest{
 		Code:        b.Code,
 		Name:        b.Name,
 		Description: b.Description,
@@ -425,7 +431,7 @@ func doExportPack(ctx context.Context, req *ExportPackRequest) ([]byte, map[stri
 				if err := tx.Order("level").Find(&rows).Error; err != nil {
 					return err
 				}
-				list := make([]CreateQualityRequest, len(rows))
+				list := make([]itemadmin.CreateQualityRequest, len(rows))
 				for i := range rows {
 					list[i] = qualityPack(&rows[i])
 				}
@@ -465,7 +471,7 @@ func doExportPack(ctx context.Context, req *ExportPackRequest) ([]byte, map[stri
 				if err := tx.Order("sort_order, id").Find(&rows).Error; err != nil {
 					return err
 				}
-				list := make([]VenueRequest, len(rows))
+				list := make([]venueadmin.VenueRequest, len(rows))
 				for i := range rows {
 					list[i] = venuePack(&rows[i], ex.image)
 				}
@@ -475,7 +481,7 @@ func doExportPack(ctx context.Context, req *ExportPackRequest) ([]byte, map[stri
 				if err := tx.Order("sort_order, id").Find(&rows).Error; err != nil {
 					return err
 				}
-				list := make([]ShopItemRequest, len(rows))
+				list := make([]shopadmin.ShopItemRequest, len(rows))
 				for i := range rows {
 					list[i] = shopItemPack(&rows[i], ex.image)
 				}
@@ -485,7 +491,7 @@ func doExportPack(ctx context.Context, req *ExportPackRequest) ([]byte, map[stri
 				if err := tx.Order("sort_order, id").Find(&rows).Error; err != nil {
 					return err
 				}
-				list := make([]LeaderboardRequest, len(rows))
+				list := make([]leaderboardadmin.LeaderboardRequest, len(rows))
 				for i := range rows {
 					list[i] = leaderboardPack(&rows[i])
 				}
@@ -943,7 +949,7 @@ func (r *packRun) currencyEntry(req *packCurrency) *packEntry {
 			}
 			if !exists {
 				target := &wallet.Currency{Code: req.Code}
-				applyCurrency(target, &req.CurrencyRequest)
+				walletadmin.ApplyCurrency(target, &req.CurrencyRequest)
 				if err := wallet.ValidateCurrency(target); err != nil {
 					return err
 				}
@@ -953,8 +959,8 @@ func (r *packRun) currencyEntry(req *packCurrency) *packEntry {
 				return err
 			}
 			old := current
-			applyCurrency(&current, &req.CurrencyRequest)
-			if err := checkCurrencyChange(tx, &old, &current); err != nil {
+			walletadmin.ApplyCurrency(&current, &req.CurrencyRequest)
+			if err := walletadmin.CheckCurrencyChange(tx, &old, &current); err != nil {
 				return err
 			}
 			return tx.Save(&current).Error
@@ -962,7 +968,7 @@ func (r *packRun) currencyEntry(req *packCurrency) *packEntry {
 	}
 }
 
-func (r *packRun) qualityEntry(req *CreateQualityRequest) *packEntry {
+func (r *packRun) qualityEntry(req *itemadmin.CreateQualityRequest) *packEntry {
 	var current item.Quality
 	return &packEntry{
 		section: PackQualities,
@@ -985,15 +991,15 @@ func (r *packRun) qualityEntry(req *CreateQualityRequest) *packEntry {
 			}
 			if !exists {
 				target := &item.Quality{Level: req.Level, Code: req.Code}
-				if err := applyQuality(target, &req.QualityRequest); err != nil {
+				if err := itemadmin.ApplyQuality(target, &req.QualityRequest); err != nil {
 					return err
 				}
 				return tx.Create(target).Error
 			}
-			if err := lockQuality(tx, &current, req.Level); err != nil {
+			if err := itemadmin.LockQuality(tx, &current, req.Level); err != nil {
 				return err
 			}
-			if err := applyQuality(&current, &req.QualityRequest); err != nil {
+			if err := itemadmin.ApplyQuality(&current, &req.QualityRequest); err != nil {
 				return err
 			}
 			return tx.Save(&current).Error
@@ -1037,7 +1043,7 @@ func (r *packRun) itemEntry(req *packItem) *packEntry {
 			}
 			if !exists {
 				target := &item.Item{ID: req.ID}
-				if err := applyItem(tx, target, &next); err != nil {
+				if err := itemadmin.ApplyItem(tx, target, &next); err != nil {
 					return err
 				}
 				if !r.dryRun {
@@ -1048,10 +1054,10 @@ func (r *packRun) itemEntry(req *packItem) *packEntry {
 				}
 				return tx.Create(target).Error
 			}
-			if err := lockItem(tx, &current, req.ID); err != nil {
+			if err := itemadmin.LockItem(tx, &current, req.ID); err != nil {
 				return err
 			}
-			if err := applyItem(tx, &current, &next); err != nil {
+			if err := itemadmin.ApplyItem(tx, &current, &next); err != nil {
 				return err
 			}
 			return tx.Save(&current).Error
@@ -1096,22 +1102,22 @@ func (r *packRun) lootPoolEntry(req *packLootPool) *packEntry {
 			}
 			target := &loot.Pool{}
 			if exists {
-				if err := lockLootPool(tx, &current, current.ID); err != nil {
+				if err := lootadmin.LockLootPool(tx, &current, current.ID); err != nil {
 					return err
 				}
 				target = &current
 			}
-			if err := applyLootPool(target, &req.LootPoolRequest); err != nil {
+			if err := lootadmin.ApplyLootPool(target, &req.LootPoolRequest); err != nil {
 				return err
 			}
 			if err := tx.Save(target).Error; err != nil {
 				return err
 			}
-			entries, err := buildLootEntries(target.ID, req.Entries)
+			entries, err := lootadmin.BuildLootEntries(target.ID, req.Entries)
 			if err != nil {
 				return err
 			}
-			if err := checkLootTargets(tx, entries); err != nil {
+			if err := lootadmin.CheckLootTargets(tx, entries); err != nil {
 				return err
 			}
 			if err := tx.Where("pool_id = ?", target.ID).Delete(&loot.Entry{}).Error; err != nil {
@@ -1125,7 +1131,7 @@ func (r *packRun) lootPoolEntry(req *packLootPool) *packEntry {
 	}
 }
 
-func (r *packRun) venueEntry(req *VenueRequest) *packEntry {
+func (r *packRun) venueEntry(req *venueadmin.VenueRequest) *packEntry {
 	var current venue.Venue
 	return &packEntry{
 		section: PackVenues,
@@ -1174,12 +1180,12 @@ func (r *packRun) venueEntry(req *VenueRequest) *packEntry {
 			}
 			target := &venue.Venue{}
 			if exists {
-				if err := lockVenue(tx, &current, current.ID); err != nil {
+				if err := venueadmin.LockVenue(tx, &current, current.ID); err != nil {
 					return err
 				}
 				target = &current
 			}
-			applyVenue(target, &next)
+			venueadmin.ApplyVenue(target, &next)
 			if err := venue.Validate(tx, target); err != nil {
 				return err
 			}
@@ -1188,7 +1194,7 @@ func (r *packRun) venueEntry(req *VenueRequest) *packEntry {
 	}
 }
 
-func (r *packRun) shopItemEntry(req *ShopItemRequest) *packEntry {
+func (r *packRun) shopItemEntry(req *shopadmin.ShopItemRequest) *packEntry {
 	var current shop.Item
 	return &packEntry{
 		section: PackShopItems,
@@ -1228,13 +1234,13 @@ func (r *packRun) shopItemEntry(req *ShopItemRequest) *packEntry {
 			}
 			target := &shop.Item{}
 			if exists {
-				if err := lockShopItem(tx, &current, current.ID); err != nil {
+				if err := shopadmin.LockShopItem(tx, &current, current.ID); err != nil {
 					return err
 				}
 				// 剩余库存随玩家购买变化, 不随配置覆盖
 				target, next.Stock = &current, current.Stock
 			}
-			applyShopItem(target, &next)
+			shopadmin.ApplyShopItem(target, &next)
 			if err := shop.Validate(tx, target); err != nil {
 				return err
 			}
@@ -1243,7 +1249,7 @@ func (r *packRun) shopItemEntry(req *ShopItemRequest) *packEntry {
 	}
 }
 
-func (r *packRun) leaderboardEntry(req *LeaderboardRequest) *packEntry {
+func (r *packRun) leaderboardEntry(req *leaderboardadmin.LeaderboardRequest) *packEntry {
 	var current leaderboard.Board
 	return &packEntry{
 		section: PackLeaderboards,
@@ -1264,12 +1270,12 @@ func (r *packRun) leaderboardEntry(req *LeaderboardRequest) *packEntry {
 			}
 			target := &leaderboard.Board{}
 			if exists {
-				if err := lockLeaderboard(tx, &current, current.ID); err != nil {
+				if err := leaderboardadmin.LockLeaderboard(tx, &current, current.ID); err != nil {
 					return err
 				}
 				target = &current
 			}
-			if err := applyLeaderboard(tx, target, req); err != nil {
+			if err := leaderboardadmin.ApplyLeaderboard(tx, target, req); err != nil {
 				return err
 			}
 			return tx.Save(target).Error

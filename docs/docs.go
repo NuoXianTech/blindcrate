@@ -15,6 +15,77 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/admin/auctions/{match_id}": {
+            "get": {
+                "description": "与玩家看到的公开部分相同, 附带每个座位的带入资金、出价、估值和盈亏",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取一局暗拍的详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "match id",
+                        "name": "match_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/auctionadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auction.AdminView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/auctionadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/auctionadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/auctionadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/auctionadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/auctionadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/audit-logs": {
             "get": {
                 "description": "包含用户和管理员的操作",
@@ -89,13 +160,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/auditadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListAuditLogsResponseData"
+                                            "$ref": "#/definitions/auditadmin.ListAuditLogsResponseData"
                                         }
                                     }
                                 }
@@ -105,25 +176,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/auditadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/auditadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/auditadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/auditadmin.Response"
                         }
                     }
                 }
@@ -145,13 +216,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/conditionadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListConditionTypesResponseData"
+                                            "$ref": "#/definitions/conditionadmin.ListConditionTypesResponseData"
                                         }
                                     }
                                 }
@@ -161,13 +232,225 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/conditionadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/conditionadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/currencies": {
+            "get": {
+                "description": "包含已停用的货币",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取全部货币定义",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/walletadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/walletadmin.ListCurrenciesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "新建货币",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.CreateCurrencyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/walletadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wallet.Currency"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/currencies/{code}": {
+            "put": {
+                "description": "需提交全部字段, 代码不能修改; 已被余额、物品、地图或掉落池使用的货币不能修改小数位, 基础货币不能停用",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "修改货币",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "currency code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.CurrencyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/walletadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wallet.Currency"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     }
                 }
@@ -242,13 +525,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/inventoryadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListInventoryTransactionsResponseData"
+                                            "$ref": "#/definitions/inventoryadmin.ListInventoryTransactionsResponseData"
                                         }
                                     }
                                 }
@@ -258,25 +541,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/inventoryadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/inventoryadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/inventoryadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/inventoryadmin.Response"
                         }
                     }
                 }
@@ -339,13 +622,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/itemadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListItemsResponseData"
+                                            "$ref": "#/definitions/itemadmin.ListItemsResponseData"
                                         }
                                     }
                                 }
@@ -355,25 +638,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     }
                 }
@@ -396,7 +679,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemRequest"
+                            "$ref": "#/definitions/itemadmin.ItemRequest"
                         }
                     }
                 ],
@@ -406,7 +689,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/itemadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -422,31 +705,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     }
                 }
@@ -468,13 +751,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/itemadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListItemCategoriesResponseData"
+                                            "$ref": "#/definitions/itemadmin.ListItemCategoriesResponseData"
                                         }
                                     }
                                 }
@@ -484,13 +767,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     }
                 }
@@ -512,13 +795,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/itemadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListItemEffectsResponseData"
+                                            "$ref": "#/definitions/itemadmin.ListItemEffectsResponseData"
                                         }
                                     }
                                 }
@@ -528,13 +811,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     }
                 }
@@ -567,7 +850,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.ItemRequest"
+                            "$ref": "#/definitions/itemadmin.ItemRequest"
                         }
                     }
                 ],
@@ -577,7 +860,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/itemadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -593,37 +876,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     }
                 }
@@ -652,13 +935,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/itemadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.DeleteItemResponseData"
+                                            "$ref": "#/definitions/itemadmin.DeleteItemResponseData"
                                         }
                                     }
                                 }
@@ -668,31 +951,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     }
                 }
@@ -741,13 +1024,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/leaderboardadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListLeaderboardsResponseData"
+                                            "$ref": "#/definitions/leaderboardadmin.ListLeaderboardsResponseData"
                                         }
                                     }
                                 }
@@ -757,25 +1040,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     }
                 }
@@ -798,7 +1081,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.LeaderboardRequest"
+                            "$ref": "#/definitions/leaderboardadmin.LeaderboardRequest"
                         }
                     }
                 ],
@@ -808,7 +1091,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/leaderboardadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -824,31 +1107,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     }
                 }
@@ -870,13 +1153,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/leaderboardadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListLeaderboardMetricsResponseData"
+                                            "$ref": "#/definitions/leaderboardadmin.ListLeaderboardMetricsResponseData"
                                         }
                                     }
                                 }
@@ -886,19 +1169,19 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     }
                 }
@@ -931,7 +1214,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.LeaderboardRequest"
+                            "$ref": "#/definitions/leaderboardadmin.LeaderboardRequest"
                         }
                     }
                 ],
@@ -941,7 +1224,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/leaderboardadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -957,37 +1240,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     }
                 }
@@ -1014,37 +1297,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/leaderboardadmin.Response"
                         }
                     }
                 }
@@ -1092,13 +1375,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/lootadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListLootPoolsResponseData"
+                                            "$ref": "#/definitions/lootadmin.ListLootPoolsResponseData"
                                         }
                                     }
                                 }
@@ -1108,25 +1391,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     }
                 }
@@ -1150,7 +1433,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.LootPoolRequest"
+                            "$ref": "#/definitions/lootadmin.LootPoolRequest"
                         }
                     }
                 ],
@@ -1160,7 +1443,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/lootadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -1176,31 +1459,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     }
                 }
@@ -1233,7 +1516,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.LootPoolRequest"
+                            "$ref": "#/definitions/lootadmin.LootPoolRequest"
                         }
                     }
                 ],
@@ -1243,7 +1526,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/lootadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -1259,37 +1542,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     }
                 }
@@ -1318,13 +1601,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/lootadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.DeleteLootPoolResponseData"
+                                            "$ref": "#/definitions/lootadmin.DeleteLootPoolResponseData"
                                         }
                                     }
                                 }
@@ -1334,31 +1617,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     }
                 }
@@ -1389,13 +1672,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/lootadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.LootPoolEntriesResponseData"
+                                            "$ref": "#/definitions/lootadmin.LootPoolEntriesResponseData"
                                         }
                                     }
                                 }
@@ -1405,31 +1688,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     }
                 }
@@ -1460,7 +1743,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.ReplaceLootPoolEntriesRequest"
+                            "$ref": "#/definitions/lootadmin.ReplaceLootPoolEntriesRequest"
                         }
                     }
                 ],
@@ -1470,13 +1753,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/lootadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.LootPoolEntriesResponseData"
+                                            "$ref": "#/definitions/lootadmin.LootPoolEntriesResponseData"
                                         }
                                     }
                                 }
@@ -1486,31 +1769,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/lootadmin.Response"
                         }
                     }
                 }
@@ -1583,13 +1866,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/matchadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListMatchesResponseData"
+                                            "$ref": "#/definitions/matchadmin.ListMatchesResponseData"
                                         }
                                     }
                                 }
@@ -1599,96 +1882,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/matchadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/matchadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/matchadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/admin/matches/{id}/auction": {
-            "get": {
-                "description": "与玩家看到的公开部分相同, 附带每个座位的带入资金、出价、估值和盈亏",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "获取一局暗拍的详情",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "match id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/admin.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/auction.AdminView"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/matchadmin.Response"
                         }
                     }
                 }
@@ -1721,7 +1933,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.CancelMatchRequest"
+                            "$ref": "#/definitions/matchadmin.CancelMatchRequest"
                         }
                     }
                 ],
@@ -1731,7 +1943,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/matchadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -1747,37 +1959,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/matchadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/matchadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/matchadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/matchadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/matchadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/matchadmin.Response"
                         }
                     }
                 }
@@ -1803,7 +2015,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.ExportPackRequest"
+                            "$ref": "#/definitions/pack.ExportPackRequest"
                         }
                     }
                 ],
@@ -1817,31 +2029,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     }
                 }
@@ -1881,13 +2093,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/pack.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.Import"
+                                            "$ref": "#/definitions/pack.Import"
                                         }
                                     }
                                 }
@@ -1897,19 +2109,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "409": {
@@ -1917,7 +2129,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/pack.Response"
                                 },
                                 {
                                     "type": "object",
@@ -1925,7 +2137,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/admin.PackEntryResult"
+                                                "$ref": "#/definitions/pack.PackEntryResult"
                                             }
                                         }
                                     }
@@ -1936,19 +2148,19 @@ const docTemplate = `{
                     "413": {
                         "description": "Request Entity Too Large",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     }
                 }
@@ -1985,13 +2197,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/pack.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListPackImportsResponseData"
+                                            "$ref": "#/definitions/pack.ListPackImportsResponseData"
                                         }
                                     }
                                 }
@@ -2001,25 +2213,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     }
                 }
@@ -2050,13 +2262,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/pack.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.Import"
+                                            "$ref": "#/definitions/pack.Import"
                                         }
                                     }
                                 }
@@ -2066,31 +2278,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     }
                 }
@@ -2130,13 +2342,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/pack.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.PackPreview"
+                                            "$ref": "#/definitions/pack.PackPreview"
                                         }
                                     }
                                 }
@@ -2146,37 +2358,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "413": {
                         "description": "Request Entity Too Large",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/pack.Response"
                         }
                     }
                 }
@@ -2198,13 +2410,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/itemadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListQualitiesResponseData"
+                                            "$ref": "#/definitions/itemadmin.ListQualitiesResponseData"
                                         }
                                     }
                                 }
@@ -2214,19 +2426,19 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     }
                 }
@@ -2249,7 +2461,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.CreateQualityRequest"
+                            "$ref": "#/definitions/itemadmin.CreateQualityRequest"
                         }
                     }
                 ],
@@ -2259,7 +2471,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/itemadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -2275,31 +2487,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     }
                 }
@@ -2332,7 +2544,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.QualityRequest"
+                            "$ref": "#/definitions/itemadmin.QualityRequest"
                         }
                     }
                 ],
@@ -2342,7 +2554,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/itemadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -2358,31 +2570,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     }
                 }
@@ -2409,43 +2621,43 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/itemadmin.Response"
                         }
                     }
                 }
@@ -2488,13 +2700,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/rankedadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListRankedSuspectsResponseData"
+                                            "$ref": "#/definitions/rankedadmin.ListRankedSuspectsResponseData"
                                         }
                                     }
                                 }
@@ -2504,25 +2716,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     }
                 }
@@ -2548,7 +2760,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.ReviewRankedSuspectRequest"
+                            "$ref": "#/definitions/rankedadmin.ReviewRankedSuspectRequest"
                         }
                     }
                 ],
@@ -2558,7 +2770,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/rankedadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -2574,25 +2786,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     }
                 }
@@ -2614,13 +2826,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/rankedadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListRankedTiersResponseData"
+                                            "$ref": "#/definitions/rankedadmin.ListRankedTiersResponseData"
                                         }
                                     }
                                 }
@@ -2630,19 +2842,19 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     }
                 }
@@ -2665,7 +2877,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.RankedTierRequest"
+                            "$ref": "#/definitions/rankedadmin.RankedTierRequest"
                         }
                     }
                 ],
@@ -2675,7 +2887,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/rankedadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -2691,31 +2903,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     }
                 }
@@ -2748,7 +2960,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.RankedTierRequest"
+                            "$ref": "#/definitions/rankedadmin.RankedTierRequest"
                         }
                     }
                 ],
@@ -2758,7 +2970,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/rankedadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -2774,37 +2986,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     }
                 }
@@ -2831,37 +3043,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/rankedadmin.Response"
                         }
                     }
                 }
@@ -2917,13 +3129,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/seasonadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListSeasonsResponseData"
+                                            "$ref": "#/definitions/seasonadmin.ListSeasonsResponseData"
                                         }
                                     }
                                 }
@@ -2933,25 +3145,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     }
                 }
@@ -2975,7 +3187,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.CreateSeasonRequest"
+                            "$ref": "#/definitions/seasonadmin.CreateSeasonRequest"
                         }
                     }
                 ],
@@ -2985,7 +3197,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/seasonadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -3001,31 +3213,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     }
                 }
@@ -3058,7 +3270,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.SeasonRequest"
+                            "$ref": "#/definitions/seasonadmin.SeasonRequest"
                         }
                     }
                 ],
@@ -3068,7 +3280,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/seasonadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -3084,37 +3296,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     }
                 }
@@ -3141,43 +3353,43 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     }
                 }
@@ -3208,7 +3420,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/seasonadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -3224,37 +3436,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/seasonadmin.Response"
                         }
                     }
                 }
@@ -3288,13 +3500,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/settingsadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListSettingsResponseData"
+                                            "$ref": "#/definitions/settingsadmin.ListSettingsResponseData"
                                         }
                                     }
                                 }
@@ -3304,25 +3516,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     }
                 }
@@ -3348,7 +3560,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.TestMailRequest"
+                            "$ref": "#/definitions/settingsadmin.TestMailRequest"
                         }
                     }
                 ],
@@ -3356,43 +3568,43 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "502": {
                         "description": "Bad Gateway",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     }
                 }
@@ -3422,7 +3634,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/settingsadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -3438,25 +3650,25 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     }
                 }
@@ -3487,7 +3699,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateSettingRequest"
+                            "$ref": "#/definitions/settingsadmin.UpdateSettingRequest"
                         }
                     }
                 ],
@@ -3497,7 +3709,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/settingsadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -3513,37 +3725,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     }
                 }
@@ -3576,7 +3788,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.ResetSettingRequest"
+                            "$ref": "#/definitions/settingsadmin.ResetSettingRequest"
                         }
                     }
                 ],
@@ -3586,7 +3798,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/settingsadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -3602,37 +3814,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     }
                 }
@@ -3676,13 +3888,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/settingsadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListSettingRevisionsResponseData"
+                                            "$ref": "#/definitions/settingsadmin.ListSettingRevisionsResponseData"
                                         }
                                     }
                                 }
@@ -3692,31 +3904,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     }
                 }
@@ -3754,7 +3966,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/settingsadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -3770,31 +3982,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     }
                 }
@@ -3827,7 +4039,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.RollbackSettingRequest"
+                            "$ref": "#/definitions/settingsadmin.RollbackSettingRequest"
                         }
                     }
                 ],
@@ -3837,7 +4049,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/settingsadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -3853,37 +4065,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/settingsadmin.Response"
                         }
                     }
                 }
@@ -3939,13 +4151,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/shopadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListShopItemsResponseData"
+                                            "$ref": "#/definitions/shopadmin.ListShopItemsResponseData"
                                         }
                                     }
                                 }
@@ -3955,25 +4167,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     }
                 }
@@ -3996,7 +4208,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.ShopItemRequest"
+                            "$ref": "#/definitions/shopadmin.ShopItemRequest"
                         }
                     }
                 ],
@@ -4006,7 +4218,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/shopadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -4022,31 +4234,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     }
                 }
@@ -4079,7 +4291,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.ShopItemRequest"
+                            "$ref": "#/definitions/shopadmin.ShopItemRequest"
                         }
                     }
                 ],
@@ -4089,7 +4301,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/shopadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -4105,31 +4317,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     }
                 }
@@ -4156,37 +4368,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     }
                 }
@@ -4254,13 +4466,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/shopadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListShopOrdersResponseData"
+                                            "$ref": "#/definitions/shopadmin.ListShopOrdersResponseData"
                                         }
                                     }
                                 }
@@ -4270,25 +4482,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     }
                 }
@@ -4319,7 +4531,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/shopadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -4335,37 +4547,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/shopadmin.Response"
                         }
                     }
                 }
@@ -4423,13 +4635,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/authadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListUsersResponseData"
+                                            "$ref": "#/definitions/authadmin.ListUsersResponseData"
                                         }
                                     }
                                 }
@@ -4439,25 +4651,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     }
                 }
@@ -4489,7 +4701,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.UpdateUserRequest"
+                            "$ref": "#/definitions/authadmin.UpdateUserRequest"
                         }
                     }
                 ],
@@ -4499,7 +4711,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/authadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -4515,37 +4727,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     }
                 }
@@ -4578,7 +4790,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.BanUserRequest"
+                            "$ref": "#/definitions/authadmin.BanUserRequest"
                         }
                     }
                 ],
@@ -4586,37 +4798,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     }
                 }
@@ -4642,37 +4854,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     }
                 }
@@ -4705,7 +4917,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.SetUserDisabledRequest"
+                            "$ref": "#/definitions/authadmin.SetUserDisabledRequest"
                         }
                     }
                 ],
@@ -4713,43 +4925,132 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/authadmin.Response"
                         }
                     }
                 }
             }
         },
-        "/api/v1/admin/users/{id}/inventory": {
+        "/api/v1/admin/users/{id}/inventory/adjust": {
+            "post": {
+                "description": "写入一条 admin_adjust 流水, 不能给自己调整; 重复提交返回原流水",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "给用户发放或扣除物品",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "user id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/inventoryadmin.AdjustUserInventoryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/inventoryadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/inventory.Transaction"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/inventoryadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/inventoryadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/inventoryadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/inventoryadmin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/inventoryadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/inventoryadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/users/{id}/inventory/items": {
             "get": {
                 "produces": [
                     "application/json"
@@ -4793,13 +5094,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/inventoryadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListUserInventoryResponseData"
+                                            "$ref": "#/definitions/inventoryadmin.ListUserInventoryResponseData"
                                         }
                                     }
                                 }
@@ -4809,120 +5110,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/inventoryadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/inventoryadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/inventoryadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/inventoryadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/admin/users/{id}/inventory/adjust": {
-            "post": {
-                "description": "写入一条 admin_adjust 流水, 不能给自己调整; 重复提交返回原流水",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "给用户发放或扣除物品",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "user id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "request body",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserInventoryRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/admin.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/inventory.Transaction"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/inventoryadmin.Response"
                         }
                     }
                 }
@@ -4955,7 +5167,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.AdjustUserBalanceRequest"
+                            "$ref": "#/definitions/walletadmin.AdjustUserBalanceRequest"
                         }
                     }
                 ],
@@ -4965,7 +5177,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/walletadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -4981,37 +5193,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     }
                 }
@@ -5042,13 +5254,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/walletadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListUserBalancesResponseData"
+                                            "$ref": "#/definitions/walletadmin.ListUserBalancesResponseData"
                                         }
                                     }
                                 }
@@ -5058,31 +5270,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     }
                 }
@@ -5131,13 +5343,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/venueadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListVenuesResponseData"
+                                            "$ref": "#/definitions/venueadmin.ListVenuesResponseData"
                                         }
                                     }
                                 }
@@ -5147,25 +5359,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     }
                 }
@@ -5189,7 +5401,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.VenueRequest"
+                            "$ref": "#/definitions/venueadmin.VenueRequest"
                         }
                     }
                 ],
@@ -5199,7 +5411,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/venueadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -5215,31 +5427,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     }
                 }
@@ -5265,7 +5477,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.VenueRequest"
+                            "$ref": "#/definitions/venueadmin.VenueRequest"
                         }
                     }
                 ],
@@ -5275,7 +5487,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/venueadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -5291,31 +5503,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     }
                 }
@@ -5348,7 +5560,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.VenueRequest"
+                            "$ref": "#/definitions/venueadmin.VenueRequest"
                         }
                     }
                 ],
@@ -5358,7 +5570,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/venueadmin.Response"
                                 },
                                 {
                                     "type": "object",
@@ -5374,31 +5586,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     }
                 }
@@ -5425,249 +5637,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/admin/wallet/currencies": {
-            "get": {
-                "description": "包含已停用的货币",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "获取全部货币定义",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/admin.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/admin.ListCurrenciesResponseData"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "新建货币",
-                "parameters": [
-                    {
-                        "description": "request body",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/admin.CreateCurrencyRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/admin.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/wallet.Currency"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/admin/wallet/currencies/{code}": {
-            "put": {
-                "description": "需提交全部字段, 代码不能修改; 已被余额、物品、地图或掉落池使用的货币不能修改小数位, 基础货币不能停用",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "修改货币",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "currency code",
-                        "name": "code",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "request body",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/admin.CurrencyRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/admin.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/wallet.Currency"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/venueadmin.Response"
                         }
                     }
                 }
@@ -5743,13 +5743,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/admin.Response"
+                                    "$ref": "#/definitions/walletadmin.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/admin.ListWalletTransactionsResponseData"
+                                            "$ref": "#/definitions/walletadmin.ListWalletTransactionsResponseData"
                                         }
                                     }
                                 }
@@ -5759,25 +5759,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/admin.Response"
+                            "$ref": "#/definitions/walletadmin.Response"
                         }
                     }
                 }
@@ -8248,1744 +8248,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "admin.AdjustUserBalanceRequest": {
-            "type": "object",
-            "required": [
-                "amount",
-                "currency",
-                "idempotency_key",
-                "remark"
-            ],
-            "properties": {
-                "amount": {
-                    "description": "正数加款, 负数扣款, 扣款后余额不能为负",
-                    "type": "integer"
-                },
-                "currency": {
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "idempotency_key": {
-                    "description": "每次打开调账表单生成一个, 重复提交只生效一次",
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "remark": {
-                    "description": "调账原因, 用户可在流水中看到",
-                    "type": "string"
-                }
-            }
-        },
-        "admin.AdjustUserInventoryRequest": {
-            "type": "object",
-            "required": [
-                "idempotency_key",
-                "item_id",
-                "quantity",
-                "remark"
-            ],
-            "properties": {
-                "idempotency_key": {
-                    "description": "每次打开表单生成一个, 重复提交只生效一次",
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "item_id": {
-                    "type": "integer"
-                },
-                "quantity": {
-                    "description": "正数发放, 负数扣除, 扣除后数量不能为负",
-                    "type": "integer"
-                },
-                "remark": {
-                    "description": "调整原因, 用户可在流水中看到",
-                    "type": "string"
-                }
-            }
-        },
-        "admin.AuditLogItem": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "actor_id": {
-                    "type": "integer"
-                },
-                "actor_username": {
-                    "description": "操作人用户名, 未登录或用户已不存在时为空",
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "detail": {
-                    "type": "object"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "ip": {
-                    "type": "string"
-                },
-                "scope": {
-                    "type": "string"
-                },
-                "target_id": {
-                    "type": "integer"
-                },
-                "target_type": {
-                    "type": "string"
-                },
-                "user_agent": {
-                    "type": "string"
-                }
-            }
-        },
-        "admin.BanUserRequest": {
-            "type": "object",
-            "required": [
-                "banned_until"
-            ],
-            "properties": {
-                "banned_until": {
-                    "description": "RFC3339, 必须晚于当前时间; 永久封禁请使用停用",
-                    "type": "string"
-                },
-                "reason": {
-                    "type": "string",
-                    "maxLength": 255
-                }
-            }
-        },
-        "admin.CancelMatchRequest": {
-            "type": "object",
-            "required": [
-                "reason"
-            ],
-            "properties": {
-                "reason": {
-                    "description": "记录在操作日志中",
-                    "type": "string",
-                    "maxLength": 255
-                }
-            }
-        },
-        "admin.CreateCurrencyRequest": {
-            "type": "object",
-            "required": [
-                "code",
-                "name"
-            ],
-            "properties": {
-                "code": {
-                    "description": "自然键, 小写字母、数字和下划线",
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "decimals": {
-                    "description": "展示用小数位, 已被使用的货币不能修改",
-                    "type": "integer",
-                    "maximum": 6,
-                    "minimum": 0
-                },
-                "is_enabled": {
-                    "description": "停用后不能再入账或扣款, 基础货币不能停用",
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "sort_order": {
-                    "description": "余额和下拉框中从小到大排列",
-                    "type": "integer",
-                    "maximum": 1000000,
-                    "minimum": -1000000
-                }
-            }
-        },
-        "admin.CreateQualityRequest": {
-            "type": "object",
-            "required": [
-                "code",
-                "color",
-                "level",
-                "name"
-            ],
-            "properties": {
-                "code": {
-                    "description": "自然键, 小写字母、数字和下划线",
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "color": {
-                    "description": "#rrggbb",
-                    "type": "string",
-                    "maxLength": 7
-                },
-                "effect": {
-                    "description": "特效, 空表示纯色, rainbow 为流动渐变",
-                    "type": "string",
-                    "maxLength": 16
-                },
-                "level": {
-                    "description": "等级, 越大越稀有",
-                    "type": "integer",
-                    "maximum": 999,
-                    "minimum": 1
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "scan_ms": {
-                    "description": "开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久",
-                    "type": "integer",
-                    "maximum": 10000,
-                    "minimum": 100
-                },
-                "sort_order": {
-                    "description": "筛选和图例中从小到大排列",
-                    "type": "integer",
-                    "maximum": 1000000,
-                    "minimum": -1000000
-                }
-            }
-        },
-        "admin.CreateSeasonRequest": {
-            "type": "object",
-            "required": [
-                "code",
-                "ends_at",
-                "name",
-                "starts_at"
-            ],
-            "properties": {
-                "code": {
-                    "description": "自然键, 小写字母、数字和下划线",
-                    "type": "string",
-                    "maxLength": 24
-                },
-                "ends_at": {
-                    "description": "RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改",
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "rating_carry": {
-                    "description": "段位分继承上一个赛季的百分比; 赛季开始后不能修改",
-                    "type": "integer",
-                    "maximum": 100,
-                    "minimum": 0
-                },
-                "rewards": {
-                    "description": "赛季奖励, 分数线不能重复, 每档至少一项; 赛季结束后不能修改",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/season.Reward"
-                    }
-                },
-                "starts_at": {
-                    "description": "RFC3339, 包含; 赛季开始后不能修改",
-                    "type": "string"
-                }
-            }
-        },
-        "admin.CurrencyRequest": {
-            "type": "object",
-            "required": [
-                "name"
-            ],
-            "properties": {
-                "decimals": {
-                    "description": "展示用小数位, 已被使用的货币不能修改",
-                    "type": "integer",
-                    "maximum": 6,
-                    "minimum": 0
-                },
-                "is_enabled": {
-                    "description": "停用后不能再入账或扣款, 基础货币不能停用",
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "sort_order": {
-                    "description": "余额和下拉框中从小到大排列",
-                    "type": "integer",
-                    "maximum": 1000000,
-                    "minimum": -1000000
-                }
-            }
-        },
-        "admin.DeleteItemResponseData": {
-            "type": "object",
-            "properties": {
-                "holder_count": {
-                    "description": "删除时持有该物品的用户数",
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.DeleteLootPoolResponseData": {
-            "type": "object",
-            "properties": {
-                "entry_count": {
-                    "description": "一同删除的条目数",
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ExportPackRequest": {
-            "type": "object",
-            "required": [
-                "name",
-                "sections"
-            ],
-            "properties": {
-                "author": {
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "name": {
-                    "description": "配置包的名称",
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "sections": {
-                    "description": "导出的配置种类: currencies、qualities、items、loot_pools、venues、shop_items、leaderboards、settings",
-                    "type": "array",
-                    "maxItems": 8,
-                    "minItems": 1,
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "admin.Import": {
-            "type": "object",
-            "properties": {
-                "author": {
-                    "type": "string"
-                },
-                "created": {
-                    "type": "integer"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "digest": {
-                    "description": "文件的 sha256",
-                    "type": "string"
-                },
-                "entries": {
-                    "description": "每一项的处理结果, 列表中不返回",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/admin.PackEntryResult"
-                    }
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "description": "配置包的名称",
-                    "type": "string"
-                },
-                "size": {
-                    "description": "文件大小, 字节",
-                    "type": "integer"
-                },
-                "skipped": {
-                    "description": "跳过的项, 包括与已有配置相同的项",
-                    "type": "integer"
-                },
-                "updated": {
-                    "type": "integer"
-                },
-                "user_id": {
-                    "description": "导入的管理员",
-                    "type": "integer"
-                },
-                "version": {
-                    "description": "配置包的格式版本",
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.InventoryTransactionItem": {
-            "type": "object",
-            "properties": {
-                "biz_id": {
-                    "type": "string"
-                },
-                "biz_type": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "idempotency_key": {
-                    "type": "string"
-                },
-                "item_id": {
-                    "type": "integer"
-                },
-                "item_name": {
-                    "type": "string"
-                },
-                "operator_id": {
-                    "type": "integer"
-                },
-                "operator_username": {
-                    "description": "系统操作或用户已不存在时为空",
-                    "type": "string"
-                },
-                "quantity": {
-                    "type": "integer"
-                },
-                "quantity_after": {
-                    "type": "integer"
-                },
-                "remark": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
-                },
-                "username": {
-                    "description": "用户已不存在时为空",
-                    "type": "string"
-                }
-            }
-        },
-        "admin.ItemListItem": {
-            "type": "object",
-            "properties": {
-                "category": {
-                    "description": "类别代码, 见 RegisterCategory",
-                    "type": "string"
-                },
-                "code": {
-                    "description": "英文别名, 可以重复, 物品以 ID 区分",
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "effect": {
-                    "description": "使用效果代码, 空表示不能使用, 藏品没有效果; 见 effect 模块",
-                    "type": "string"
-                },
-                "effect_params": {
-                    "description": "效果参数, 结构由效果决定, 没有效果时为空对象",
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "height": {
-                    "type": "integer"
-                },
-                "holder_count": {
-                    "description": "持有该物品的用户数, 删除前用于提示",
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "image_url": {
-                    "type": "string"
-                },
-                "is_enabled": {
-                    "description": "下架后不会掉落, 也不能再发放",
-                    "type": "boolean"
-                },
-                "is_placeholder": {
-                    "description": "是否为占位物品, 只由 Resolve 生成",
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "quality": {
-                    "description": "品质等级, 见 Quality",
-                    "type": "integer"
-                },
-                "sell_currency": {
-                    "type": "string"
-                },
-                "sell_price": {
-                    "description": "0 表示不可卖出",
-                    "type": "integer"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "width": {
-                    "description": "在仓库中占的格数",
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ItemRequest": {
-            "type": "object",
-            "required": [
-                "category",
-                "code",
-                "height",
-                "name",
-                "quality",
-                "sell_currency",
-                "width"
-            ],
-            "properties": {
-                "category": {
-                    "description": "类别代码, 必须已注册",
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "code": {
-                    "description": "英文别名, 小写字母、数字和下划线, 可以重复",
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "description": {
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "effect": {
-                    "description": "使用效果代码, 空表示不能使用; 藏品不能配置",
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "effect_params": {
-                    "description": "效果参数, 结构见 GET /admin/items/effects",
-                    "type": "object"
-                },
-                "height": {
-                    "type": "integer",
-                    "maximum": 10,
-                    "minimum": 1
-                },
-                "image_url": {
-                    "type": "string",
-                    "maxLength": 1024
-                },
-                "is_enabled": {
-                    "description": "下架后不会掉落, 也不能再发放, 已有的保留",
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "quality": {
-                    "description": "品质等级, 必须存在",
-                    "type": "integer",
-                    "minimum": 1
-                },
-                "sell_currency": {
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "sell_price": {
-                    "description": "0 表示不可卖出",
-                    "type": "integer",
-                    "maximum": 1000000000000,
-                    "minimum": 0
-                },
-                "width": {
-                    "description": "在仓库中占的格数",
-                    "type": "integer",
-                    "maximum": 10,
-                    "minimum": 1
-                }
-            }
-        },
-        "admin.LeaderboardRequest": {
-            "type": "object",
-            "required": [
-                "code",
-                "metric",
-                "name",
-                "period",
-                "scope"
-            ],
-            "properties": {
-                "code": {
-                    "description": "自然键, 小写字母、数字和下划线",
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "description": {
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "is_enabled": {
-                    "description": "停用后玩家看不到",
-                    "type": "boolean"
-                },
-                "metric": {
-                    "description": "排名的指标, 见可以排名的指标",
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "min_matches": {
-                    "description": "同一范围和周期内至少完成多少局才上榜",
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "period": {
-                    "description": "total 累计、day 当天或 season 当前赛季",
-                    "type": "string"
-                },
-                "scope": {
-                    "description": "统计范围, 如 all、mode:ranked、venue:dock",
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "size": {
-                    "description": "展示前多少名, 10-500",
-                    "type": "integer"
-                },
-                "sort_order": {
-                    "description": "玩家页面的页签从小到大排列",
-                    "type": "integer",
-                    "maximum": 1000000,
-                    "minimum": -1000000
-                }
-            }
-        },
-        "admin.ListAuditLogsResponseData": {
-            "type": "object",
-            "properties": {
-                "logs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/admin.AuditLogItem"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ListConditionTypesResponseData": {
-            "type": "object",
-            "properties": {
-                "types": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/condition.TypeView"
-                    }
-                }
-            }
-        },
-        "admin.ListCurrenciesResponseData": {
-            "type": "object",
-            "properties": {
-                "currencies": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/wallet.Currency"
-                    }
-                }
-            }
-        },
-        "admin.ListInventoryTransactionsResponseData": {
-            "type": "object",
-            "properties": {
-                "total": {
-                    "type": "integer"
-                },
-                "transactions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/admin.InventoryTransactionItem"
-                    }
-                }
-            }
-        },
-        "admin.ListItemCategoriesResponseData": {
-            "type": "object",
-            "properties": {
-                "categories": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/item.Category"
-                    }
-                }
-            }
-        },
-        "admin.ListItemEffectsResponseData": {
-            "type": "object",
-            "properties": {
-                "effects": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/effect.TypeView"
-                    }
-                }
-            }
-        },
-        "admin.ListItemsResponseData": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/admin.ItemListItem"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ListLeaderboardMetricsResponseData": {
-            "type": "object",
-            "properties": {
-                "metrics": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_NuoXianTech_blindcrate_internal_apps_stats.Metric"
-                    }
-                }
-            }
-        },
-        "admin.ListLeaderboardsResponseData": {
-            "type": "object",
-            "properties": {
-                "boards": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/leaderboard.Board"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ListLootPoolsResponseData": {
-            "type": "object",
-            "properties": {
-                "pools": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/admin.LootPoolListItem"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ListMatchesResponseData": {
-            "type": "object",
-            "properties": {
-                "matches": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/match.MatchDetail"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ListPackImportsResponseData": {
-            "type": "object",
-            "properties": {
-                "imports": {
-                    "description": "不含每一项的结果",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/admin.Import"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ListQualitiesResponseData": {
-            "type": "object",
-            "properties": {
-                "qualities": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/admin.QualityListItem"
-                    }
-                }
-            }
-        },
-        "admin.ListRankedSuspectsResponseData": {
-            "type": "object",
-            "properties": {
-                "suspects": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auction.Suspect"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ListRankedTiersResponseData": {
-            "type": "object",
-            "properties": {
-                "tiers": {
-                    "description": "按分数线从低到高",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/ranked.Tier"
-                    }
-                }
-            }
-        },
-        "admin.ListSeasonsResponseData": {
-            "type": "object",
-            "properties": {
-                "seasons": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/season.View"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ListSettingRevisionsResponseData": {
-            "type": "object",
-            "properties": {
-                "revisions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/admin.SettingRevisionItem"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ListSettingsResponseData": {
-            "type": "object",
-            "properties": {
-                "categories": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/settings.Category"
-                    }
-                },
-                "groups": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/settings.GroupView"
-                    }
-                }
-            }
-        },
-        "admin.ListShopItemsResponseData": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/shop.Item"
-                    }
-                },
-                "tabs": {
-                    "description": "未删除的商品用到的页签, 按名称排列, 不含空页签",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ListShopOrdersResponseData": {
-            "type": "object",
-            "properties": {
-                "orders": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/admin.ShopOrderItem"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ListUserBalancesResponseData": {
-            "type": "object",
-            "properties": {
-                "balances": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/wallet.BalanceItem"
-                    }
-                }
-            }
-        },
-        "admin.ListUserInventoryResponseData": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/inventory.UserItemDetail"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ListUsersResponseData": {
-            "type": "object",
-            "properties": {
-                "total": {
-                    "type": "integer"
-                },
-                "users": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auth.User"
-                    }
-                }
-            }
-        },
-        "admin.ListVenuesResponseData": {
-            "type": "object",
-            "properties": {
-                "total": {
-                    "type": "integer"
-                },
-                "venues": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/venue.Venue"
-                    }
-                }
-            }
-        },
-        "admin.ListWalletTransactionsResponseData": {
-            "type": "object",
-            "properties": {
-                "total": {
-                    "type": "integer"
-                },
-                "transactions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/admin.WalletTransactionItem"
-                    }
-                }
-            }
-        },
-        "admin.LootPoolEntriesResponseData": {
-            "type": "object",
-            "properties": {
-                "entries": {
-                    "description": "按条目 ID 排序, 包含不参与抽取的条目",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/loot.EntryDetail"
-                    }
-                },
-                "pool": {
-                    "$ref": "#/definitions/loot.Pool"
-                }
-            }
-        },
-        "admin.LootPoolEntryRequest": {
-            "type": "object",
-            "required": [
-                "max_quantity",
-                "min_quantity",
-                "weight"
-            ],
-            "properties": {
-                "currency": {
-                    "description": "掉落的货币",
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "item_id": {
-                    "description": "掉落的物品, 与 currency 二选一",
-                    "type": "integer"
-                },
-                "max_quantity": {
-                    "type": "integer",
-                    "maximum": 1000000000000,
-                    "minimum": 1
-                },
-                "min_quantity": {
-                    "description": "每次掉落的数量范围, 货币为金额, 物品最多 1000000",
-                    "type": "integer",
-                    "maximum": 1000000000000,
-                    "minimum": 1
-                },
-                "weight": {
-                    "description": "权重",
-                    "type": "integer",
-                    "maximum": 1000000,
-                    "minimum": 1
-                }
-            }
-        },
-        "admin.LootPoolListItem": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "description": "玩法中引用的代码, 如 crate_basic",
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "entry_count": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "is_enabled": {
-                    "description": "停用后不能再抽取",
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "admin.LootPoolRequest": {
-            "type": "object",
-            "required": [
-                "code",
-                "name"
-            ],
-            "properties": {
-                "code": {
-                    "description": "玩法中引用的代码, 小写字母、数字和下划线",
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "description": {
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "is_enabled": {
-                    "description": "停用后不能再抽取",
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 64
-                }
-            }
-        },
-        "admin.PackEntryResult": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "description": "见 PackAction 开头的常量",
-                    "type": "string"
-                },
-                "code": {
-                    "description": "改名导入时的新代码",
-                    "type": "string"
-                },
-                "key": {
-                    "description": "包中的代码, 品质为等级, 物品为 ID, 设置为设置组的 key",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "包中的名称",
-                    "type": "string"
-                },
-                "reason": {
-                    "description": "无法导入的原因",
-                    "type": "string"
-                },
-                "section": {
-                    "description": "配置种类, 见 Pack 开头的常量",
-                    "type": "string"
-                },
-                "status": {
-                    "description": "见 PackStatus 开头的常量, 跳过的项为与已有配置比较的结果",
-                    "type": "string"
-                }
-            }
-        },
-        "admin.PackManifest": {
-            "type": "object",
-            "properties": {
-                "author": {
-                    "type": "string"
-                },
-                "exported_at": {
-                    "type": "string"
-                },
-                "format": {
-                    "description": "固定为 blindcrate-pack",
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "sections": {
-                    "description": "包含的配置种类, 见 Pack 开头的常量",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "version": {
-                    "description": "格式版本",
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.PackPreview": {
-            "type": "object",
-            "properties": {
-                "digest": {
-                    "description": "文件的 sha256",
-                    "type": "string"
-                },
-                "entries": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/admin.PackEntryResult"
-                    }
-                },
-                "manifest": {
-                    "$ref": "#/definitions/admin.PackManifest"
-                },
-                "size": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.QualityListItem": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "description": "自然键, 导入导出时用来对应",
-                    "type": "string"
-                },
-                "color": {
-                    "description": "#rrggbb",
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "effect": {
-                    "description": "特效, 空表示纯色, 见 constants.go",
-                    "type": "string"
-                },
-                "item_count": {
-                    "description": "使用该品质的未删除物品数, 不为 0 时不能删除",
-                    "type": "integer"
-                },
-                "level": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "scan_ms": {
-                    "description": "开箱时扫描这一品质藏品的时长, 毫秒",
-                    "type": "integer"
-                },
-                "sort_order": {
-                    "description": "筛选和图例中从小到大排列",
-                    "type": "integer"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "admin.QualityRequest": {
-            "type": "object",
-            "required": [
-                "color",
-                "name"
-            ],
-            "properties": {
-                "color": {
-                    "description": "#rrggbb",
-                    "type": "string",
-                    "maxLength": 7
-                },
-                "effect": {
-                    "description": "特效, 空表示纯色, rainbow 为流动渐变",
-                    "type": "string",
-                    "maxLength": 16
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "scan_ms": {
-                    "description": "开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久",
-                    "type": "integer",
-                    "maximum": 10000,
-                    "minimum": 100
-                },
-                "sort_order": {
-                    "description": "筛选和图例中从小到大排列",
-                    "type": "integer",
-                    "maximum": 1000000,
-                    "minimum": -1000000
-                }
-            }
-        },
-        "admin.RankedTierRequest": {
-            "type": "object",
-            "required": [
-                "color",
-                "name"
-            ],
-            "properties": {
-                "color": {
-                    "description": "#rrggbb",
-                    "type": "string",
-                    "maxLength": 7
-                },
-                "min_rating": {
-                    "description": "分数线, 段位分不低于它时属于这个段位, 0-1000000",
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 32
-                }
-            }
-        },
-        "admin.ReplaceLootPoolEntriesRequest": {
-            "type": "object",
-            "required": [
-                "entries"
-            ],
-            "properties": {
-                "entries": {
-                    "description": "提交空数组清空条目",
-                    "type": "array",
-                    "maxItems": 200,
-                    "items": {
-                        "$ref": "#/definitions/admin.LootPoolEntryRequest"
-                    }
-                }
-            }
-        },
-        "admin.ResetSettingRequest": {
-            "type": "object",
-            "required": [
-                "version"
-            ],
-            "properties": {
-                "version": {
-                    "description": "当前版本, 已被别人修改时返回 409",
-                    "type": "integer",
-                    "minimum": 0
-                }
-            }
-        },
-        "admin.Response": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "admin.ReviewRankedSuspectRequest": {
-            "type": "object",
-            "required": [
-                "last_match_id",
-                "user_a",
-                "user_b"
-            ],
-            "properties": {
-                "last_match_id": {
-                    "description": "处理到的对局, 即名单中的 last_match_id",
-                    "type": "integer"
-                },
-                "note": {
-                    "description": "处理结果, 如已封禁、正常组队",
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "user_a": {
-                    "type": "integer"
-                },
-                "user_b": {
-                    "description": "大于 user_a",
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.RollbackSettingRequest": {
-            "type": "object",
-            "required": [
-                "target",
-                "version"
-            ],
-            "properties": {
-                "target": {
-                    "description": "回滚到的版本",
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "version": {
-                    "description": "当前版本, 已被别人修改时返回 409",
-                    "type": "integer",
-                    "minimum": 0
-                }
-            }
-        },
-        "admin.SeasonRequest": {
-            "type": "object",
-            "required": [
-                "ends_at",
-                "name",
-                "starts_at"
-            ],
-            "properties": {
-                "ends_at": {
-                    "description": "RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改",
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "rating_carry": {
-                    "description": "段位分继承上一个赛季的百分比; 赛季开始后不能修改",
-                    "type": "integer",
-                    "maximum": 100,
-                    "minimum": 0
-                },
-                "rewards": {
-                    "description": "赛季奖励, 分数线不能重复, 每档至少一项; 赛季结束后不能修改",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/season.Reward"
-                    }
-                },
-                "starts_at": {
-                    "description": "RFC3339, 包含; 赛季开始后不能修改",
-                    "type": "string"
-                }
-            }
-        },
-        "admin.SetUserDisabledRequest": {
-            "type": "object",
-            "required": [
-                "disabled"
-            ],
-            "properties": {
-                "disabled": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "admin.SettingRevisionItem": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "changes": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "from_version": {
-                    "type": "integer"
-                },
-                "updated_by": {
-                    "type": "integer"
-                },
-                "updated_by_username": {
-                    "description": "系统操作或用户已不存在时为空",
-                    "type": "string"
-                },
-                "version": {
-                    "type": "integer"
-                }
-            }
-        },
-        "admin.ShopItemRequest": {
-            "type": "object",
-            "required": [
-                "code",
-                "name"
-            ],
-            "properties": {
-                "code": {
-                    "description": "小写字母、数字和下划线, 创建后不能修改",
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "description": {
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "ends_at": {
-                    "description": "RFC3339, 不包含, 为空时不限",
-                    "type": "string"
-                },
-                "goods": {
-                    "description": "一份商品, 数量为正数, 不能为空",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/reward.Bundle"
-                        }
-                    ]
-                },
-                "image_url": {
-                    "type": "string",
-                    "maxLength": 1024
-                },
-                "is_enabled": {
-                    "type": "boolean"
-                },
-                "limits": {
-                    "$ref": "#/definitions/shop.Limits"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "original_price": {
-                    "description": "原价, 只用于展示折扣",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/reward.Bundle"
-                        }
-                    ]
-                },
-                "price": {
-                    "description": "一份的价格, 数量为正数, 为空时免费",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/reward.Bundle"
-                        }
-                    ]
-                },
-                "requirements": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/condition.Condition"
-                    }
-                },
-                "sort_order": {
-                    "description": "商城中从小到大排列",
-                    "type": "integer",
-                    "maximum": 1000000,
-                    "minimum": -1000000
-                },
-                "starts_at": {
-                    "description": "RFC3339, 包含, 为空时不限",
-                    "type": "string"
-                },
-                "stock": {
-                    "description": "剩余库存, 为空时不限; 修改时直接覆盖",
-                    "type": "integer"
-                },
-                "tab": {
-                    "type": "string",
-                    "maxLength": 16
-                }
-            }
-        },
-        "admin.ShopOrderItem": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "goods": {
-                    "description": "实际得到的全部商品, 数量为正数",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/reward.Bundle"
-                        }
-                    ]
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "item_code": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "price": {
-                    "description": "实际支付的总价, 数量为正数",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/reward.Bundle"
-                        }
-                    ]
-                },
-                "quantity": {
-                    "description": "购买的份数",
-                    "type": "integer"
-                },
-                "refunded_at": {
-                    "type": "string"
-                },
-                "refunded_by": {
-                    "description": "退款的管理员, 没有退款时为 0",
-                    "type": "integer"
-                },
-                "refunded_username": {
-                    "description": "没有退款时为空",
-                    "type": "string"
-                },
-                "shop_item_id": {
-                    "type": "integer"
-                },
-                "status": {
-                    "description": "paid 或 refunded",
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
-                },
-                "username": {
-                    "description": "用户已不存在时为空",
-                    "type": "string"
-                }
-            }
-        },
-        "admin.TestMailRequest": {
-            "type": "object",
-            "required": [
-                "to"
-            ],
-            "properties": {
-                "to": {
-                    "description": "收件人",
-                    "type": "string"
-                }
-            }
-        },
-        "admin.UpdateSettingRequest": {
-            "type": "object",
-            "required": [
-                "value",
-                "version"
-            ],
-            "properties": {
-                "clear_secrets": {
-                    "description": "需要清空的密钥字段",
-                    "type": "array",
-                    "maxItems": 32,
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "value": {
-                    "description": "设置组的字段, 只需提交改动的字段, 没有提交的保持不变, 密钥字段留空表示不修改",
-                    "type": "object"
-                },
-                "version": {
-                    "description": "读取时的版本, 已被别人修改时返回 409",
-                    "type": "integer",
-                    "minimum": 0
-                }
-            }
-        },
-        "admin.UpdateUserRequest": {
-            "type": "object",
-            "properties": {
-                "avatar_url": {
-                    "description": "不传表示不修改, 传空字符串表示清除头像",
-                    "type": "string"
-                },
-                "nickname": {
-                    "description": "不传表示不修改",
-                    "type": "string"
-                },
-                "username": {
-                    "description": "不传表示不修改",
-                    "type": "string"
-                }
-            }
-        },
-        "admin.VenueRequest": {
-            "type": "object",
-            "required": [
-                "bid_currency",
-                "code",
-                "name"
-            ],
-            "properties": {
-                "auction": {
-                    "$ref": "#/definitions/venue.AuctionRule"
-                },
-                "bid_currency": {
-                    "type": "string",
-                    "maxLength": 32
-                },
-                "bots": {
-                    "$ref": "#/definitions/venue.BotRule"
-                },
-                "code": {
-                    "description": "小写字母、数字和下划线, 创建后不能修改",
-                    "type": "string",
-                    "maxLength": 24
-                },
-                "consumables": {
-                    "description": "对局中使用道具的规则",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/venue.ConsumableRule"
-                        }
-                    ]
-                },
-                "description": {
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "entry_cost": {
-                    "description": "数量为正数, 开局时扣除",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/reward.Bundle"
-                        }
-                    ]
-                },
-                "image_url": {
-                    "type": "string",
-                    "maxLength": 1024
-                },
-                "is_enabled": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "pve": {
-                    "$ref": "#/definitions/venue.PveRule"
-                },
-                "pve_enabled": {
-                    "type": "boolean"
-                },
-                "ranked_enabled": {
-                    "type": "boolean"
-                },
-                "requirements": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/condition.Condition"
-                    }
-                },
-                "sort_order": {
-                    "description": "大厅中从小到大排列",
-                    "type": "integer",
-                    "maximum": 1000000,
-                    "minimum": -1000000
-                },
-                "warehouse": {
-                    "$ref": "#/definitions/venue.WarehouseRule"
-                }
-            }
-        },
-        "admin.WalletTransactionItem": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "type": "integer"
-                },
-                "balance_after": {
-                    "type": "integer"
-                },
-                "biz_id": {
-                    "type": "string"
-                },
-                "biz_type": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "currency": {
-                    "type": "string"
-                },
-                "frozen_after": {
-                    "type": "integer"
-                },
-                "frozen_amount": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "idempotency_key": {
-                    "type": "string"
-                },
-                "operator_id": {
-                    "type": "integer"
-                },
-                "operator_username": {
-                    "description": "系统操作或用户已不存在时为空",
-                    "type": "string"
-                },
-                "remark": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
-                },
-                "username": {
-                    "description": "用户已不存在时为空",
-                    "type": "string"
-                }
-            }
-        },
         "auction.AdminView": {
             "type": "object",
             "properties": {
@@ -10749,6 +9011,77 @@ const docTemplate = `{
                 }
             }
         },
+        "auctionadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "auditadmin.AuditLogItem": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "actor_id": {
+                    "type": "integer"
+                },
+                "actor_username": {
+                    "description": "操作人用户名, 未登录或用户已不存在时为空",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "detail": {
+                    "type": "object"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "target_id": {
+                    "type": "integer"
+                },
+                "target_type": {
+                    "type": "string"
+                },
+                "user_agent": {
+                    "type": "string"
+                }
+            }
+        },
+        "auditadmin.ListAuditLogsResponseData": {
+            "type": "object",
+            "properties": {
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auditadmin.AuditLogItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "auditadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
         "auth.BasicUserInfo": {
             "type": "object",
             "properties": {
@@ -10911,6 +9244,73 @@ const docTemplate = `{
                 }
             }
         },
+        "authadmin.BanUserRequest": {
+            "type": "object",
+            "required": [
+                "banned_until"
+            ],
+            "properties": {
+                "banned_until": {
+                    "description": "RFC3339, 必须晚于当前时间; 永久封禁请使用停用",
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string",
+                    "maxLength": 255
+                }
+            }
+        },
+        "authadmin.ListUsersResponseData": {
+            "type": "object",
+            "properties": {
+                "total": {
+                    "type": "integer"
+                },
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auth.User"
+                    }
+                }
+            }
+        },
+        "authadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "authadmin.SetUserDisabledRequest": {
+            "type": "object",
+            "required": [
+                "disabled"
+            ],
+            "properties": {
+                "disabled": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "authadmin.UpdateUserRequest": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "description": "不传表示不修改, 传空字符串表示清除头像",
+                    "type": "string"
+                },
+                "nickname": {
+                    "description": "不传表示不修改",
+                    "type": "string"
+                },
+                "username": {
+                    "description": "不传表示不修改",
+                    "type": "string"
+                }
+            }
+        },
         "condition.Condition": {
             "type": "object",
             "properties": {
@@ -11003,6 +9403,26 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "conditionadmin.ListConditionTypesResponseData": {
+            "type": "object",
+            "properties": {
+                "types": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.TypeView"
+                    }
+                }
+            }
+        },
+        "conditionadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
                     "type": "string"
                 }
             }
@@ -11374,6 +9794,119 @@ const docTemplate = `{
                 }
             }
         },
+        "inventoryadmin.AdjustUserInventoryRequest": {
+            "type": "object",
+            "required": [
+                "idempotency_key",
+                "item_id",
+                "quantity",
+                "remark"
+            ],
+            "properties": {
+                "idempotency_key": {
+                    "description": "每次打开表单生成一个, 重复提交只生效一次",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "description": "正数发放, 负数扣除, 扣除后数量不能为负",
+                    "type": "integer"
+                },
+                "remark": {
+                    "description": "调整原因, 用户可在流水中看到",
+                    "type": "string"
+                }
+            }
+        },
+        "inventoryadmin.InventoryTransactionItem": {
+            "type": "object",
+            "properties": {
+                "biz_id": {
+                    "type": "string"
+                },
+                "biz_type": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "idempotency_key": {
+                    "type": "string"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "item_name": {
+                    "type": "string"
+                },
+                "operator_id": {
+                    "type": "integer"
+                },
+                "operator_username": {
+                    "description": "系统操作或用户已不存在时为空",
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "quantity_after": {
+                    "type": "integer"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                },
+                "username": {
+                    "description": "用户已不存在时为空",
+                    "type": "string"
+                }
+            }
+        },
+        "inventoryadmin.ListInventoryTransactionsResponseData": {
+            "type": "object",
+            "properties": {
+                "total": {
+                    "type": "integer"
+                },
+                "transactions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/inventoryadmin.InventoryTransactionItem"
+                    }
+                }
+            }
+        },
+        "inventoryadmin.ListUserInventoryResponseData": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/inventory.UserItemDetail"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "inventoryadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
         "item.Category": {
             "type": "object",
             "properties": {
@@ -11501,6 +10034,340 @@ const docTemplate = `{
             }
         },
         "item.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "itemadmin.CreateQualityRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "color",
+                "level",
+                "name"
+            ],
+            "properties": {
+                "code": {
+                    "description": "自然键, 小写字母、数字和下划线",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "color": {
+                    "description": "#rrggbb",
+                    "type": "string",
+                    "maxLength": 7
+                },
+                "effect": {
+                    "description": "特效, 空表示纯色, rainbow 为流动渐变",
+                    "type": "string",
+                    "maxLength": 16
+                },
+                "level": {
+                    "description": "等级, 越大越稀有",
+                    "type": "integer",
+                    "maximum": 999,
+                    "minimum": 1
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "scan_ms": {
+                    "description": "开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久",
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 100
+                },
+                "sort_order": {
+                    "description": "筛选和图例中从小到大排列",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
+                }
+            }
+        },
+        "itemadmin.DeleteItemResponseData": {
+            "type": "object",
+            "properties": {
+                "holder_count": {
+                    "description": "删除时持有该物品的用户数",
+                    "type": "integer"
+                }
+            }
+        },
+        "itemadmin.ItemListItem": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "description": "类别代码, 见 RegisterCategory",
+                    "type": "string"
+                },
+                "code": {
+                    "description": "英文别名, 可以重复, 物品以 ID 区分",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "effect": {
+                    "description": "使用效果代码, 空表示不能使用, 藏品没有效果; 见 effect 模块",
+                    "type": "string"
+                },
+                "effect_params": {
+                    "description": "效果参数, 结构由效果决定, 没有效果时为空对象",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "holder_count": {
+                    "description": "持有该物品的用户数, 删除前用于提示",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "is_enabled": {
+                    "description": "下架后不会掉落, 也不能再发放",
+                    "type": "boolean"
+                },
+                "is_placeholder": {
+                    "description": "是否为占位物品, 只由 Resolve 生成",
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "quality": {
+                    "description": "品质等级, 见 Quality",
+                    "type": "integer"
+                },
+                "sell_currency": {
+                    "type": "string"
+                },
+                "sell_price": {
+                    "description": "0 表示不可卖出",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "width": {
+                    "description": "在仓库中占的格数",
+                    "type": "integer"
+                }
+            }
+        },
+        "itemadmin.ItemRequest": {
+            "type": "object",
+            "required": [
+                "category",
+                "code",
+                "height",
+                "name",
+                "quality",
+                "sell_currency",
+                "width"
+            ],
+            "properties": {
+                "category": {
+                    "description": "类别代码, 必须已注册",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "code": {
+                    "description": "英文别名, 小写字母、数字和下划线, 可以重复",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "effect": {
+                    "description": "使用效果代码, 空表示不能使用; 藏品不能配置",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "effect_params": {
+                    "description": "效果参数, 结构见 GET /admin/items/effects",
+                    "type": "object"
+                },
+                "height": {
+                    "type": "integer",
+                    "maximum": 10,
+                    "minimum": 1
+                },
+                "image_url": {
+                    "type": "string",
+                    "maxLength": 1024
+                },
+                "is_enabled": {
+                    "description": "下架后不会掉落, 也不能再发放, 已有的保留",
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "quality": {
+                    "description": "品质等级, 必须存在",
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "sell_currency": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "sell_price": {
+                    "description": "0 表示不可卖出",
+                    "type": "integer",
+                    "maximum": 1000000000000,
+                    "minimum": 0
+                },
+                "width": {
+                    "description": "在仓库中占的格数",
+                    "type": "integer",
+                    "maximum": 10,
+                    "minimum": 1
+                }
+            }
+        },
+        "itemadmin.ListItemCategoriesResponseData": {
+            "type": "object",
+            "properties": {
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/item.Category"
+                    }
+                }
+            }
+        },
+        "itemadmin.ListItemEffectsResponseData": {
+            "type": "object",
+            "properties": {
+                "effects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/effect.TypeView"
+                    }
+                }
+            }
+        },
+        "itemadmin.ListItemsResponseData": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/itemadmin.ItemListItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "itemadmin.ListQualitiesResponseData": {
+            "type": "object",
+            "properties": {
+                "qualities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/itemadmin.QualityListItem"
+                    }
+                }
+            }
+        },
+        "itemadmin.QualityListItem": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "自然键, 导入导出时用来对应",
+                    "type": "string"
+                },
+                "color": {
+                    "description": "#rrggbb",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "effect": {
+                    "description": "特效, 空表示纯色, 见 constants.go",
+                    "type": "string"
+                },
+                "item_count": {
+                    "description": "使用该品质的未删除物品数, 不为 0 时不能删除",
+                    "type": "integer"
+                },
+                "level": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "scan_ms": {
+                    "description": "开箱时扫描这一品质藏品的时长, 毫秒",
+                    "type": "integer"
+                },
+                "sort_order": {
+                    "description": "筛选和图例中从小到大排列",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "itemadmin.QualityRequest": {
+            "type": "object",
+            "required": [
+                "color",
+                "name"
+            ],
+            "properties": {
+                "color": {
+                    "description": "#rrggbb",
+                    "type": "string",
+                    "maxLength": 7
+                },
+                "effect": {
+                    "description": "特效, 空表示纯色, rainbow 为流动渐变",
+                    "type": "string",
+                    "maxLength": 16
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "scan_ms": {
+                    "description": "开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久",
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 100
+                },
+                "sort_order": {
+                    "description": "筛选和图例中从小到大排列",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
+                }
+            }
+        },
+        "itemadmin.Response": {
             "type": "object",
             "properties": {
                 "data": {},
@@ -11720,6 +10587,97 @@ const docTemplate = `{
                 }
             }
         },
+        "leaderboardadmin.LeaderboardRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "metric",
+                "name",
+                "period",
+                "scope"
+            ],
+            "properties": {
+                "code": {
+                    "description": "自然键, 小写字母、数字和下划线",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "is_enabled": {
+                    "description": "停用后玩家看不到",
+                    "type": "boolean"
+                },
+                "metric": {
+                    "description": "排名的指标, 见可以排名的指标",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "min_matches": {
+                    "description": "同一范围和周期内至少完成多少局才上榜",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "period": {
+                    "description": "total 累计、day 当天或 season 当前赛季",
+                    "type": "string"
+                },
+                "scope": {
+                    "description": "统计范围, 如 all、mode:ranked、venue:dock",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "size": {
+                    "description": "展示前多少名, 10-500",
+                    "type": "integer"
+                },
+                "sort_order": {
+                    "description": "玩家页面的页签从小到大排列",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
+                }
+            }
+        },
+        "leaderboardadmin.ListLeaderboardMetricsResponseData": {
+            "type": "object",
+            "properties": {
+                "metrics": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_NuoXianTech_blindcrate_internal_apps_stats.Metric"
+                    }
+                }
+            }
+        },
+        "leaderboardadmin.ListLeaderboardsResponseData": {
+            "type": "object",
+            "properties": {
+                "boards": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/leaderboard.Board"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "leaderboardadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
         "loot.EntryDetail": {
             "type": "object",
             "properties": {
@@ -11823,6 +10781,162 @@ const docTemplate = `{
             }
         },
         "loot.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "lootadmin.DeleteLootPoolResponseData": {
+            "type": "object",
+            "properties": {
+                "entry_count": {
+                    "description": "一同删除的条目数",
+                    "type": "integer"
+                }
+            }
+        },
+        "lootadmin.ListLootPoolsResponseData": {
+            "type": "object",
+            "properties": {
+                "pools": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/lootadmin.LootPoolListItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "lootadmin.LootPoolEntriesResponseData": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "description": "按条目 ID 排序, 包含不参与抽取的条目",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/loot.EntryDetail"
+                    }
+                },
+                "pool": {
+                    "$ref": "#/definitions/loot.Pool"
+                }
+            }
+        },
+        "lootadmin.LootPoolEntryRequest": {
+            "type": "object",
+            "required": [
+                "max_quantity",
+                "min_quantity",
+                "weight"
+            ],
+            "properties": {
+                "currency": {
+                    "description": "掉落的货币",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "item_id": {
+                    "description": "掉落的物品, 与 currency 二选一",
+                    "type": "integer"
+                },
+                "max_quantity": {
+                    "type": "integer",
+                    "maximum": 1000000000000,
+                    "minimum": 1
+                },
+                "min_quantity": {
+                    "description": "每次掉落的数量范围, 货币为金额, 物品最多 1000000",
+                    "type": "integer",
+                    "maximum": 1000000000000,
+                    "minimum": 1
+                },
+                "weight": {
+                    "description": "权重",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": 1
+                }
+            }
+        },
+        "lootadmin.LootPoolListItem": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "玩法中引用的代码, 如 crate_basic",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "entry_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_enabled": {
+                    "description": "停用后不能再抽取",
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "lootadmin.LootPoolRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "name"
+            ],
+            "properties": {
+                "code": {
+                    "description": "玩法中引用的代码, 小写字母、数字和下划线",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "is_enabled": {
+                    "description": "停用后不能再抽取",
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                }
+            }
+        },
+        "lootadmin.ReplaceLootPoolEntriesRequest": {
+            "type": "object",
+            "required": [
+                "entries"
+            ],
+            "properties": {
+                "entries": {
+                    "description": "提交空数组清空条目",
+                    "type": "array",
+                    "maxItems": 200,
+                    "items": {
+                        "$ref": "#/definitions/lootadmin.LootPoolEntryRequest"
+                    }
+                }
+            }
+        },
+        "lootadmin.Response": {
             "type": "object",
             "properties": {
                 "data": {},
@@ -12115,6 +11229,227 @@ const docTemplate = `{
                 }
             }
         },
+        "matchadmin.CancelMatchRequest": {
+            "type": "object",
+            "required": [
+                "reason"
+            ],
+            "properties": {
+                "reason": {
+                    "description": "记录在操作日志中",
+                    "type": "string",
+                    "maxLength": 255
+                }
+            }
+        },
+        "matchadmin.ListMatchesResponseData": {
+            "type": "object",
+            "properties": {
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/match.MatchDetail"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "matchadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "pack.ExportPackRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "sections"
+            ],
+            "properties": {
+                "author": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "name": {
+                    "description": "配置包的名称",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "sections": {
+                    "description": "导出的配置种类: currencies、qualities、items、loot_pools、venues、shop_items、leaderboards、settings",
+                    "type": "array",
+                    "maxItems": 8,
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "pack.Import": {
+            "type": "object",
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "created": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "digest": {
+                    "description": "文件的 sha256",
+                    "type": "string"
+                },
+                "entries": {
+                    "description": "每一项的处理结果, 列表中不返回",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/pack.PackEntryResult"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "配置包的名称",
+                    "type": "string"
+                },
+                "size": {
+                    "description": "文件大小, 字节",
+                    "type": "integer"
+                },
+                "skipped": {
+                    "description": "跳过的项, 包括与已有配置相同的项",
+                    "type": "integer"
+                },
+                "updated": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "description": "导入的管理员",
+                    "type": "integer"
+                },
+                "version": {
+                    "description": "配置包的格式版本",
+                    "type": "integer"
+                }
+            }
+        },
+        "pack.ListPackImportsResponseData": {
+            "type": "object",
+            "properties": {
+                "imports": {
+                    "description": "不含每一项的结果",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/pack.Import"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "pack.PackEntryResult": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "见 PackAction 开头的常量",
+                    "type": "string"
+                },
+                "code": {
+                    "description": "改名导入时的新代码",
+                    "type": "string"
+                },
+                "key": {
+                    "description": "包中的代码, 品质为等级, 物品为 ID, 设置为设置组的 key",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "包中的名称",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "无法导入的原因",
+                    "type": "string"
+                },
+                "section": {
+                    "description": "配置种类, 见 Pack 开头的常量",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "见 PackStatus 开头的常量, 跳过的项为与已有配置比较的结果",
+                    "type": "string"
+                }
+            }
+        },
+        "pack.PackManifest": {
+            "type": "object",
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "exported_at": {
+                    "type": "string"
+                },
+                "format": {
+                    "description": "固定为 blindcrate-pack",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sections": {
+                    "description": "包含的配置种类, 见 Pack 开头的常量",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "version": {
+                    "description": "格式版本",
+                    "type": "integer"
+                }
+            }
+        },
+        "pack.PackPreview": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "description": "文件的 sha256",
+                    "type": "string"
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/pack.PackEntryResult"
+                    }
+                },
+                "manifest": {
+                    "$ref": "#/definitions/pack.PackManifest"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "pack.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
         "ranked.ListTiersResponseData": {
             "type": "object",
             "properties": {
@@ -12197,6 +11532,89 @@ const docTemplate = `{
                             "$ref": "#/definitions/ranked.Tier"
                         }
                     ]
+                }
+            }
+        },
+        "rankedadmin.ListRankedSuspectsResponseData": {
+            "type": "object",
+            "properties": {
+                "suspects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.Suspect"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "rankedadmin.ListRankedTiersResponseData": {
+            "type": "object",
+            "properties": {
+                "tiers": {
+                    "description": "按分数线从低到高",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ranked.Tier"
+                    }
+                }
+            }
+        },
+        "rankedadmin.RankedTierRequest": {
+            "type": "object",
+            "required": [
+                "color",
+                "name"
+            ],
+            "properties": {
+                "color": {
+                    "description": "#rrggbb",
+                    "type": "string",
+                    "maxLength": 7
+                },
+                "min_rating": {
+                    "description": "分数线, 段位分不低于它时属于这个段位, 0-1000000",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 32
+                }
+            }
+        },
+        "rankedadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "rankedadmin.ReviewRankedSuspectRequest": {
+            "type": "object",
+            "required": [
+                "last_match_id",
+                "user_a",
+                "user_b"
+            ],
+            "properties": {
+                "last_match_id": {
+                    "description": "处理到的对局, 即名单中的 last_match_id",
+                    "type": "integer"
+                },
+                "note": {
+                    "description": "处理结果, 如已封禁、正常组队",
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "user_a": {
+                    "type": "integer"
+                },
+                "user_b": {
+                    "description": "大于 user_a",
+                    "type": "integer"
                 }
             }
         },
@@ -12414,6 +11832,105 @@ const docTemplate = `{
                 }
             }
         },
+        "seasonadmin.CreateSeasonRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "ends_at",
+                "name",
+                "starts_at"
+            ],
+            "properties": {
+                "code": {
+                    "description": "自然键, 小写字母、数字和下划线",
+                    "type": "string",
+                    "maxLength": 24
+                },
+                "ends_at": {
+                    "description": "RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "rating_carry": {
+                    "description": "段位分继承上一个赛季的百分比; 赛季开始后不能修改",
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "rewards": {
+                    "description": "赛季奖励, 分数线不能重复, 每档至少一项; 赛季结束后不能修改",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/season.Reward"
+                    }
+                },
+                "starts_at": {
+                    "description": "RFC3339, 包含; 赛季开始后不能修改",
+                    "type": "string"
+                }
+            }
+        },
+        "seasonadmin.ListSeasonsResponseData": {
+            "type": "object",
+            "properties": {
+                "seasons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/season.View"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "seasonadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "seasonadmin.SeasonRequest": {
+            "type": "object",
+            "required": [
+                "ends_at",
+                "name",
+                "starts_at"
+            ],
+            "properties": {
+                "ends_at": {
+                    "description": "RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "rating_carry": {
+                    "description": "段位分继承上一个赛季的百分比; 赛季开始后不能修改",
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "rewards": {
+                    "description": "赛季奖励, 分数线不能重复, 每档至少一项; 赛季结束后不能修改",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/season.Reward"
+                    }
+                },
+                "starts_at": {
+                    "description": "RFC3339, 包含; 赛季开始后不能修改",
+                    "type": "string"
+                }
+            }
+        },
         "settings.Category": {
             "type": "object",
             "properties": {
@@ -12589,6 +12106,144 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "integer"
+                }
+            }
+        },
+        "settingsadmin.ListSettingRevisionsResponseData": {
+            "type": "object",
+            "properties": {
+                "revisions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/settingsadmin.SettingRevisionItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "settingsadmin.ListSettingsResponseData": {
+            "type": "object",
+            "properties": {
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/settings.Category"
+                    }
+                },
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/settings.GroupView"
+                    }
+                }
+            }
+        },
+        "settingsadmin.ResetSettingRequest": {
+            "type": "object",
+            "required": [
+                "version"
+            ],
+            "properties": {
+                "version": {
+                    "description": "当前版本, 已被别人修改时返回 409",
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "settingsadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "settingsadmin.RollbackSettingRequest": {
+            "type": "object",
+            "required": [
+                "target",
+                "version"
+            ],
+            "properties": {
+                "target": {
+                    "description": "回滚到的版本",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "version": {
+                    "description": "当前版本, 已被别人修改时返回 409",
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "settingsadmin.SettingRevisionItem": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "changes": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "from_version": {
+                    "type": "integer"
+                },
+                "updated_by": {
+                    "type": "integer"
+                },
+                "updated_by_username": {
+                    "description": "系统操作或用户已不存在时为空",
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "settingsadmin.TestMailRequest": {
+            "type": "object",
+            "required": [
+                "to"
+            ],
+            "properties": {
+                "to": {
+                    "description": "收件人",
+                    "type": "string"
+                }
+            }
+        },
+        "settingsadmin.UpdateSettingRequest": {
+            "type": "object",
+            "required": [
+                "value",
+                "version"
+            ],
+            "properties": {
+                "clear_secrets": {
+                    "description": "需要清空的密钥字段",
+                    "type": "array",
+                    "maxItems": 32,
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "value": {
+                    "description": "设置组的字段, 只需提交改动的字段, 没有提交的保持不变, 密钥字段留空表示不修改",
+                    "type": "object"
+                },
+                "version": {
+                    "description": "读取时的版本, 已被别人修改时返回 409",
+                    "type": "integer",
+                    "minimum": 0
                 }
             }
         },
@@ -12941,6 +12596,196 @@ const docTemplate = `{
             "properties": {
                 "data": {},
                 "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "shopadmin.ListShopItemsResponseData": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/shop.Item"
+                    }
+                },
+                "tabs": {
+                    "description": "未删除的商品用到的页签, 按名称排列, 不含空页签",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "shopadmin.ListShopOrdersResponseData": {
+            "type": "object",
+            "properties": {
+                "orders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/shopadmin.ShopOrderItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "shopadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "shopadmin.ShopItemRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "name"
+            ],
+            "properties": {
+                "code": {
+                    "description": "小写字母、数字和下划线, 创建后不能修改",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "ends_at": {
+                    "description": "RFC3339, 不包含, 为空时不限",
+                    "type": "string"
+                },
+                "goods": {
+                    "description": "一份商品, 数量为正数, 不能为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "image_url": {
+                    "type": "string",
+                    "maxLength": 1024
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "limits": {
+                    "$ref": "#/definitions/shop.Limits"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "original_price": {
+                    "description": "原价, 只用于展示折扣",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "price": {
+                    "description": "一份的价格, 数量为正数, 为空时免费",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "requirements": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "sort_order": {
+                    "description": "商城中从小到大排列",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
+                },
+                "starts_at": {
+                    "description": "RFC3339, 包含, 为空时不限",
+                    "type": "string"
+                },
+                "stock": {
+                    "description": "剩余库存, 为空时不限; 修改时直接覆盖",
+                    "type": "integer"
+                },
+                "tab": {
+                    "type": "string",
+                    "maxLength": 16
+                }
+            }
+        },
+        "shopadmin.ShopOrderItem": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "goods": {
+                    "description": "实际得到的全部商品, 数量为正数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "item_code": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "description": "实际支付的总价, 数量为正数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "quantity": {
+                    "description": "购买的份数",
+                    "type": "integer"
+                },
+                "refunded_at": {
+                    "type": "string"
+                },
+                "refunded_by": {
+                    "description": "退款的管理员, 没有退款时为 0",
+                    "type": "integer"
+                },
+                "refunded_username": {
+                    "description": "没有退款时为空",
+                    "type": "string"
+                },
+                "shop_item_id": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "paid 或 refunded",
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                },
+                "username": {
+                    "description": "用户已不存在时为空",
                     "type": "string"
                 }
             }
@@ -13683,6 +13528,109 @@ const docTemplate = `{
                 }
             }
         },
+        "venueadmin.ListVenuesResponseData": {
+            "type": "object",
+            "properties": {
+                "total": {
+                    "type": "integer"
+                },
+                "venues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.Venue"
+                    }
+                }
+            }
+        },
+        "venueadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "venueadmin.VenueRequest": {
+            "type": "object",
+            "required": [
+                "bid_currency",
+                "code",
+                "name"
+            ],
+            "properties": {
+                "auction": {
+                    "$ref": "#/definitions/venue.AuctionRule"
+                },
+                "bid_currency": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "bots": {
+                    "$ref": "#/definitions/venue.BotRule"
+                },
+                "code": {
+                    "description": "小写字母、数字和下划线, 创建后不能修改",
+                    "type": "string",
+                    "maxLength": 24
+                },
+                "consumables": {
+                    "description": "对局中使用道具的规则",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.ConsumableRule"
+                        }
+                    ]
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "entry_cost": {
+                    "description": "数量为正数, 开局时扣除",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "image_url": {
+                    "type": "string",
+                    "maxLength": 1024
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "pve": {
+                    "$ref": "#/definitions/venue.PveRule"
+                },
+                "pve_enabled": {
+                    "type": "boolean"
+                },
+                "ranked_enabled": {
+                    "type": "boolean"
+                },
+                "requirements": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "sort_order": {
+                    "description": "大厅中从小到大排列",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
+                },
+                "warehouse": {
+                    "$ref": "#/definitions/venue.WarehouseRule"
+                }
+            }
+        },
         "wallet.BalanceItem": {
             "type": "object",
             "properties": {
@@ -13842,6 +13790,193 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "remark": {
+                    "type": "string"
+                }
+            }
+        },
+        "walletadmin.AdjustUserBalanceRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "currency",
+                "idempotency_key",
+                "remark"
+            ],
+            "properties": {
+                "amount": {
+                    "description": "正数加款, 负数扣款, 扣款后余额不能为负",
+                    "type": "integer"
+                },
+                "currency": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "idempotency_key": {
+                    "description": "每次打开调账表单生成一个, 重复提交只生效一次",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "remark": {
+                    "description": "调账原因, 用户可在流水中看到",
+                    "type": "string"
+                }
+            }
+        },
+        "walletadmin.CreateCurrencyRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "name"
+            ],
+            "properties": {
+                "code": {
+                    "description": "自然键, 小写字母、数字和下划线",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "decimals": {
+                    "description": "展示用小数位, 已被使用的货币不能修改",
+                    "type": "integer",
+                    "maximum": 6,
+                    "minimum": 0
+                },
+                "is_enabled": {
+                    "description": "停用后不能再入账或扣款, 基础货币不能停用",
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "sort_order": {
+                    "description": "余额和下拉框中从小到大排列",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
+                }
+            }
+        },
+        "walletadmin.CurrencyRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "decimals": {
+                    "description": "展示用小数位, 已被使用的货币不能修改",
+                    "type": "integer",
+                    "maximum": 6,
+                    "minimum": 0
+                },
+                "is_enabled": {
+                    "description": "停用后不能再入账或扣款, 基础货币不能停用",
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "sort_order": {
+                    "description": "余额和下拉框中从小到大排列",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
+                }
+            }
+        },
+        "walletadmin.ListCurrenciesResponseData": {
+            "type": "object",
+            "properties": {
+                "currencies": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wallet.Currency"
+                    }
+                }
+            }
+        },
+        "walletadmin.ListUserBalancesResponseData": {
+            "type": "object",
+            "properties": {
+                "balances": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wallet.BalanceItem"
+                    }
+                }
+            }
+        },
+        "walletadmin.ListWalletTransactionsResponseData": {
+            "type": "object",
+            "properties": {
+                "total": {
+                    "type": "integer"
+                },
+                "transactions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/walletadmin.WalletTransactionItem"
+                    }
+                }
+            }
+        },
+        "walletadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "walletadmin.WalletTransactionItem": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "balance_after": {
+                    "type": "integer"
+                },
+                "biz_id": {
+                    "type": "string"
+                },
+                "biz_type": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "frozen_after": {
+                    "type": "integer"
+                },
+                "frozen_amount": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "idempotency_key": {
+                    "type": "string"
+                },
+                "operator_id": {
+                    "type": "integer"
+                },
+                "operator_username": {
+                    "description": "系统操作或用户已不存在时为空",
+                    "type": "string"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                },
+                "username": {
+                    "description": "用户已不存在时为空",
                     "type": "string"
                 }
             }
