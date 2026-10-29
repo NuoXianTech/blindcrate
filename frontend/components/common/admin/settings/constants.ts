@@ -20,6 +20,7 @@ export const REVISION_ACTIONS: Record<SettingRevisionAction, string> = {
   rollback: '回滚',
   reset: '恢复默认值',
   baseline: '初始内容',
+  import: '导入配置包',
 };
 
 /** 整数转为输入框的文字, 基点按百分比显示 */

@@ -30,6 +30,7 @@ export const ROUTES = {
   adminSuspects: '/admin/suspects',
   adminSettings: '/admin/settings',
   adminTransactions: '/admin/transactions',
+  adminPacks: '/admin/packs',
   adminAuditLogs: '/admin/audit-logs',
 } as const;
 
