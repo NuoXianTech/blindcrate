@@ -3,6 +3,7 @@ export const WALLET_BIZ_LABELS: Record<string, string> = {
   admin_adjust: '管理员调整',
   item_sell: '出售物品',
   item_sell_fee: '出售手续费',
+  item_use_refund: '道具折现退还',
   signup_grant: '新手资金',
   match_entry_fee: '对局入场费',
   match_carry_freeze: '冻结带入资金',
@@ -20,6 +21,8 @@ export const WALLET_BIZ_LABELS: Record<string, string> = {
 export const INVENTORY_BIZ_LABELS: Record<string, string> = {
   admin_adjust: '管理员调整',
   item_sell: '出售物品',
+  item_use: '使用道具',
+  item_use_refund: '退还道具',
   match_entry_fee: '对局入场费',
   match_refund: '对局退还',
   match_reward: '竞拍所得',

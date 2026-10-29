@@ -15,10 +15,12 @@ import {checkImageURL} from '@/lib/validation';
 import {
   BOT_LEVELS,
   CODE_PATTERN,
+  MAX_ALLOWED_ITEMS,
   MAX_ENTRY_COST_LINES,
   MAX_REQUIREMENTS,
   MAX_ROUND_FACTORS,
   MAX_SLOTS,
+  MAX_USES,
 } from './constants';
 
 /** 基点按百分比输入, 保留 2 位小数 */
@@ -76,6 +78,11 @@ export interface VenueForm {
   practiceOnly: boolean;
   dailyProfitCap: string;
   valueFactor: string;
+  /** 每局最多使用的道具数, 0 表示这个模式不能用道具 */
+  usesPve: string;
+  usesRanked: string;
+  /** 允许使用的道具 ID, 为空表示都可以用 */
+  allowedItems: number[];
 }
 
 /** 新建地图时的默认配置, 与老城区仓库的种子数据相近; 出价货币见 toVenueForm */
@@ -112,6 +119,7 @@ const DEFAULT_REQUEST: VenueRequest = {
     bluff_factor: 9000,
   },
   pve: {practice_only: false, daily_profit_cap: 0, value_factor: 8000},
+  consumables: {pve: {max_per_match: 0}, ranked: {max_per_match: 0}, allowed: []},
 };
 
 /** 基点或倍数转为输入框的原文, 去掉多余的 0 */
@@ -169,6 +177,9 @@ export function toVenueForm(venue: VenueRequest | null, currencies: Currency[], 
     practiceOnly: v.pve.practice_only,
     dailyProfitCap: amountInput(v.pve.daily_profit_cap, decimals),
     valueFactor: ratioInput(v.pve.value_factor, PERCENT),
+    usesPve: String(v.consumables?.pve.max_per_match ?? 0),
+    usesRanked: String(v.consumables?.ranked.max_per_match ?? 0),
+    allowedItems: v.consumables?.allowed ?? [],
   };
 }
 
@@ -225,6 +236,8 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
     `每轮出价系数需为 1-${MAX_ROUND_FACTORS} 个` :
     null);
 
+  check(form.allowedItems.length > MAX_ALLOWED_ITEMS ? `允许的道具最多 ${MAX_ALLOWED_ITEMS} 个` : null);
+
   const rounds = readNumber(form.rounds, {label: '轮数', min: 1, max: 10});
   return {
     code,
@@ -278,6 +291,11 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
       practice_only: form.practiceOnly,
       daily_profit_cap: amount(form.dailyProfitCap, '每日收益上限', 0),
       value_factor: percent(form.valueFactor, '仓库价值系数', 1000, 10000),
+    },
+    consumables: {
+      pve: {max_per_match: readNumber(form.usesPve, {label: '人机每局道具数', min: 0, max: MAX_USES})},
+      ranked: {max_per_match: readNumber(form.usesRanked, {label: '排位每局道具数', min: 0, max: MAX_USES})},
+      allowed: form.allowedItems,
     },
   };
 }

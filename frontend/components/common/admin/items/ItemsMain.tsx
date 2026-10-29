@@ -11,7 +11,7 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useQualities} from '@/components/common/site';
 import services from '@/lib/services';
-import type {AdminItem, Currency, ItemCategory} from '@/lib/services/admin';
+import type {AdminItem, Currency, ItemCategory, ItemEffect} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
 import {DeleteItemDialog} from './DeleteItemDialog';
 import {ItemDialog} from './ItemDialog';
@@ -35,6 +35,7 @@ export function ItemsMain() {
   const [loading, setLoading] = useState(true);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [categories, setCategories] = useState<ItemCategory[]>([]);
+  const [effects, setEffects] = useState<ItemEffect[]>([]);
 
   // null: 关闭; "new": 新建; 物品: 编辑
   const [editing, setEditing] = useState<AdminItem | 'new' | null>(null);
@@ -42,10 +43,11 @@ export function ItemsMain() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    Promise.all([services.admin.listCurrencies(), services.admin.listItemCategories()])
-        .then(([currencyData, categoryData]) => {
+    Promise.all([services.admin.listCurrencies(), services.admin.listItemCategories(), services.admin.listItemEffects()])
+        .then(([currencyData, categoryData, effectData]) => {
           setCurrencies(currencyData.currencies);
           setCategories(categoryData.categories);
+          setEffects(effectData.effects);
         })
         .catch((err) => toast.error(toErrorMessage(err)));
   }, [isAdmin]);
@@ -200,6 +202,7 @@ export function ItemsMain() {
                   item={item}
                   currency={currencies.find((c) => c.code === item.sell_currency)}
                   category={categories.find((c) => c.code === item.category)}
+                  effect={effects.find((e) => e.code === item.effect)}
                   onEdit={() => setEditing(item)}
                   onToggle={() => toggleEnabled(item)}
                   onDelete={() => setDeleting(item)}
@@ -218,6 +221,7 @@ export function ItemsMain() {
         item={editing}
         currencies={currencies}
         categories={categories}
+        effects={effects}
         onClose={() => setEditing(null)}
         onSaved={load}
       />

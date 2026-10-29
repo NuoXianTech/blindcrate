@@ -8,7 +8,7 @@ import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
-import {Warehouse} from '@/components/common/auction';
+import {IntelResult, Warehouse} from '@/components/common/auction';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {OUTCOMES, modeLabel, parseMode} from '@/lib/auction';
 import services from '@/lib/services';
@@ -20,7 +20,7 @@ import {formatAmount, formatDateTime} from '@/lib/utils';
 import {STATUS_LABELS, phaseLabel} from './constants';
 
 /**
- * 对局详情: 时间、每个座位, 暗拍还显示每个座位的带入资金、出价、估值和盈亏, 以及结算结果和仓库
+ * 对局详情: 时间、每个座位, 暗拍还显示每个座位的带入资金、出价、估值和盈亏, 道具的使用记录, 以及结算结果和仓库
  */
 export function MatchDetailDialog({match, venueName, decimalsOf, onClose, onCancel}: {
   match: AdminMatch | null;
@@ -151,6 +151,43 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
           </TableBody>
         </Table>
       </div>
+
+      {auction && auction.uses.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h3 className="text-sm font-medium">道具使用记录</h3>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>座位</TableHead>
+                  <TableHead>轮次</TableHead>
+                  <TableHead>道具</TableHead>
+                  <TableHead>情报</TableHead>
+                  <TableHead>时间</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {auction.uses.map((u) => (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-mono tabular-nums">{u.seat}</TableCell>
+                    <TableCell className="font-mono tabular-nums">{u.round}</TableCell>
+                    <TableCell>
+                      <span className="flex flex-col">
+                        {u.name}
+                        <span className="text-xs text-muted-foreground">#{u.item_id}</span>
+                      </span>
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      <IntelResult intel={u.result} currency={currency} decimals={decimals} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{formatDateTime(u.created_at)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex h-40 items-center justify-center text-muted-foreground">

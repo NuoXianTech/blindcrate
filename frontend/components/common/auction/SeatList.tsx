@@ -15,7 +15,7 @@ export function SeatList({view, players, decimals}: {
   decimals: number;
 }) {
   const {result} = view;
-  const bids = new Map(result?.seats.map((s) => [s.seat, s.bid]));
+  const seats = new Map(result?.seats.map((s) => [s.seat, s]));
   const extra = view.contenders.length > 0;
 
   return (
@@ -23,7 +23,8 @@ export function SeatList({view, players, decimals}: {
       {players.map((p) => {
         const winner = result?.winner_seat === p.seat;
         const contender = extra && view.contenders.includes(p.seat);
-        const bid = bids.get(p.seat) ?? 0;
+        const bid = seats.get(p.seat)?.bid ?? 0;
+        const uses = seats.get(p.seat)?.uses ?? [];
         let note = `${p.seat} 号位`;
         if (result) {
           note = bid ? formatAmount(bid, decimals) : '未出价';
@@ -52,6 +53,11 @@ export function SeatList({view, players, decimals}: {
               <span className="font-mono text-xs text-muted-foreground tabular-nums">
                 {note}
               </span>
+              {uses.length > 0 && (
+                <span className="truncate text-xs text-muted-foreground" title={uses.map((u) => `${u.name} ×${u.count}`).join(', ')}>
+                  道具 {uses.map((u) => `${u.name} ×${u.count}`).join(', ')}
+                </span>
+              )}
             </span>
             {p.rank > 0 && (
               <span className="font-mono text-sm font-bold tabular-nums" title="名次">

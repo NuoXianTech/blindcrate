@@ -115,6 +115,10 @@ export interface Item {
   /** 在仓库中占的格数 */
   width: number;
   height: number;
+  /** 使用效果代码, 见 ItemEffect; 空表示不能使用, 藏品没有效果 */
+  effect: string;
+  /** 效果参数, 结构由效果决定 */
+  effect_params: Record<string, string | number | boolean>;
   /** 下架后不会掉落, 也不能再发放, 已有的保留 */
   is_enabled: boolean;
   created_at: string;
@@ -172,8 +176,23 @@ export type ItemRequest = Pick<
   | 'sell_price'
   | 'width'
   | 'height'
+  | 'effect'
+  | 'effect_params'
   | 'is_enabled'
 >;
+
+/** 物品的使用效果, 由后端代码注册, 对应后端 effect.TypeView */
+export interface ItemEffect {
+  code: string;
+  /** 使用的场景, 如 match 对局中 */
+  scene: string;
+  /** 场景的展示名称, 如 "对局中" */
+  scene_name: string;
+  label: string;
+  description: string;
+  /** 参数的表单描述, 与条件类型相同 */
+  fields: ConditionField[];
+}
 
 /** 设置项的值: 整数列表为数组 */
 export type SettingValue = string | number | boolean | number[];
@@ -420,8 +439,8 @@ export interface ConditionField {
   label: string;
   help: string;
   type: 'string' | 'bool' | 'int';
-  /** text / switch / number, 或选择器 currency / item / scope / metric */
-  input: 'text' | 'switch' | 'number' | 'currency' | 'item' | 'scope' | 'metric';
+  /** text / switch / number, 或选择器 currency / item / quality / scope / metric */
+  input: 'text' | 'switch' | 'number' | 'currency' | 'item' | 'quality' | 'scope' | 'metric';
   /** 选择器 metric 的可选值 */
   options?: ConditionOption[];
 }
@@ -473,6 +492,20 @@ export interface BotRule {
   /** 只在前几轮诈唬 */
   bluff_rounds: number;
   bluff_factor: number;
+}
+
+/** 一种模式中使用道具的次数限制, 对应后端 venue.ConsumableLimit */
+export interface ConsumableLimit {
+  /** 每局最多使用几个道具, 0 表示这个模式不能用 */
+  max_per_match: number;
+}
+
+/** 对局中使用道具的规则, 只有效果属于对局场景的物品可以用, 对应后端 venue.ConsumableRule */
+export interface ConsumableRule {
+  pve: ConsumableLimit;
+  ranked: ConsumableLimit;
+  /** 可以用的物品 ID, 为空表示所有对局中可用的道具 */
+  allowed: number[];
 }
 
 /** 人机模式的防刷参数, 对应后端 venue.PveRule */
@@ -529,6 +562,8 @@ export interface AdminVenue {
   auction: AuctionRule;
   bots: BotRule;
   pve: PveRule;
+  /** 对局中使用道具的规则 */
+  consumables: ConsumableRule;
   /** 保存时的模拟结果 */
   simulation: Simulation;
   created_at: string;
