@@ -35,6 +35,7 @@ import (
 // 删除为软删除, ID 不会被新物品复用; 已删除的物品在背包中按占位物品处理, 见 Resolve。
 type Item struct {
 	ID            uint64         `gorm:"primaryKey" json:"id"`
+	Code          string         `gorm:"size:64;not null;uniqueIndex:uniq_items_code,where:deleted_at IS NULL" json:"code"` // 自然键, 导入导出时用来对应
 	Name          string         `gorm:"size:64;not null;uniqueIndex:uniq_items_name,where:deleted_at IS NULL" json:"name"`
 	Description   string         `gorm:"size:255;not null;default:''" json:"description"`
 	Quality       int16          `gorm:"not null;default:1" json:"quality"`                      // 品质等级, 见 Quality

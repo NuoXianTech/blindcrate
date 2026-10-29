@@ -677,7 +677,7 @@ func AdjustUserBalance(c *gin.Context) {
 type ListItemsRequest struct {
 	Current   int    `json:"current" form:"current" binding:"min=1"`
 	Size      int    `json:"size" form:"size" binding:"min=1,max=100"`
-	Keyword   string `json:"keyword" form:"keyword" binding:"max=64"`          // 按名称搜索, 不区分大小写
+	Keyword   string `json:"keyword" form:"keyword" binding:"max=64"`          // 按代码或名称搜索, 不区分大小写
 	Quality   *int16 `json:"quality" form:"quality" binding:"omitempty,min=1"` // 品质等级
 	Category  string `json:"category" form:"category" binding:"max=32"`        // 类别代码
 	IsEnabled *bool  `json:"is_enabled" form:"is_enabled"`
@@ -719,6 +719,7 @@ func ListItems(c *gin.Context) {
 
 // ItemRequest 新建或修改物品请求体
 type ItemRequest struct {
+	Code         string `json:"code" binding:"required,max=64"` // 自然键, 小写字母、数字和下划线, 导入导出时用来对应
 	Name         string `json:"name" binding:"required,max=64"`
 	Description  string `json:"description" binding:"max=255"`
 	Quality      int16  `json:"quality" binding:"required,min=1"`   // 品质等级, 必须存在
@@ -759,9 +760,9 @@ func CreateItem(c *gin.Context) {
 	created, err := doCreateItem(ctx, &req)
 	if err != nil {
 		switch err.Error() {
-		case item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
+		case item.ItemCodeInvalid, item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case item.ItemNameTaken:
+		case item.ItemCodeTaken, item.ItemNameTaken:
 			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
 		default:
 			logger.ErrorF(ctx, "[CreateItem] create failed: %v", err)
@@ -806,11 +807,11 @@ func UpdateItem(c *gin.Context) {
 	updated, changes, err := doUpdateItem(ctx, itemID, &req)
 	if err != nil {
 		switch err.Error() {
-		case item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
+		case item.ItemCodeInvalid, item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
 		case item.ItemNotFound:
 			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case item.ItemNameTaken:
+		case item.ItemCodeTaken, item.ItemNameTaken:
 			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
 		default:
 			logger.ErrorF(ctx, "[UpdateItem] update failed: %v", err)

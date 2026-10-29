@@ -68,7 +68,27 @@ func Migrate() {
 	runVersioned()
 
 	if config.Config.App.Env == "development" {
+		backfillItemCodes()
 		runAutoMigrate()
+	}
+}
+
+// backfillItemCodes 给开发库中已有的物品补上代码, 之后 AutoMigrate 才能把 code 列设为非空
+//
+// 物品代码是后加的非空列, 直接 AutoMigrate 会因已有行为空而失败; 补出的代码为 item_<id>, 可在后台修改。
+func backfillItemCodes() {
+	ctx := context.Background()
+	if !db.DB(ctx).Migrator().HasTable("items") {
+		return
+	}
+	for _, sql := range []string{
+		"ALTER TABLE items ADD COLUMN IF NOT EXISTS code VARCHAR(64) NOT NULL DEFAULT ''",
+		"UPDATE items SET code = 'item_' || id WHERE code = ''",
+		"ALTER TABLE items ALTER COLUMN code DROP DEFAULT",
+	} {
+		if err := db.DB(ctx).Exec(sql).Error; err != nil {
+			log.Fatalf("[PostgreSQL] backfill item codes failed: %v\n", err)
+		}
 	}
 }
 

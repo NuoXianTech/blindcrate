@@ -314,7 +314,7 @@ const docTemplate = `{
                     {
                         "maxLength": 64,
                         "type": "string",
-                        "description": "按名称搜索, 不区分大小写",
+                        "description": "按代码或名称搜索, 不区分大小写",
                         "name": "keyword",
                         "in": "query"
                     },
@@ -8082,6 +8082,10 @@ const docTemplate = `{
                     "description": "类别代码, 见 RegisterCategory",
                     "type": "string"
                 },
+                "code": {
+                    "description": "自然键, 导入导出时用来对应",
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -8136,6 +8140,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "category",
+                "code",
                 "height",
                 "name",
                 "quality",
@@ -8147,6 +8152,11 @@ const docTemplate = `{
                     "description": "类别代码, 必须已注册",
                     "type": "string",
                     "maxLength": 32
+                },
+                "code": {
+                    "description": "自然键, 小写字母、数字和下划线, 导入导出时用来对应",
+                    "type": "string",
+                    "maxLength": 64
                 },
                 "description": {
                     "type": "string",
@@ -10409,6 +10419,10 @@ const docTemplate = `{
             "properties": {
                 "category": {
                     "description": "类别代码, 见 RegisterCategory",
+                    "type": "string"
+                },
+                "code": {
+                    "description": "自然键, 导入导出时用来对应",
                     "type": "string"
                 },
                 "created_at": {

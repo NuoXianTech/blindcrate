@@ -39,7 +39,7 @@ export function ItemRow({item, currency, category, onEdit, onToggle, onDelete}: 
           <div className="flex min-w-0 flex-col">
             <span className={cn('font-medium', q.text)}>{item.name}</span>
             <span className="max-w-56 truncate text-xs text-muted-foreground" title={item.description || undefined}>
-              #{item.id}
+              <span className="font-mono">{item.code}</span>
               {item.description && ` · ${item.description}`}
             </span>
           </div>
