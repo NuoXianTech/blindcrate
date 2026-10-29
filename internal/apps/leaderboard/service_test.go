@@ -31,13 +31,14 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 )
 
+// TestStatsPeriod 累计和当天不需要查库, 赛季需要查询赛季表
 func TestStatsPeriod(t *testing.T) {
 	now := time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)
-	if got := statsPeriod(PeriodTotal, now); got != stats.PeriodTotal {
-		t.Errorf("total: got %s", got)
+	if got, current, err := statsPeriod(nil, PeriodTotal, now); err != nil || got != stats.PeriodTotal || current != nil {
+		t.Errorf("total: got %s, %v, %v", got, current, err)
 	}
-	if got, want := statsPeriod(PeriodDay, now), stats.PeriodDay(now); got != want {
-		t.Errorf("day: got %s, want %s", got, want)
+	if got, current, err := statsPeriod(nil, PeriodDay, now); err != nil || got != stats.PeriodDay(now) || current != nil {
+		t.Errorf("day: got %s, %v, %v", got, current, err)
 	}
 }
 

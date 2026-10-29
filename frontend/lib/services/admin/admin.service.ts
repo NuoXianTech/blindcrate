@@ -1,6 +1,7 @@
 import type {AuctionAdminView} from '../auction';
 import {BaseService} from '../core';
 import type {InventoryTransaction, ListUserItemsData, ListUserItemsParams} from '../inventory';
+import type {Season} from '../season';
 import type {BalanceItem, WalletTransaction} from '../wallet';
 import type {
   AdjustBalanceRequest,
@@ -12,6 +13,7 @@ import type {
   ConditionType,
   CreateCurrencyRequest,
   CreateQualityRequest,
+  CreateSeasonRequest,
   Currency,
   CurrencyRequest,
   Item,
@@ -33,11 +35,14 @@ import type {
   ListItemsParams,
   ListLootPoolsData,
   ListLootPoolsParams,
+  ListSeasonsData,
+  ListSeasonsParams,
   ListUsersData,
   ListUsersParams,
   ListVenuesData,
   ListVenuesParams,
   QualityRequest,
+  SeasonRequest,
   LootEntryRequest,
   LootPool,
   LootPoolEntriesData,
@@ -209,6 +214,30 @@ export class AdminService extends BaseService {
   /** 只删除榜单配置, 统计数据不受影响 */
   static deleteLeaderboard(id: number) {
     return this.delete<null>(`/leaderboards/${id}`);
+  }
+
+  static listSeasons(params: ListSeasonsParams) {
+    return this.get<ListSeasonsData>('/seasons', {params});
+  }
+
+  /** 时间不能与其他赛季重叠 */
+  static createSeason(body: CreateSeasonRequest) {
+    return this.post<Season>('/seasons', body);
+  }
+
+  /** 开始后不能修改开始时间, 结束后只能修改名称 */
+  static updateSeason(id: number, body: SeasonRequest) {
+    return this.put<Season>(`/seasons/${id}`, body);
+  }
+
+  /** 只能删除未开始的赛季 */
+  static deleteSeason(id: number) {
+    return this.delete<null>(`/seasons/${id}`);
+  }
+
+  /** 把进行中的赛季的结束时间改为当前时间 */
+  static endSeason(id: number) {
+    return this.post<Season>(`/seasons/${id}/end`);
   }
 
   static listConditionTypes() {

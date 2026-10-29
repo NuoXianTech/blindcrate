@@ -1993,6 +1993,399 @@
                 }
             }
         },
+        "/api/v1/admin/seasons": {
+            "get": {
+                "description": "按开始时间从晚到早排列",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取赛季列表",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 64,
+                        "type": "string",
+                        "description": "按代码或名称搜索, 不区分大小写",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "upcoming",
+                            "active",
+                            "ended",
+                            "settled"
+                        ],
+                        "type": "string",
+                        "description": "按状态筛选, 为空时不筛选",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListSeasonsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "时间不能与其他赛季重叠",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "新建赛季",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.CreateSeasonRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/season.View"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/seasons/{id}": {
+            "put": {
+                "description": "需提交全部字段; 赛季开始后不能修改开始时间, 结束后只能修改名称, 时间不能与其他赛季重叠",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "修改赛季",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "season id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.SeasonRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/season.View"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "只能删除未开始的赛季",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "删除赛季",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "season id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/seasons/{id}/end": {
+            "post": {
+                "description": "把进行中的赛季的结束时间改为当前时间, 之后的对局不再计入该赛季",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "提前结束赛季",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "season id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/season.View"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/settings": {
             "get": {
                 "description": "包含表单描述和当前值, 密钥字段不返回明文; 可以按分类筛选",
@@ -5573,6 +5966,56 @@
                 }
             }
         },
+        "/api/v1/seasons/current": {
+            "get": {
+                "description": "进行中的赛季和下一个未开始的赛季, 都可能为空",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "season"
+                ],
+                "summary": "获取当前赛季",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/season.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/season.GetCurrentResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/season.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/season.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/season.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/settings/public": {
             "get": {
                 "description": "如站点名称、是否开放注册, 无需登录; 返回 设置组 -\u003e 字段 -\u003e 值, 只包含公开字段",
@@ -6183,6 +6626,34 @@
                 }
             }
         },
+        "admin.CreateSeasonRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "ends_at",
+                "name",
+                "starts_at"
+            ],
+            "properties": {
+                "code": {
+                    "description": "自然键, 小写字母、数字和下划线",
+                    "type": "string",
+                    "maxLength": 24
+                },
+                "ends_at": {
+                    "description": "RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "starts_at": {
+                    "description": "RFC3339, 包含; 赛季开始后不能修改",
+                    "type": "string"
+                }
+            }
+        },
         "admin.CurrencyRequest": {
             "type": "object",
             "required": [
@@ -6432,7 +6903,7 @@
                     "maxLength": 64
                 },
                 "period": {
-                    "description": "total 累计或 day 当天",
+                    "description": "total 累计、day 当天或 season 当前赛季",
                     "type": "string"
                 },
                 "scope": {
@@ -6588,6 +7059,20 @@
                     "items": {
                         "$ref": "#/definitions/admin.QualityListItem"
                     }
+                }
+            }
+        },
+        "admin.ListSeasonsResponseData": {
+            "type": "object",
+            "properties": {
+                "seasons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/season.View"
+                    }
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
@@ -6927,6 +7412,28 @@
                     "description": "当前版本, 已被别人修改时返回 409",
                     "type": "integer",
                     "minimum": 0
+                }
+            }
+        },
+        "admin.SeasonRequest": {
+            "type": "object",
+            "required": [
+                "ends_at",
+                "name",
+                "starts_at"
+            ],
+            "properties": {
+                "ends_at": {
+                    "description": "RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "starts_at": {
+                    "description": "RFC3339, 包含; 赛季开始后不能修改",
+                    "type": "string"
                 }
             }
         },
@@ -8334,7 +8841,7 @@
                     "type": "string"
                 },
                 "period": {
-                    "description": "统计周期, total 或 day",
+                    "description": "统计周期, total、day 或 season",
                     "type": "string"
                 },
                 "scope": {
@@ -8364,7 +8871,7 @@
                     "type": "string"
                 },
                 "current_period": {
-                    "description": "当前的统计周期, 如 total、day:2026-10-28",
+                    "description": "当前的统计周期, 如 total、day:2026-10-28、season:s1; 赛季榜单还没有赛季时为空",
                     "type": "string"
                 },
                 "description": {
@@ -8394,7 +8901,7 @@
                     "type": "string"
                 },
                 "period": {
-                    "description": "total 或 day",
+                    "description": "total、day 或 season",
                     "type": "string"
                 },
                 "scope": {
@@ -8402,6 +8909,14 @@
                 },
                 "scope_name": {
                     "description": "统计范围的展示名称, 全部对局为空",
+                    "type": "string"
+                },
+                "season_ended": {
+                    "description": "赛季榜单对应的赛季已经结束, 名次不再变化",
+                    "type": "boolean"
+                },
+                "season_name": {
+                    "description": "赛季榜单对应的赛季名称, 其他榜单为空",
                     "type": "string"
                 },
                 "size": {
@@ -8436,7 +8951,7 @@
                     "type": "string"
                 },
                 "period": {
-                    "description": "total 或 day",
+                    "description": "total、day 或 season",
                     "type": "string"
                 },
                 "scope": {
@@ -8930,6 +9445,73 @@
                 "quantity": {
                     "description": "正数获得, 负数消耗",
                     "type": "integer"
+                }
+            }
+        },
+        "season.GetCurrentResponseData": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "description": "进行中的赛季, 没有时为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/season.View"
+                        }
+                    ]
+                },
+                "next": {
+                    "description": "下一个未开始的赛季, 没有时为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/season.View"
+                        }
+                    ]
+                }
+            }
+        },
+        "season.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "season.View": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "自然键, 拼进统计周期 season:\u003ccode\u003e, 创建后不能修改",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "ends_at": {
+                    "description": "不包含",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "settled_at": {
+                    "description": "赛季奖励发完的时间, 没有发完时为空",
+                    "type": "string"
+                },
+                "starts_at": {
+                    "description": "包含",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "upcoming、active、ended 或 settled",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },

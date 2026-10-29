@@ -38,6 +38,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
+	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
@@ -123,6 +124,7 @@ func runAutoMigrate() {
 		&match.Player{},
 		&stats.Stat{},
 		&leaderboard.Board{},
+		&season.Season{},
 		&venue.Venue{},
 		&auction.Match{},
 		&auction.Player{},

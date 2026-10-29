@@ -41,6 +41,7 @@ const (
 	TargetLeaderboard = "leaderboard"
 	TargetQuality     = "quality"  // target_id 为品质等级
 	TargetCurrency    = "currency" // target_id 固定为 0, 货币代码见 detail.code
+	TargetSeason      = "season"
 )
 
 // 操作类型, 格式为 "模块.动作"
@@ -78,6 +79,10 @@ const (
 	ActionQualityDelete         = "admin.quality_delete"
 	ActionCurrencyCreate        = "admin.currency_create"
 	ActionCurrencyUpdate        = "admin.currency_update"
+	ActionSeasonCreate          = "admin.season_create"
+	ActionSeasonUpdate          = "admin.season_update"
+	ActionSeasonDelete          = "admin.season_delete"
+	ActionSeasonEnd             = "admin.season_end"
 	ActionSettingsUpdate        = "admin.settings_update"
 	ActionSettingsRollback      = "admin.settings_rollback"
 	ActionSettingsReset         = "admin.settings_reset"

@@ -64,6 +64,8 @@ var (
 		{Key: MetricMatches, Label: "对局数"},
 		{Key: MetricWins, Label: "胜利次数"},
 	}
+	// periodFuncs 已注册的额外统计周期, 只在启动前写入
+	periodFuncs []PeriodFunc
 )
 
 // ValidScope 统计范围的格式是否正确, 用于校验配置中填写的范围
@@ -79,6 +81,16 @@ func MatchScopes(venue, mode string) []string {
 // PeriodDay 统计周期: t 所在的那一天, 如 day:2026-10-28
 func PeriodDay(t time.Time) string {
 	return periodDayPrefix + t.In(schedule.Location).Format(time.DateOnly)
+}
+
+// PeriodFunc 返回在 at 时累加统计需要额外写入的周期, 如赛季周期 season:s1; 不需要时返回空字符串
+//
+// 在结算的事务中调用, 返回的周期不能超过 stats.period 的长度。
+type PeriodFunc func(tx *gorm.DB, at time.Time) (string, error)
+
+// RegisterPeriod 注册一种额外的统计周期, Add 时与累计和当天一起写入, 需要在启动前调用
+func RegisterPeriod(fn PeriodFunc) {
+	periodFuncs = append(periodFuncs, fn)
 }
 
 // MetricProfit 指标: 以某种货币计的净收益, 如 profit:chip; 不同货币的收益不能相加, 所以按货币分开
@@ -115,7 +127,7 @@ func FindMetric(key string) *Metric {
 // Values 指标 -> 增量
 type Values map[string]int64
 
-// Add 把增量累加到用户在每个统计范围的累计统计和 at 当天的统计中
+// Add 把增量累加到用户在每个统计范围的累计统计、at 当天的统计和注册的额外周期中, 见 RegisterPeriod
 //
 // 应在结算对局的事务中调用, 与结算一起提交或回滚; 重复的范围只累加一次, 增量为 0 的指标不写入。
 func Add(tx *gorm.DB, userID uint64, scopes []string, at time.Time, values Values) error {
@@ -135,9 +147,23 @@ func Add(tx *gorm.DB, userID uint64, scopes []string, at time.Time, values Value
 		return nil
 	}
 
+	periods := []string{PeriodDay(at), PeriodTotal}
+	for _, fn := range periodFuncs {
+		period, err := fn(tx, at)
+		if err != nil {
+			return err
+		}
+		if len(period) > maxPeriodLength {
+			return errors.New("stats: invalid period " + period)
+		}
+		if period != "" {
+			periods = append(periods, period)
+		}
+	}
+
 	// 按主键顺序写入, 同一用户的并发累加按相同顺序加锁, 不会互相死锁
 	scopes = slices.Compact(slices.Sorted(slices.Values(scopes)))
-	periods := []string{PeriodDay(at), PeriodTotal}
+	periods = slices.Compact(slices.Sorted(slices.Values(periods)))
 	rows := make([]Stat, 0, len(scopes)*len(periods)*len(keys))
 	for _, scope := range scopes {
 		if scope == "" || len(scope) > maxScopeLength {

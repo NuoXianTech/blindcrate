@@ -352,7 +352,7 @@ CREATE TABLE IF NOT EXISTS leaderboards
     description VARCHAR(255) NOT NULL DEFAULT '',
     metric      VARCHAR(64)  NOT NULL,               -- 排名的指标, 如 wins、profit:chip
     scope       VARCHAR(64)  NOT NULL,               -- 统计范围, 如 all、mode:ranked
-    period      VARCHAR(16)  NOT NULL,               -- 统计周期, total 或 day
+    period      VARCHAR(16)  NOT NULL,               -- 统计周期, total、day 或 season
     size        INTEGER      NOT NULL DEFAULT 100,   -- 展示前多少名
     min_matches BIGINT       NOT NULL DEFAULT 0,     -- 同一范围和周期内至少完成多少局才上榜
     sort_order  INTEGER      NOT NULL DEFAULT 0,
@@ -368,6 +368,23 @@ VALUES ('ranked_wins', '排位胜场', '排位中拿到第一名的次数', 'win
        ('daily_profit_chip', '今日收益', '今天所有对局的筹码净收益, 至少完成 3 局才上榜', 'profit:chip', 'all', 'day', 100, 3, 20, TRUE),
        ('bid_won', '成交次数', '累计拍下仓库的次数', 'bid_won', 'all', 'total', 100, 0, 30, TRUE)
 ON CONFLICT (code) DO NOTHING;
+
+-- 赛季, 时间不能互相重叠; 状态由时间推算, 赛季奖励发完后写入 settled_at
+CREATE TABLE IF NOT EXISTS seasons
+(
+    id         BIGSERIAL PRIMARY KEY,
+    code       VARCHAR(24) NOT NULL, -- 自然键, 拼进统计周期 season:<code>, 创建后不能修改
+    name       VARCHAR(64) NOT NULL,
+    starts_at  TIMESTAMPTZ NOT NULL, -- 包含
+    ends_at    TIMESTAMPTZ NOT NULL, -- 不包含
+    settled_at TIMESTAMPTZ,          -- 赛季奖励发完的时间
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_seasons_time CHECK (ends_at > starts_at)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_seasons_code ON seasons (code);
+CREATE INDEX IF NOT EXISTS idx_seasons_starts_at ON seasons (starts_at);
 
 -- 地图(拍卖场), 每张地图有人机和排位两种玩法; 软删除, 代码在已删除的地图中也唯一
 CREATE TABLE IF NOT EXISTS venues

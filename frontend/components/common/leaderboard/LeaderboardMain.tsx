@@ -18,6 +18,10 @@ function boardSummary(board: Leaderboard, detail: LeaderboardDetail | null) {
   if (board.period === LEADERBOARD_PERIOD.day) {
     const day = detail?.current_period.replace(/^day:/, '');
     parts.push(day ? `今日 ${day}` : '今日');
+  } else if (board.period === LEADERBOARD_PERIOD.season) {
+    if (!detail) parts.push('赛季');
+    else if (!detail.season_name) parts.push('赛季还没有开始');
+    else parts.push(detail.season_ended ? `${detail.season_name} (已结束)` : detail.season_name);
   } else {
     parts.push('累计');
   }

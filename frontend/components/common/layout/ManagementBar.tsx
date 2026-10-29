@@ -5,6 +5,7 @@ import {usePathname} from 'next/navigation';
 import {useTheme} from 'next-themes';
 import {
   Backpack,
+  CalendarRange,
   ChartColumn,
   Coins,
   Dices,
@@ -72,6 +73,7 @@ export function ManagementBar() {
         {title: '掉落池', icon: <Dices />, href: ROUTES.adminLootPools, active: pathname.startsWith(ROUTES.adminLootPools)},
         {title: '地图管理', icon: <Warehouse />, href: ROUTES.adminVenues, active: pathname.startsWith(ROUTES.adminVenues)},
         {title: '榜单管理', icon: <Medal />, href: ROUTES.adminLeaderboards, active: pathname.startsWith(ROUTES.adminLeaderboards)},
+        {title: '赛季管理', icon: <CalendarRange />, href: ROUTES.adminSeasons, active: pathname.startsWith(ROUTES.adminSeasons)},
         {title: '对局管理', icon: <Swords />, href: ROUTES.adminMatches, active: pathname.startsWith(ROUTES.adminMatches)},
         {title: '流水查询', icon: <ReceiptText />, href: ROUTES.adminTransactions, active: pathname.startsWith(ROUTES.adminTransactions)},
         {title: '操作日志', icon: <ScrollText />, href: ROUTES.adminAuditLogs, active: pathname.startsWith(ROUTES.adminAuditLogs)},

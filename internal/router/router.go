@@ -41,6 +41,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
+	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
@@ -197,6 +198,9 @@ func Serve() {
 			// Stats
 			apiV1Router.GET("/stats", auth.LoginRequired(), stats.GetStats)
 
+			// Season
+			apiV1Router.GET("/seasons/current", auth.LoginRequired(), season.GetCurrent)
+
 			// Admin
 			adminRouter := apiV1Router.Group("/admin")
 			adminRouter.Use(auth.LoginRequired(), admin.LoginAdminRequired())
@@ -286,6 +290,16 @@ func Serve() {
 					leaderboardAdminRouter.POST("", admin.CreateLeaderboard)
 					leaderboardAdminRouter.PUT("/:id", admin.UpdateLeaderboard)
 					leaderboardAdminRouter.DELETE("/:id", admin.DeleteLeaderboard)
+				}
+
+				// Season
+				seasonAdminRouter := adminRouter.Group("/seasons")
+				{
+					seasonAdminRouter.GET("", admin.ListSeasons)
+					seasonAdminRouter.POST("", admin.CreateSeason)
+					seasonAdminRouter.PUT("/:id", admin.UpdateSeason)
+					seasonAdminRouter.DELETE("/:id", admin.DeleteSeason)
+					seasonAdminRouter.POST("/:id/end", admin.EndSeason)
 				}
 
 				// Inventory

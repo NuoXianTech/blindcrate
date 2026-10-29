@@ -2,6 +2,7 @@
 export const LEADERBOARD_PERIOD = {
   total: 'total',
   day: 'day',
+  season: 'season',
 } as const;
 
 export type LeaderboardPeriod = (typeof LEADERBOARD_PERIOD)[keyof typeof LEADERBOARD_PERIOD];
@@ -45,8 +46,12 @@ export interface LeaderboardMine {
 
 /** 榜单的前 N 名和自己的名次, 对应后端 leaderboard.BoardDetail */
 export interface LeaderboardDetail extends Leaderboard {
-  /** 当前的统计周期, 如 total、day:2026-10-28 */
+  /** 当前的统计周期, 如 total、day:2026-10-28、season:s1; 赛季榜单还没有赛季时为空 */
   current_period: string;
+  /** 赛季榜单对应的赛季名称, 其他榜单为空 */
+  season_name: string;
+  /** 赛季榜单对应的赛季已经结束, 名次不再变化 */
+  season_ended: boolean;
   /** 按名次排列; 前 N 名缓存 60 秒 */
   entries: LeaderboardEntry[];
   mine: LeaderboardMine;
