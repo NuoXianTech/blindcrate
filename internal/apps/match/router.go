@@ -25,14 +25,21 @@
 package match
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"net/http"
+	"regexp"
 	"strconv"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
+
+// devicePattern 设备标识, 32 位小写十六进制
+var devicePattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 // Response 统一的 match 响应壳, 保持与其他 app 一致
 type Response struct {
@@ -45,10 +52,23 @@ type JoinMatchmakingRequest struct {
 	Mode string `json:"mode" binding:"required,max=32"`
 }
 
+// deviceOf 读取设备标识, 没有或格式不对时生成一个写入 cookie; 同一浏览器中登录的账号共用, 用于防串通
+func deviceOf(c *gin.Context) string {
+	if device, err := c.Cookie(deviceCookieName); err == nil && devicePattern.MatchString(device) {
+		return device
+	}
+	buf := make([]byte, 16)
+	_, _ = rand.Read(buf)
+	device := hex.EncodeToString(buf)
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie(deviceCookieName, device, deviceCookieAge, "/", config.Config.App.SessionDomain, config.Config.App.SessionSecure, true)
+	return device
+}
+
 // JoinMatchmaking
 // @Tags match
 // @Summary 加入匹配队列
-// @Description 凑够一局时立即开局, 此时返回的 match_id 不为 0, 并推送 match:updated; 否则排队等待, 玩法允许人机补位时, 排队人数达到玩法的最少真人数且等到补位时间后用人机补齐。已在同一个队列中时不重复加入。不满足玩法的条件(如余额不足)时返回 403; 开局时不满足条件会被移出队列并推送 match:matchmaking_rejected
+// @Description 凑够一局时立即开局, 此时返回的 match_id 不为 0, 并推送 match:updated; 否则排队等待, 玩法允许人机补位时, 排队人数达到玩法的最少真人数且等到补位时间后用人机补齐; 同一 IP 或同一设备(cookie bc_device, 没有时写入)的账号不排进同一局, 最近一起打过的人优先不排进同一局。已在同一个队列中时不重复加入。不满足玩法的条件(如余额不足)时返回 403; 开局时不满足条件会被移出队列并推送 match:matchmaking_rejected
 // @Accept json
 // @Produce json
 // @Param request body JoinMatchmakingRequest true "request body"
@@ -72,7 +92,7 @@ func JoinMatchmaking(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
-	status, err := Join(ctx, user.ID, req.Mode)
+	status, err := Join(ctx, user.ID, req.Mode, Origin{IP: c.ClientIP(), Device: deviceOf(c)})
 	if err != nil {
 		var rejected *RejectedError
 		if errors.As(err, &rejected) {
