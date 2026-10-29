@@ -100,6 +100,14 @@ func StartScheduler() error {
 			return
 		}
 
+		// 删除没有被引用的上传图片, 可以重复执行, 失败时重试几次; 未配置时不清理
+		if cron := config.Config.Schedule.UploadCleanup; cron == "" {
+			logger.WarnF(context.Background(), "[Scheduler] schedule.upload_cleanup is empty, unused uploads will not be cleaned up")
+		} else if _, err = scheduler.Register(cron, asynq.NewTask(task.TypeUploadCleanup, nil), asynq.Queue(task.QueueLow), asynq.MaxRetry(3)); err != nil {
+			err = fmt.Errorf("register %s failed: %w", task.TypeUploadCleanup, err)
+			return
+		}
+
 		// 启动调度器
 		err = scheduler.Run()
 	})

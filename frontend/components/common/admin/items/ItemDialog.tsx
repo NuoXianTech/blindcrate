@@ -9,7 +9,7 @@ import {Label} from '@/components/ui/label';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Switch} from '@/components/ui/switch';
 import {Textarea} from '@/components/ui/textarea';
-import {SubmitButton} from '@/components/common/form';
+import {ImageUploadField, SubmitButton} from '@/components/common/form';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities, useSite} from '@/components/common/site';
@@ -17,6 +17,7 @@ import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminItem, Currency, ItemCategory, ItemRequest} from '@/lib/services/admin';
 import {amountInput, parseAmount} from '@/lib/utils';
+import {checkImageURL} from '@/lib/validation';
 import {MAX_SELL_PRICE, MAX_SIZE} from './constants';
 
 /**
@@ -92,7 +93,7 @@ function ItemForm({item, currencies, categories, onClose, onSaved}: Omit<ItemDia
     };
     check(body.name.length === 0 || [...body.name].length > 64 ? '物品名称需为 1-64 个字符' : null);
     check([...body.description].length > 255 ? '描述最多 255 个字符' : null);
-    check(body.image_url && !/^https?:\/\/\S+$/.test(body.image_url) ? '图片地址需以 http:// 或 https:// 开头' : null);
+    check(checkImageURL(body.image_url));
     check(body.sell_price < 0 || body.sell_price > MAX_SELL_PRICE ? '回收价格式不正确' : null);
     check(
       body.width < 1 || body.width > MAX_SIZE || body.height < 1 || body.height > MAX_SIZE ?
@@ -162,22 +163,20 @@ function ItemForm({item, currencies, categories, onClose, onSaved}: Omit<ItemDia
         />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="item-image">图片地址</Label>
-        <div className="flex gap-3">
+      <ImageUploadField
+        id="item-image"
+        label="图片地址"
+        purpose="item"
+        placeholder="选填, 留空显示默认图标"
+        value={imageURL}
+        onChange={setImageURL}
+        preview={
           <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background">
             <ItemImage item={{name: name || '预览', image_url: imageURL.trim()}} />
           </span>
-          <Input
-            id="item-image"
-            type="url"
-            placeholder="选填, 留空显示默认图标"
-            value={imageURL}
-            onChange={(e) => setImageURL(e.target.value)}
-            disabled={pending}
-          />
-        </div>
-      </div>
+        }
+        disabled={pending}
+      />
 
       <div className="grid grid-cols-[8rem_1fr] gap-3">
         <div className="flex flex-col gap-2">

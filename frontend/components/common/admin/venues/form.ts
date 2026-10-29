@@ -11,6 +11,7 @@ import {
 import {check} from '@/hooks/use-submit';
 import type {ConditionType, Currency, VenueRequest} from '@/lib/services/admin';
 import {amountInput, parseAmount} from '@/lib/utils';
+import {checkImageURL} from '@/lib/validation';
 import {
   BOT_LEVELS,
   CODE_PATTERN,
@@ -212,6 +213,7 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
   check(name.length === 0 || [...name].length > 64 ? '名称需为 1-64 个字符' : null);
   const description = form.description.trim();
   check([...description].length > 255 ? '描述最多 255 个字符' : null);
+  check(checkImageURL(form.imageURL.trim()));
   check(!form.bidCurrency ? '请选择出价货币' : null);
   const decimals = decimalsOf(currencies, form.bidCurrency);
   const amount = (text: string, label: string, min: number) => readNumber(text, {label, min, max: MAX_AMOUNT, decimals});

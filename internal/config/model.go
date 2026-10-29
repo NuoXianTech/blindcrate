@@ -34,6 +34,7 @@ type configModel struct {
 	Schedule scheduleConfig `mapstructure:"schedule"`
 	Worker   workerConfig   `mapstructure:"worker"`
 	WS       wsConfig       `mapstructure:"ws"`
+	Storage  storageConfig  `mapstructure:"storage"`
 	Otel     otelConfig     `mapstructure:"otel"`
 }
 
@@ -100,11 +101,12 @@ type logConfig struct {
 
 // scheduleConfig 定时任务调度配置
 type scheduleConfig struct {
-	Port         int    `mapstructure:"port"`          // 探针端口
-	TimeZone     string `mapstructure:"time_zone"`     // cron 表达式按这个时区解析
-	MatchSweep   string `mapstructure:"match_sweep"`   // 巡检到期未推进的对局和排队的 cron 表达式
-	StatsCleanup string `mapstructure:"stats_cleanup"` // 清理过期的按天统计的 cron 表达式, 留空时不清理
-	SeasonSettle string `mapstructure:"season_settle"` // 给已结束的赛季发放赛季奖励的 cron 表达式, 留空时不发放
+	Port          int    `mapstructure:"port"`           // 探针端口
+	TimeZone      string `mapstructure:"time_zone"`      // cron 表达式按这个时区解析
+	MatchSweep    string `mapstructure:"match_sweep"`    // 巡检到期未推进的对局和排队的 cron 表达式
+	StatsCleanup  string `mapstructure:"stats_cleanup"`  // 清理过期的按天统计的 cron 表达式, 留空时不清理
+	SeasonSettle  string `mapstructure:"season_settle"`  // 给已结束的赛季发放赛季奖励的 cron 表达式, 留空时不发放
+	UploadCleanup string `mapstructure:"upload_cleanup"` // 清理没有被引用的上传图片的 cron 表达式, 留空时不清理
 }
 
 // workerConfig 任务处理配置
@@ -116,6 +118,13 @@ type workerConfig struct {
 // wsConfig WebSocket 配置
 type wsConfig struct {
 	OriginPatterns []string `mapstructure:"origin_patterns"` // 允许发起连接的页面来源, 与 API 同域名的页面总是允许
+}
+
+// storageConfig 上传文件的存储, 不配置时存在本地磁盘
+type storageConfig struct {
+	Driver    string `mapstructure:"driver"`     // 存储方式, 目前只有 local: 本地磁盘
+	LocalDir  string `mapstructure:"local_dir"`  // local 存储的目录
+	PublicURL string `mapstructure:"public_url"` // 文件的访问地址前缀, 如 /uploads 或 https://cdn.example.com/uploads; 为站内路径时由 API 提供访问
 }
 
 // otelConfig OpenTelemetry 配置

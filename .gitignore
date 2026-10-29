@@ -8,6 +8,9 @@
 logs
 *.log
 
+# uploads stored on local disk
+/data/
+
 # config
 config.yaml
 

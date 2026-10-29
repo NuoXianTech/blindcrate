@@ -597,3 +597,24 @@ CREATE TABLE IF NOT EXISTS shop_orders
 CREATE INDEX IF NOT EXISTS idx_shop_orders_user_id ON shop_orders (user_id, id);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_shop_orders_idempotency_key ON shop_orders (user_id, idempotency_key);
 CREATE INDEX IF NOT EXISTS idx_shop_orders_shop_item_id ON shop_orders (shop_item_id);
+
+-- 上传的图片, 同一用途的相同图片只存一份, 没有被引用的定时清理
+CREATE TABLE IF NOT EXISTS uploads
+(
+    id           BIGSERIAL PRIMARY KEY,
+    user_id      BIGINT       NOT NULL,               -- 第一次上传的用户
+    purpose      VARCHAR(16)  NOT NULL,               -- avatar / item / venue / shop
+    key          VARCHAR(255) NOT NULL,               -- 存储中的 key, 如 item/ab/abcd….png
+    content_type VARCHAR(32)  NOT NULL,               -- 保存后的格式
+    size         BIGINT       NOT NULL,               -- 保存后的字节数
+    width        INTEGER      NOT NULL,
+    height       INTEGER      NOT NULL,
+    sha256       VARCHAR(64)  NOT NULL,               -- 保存后内容的 sha256
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(), -- 上传时间, 重复上传时刷新, 清理按它计算保留天数
+    deleted_at   TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_uploads_user_id ON uploads (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_uploads_key ON uploads (key) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_uploads_created_at ON uploads (created_at);
+CREATE INDEX IF NOT EXISTS idx_uploads_deleted_at ON uploads (deleted_at);

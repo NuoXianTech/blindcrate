@@ -9,11 +9,11 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {useAuth} from '@/components/common/auth';
-import {SubmitButton} from '@/components/common/form';
+import {ImageUploadField, SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {UserInfo} from '@/lib/services/auth';
-import {checkNickname, checkPassword, checkPasswordConfirm} from '@/lib/validation';
+import {checkImageURL, checkNickname, checkPassword, checkPasswordConfirm} from '@/lib/validation';
 import {UserAvatar} from './UserAvatar';
 
 /** 发送验证码的冷却秒数, 与后端一致 */
@@ -74,6 +74,7 @@ function ProfileForm({user}: { user: UserInfo }) {
     if (avatarURL.trim() !== user.avatar_url) body.avatar_url = avatarURL.trim();
     check(Object.keys(body).length === 0 ? '资料没有变化, 无需保存' : null);
     if (body.nickname !== undefined) check(checkNickname(body.nickname));
+    if (body.avatar_url !== undefined) check(checkImageURL(body.avatar_url));
     setUser(await services.auth.updateUserInfo(body));
     toast.success('资料已保存');
   });
@@ -94,20 +95,17 @@ function ProfileForm({user}: { user: UserInfo }) {
           disabled={pending}
         />
       </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="profile-avatar">头像地址</Label>
-        <div className="flex items-center gap-3">
-          <UserAvatar user={{nickname: nickname || user.nickname, avatar_url: avatarURL.trim()}} className="size-9" />
-          <Input
-            id="profile-avatar"
-            type="url"
-            placeholder="https://..., 留空则清除头像"
-            value={avatarURL}
-            onChange={(e) => setAvatarURL(e.target.value)}
-            disabled={pending}
-          />
-        </div>
-      </div>
+      <ImageUploadField
+        id="profile-avatar"
+        label="头像"
+        purpose="avatar"
+        placeholder="https://..., 留空则清除头像"
+        value={avatarURL}
+        onChange={setAvatarURL}
+        preview={<UserAvatar user={{nickname: nickname || user.nickname, avatar_url: avatarURL.trim()}} className="size-9" />}
+        help="上传的图片会从中间裁成正方形"
+        disabled={pending}
+      />
       <SubmitButton pending={pending} className="w-full">
         保存资料
       </SubmitButton>

@@ -7333,6 +7333,99 @@
                 }
             }
         },
+        "/api/v1/uploads": {
+            "post": {
+                "description": "multipart 表单, purpose 为用途: avatar 头像(登录用户), item 物品图片、venue 地图封面、shop 商品图片(管理员);\n按内容识别格式, 按用途缩小尺寸并重新编码后保存, 返回的地址保存到头像、物品等的图片地址中; 大小上限和允许的格式见公开设置 upload",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "upload"
+                ],
+                "summary": "上传图片",
+                "parameters": [
+                    {
+                        "enum": [
+                            "avatar",
+                            "item",
+                            "venue",
+                            "shop"
+                        ],
+                        "type": "string",
+                        "description": "用途",
+                        "name": "purpose",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "图片",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/upload.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/upload.View"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/upload.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/upload.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/upload.Response"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/upload.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/upload.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/upload.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/venues": {
             "get": {
                 "description": "按排序值排列, 附带当前用户对每个入场条件的达成情况和仓库价值区间; 价值区间为保存地图时的模拟结果",
@@ -11909,6 +12002,39 @@
             "additionalProperties": {
                 "type": "integer",
                 "format": "int64"
+            }
+        },
+        "upload.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "upload.View": {
+            "type": "object",
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "url": {
+                    "description": "保存到业务表的地址",
+                    "type": "string"
+                },
+                "width": {
+                    "type": "integer"
+                }
             }
         },
         "venue.AuctionRule": {

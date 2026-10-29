@@ -65,6 +65,7 @@ schedule:
   match_sweep: "@every 30s" # recover overdue match phases and stuck matchmaking queues
   stats_cleanup: "0 4 * * *" # delete day stats older than the retention in settings; leave empty to keep them
   season_settle: "*/5 * * * *" # grant season rewards after a season ends; leave empty to never grant them
+  upload_cleanup: "30 4 * * *" # delete uploaded images no longer referenced after the retention in settings; leave empty to keep them
 
 # Worker
 worker:
@@ -74,6 +75,12 @@ worker:
 # WebSocket
 ws:
   origin_patterns: ["localhost:3000"] # page hosts allowed to connect besides the API's own host, e.g. the Next.js dev server
+
+# Storage of uploaded images, optional
+storage:
+  driver: "local" # only local disk for now
+  local_dir: "./data/uploads"
+  public_url: "/uploads" # a site path is served by the API (and proxied by Next.js); or a CDN / nginx URL that serves local_dir
 
 # OpenTelemetry
 otel:

@@ -47,6 +47,11 @@ func init() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
+	// 可选配置的默认值
+	viper.SetDefault("storage.driver", "local")
+	viper.SetDefault("storage.local_dir", "./data/uploads")
+	viper.SetDefault("storage.public_url", "/uploads")
+
 	// 读取配置文件
 	if err := viper.ReadInConfig(); err != nil {
 		log.Fatalf("[Config] read config failed: %v\n", err)

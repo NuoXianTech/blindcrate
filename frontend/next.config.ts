@@ -25,6 +25,11 @@ const nextConfig: NextConfig = {
         source: '/api/:path*',
         destination: `${BACKEND_ORIGIN}/api/:path*`,
       },
+      // 本地存储的上传图片, 与后端 storage.public_url 一致
+      {
+        source: '/uploads/:path*',
+        destination: `${BACKEND_ORIGIN}/uploads/:path*`,
+      },
     ];
   },
 };
