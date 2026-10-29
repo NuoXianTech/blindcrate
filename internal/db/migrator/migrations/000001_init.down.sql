@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS imports;
 DROP TABLE IF EXISTS uploads;
 DROP TABLE IF EXISTS shop_orders;
 DROP TABLE IF EXISTS shop_items;

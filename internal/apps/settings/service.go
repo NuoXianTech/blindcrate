@@ -227,99 +227,23 @@ func Reset(ctx context.Context, operatorID uint64, key string, version int64) (*
 	})
 }
 
-// save 锁定当前值, 用 build 生成新值后保存, 并写入一个版本
+// save 在新事务中锁定当前值, 用 build 生成新值后保存, 并写入一个版本
 //
-// 没有任何字段变化时不写库, 也不生成版本; 启用版本记录前保存过的设置组, 第一次保存时先把原内容补记为版本 0。
-// build 返回的错误原样返回, 数据库错误记录日志后返回 SaveFailed。
+// build 返回的错误原样返回, 数据库错误记录日志后返回 SaveFailed; 其余规则见 saveTx。
 func (g *group) save(ctx context.Context, operatorID uint64, version int64, action string, fromVersion int64,
 	build func(tx *gorm.DB, cur any, broken []string) (any, error)) (*GroupView, map[string]interface{}, error) {
 	var (
-		view    GroupView
+		view    *GroupView
 		changes map[string]interface{}
 		failure error // 可以直接展示的错误
 	)
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
-		var row Setting
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("key = ?", g.key).Limit(1).Find(&row).Error; err != nil {
-			return err
-		}
-		if row.Version != version {
-			failure = errors.New(VersionConflict)
+		var err error
+		view, changes, failure, err = g.saveTx(ctx, tx, operatorID, version, action, fromVersion, build)
+		if failure != nil {
 			return failure
 		}
-		cur, broken := g.decode(ctx, &row)
-		next, err := build(tx, cur, broken)
-		if err != nil {
-			failure = err
-			return err
-		}
-		fields, err := g.formFields(tx)
-		if err != nil {
-			return err
-		}
-		changes = g.diff(cur, broken, next)
-		if len(changes) == 0 {
-			view = g.view(fields, &row, cur, broken)
-			return nil
-		}
-		stored, err := g.encode(next)
-		if err != nil {
-			if err.Error() == SecretKeyMissing {
-				failure = err
-			}
-			return err
-		}
-
-		now := time.Now()
-		if row.Key == "" {
-			row = Setting{Key: g.key, Value: stored, Version: 1, UpdatedBy: operatorID, CreatedAt: now, UpdatedAt: now}
-			if err = tx.Create(&row).Error; err != nil {
-				// 别人同时第一次保存
-				if db.IsUniqueViolation(err) {
-					failure = errors.New(VersionConflict)
-				}
-				return err
-			}
-		} else {
-			if row.Version == 0 {
-				baseline := Revision{
-					Key:       g.key,
-					Value:     row.Value,
-					Changes:   map[string]interface{}{},
-					Action:    RevisionBaseline,
-					UpdatedBy: row.UpdatedBy,
-					CreatedAt: row.UpdatedAt,
-				}
-				if err = tx.Create(&baseline).Error; err != nil {
-					return err
-				}
-			}
-			row.Value, row.Version, row.UpdatedBy, row.UpdatedAt = stored, row.Version+1, operatorID, now
-			if err = tx.Model(&Setting{}).Where("key = ?", g.key).Updates(map[string]interface{}{
-				"value":      row.Value,
-				"version":    row.Version,
-				"updated_by": row.UpdatedBy,
-				"updated_at": row.UpdatedAt,
-			}).Error; err != nil {
-				return err
-			}
-		}
-
-		revision := Revision{
-			Key:         g.key,
-			Version:     row.Version,
-			Value:       stored,
-			Changes:     changes,
-			Action:      action,
-			FromVersion: fromVersion,
-			UpdatedBy:   operatorID,
-			CreatedAt:   now,
-		}
-		if err = tx.Create(&revision).Error; err != nil {
-			return err
-		}
-		view = g.view(fields, &row, next, nil)
-		return nil
+		return err
 	})
 	if failure != nil {
 		return nil, nil, failure
@@ -328,5 +252,154 @@ func (g *group) save(ctx context.Context, operatorID uint64, version int64, acti
 		logger.ErrorF(ctx, "[Settings] save %s failed: %v", g.key, err)
 		return nil, nil, errors.New(SaveFailed)
 	}
-	return &view, changes, nil
+	return view, changes, nil
+}
+
+// saveTx 在调用方的事务中锁定当前值, 用 build 生成新值后保存, 并写入一个版本
+//
+// version 为 anyVersion 时不检查版本; 没有任何字段变化时不写库, 也不生成版本;
+// 启用版本记录前保存过的设置组, 第一次保存时先把原内容补记为版本 0。
+// failure 为可以直接展示的错误(build 返回的错误、VersionConflict 等), err 为数据库错误。
+func (g *group) saveTx(ctx context.Context, tx *gorm.DB, operatorID uint64, version int64, action string, fromVersion int64,
+	build func(tx *gorm.DB, cur any, broken []string) (any, error)) (view *GroupView, changes map[string]interface{}, failure, err error) {
+	var row Setting
+	if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("key = ?", g.key).Limit(1).Find(&row).Error; err != nil {
+		return nil, nil, nil, err
+	}
+	if version != anyVersion && row.Version != version {
+		return nil, nil, errors.New(VersionConflict), nil
+	}
+	cur, broken := g.decode(ctx, &row)
+	next, err := build(tx, cur, broken)
+	if err != nil {
+		return nil, nil, err, nil
+	}
+	fields, err := g.formFields(tx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	changes = g.diff(cur, broken, next)
+	if len(changes) == 0 {
+		unchanged := g.view(fields, &row, cur, broken)
+		return &unchanged, changes, nil, nil
+	}
+	stored, err := g.encode(next)
+	if err != nil {
+		if err.Error() == SecretKeyMissing {
+			return nil, nil, err, nil
+		}
+		return nil, nil, nil, err
+	}
+
+	now := time.Now()
+	if row.Key == "" {
+		row = Setting{Key: g.key, Value: stored, Version: 1, UpdatedBy: operatorID, CreatedAt: now, UpdatedAt: now}
+		if err = tx.Create(&row).Error; err != nil {
+			// 别人同时第一次保存
+			if db.IsUniqueViolation(err) {
+				return nil, nil, errors.New(VersionConflict), nil
+			}
+			return nil, nil, nil, err
+		}
+	} else {
+		if row.Version == 0 {
+			baseline := Revision{
+				Key:       g.key,
+				Value:     row.Value,
+				Changes:   map[string]interface{}{},
+				Action:    RevisionBaseline,
+				UpdatedBy: row.UpdatedBy,
+				CreatedAt: row.UpdatedAt,
+			}
+			if err = tx.Create(&baseline).Error; err != nil {
+				return nil, nil, nil, err
+			}
+		}
+		row.Value, row.Version, row.UpdatedBy, row.UpdatedAt = stored, row.Version+1, operatorID, now
+		if err = tx.Model(&Setting{}).Where("key = ?", g.key).Updates(map[string]interface{}{
+			"value":      row.Value,
+			"version":    row.Version,
+			"updated_by": row.UpdatedBy,
+			"updated_at": row.UpdatedAt,
+		}).Error; err != nil {
+			return nil, nil, nil, err
+		}
+	}
+
+	revision := Revision{
+		Key:         g.key,
+		Version:     row.Version,
+		Value:       stored,
+		Changes:     changes,
+		Action:      action,
+		FromVersion: fromVersion,
+		UpdatedBy:   operatorID,
+		CreatedAt:   now,
+	}
+	if err = tx.Create(&revision).Error; err != nil {
+		return nil, nil, nil, err
+	}
+	saved := g.view(fields, &row, next, nil)
+	return &saved, changes, nil, nil
+}
+
+// ExportValues 可以导出的设置组(游戏分类)的当前值, 按设置组的 key, 不含密钥字段
+func ExportValues(ctx context.Context) (map[string]map[string]interface{}, error) {
+	rows, err := queryRows(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]map[string]interface{}{}
+	for _, g := range groups {
+		if g.category != CategoryGame {
+			continue
+		}
+		value, _ := g.decode(ctx, rows[g.key])
+		values := g.values(value, false)
+		for _, f := range g.fields {
+			if f.Secret {
+				delete(values, f.Key)
+			}
+		}
+		result[g.key] = values
+	}
+	return result, nil
+}
+
+// ImportLabel 可以导入的设置组的名称, 只有游戏分类的设置组可以导入
+func ImportLabel(key string) (string, bool) {
+	g := findGroup(key)
+	if g == nil || g.category != CategoryGame {
+		return "", false
+	}
+	return g.label, true
+}
+
+// Import 在调用方的事务中导入一个设置组, 返回本次修改的字段, 没有任何字段变化时不写库
+//
+// 提交的字段合并到当前值上并按保存的规则校验, 没有提交的字段和密钥字段保持当前值; 写入的版本来源为 RevisionImport, 之后可以回滚。
+// 返回的错误中 failure 可以直接展示, err 为数据库错误。
+func Import(ctx context.Context, tx *gorm.DB, operatorID uint64, key string, raw json.RawMessage) (changes map[string]interface{}, failure, err error) {
+	if _, ok := ImportLabel(key); !ok {
+		return nil, errors.New(GroupNotImportable), nil
+	}
+	g := findGroup(key)
+	var values map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return nil, errors.New(ValueInvalid), nil
+	}
+	for _, f := range g.fields {
+		if f.Secret {
+			delete(values, f.Key)
+		}
+	}
+	raw, err = json.Marshal(values)
+	if err != nil {
+		return nil, nil, err
+	}
+	build := func(tx *gorm.DB, cur any, broken []string) (any, error) {
+		return g.merge(tx, cur, broken, raw, nil)
+	}
+	_, changes, failure, err = g.saveTx(ctx, tx, operatorID, anyVersion, RevisionImport, 0, build)
+	return changes, failure, err
 }

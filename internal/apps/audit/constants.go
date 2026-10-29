@@ -46,6 +46,7 @@ const (
 	TargetSuspect     = "suspect" // target_id 为较小的用户 ID, 另一个见 detail.user_b
 	TargetShopItem    = "shop_item"
 	TargetShopOrder   = "shop_order"
+	TargetPack        = "pack" // 导出时 target_id 固定为 0, 导入时为导入记录的 ID
 )
 
 // 操作类型, 格式为 "模块.动作"
@@ -99,4 +100,6 @@ const (
 	ActionSettingsRollback      = "admin.settings_rollback"
 	ActionSettingsReset         = "admin.settings_reset"
 	ActionMailTest              = "admin.mail_test"
+	ActionPackExport            = "admin.pack_export"
+	ActionPackImport            = "admin.pack_import"
 )

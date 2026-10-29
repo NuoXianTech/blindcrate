@@ -656,8 +656,6 @@ func doCreateCurrency(ctx context.Context, req *CreateCurrencyRequest) (*wallet.
 }
 
 // doUpdateCurrency 修改货币, 返回修改后的货币和本次修改的字段, 没有任何字段变化时不写库
-//
-// 金额按最小单位存储, 小数位只影响展示; 货币已被使用时修改小数位会让现有金额整体变大或变小, 因此只能修改未使用的货币。
 func doUpdateCurrency(ctx context.Context, code string, req *CurrencyRequest) (*wallet.Currency, map[string]interface{}, error) {
 	var (
 		target  wallet.Currency
@@ -672,22 +670,8 @@ func doUpdateCurrency(ctx context.Context, code string, req *CurrencyRequest) (*
 		}
 		old := target
 		applyCurrency(&target, req)
-		if err := wallet.ValidateCurrency(&target); err != nil {
+		if err := checkCurrencyChange(tx, &old, &target); err != nil {
 			return err
-		}
-		if target.Decimals != old.Decimals {
-			used, err := currencyUsed(tx, code)
-			if err != nil {
-				return err
-			}
-			if used {
-				return errors.New(wallet.CurrencyInUse)
-			}
-		}
-		if old.IsEnabled && !target.IsEnabled {
-			if err := wallet.CheckDisable(tx, code); err != nil {
-				return err
-			}
 		}
 		changes = currencyChanges(&old, &target)
 		if len(changes) == 0 {
@@ -699,6 +683,30 @@ func doUpdateCurrency(ctx context.Context, code string, req *CurrencyRequest) (*
 		return nil, nil, err
 	}
 	return &target, changes, nil
+}
+
+// checkCurrencyChange 校验修改后的货币
+//
+// 金额按最小单位存储, 小数位只影响展示; 货币已被使用时修改小数位会让现有金额整体变大或变小, 因此只能修改未使用的货币。
+func checkCurrencyChange(tx *gorm.DB, old, next *wallet.Currency) error {
+	if err := wallet.ValidateCurrency(next); err != nil {
+		return err
+	}
+	if next.Decimals != old.Decimals {
+		used, err := currencyUsed(tx, old.Code)
+		if err != nil {
+			return err
+		}
+		if used {
+			return errors.New(wallet.CurrencyInUse)
+		}
+	}
+	if old.IsEnabled && !next.IsEnabled {
+		if err := wallet.CheckDisable(tx, old.Code); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // currencyUsed 货币是否已被余额、物品、地图或掉落池使用, 已删除的物品和地图也算

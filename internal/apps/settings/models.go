@@ -38,7 +38,11 @@ const (
 	RevisionRollback = "rollback" // 回滚到某个旧版本
 	RevisionReset    = "reset"    // 恢复默认值
 	RevisionBaseline = "baseline" // 启用版本记录前已保存的内容, 第一次保存时补记为版本 0
+	RevisionImport   = "import"   // 导入配置包
 )
+
+// anyVersion 保存时不检查版本, 用于导入配置包
+const anyVersion int64 = -1
 
 // 设置组的 key
 //
