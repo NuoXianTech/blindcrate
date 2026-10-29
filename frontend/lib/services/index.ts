@@ -6,6 +6,7 @@ import {LeaderboardService} from './leaderboard';
 import {MatchService} from './match';
 import {RankedService} from './ranked';
 import {SeasonService} from './season';
+import {ShopService} from './shop';
 import {StatsService} from './stats';
 import {VenueService} from './venue';
 import {WalletService} from './wallet';
@@ -49,6 +50,8 @@ const services = {
   ranked: RankedService,
   /** 个人数据 */
   stats: StatsService,
+  /** 商城 */
+  shop: ShopService,
   /** 仓库暗拍 */
   auction: AuctionService,
   /** 管理后台 */

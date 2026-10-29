@@ -5,6 +5,7 @@ import type {InventoryTransaction} from '../inventory';
 import type {LeaderboardPeriod} from '../leaderboard';
 import type {Tier} from '../ranked';
 import type {Season, SeasonStatus} from '../season';
+import type {ShopOrderStatus} from '../shop';
 import type {AuctionRule, Grid} from '../venue';
 import type {WalletTransaction} from '../wallet';
 
@@ -721,14 +722,6 @@ export interface ReviewSuspectRequest {
   last_match_id: number;
   note: string;
 }
-
-/** 订单的状态, 对应后端 shop.StatusPaid 等 */
-export const SHOP_ORDER_STATUS = {
-  paid: 'paid',
-  refunded: 'refunded',
-} as const;
-
-export type ShopOrderStatus = (typeof SHOP_ORDER_STATUS)[keyof typeof SHOP_ORDER_STATUS];
 
 /** 每人限购的份数, 0 为不限 */
 export interface ShopLimits {
