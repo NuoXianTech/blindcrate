@@ -1,6 +1,6 @@
 /**
  * 页面访问规则: 哪些页面要登录、要管理员、已登录时不该再看, 以及不满足时去哪
- * proxy.ts 和客户端共用这一份, 新增页面只需放进对应前缀下
+ * proxy.ts 和客户端共用这一份; 新增页面放在已有前缀下即可, 新的前缀加进 AUTH_PREFIXES, 导航入口见 lib/nav.ts
  */
 
 export const ROUTES = {
@@ -15,6 +15,7 @@ export const ROUTES = {
   matches: '/matches',
   login: '/login',
   register: '/register',
+  admin: '/admin',
   adminUsers: '/admin/users',
   adminItems: '/admin/items',
   adminQualities: '/admin/qualities',
