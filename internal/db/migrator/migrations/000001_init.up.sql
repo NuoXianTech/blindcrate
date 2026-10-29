@@ -343,14 +343,14 @@ CREATE TABLE IF NOT EXISTS stats
 -- 排行榜按范围、周期和指标取数值最大的若干行
 CREATE INDEX IF NOT EXISTS idx_stats_board ON stats (scope, period, metric, value DESC);
 
--- 排行榜, 由管理员配置, 按 stats 中的某个指标排名
+-- 排行榜, 由管理员配置, 按 stats 中的某个指标或赛季的段位分排名
 CREATE TABLE IF NOT EXISTS leaderboards
 (
     id          BIGSERIAL PRIMARY KEY,
     code        VARCHAR(64)  NOT NULL,               -- 自然键, 如 ranked_wins
     name        VARCHAR(64)  NOT NULL,
     description VARCHAR(255) NOT NULL DEFAULT '',
-    metric      VARCHAR(64)  NOT NULL,               -- 排名的指标, 如 wins、profit:chip
+    metric      VARCHAR(64)  NOT NULL,               -- 排名的指标, 如 wins、profit:chip; rating 为赛季的段位分
     scope       VARCHAR(64)  NOT NULL,               -- 统计范围, 如 all、mode:ranked
     period      VARCHAR(16)  NOT NULL,               -- 统计周期, total、day 或 season
     size        INTEGER      NOT NULL DEFAULT 100,   -- 展示前多少名
@@ -366,7 +366,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_leaderboards_code ON leaderboards (code);
 INSERT INTO leaderboards (code, name, description, metric, scope, period, size, min_matches, sort_order, is_enabled)
 VALUES ('ranked_wins', '排位胜场', '排位中拿到第一名的次数', 'wins', 'mode:ranked', 'total', 100, 0, 10, TRUE),
        ('daily_profit_chip', '今日收益', '今天所有对局的筹码净收益, 至少完成 3 局才上榜', 'profit:chip', 'all', 'day', 100, 3, 20, TRUE),
-       ('bid_won', '成交次数', '累计拍下仓库的次数', 'bid_won', 'all', 'total', 100, 0, 30, TRUE)
+       ('bid_won', '成交次数', '累计拍下仓库的次数', 'bid_won', 'all', 'total', 100, 0, 30, TRUE),
+       ('season_rating', '赛季段位分', '本赛季的段位分', 'rating', 'all', 'season', 100, 0, 40, TRUE)
 ON CONFLICT (code) DO NOTHING;
 
 -- 赛季, 时间不能互相重叠; 状态由时间推算, 赛季奖励发完后写入 settled_at
@@ -403,6 +404,29 @@ CREATE TABLE IF NOT EXISTS ranked_ratings
 
 -- 段位分排行榜按赛季取分数最高的若干行
 CREATE INDEX IF NOT EXISTS idx_ranked_ratings_board ON ranked_ratings (season_id, rating DESC);
+
+-- 段位, 段位分不低于分数线时属于分数线最高的那个段位; 低于最低的分数线时没有段位
+CREATE TABLE IF NOT EXISTS ranked_tiers
+(
+    id         BIGSERIAL PRIMARY KEY,
+    name       VARCHAR(32) NOT NULL,
+    min_rating INTEGER     NOT NULL, -- 分数线, 包含
+    color      VARCHAR(7)  NOT NULL, -- #rrggbb
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_ranked_tiers_min_rating CHECK (min_rating >= 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_ranked_tiers_min_rating ON ranked_tiers (min_rating);
+
+INSERT INTO ranked_tiers (name, min_rating, color)
+VALUES ('青铜', 0, '#b08d57'),
+       ('白银', 1100, '#a8b4c0'),
+       ('黄金', 1250, '#fab72a'),
+       ('铂金', 1400, '#3fc1b0'),
+       ('钻石', 1600, '#3ba6f5'),
+       ('大师', 1800, '#ad74ff')
+ON CONFLICT (min_rating) DO NOTHING;
 
 -- 地图(拍卖场), 每张地图有人机和排位两种玩法; 软删除, 代码在已删除的地图中也唯一
 CREATE TABLE IF NOT EXISTS venues

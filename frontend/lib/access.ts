@@ -22,6 +22,7 @@ export const ROUTES = {
   adminVenues: '/admin/venues',
   adminLeaderboards: '/admin/leaderboards',
   adminSeasons: '/admin/seasons',
+  adminTiers: '/admin/tiers',
   adminMatches: '/admin/matches',
   adminSettings: '/admin/settings',
   adminTransactions: '/admin/transactions',

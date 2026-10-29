@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-// Package leaderboard 排行榜: 管理员配置的榜单, 按 stats 中的某个指标排名
+// Package leaderboard 排行榜: 管理员配置的榜单, 按 stats 中的某个指标或赛季的段位分排名
 //
 // 榜单只是一行配置(统计范围、周期、指标), 新增榜单不需要改代码:
 //   - 周期: 累计、当天或赛季, 查询时换成 stats 的周期, 如 day:2026-10-28、season:s1
@@ -33,6 +33,12 @@
 package leaderboard
 
 import "time"
+
+// MetricRating 段位分指标, 读赛季的段位分而不是 stats, 只能用于全部对局范围的赛季榜单
+const MetricRating = "rating"
+
+// ratingName 段位分指标的展示名称
+const ratingName = "段位分"
 
 // 榜单的统计周期
 const (

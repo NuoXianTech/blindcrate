@@ -1,6 +1,7 @@
 import type {AuctionAdminView} from '../auction';
 import {BaseService} from '../core';
 import type {InventoryTransaction, ListUserItemsData, ListUserItemsParams} from '../inventory';
+import type {ListTiersData, Tier} from '../ranked';
 import type {Season} from '../season';
 import type {BalanceItem, WalletTransaction} from '../wallet';
 import type {
@@ -43,6 +44,7 @@ import type {
   ListVenuesParams,
   QualityRequest,
   SeasonRequest,
+  TierRequest,
   LootEntryRequest,
   LootPool,
   LootPoolEntriesData,
@@ -238,6 +240,26 @@ export class AdminService extends BaseService {
   /** 把进行中的赛季的结束时间改为当前时间 */
   static endSeason(id: number) {
     return this.post<Season>(`/seasons/${id}/end`);
+  }
+
+  /** 全部段位, 按分数线从低到高 */
+  static listTiers() {
+    return this.get<ListTiersData>('/ranked/tiers');
+  }
+
+  /** 分数线不能与其他段位相同 */
+  static createTier(body: TierRequest) {
+    return this.post<Tier>('/ranked/tiers', body);
+  }
+
+  /** 段位按段位分实时计算, 修改分数线后所有人的段位随即变化 */
+  static updateTier(id: number, body: TierRequest) {
+    return this.put<Tier>(`/ranked/tiers/${id}`, body);
+  }
+
+  /** 段位分不受影响, 原来在这个段位的人按剩下的分数线重新计算段位 */
+  static deleteTier(id: number) {
+    return this.delete<null>(`/ranked/tiers/${id}`);
   }
 
   static listConditionTypes() {

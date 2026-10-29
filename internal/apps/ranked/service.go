@@ -26,9 +26,12 @@ package ranked
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"time"
+	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
@@ -40,6 +43,12 @@ import (
 func init() {
 	condition.Register(TypeMinRating, "段位分", "当前赛季的段位分不少于指定值, 本赛季还没打过排位时按初始分计算", checkMinRating)
 }
+
+// colorPattern 段位颜色, #rrggbb 小写
+var colorPattern = regexp.MustCompile(`^#[0-9a-f]{6}$`)
+
+// MaxTierRating 分数线的上限
+const MaxTierRating = 1000000
 
 // Result 一局排位中一个真人的名次
 type Result struct {
@@ -92,10 +101,12 @@ func Settle(tx *gorm.DB, at time.Time, results []Result) (map[uint64]Change, err
 
 // View 用户在当前赛季的段位分
 type View struct {
-	Season  *season.View `json:"season"` // 进行中的赛季, 赛季之外为空
-	Rating  int32        `json:"rating"`
-	Peak    int32        `json:"peak"`
-	Matches int32        `json:"matches"` // 本赛季计分的排位局数, 0 表示还没打过, 段位分为初始分
+	Season   *season.View `json:"season"` // 进行中的赛季, 赛季之外为空
+	Rating   int32        `json:"rating"`
+	Peak     int32        `json:"peak"`
+	Matches  int32        `json:"matches"`   // 本赛季计分的排位局数, 0 表示还没打过, 段位分为初始分
+	Tier     *Tier        `json:"tier"`      // 当前的段位, 低于最低的分数线时为空
+	NextTier *Tier        `json:"next_tier"` // 下一个段位, 已是最高段位时为空
 }
 
 // Query 查询用户在 now 时所在赛季的段位分, 还没打过排位时为初始分
@@ -119,13 +130,57 @@ func Query(tx *gorm.DB, userID uint64, now time.Time) (*View, error) {
 	}
 	if rating != nil {
 		view.Rating, view.Peak, view.Matches = rating.Rating, rating.Peak, rating.Matches
-		return view, nil
+	} else {
+		if view.Rating, err = initialRating(tx, userID, current, int32(cfg.BaseRating)); err != nil {
+			return nil, err
+		}
+		view.Peak = view.Rating
 	}
-	if view.Rating, err = initialRating(tx, userID, current, int32(cfg.BaseRating)); err != nil {
+	tiers, err := QueryTiers(tx)
+	if err != nil {
 		return nil, err
 	}
-	view.Peak = view.Rating
+	view.Tier, view.NextTier = TierOf(tiers, view.Rating)
 	return view, nil
+}
+
+// ValidateTier 保存前校验段位, 名称需已去掉首尾空白, 颜色需已转为小写
+func ValidateTier(t *Tier) error {
+	if n := utf8.RuneCountInString(t.Name); n < 1 || n > 32 {
+		return errors.New(TierNameInvalid)
+	}
+	if t.MinRating < 0 || t.MinRating > MaxTierRating {
+		return errors.New(TierRatingInvalid)
+	}
+	if !colorPattern.MatchString(t.Color) {
+		return errors.New(TierColorInvalid)
+	}
+	return nil
+}
+
+// QueryTiers 获取全部段位, 按分数线从低到高
+func QueryTiers(tx *gorm.DB) ([]Tier, error) {
+	tiers := []Tier{}
+	if err := tx.Order("min_rating").Find(&tiers).Error; err != nil {
+		return nil, err
+	}
+	return tiers, nil
+}
+
+// TierOf 段位分所在的段位和下一个段位, tiers 需按分数线从低到高排列
+//
+// 低于最低的分数线时当前段位为 nil, 已是最高段位时下一个段位为 nil。
+func TierOf(tiers []Tier, rating int32) (*Tier, *Tier) {
+	// 第一个分数线高于段位分的段位是下一个段位, 它前面的是当前段位
+	i, _ := slices.BinarySearchFunc(tiers, rating+1, func(t Tier, target int32) int { return cmp.Compare(t.MinRating, target) })
+	var current, next *Tier
+	if i > 0 {
+		current = &tiers[i-1]
+	}
+	if i < len(tiers) {
+		next = &tiers[i]
+	}
+	return current, next
 }
 
 // lock 锁定用户在赛季中的段位分, 还没有时按初始分创建

@@ -14,7 +14,7 @@ import type {ScopeOption} from '@/components/common/admin/editors';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminLeaderboard, LeaderboardRequest, StatMetric} from '@/lib/services/admin';
-import {LEADERBOARD_PERIOD, type LeaderboardPeriod} from '@/lib/services/leaderboard';
+import {LEADERBOARD_PERIOD, METRIC_RATING, type LeaderboardPeriod} from '@/lib/services/leaderboard';
 import {parseAmount} from '@/lib/utils';
 import {CODE_PATTERN, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, PERIODS} from './constants';
 
@@ -114,6 +114,16 @@ function LeaderboardForm({board, metrics, scopes, onClose, onSaved}: Omit<Leader
 
   // 指标失效(如货币已删除)或候选项未加载时仍显示原值, 方便管理员改选
   const unknownMetric = metric && !metrics.some((m) => m.key === metric);
+  // 段位分榜单只能按全部对局的当前赛季排名
+  const rating = metric === METRIC_RATING;
+
+  const changeMetric = (value: string) => {
+    setMetric(value);
+    if (value === METRIC_RATING) {
+      setScope('all');
+      setPeriod(LEADERBOARD_PERIOD.season);
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
@@ -150,7 +160,7 @@ function LeaderboardForm({board, metrics, scopes, onClose, onSaved}: Omit<Leader
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="board-metric">指标</Label>
-        <Select value={metric} onValueChange={setMetric} disabled={pending}>
+        <Select value={metric} onValueChange={changeMetric} disabled={pending}>
           <SelectTrigger id="board-metric" className="w-full">
             <SelectValue placeholder="选择排名的指标" />
           </SelectTrigger>
@@ -163,7 +173,9 @@ function LeaderboardForm({board, metrics, scopes, onClose, onSaved}: Omit<Leader
             ))}
           </SelectContent>
         </Select>
-        <span className="text-xs text-muted-foreground">从大到小排名, 同分时先达到的在前</span>
+        <span className="text-xs text-muted-foreground">
+          从大到小排名, 同分时先达到的在前{rating && '; 段位分按当前赛季排名, 统计范围固定为全部对局, 周期固定为当前赛季'}
+        </span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -177,7 +189,7 @@ function LeaderboardForm({board, metrics, scopes, onClose, onSaved}: Omit<Leader
             className="font-mono"
             value={scope}
             onChange={(e) => setScope(e.target.value)}
-            disabled={pending}
+            disabled={pending || rating}
           />
           <datalist id={scopeListID}>
             {scopes.map((s) => (
@@ -189,7 +201,11 @@ function LeaderboardForm({board, metrics, scopes, onClose, onSaved}: Omit<Leader
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="board-period">统计周期</Label>
-          <Select value={period} onValueChange={(value) => setPeriod(value as LeaderboardPeriod)} disabled={pending}>
+          <Select
+            value={period}
+            onValueChange={(value) => setPeriod(value as LeaderboardPeriod)}
+            disabled={pending || rating}
+          >
             <SelectTrigger id="board-period" className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -240,7 +256,7 @@ function LeaderboardForm({board, metrics, scopes, onClose, onSaved}: Omit<Leader
         </div>
       </div>
       <span className="-mt-2 text-xs text-muted-foreground">
-        上榜人数为 {MIN_SIZE}-{MAX_SIZE}; 最少局数按同一范围和周期内完成的对局计, 0 为不限; 排序从小到大决定页签顺序
+        上榜人数为 {MIN_SIZE}-{MAX_SIZE}; 最少局数按{rating ? '本赛季计分的排位局数' : '同一范围和周期内完成的对局'}计, 0 为不限; 排序从小到大决定页签顺序
       </span>
 
       <div className="flex items-center justify-between gap-4 rounded-lg border p-3">

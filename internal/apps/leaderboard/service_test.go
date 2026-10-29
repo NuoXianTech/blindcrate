@@ -58,6 +58,8 @@ func TestValidateFields(t *testing.T) {
 		{"size small", func(b *Board) { b.Size = MinSize - 1 }, SizeInvalid},
 		{"size large", func(b *Board) { b.Size = MaxSize + 1 }, SizeInvalid},
 		{"min matches negative", func(b *Board) { b.MinMatches = -1 }, MinMatchesInvalid},
+		{"rating scope", func(b *Board) { b.Metric, b.Period = MetricRating, PeriodSeason }, RatingBoardInvalid},
+		{"rating period", func(b *Board) { b.Metric, b.Scope = MetricRating, stats.ScopeAll }, RatingBoardInvalid},
 	}
 	for _, c := range cases {
 		b := valid
@@ -65,6 +67,17 @@ func TestValidateFields(t *testing.T) {
 		if err := Validate(nil, &b); err == nil || err.Error() != c.want {
 			t.Errorf("%s: got %v, want %s", c.name, err, c.want)
 		}
+	}
+}
+
+// TestValidateRating 段位分榜单不需要查库
+func TestValidateRating(t *testing.T) {
+	b := Board{Code: "season_rating", Name: "段位分", Metric: MetricRating, Scope: stats.ScopeAll, Period: PeriodSeason, Size: DefaultSize}
+	if err := Validate(nil, &b); err != nil {
+		t.Errorf("rating: got %v", err)
+	}
+	if name, err := metricName(nil, MetricRating); err != nil || name != ratingName {
+		t.Errorf("rating name: got %q, %v", name, err)
 	}
 }
 

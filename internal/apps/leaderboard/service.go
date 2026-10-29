@@ -72,17 +72,23 @@ func Validate(tx *gorm.DB, b *Board) error {
 	if b.MinMatches < 0 {
 		return errors.New(MinMatchesInvalid)
 	}
+	if b.Metric == MetricRating {
+		if b.Scope != stats.ScopeAll || b.Period != PeriodSeason {
+			return errors.New(RatingBoardInvalid)
+		}
+		return nil
+	}
 	_, err := metricName(tx, b.Metric)
 	return err
 }
 
-// QueryMetrics 可以排名的指标: 已注册的计数指标和每种货币的净收益
+// QueryMetrics 可以排名的指标: 已注册的计数指标、段位分和每种货币的净收益
 func QueryMetrics(ctx context.Context) ([]stats.Metric, error) {
 	var currencies []wallet.Currency
 	if err := db.DB(ctx).Order("sort_order, code").Find(&currencies).Error; err != nil {
 		return nil, err
 	}
-	options := stats.Metrics()
+	options := append(stats.Metrics(), stats.Metric{Key: MetricRating, Label: ratingName})
 	for _, currency := range currencies {
 		options = append(options, stats.Metric{Key: stats.MetricProfit(currency.Code), Label: profitName(currency.Name)})
 	}
@@ -91,6 +97,9 @@ func QueryMetrics(ctx context.Context) ([]stats.Metric, error) {
 
 // metricName 指标的展示名称; 指标未注册或货币不存在时返回 MetricInvalid
 func metricName(tx *gorm.DB, metric string) (string, error) {
+	if metric == MetricRating {
+		return ratingName, nil
+	}
 	if m := stats.FindMetric(metric); m != nil {
 		return m.Label, nil
 	}
@@ -213,6 +222,7 @@ func QueryBoard(ctx context.Context, userID uint64, code string) (*BoardDetail, 
 	if err != nil {
 		return nil, err
 	}
+	w := window{period: period, season: current}
 	detail := &BoardDetail{BoardView: *view, CurrentPeriod: period, Entries: []Entry{}}
 	if current != nil {
 		detail.SeasonName = current.Name
@@ -222,7 +232,7 @@ func QueryBoard(ctx context.Context, userID uint64, code string) (*BoardDetail, 
 		return detail, nil
 	}
 
-	top, err := loadTop(ctx, &board, period)
+	top, err := loadTop(ctx, &board, w)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +246,7 @@ func QueryBoard(ctx context.Context, userID uint64, code string) (*BoardDetail, 
 			IsSelf:    row.UserID == userID,
 		}
 	}
-	if detail.Mine, err = queryMine(tx, &board, period, userID); err != nil {
+	if detail.Mine, err = queryMine(tx, &board, w, userID); err != nil {
 		return nil, err
 	}
 	return detail, nil
@@ -282,9 +292,15 @@ type rankedRow struct {
 	Value     int64  `json:"value"`
 }
 
+// window 榜单在某个时刻对应的统计周期
+type window struct {
+	period string         // stats 的统计周期, 见 statsPeriod
+	season *season.Season // 赛季榜单对应的赛季, 段位分榜单按它查询; 其他榜单为空
+}
+
 // loadTop 获取前 N 名, 优先读缓存; 缓存读写失败时直接查库, 不影响结果
-func loadTop(ctx context.Context, b *Board, period string) ([]rankedRow, error) {
-	key := fmt.Sprintf("%s%s:%d:%s", cacheKeyPrefix, b.Code, b.UpdatedAt.UnixMicro(), period)
+func loadTop(ctx context.Context, b *Board, w window) ([]rankedRow, error) {
+	key := fmt.Sprintf("%s%s:%d:%s", cacheKeyPrefix, b.Code, b.UpdatedAt.UnixMicro(), w.period)
 	raw, err := db.Redis.Get(ctx, key).Bytes()
 	if err == nil {
 		var rows []rankedRow
@@ -295,7 +311,7 @@ func loadTop(ctx context.Context, b *Board, period string) ([]rankedRow, error) 
 		logger.WarnF(ctx, "[Leaderboard] read cache %s failed: %v", key, err)
 	}
 
-	rows, err := queryTop(db.DB(ctx), b, period)
+	rows, err := queryTop(db.DB(ctx), b, w)
 	if err != nil {
 		return nil, err
 	}
@@ -307,13 +323,23 @@ func loadTop(ctx context.Context, b *Board, period string) ([]rankedRow, error) 
 	return rows, nil
 }
 
-// rankedQuery 能上榜的统计行: 榜单的范围、周期和指标, 账号未停用、未封禁, 并在同一范围和周期内完成了足够的局数
-func rankedQuery(tx *gorm.DB, b *Board, period string) *gorm.DB {
+// source 榜单的数据, 每个用户一行(user_id、value、updated_at); qualified 为 true 时只保留完成了足够局数的
+//
+// 段位分榜单读赛季的段位分, 局数为计分的排位局数; 其他榜单读统计范围、周期和指标的统计, 局数为同一范围和周期内的对局数。
+func source(tx *gorm.DB, b *Board, w window, qualified bool) *gorm.DB {
+	if b.Metric == MetricRating {
+		query := tx.Table("ranked_ratings").
+			Select("user_id, rating AS value, updated_at").
+			Where("season_id = ?", w.season.ID)
+		if qualified && b.MinMatches > 0 {
+			query = query.Where("matches >= ?", b.MinMatches)
+		}
+		return query
+	}
 	query := tx.Table("stats").
-		Joins("JOIN users ON users.id = stats.user_id").
-		Where("stats.scope = ? AND stats.period = ? AND stats.metric = ?", b.Scope, period, b.Metric).
-		Where("users.is_disabled = FALSE AND (users.banned_until IS NULL OR users.banned_until <= NOW())")
-	if b.MinMatches > 0 {
+		Select("user_id, value, updated_at").
+		Where("scope = ? AND period = ? AND metric = ?", b.Scope, w.period, b.Metric)
+	if qualified && b.MinMatches > 0 {
 		query = query.Where(
 			"EXISTS (SELECT 1 FROM stats AS played WHERE played.user_id = stats.user_id AND played.scope = stats.scope "+
 				"AND played.period = stats.period AND played.metric = ? AND played.value >= ?)",
@@ -323,8 +349,15 @@ func rankedQuery(tx *gorm.DB, b *Board, period string) *gorm.DB {
 	return query
 }
 
+// rankedQuery 能上榜的行, 别名为 r: 完成了足够的局数, 账号未停用、未封禁
+func rankedQuery(tx *gorm.DB, b *Board, w window) *gorm.DB {
+	return tx.Table("(?) AS r", source(tx, b, w, true)).
+		Joins("JOIN users ON users.id = r.user_id").
+		Where("users.is_disabled = FALSE AND (users.banned_until IS NULL OR users.banned_until <= NOW())")
+}
+
 // queryTop 查询前 N 名, 按数值从大到小, 同分时先达到的在前
-func queryTop(tx *gorm.DB, b *Board, period string) ([]rankedRow, error) {
+func queryTop(tx *gorm.DB, b *Board, w window) ([]rankedRow, error) {
 	var rows []struct {
 		UserID    uint64
 		Username  string
@@ -332,9 +365,9 @@ func queryTop(tx *gorm.DB, b *Board, period string) ([]rankedRow, error) {
 		AvatarURL string
 		Value     int64
 	}
-	if err := rankedQuery(tx, b, period).
-		Select("stats.user_id, stats.value, users.username, users.nickname, users.avatar_url").
-		Order("stats.value DESC, stats.updated_at, stats.user_id").
+	if err := rankedQuery(tx, b, w).
+		Select("r.user_id, r.value, users.username, users.nickname, users.avatar_url").
+		Order("r.value DESC, r.updated_at, r.user_id").
 		Limit(int(b.Size)).
 		Scan(&rows).Error; err != nil {
 		return nil, err
@@ -350,27 +383,30 @@ func queryTop(tx *gorm.DB, b *Board, period string) ([]rankedRow, error) {
 }
 
 // queryMine 查询用户自己的数值和名次, 名次为排在自己前面的人数 + 1, 与 queryTop 的排序一致
-func queryMine(tx *gorm.DB, b *Board, period string, userID uint64) (Mine, error) {
+func queryMine(tx *gorm.DB, b *Board, w window, userID uint64) (Mine, error) {
 	var rows []struct {
 		Value     int64
 		UpdatedAt time.Time
 	}
-	if err := rankedQuery(tx, b, period).
-		Select("stats.value, stats.updated_at").
-		Where("stats.user_id = ?", userID).
+	if err := rankedQuery(tx, b, w).
+		Select("r.value, r.updated_at").
+		Where("r.user_id = ?", userID).
 		Limit(1).Scan(&rows).Error; err != nil {
 		return Mine{}, err
 	}
 	if len(rows) == 0 {
 		// 没有上榜时仍返回自己的数值
-		value, err := stats.Get(tx, userID, b.Scope, period, b.Metric)
-		return Mine{Value: value}, err
+		err := source(tx, b, w, false).Where("user_id = ?", userID).Limit(1).Scan(&rows).Error
+		if err != nil || len(rows) == 0 {
+			return Mine{}, err
+		}
+		return Mine{Value: rows[0].Value}, nil
 	}
 
 	mine := rows[0]
 	var ahead int64
-	if err := rankedQuery(tx, b, period).
-		Where("(stats.value > ? OR (stats.value = ? AND (stats.updated_at < ? OR (stats.updated_at = ? AND stats.user_id < ?))))",
+	if err := rankedQuery(tx, b, w).
+		Where("(r.value > ? OR (r.value = ? AND (r.updated_at < ? OR (r.updated_at = ? AND r.user_id < ?))))",
 			mine.Value, mine.Value, mine.UpdatedAt, mine.UpdatedAt, userID).
 		Count(&ahead).Error; err != nil {
 		return Mine{}, err

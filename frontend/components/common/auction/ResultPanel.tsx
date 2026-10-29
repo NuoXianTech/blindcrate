@@ -1,23 +1,26 @@
 'use client';
 
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {LoaderCircle, RotateCcw} from 'lucide-react';
 import {toast} from 'sonner';
 import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
+import {TierName} from '@/components/common/ranked';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {ROUTES, matchHref} from '@/lib/access';
 import {OUTCOMES, parseMode} from '@/lib/auction';
+import {tierOf} from '@/lib/ranked';
 import services from '@/lib/services';
 import {AUCTION_OUTCOME, type AuctionView} from '@/lib/services/auction';
 import {toErrorMessage} from '@/lib/services/core';
 import type {MatchPlayer} from '@/lib/services/match';
+import type {Tier} from '@/lib/services/ranked';
 import {formatAmount} from '@/lib/utils';
 
 /**
- * 结算结果: 成交价、仓库价值、自己的盈亏和排位的段位分变化; 结算后对局随即释放, 开箱时就可以离开或再来一局
+ * 结算结果: 成交价、仓库价值、自己的盈亏和排位的段位分、段位变化; 结算后对局随即释放, 开箱时就可以离开或再来一局
  */
 export function ResultPanel({view, players, decimals, finished, released}: {
   view: AuctionView;
@@ -30,13 +33,28 @@ export function ResultPanel({view, players, decimals, finished, released}: {
 }) {
   const router = useRouter();
   const [joining, setJoining] = useState(false);
+  const [tiers, setTiers] = useState<Tier[] | null>(null);
   const result = view.result;
+  const sold = result?.outcome === AUCTION_OUTCOME.sold;
+  // 排位成交后按名次加减段位分, 流拍和练习局不计分
+  const rated = sold && parseMode(view.mode)?.kind === 'ranked' && !view.self.is_practice;
+
+  useEffect(() => {
+    if (!rated) return;
+    services.ranked.listTiers()
+        .then((data) => setTiers(data.tiers))
+        .catch(() => {
+          // 只影响段位的展示, 失败时只显示段位分
+        });
+  }, [rated]);
+
   if (!result) return null;
 
   const winner = players.find((p) => p.seat === result.winner_seat);
-  const sold = result.outcome === AUCTION_OUTCOME.sold;
-  // 排位成交后按名次加减段位分, 流拍和练习局不计分
-  const rated = sold && parseMode(view.mode)?.kind === 'ranked' && !view.self.is_practice;
+  // 结算前后的段位, 由段位分换算; 段位按当前的分数线计算
+  const tierBefore = tiers && tierOf(tiers, result.rating - result.rating_delta);
+  const tierAfter = tiers && tierOf(tiers, result.rating);
+  const tierChanged = !!tiers && tierBefore?.id !== tierAfter?.id;
 
   let title: string;
   if (sold && winner?.is_self) {
@@ -103,6 +121,7 @@ export function ResultPanel({view, players, decimals, finished, released}: {
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">段位分</span>
           <span className="flex items-baseline gap-2 font-mono tabular-nums">
+            {tiers && <TierName tier={tierAfter} className="self-center font-sans" />}
             <span className="text-xl font-bold">{result.rating}</span>
             <span
               className={cn(
@@ -114,6 +133,14 @@ export function ResultPanel({view, players, decimals, finished, released}: {
               {formatAmount(result.rating_delta, 0, {signed: true})}
             </span>
           </span>
+          {tierChanged && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {result.rating_delta > 0 ? '升段' : '降段'}
+              <TierName tier={tierBefore} />
+              →
+              <TierName tier={tierAfter} />
+            </span>
+          )}
         </div>
       )}
 

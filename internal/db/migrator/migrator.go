@@ -127,6 +127,7 @@ func runAutoMigrate() {
 		&leaderboard.Board{},
 		&season.Season{},
 		&ranked.Rating{},
+		&ranked.Tier{},
 		&venue.Venue{},
 		&auction.Match{},
 		&auction.Player{},

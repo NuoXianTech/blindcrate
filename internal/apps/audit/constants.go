@@ -42,6 +42,7 @@ const (
 	TargetQuality     = "quality"  // target_id 为品质等级
 	TargetCurrency    = "currency" // target_id 固定为 0, 货币代码见 detail.code
 	TargetSeason      = "season"
+	TargetRankedTier  = "ranked_tier"
 )
 
 // 操作类型, 格式为 "模块.动作"
@@ -83,6 +84,9 @@ const (
 	ActionSeasonUpdate          = "admin.season_update"
 	ActionSeasonDelete          = "admin.season_delete"
 	ActionSeasonEnd             = "admin.season_end"
+	ActionRankedTierCreate      = "admin.ranked_tier_create"
+	ActionRankedTierUpdate      = "admin.ranked_tier_update"
+	ActionRankedTierDelete      = "admin.ranked_tier_delete"
 	ActionSettingsUpdate        = "admin.settings_update"
 	ActionSettingsRollback      = "admin.settings_rollback"
 	ActionSettingsReset         = "admin.settings_reset"

@@ -7,6 +7,9 @@ export const LEADERBOARD_PERIOD = {
 
 export type LeaderboardPeriod = (typeof LEADERBOARD_PERIOD)[keyof typeof LEADERBOARD_PERIOD];
 
+/** 段位分指标, 读赛季的段位分而不是统计, 只能用于全部对局范围的赛季榜单 */
+export const METRIC_RATING = 'rating';
+
 /** 玩家看到的榜单, 对应后端 leaderboard.BoardView */
 export interface Leaderboard {
   code: string;
