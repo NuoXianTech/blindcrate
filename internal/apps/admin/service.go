@@ -443,17 +443,10 @@ var itemCodePattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
 
 // applyItem 校验请求并写入物品字段, 品质、类别和卖出货币必须存在, 已停用的货币也可以选
 //
-// 名称和代码都有唯一索引, 撞上时只能报一种错误, 所以代码先查一次, 唯一索引冲突统一按名称已存在处理。
+// 名称有唯一索引, 撞上时按名称已存在处理; 代码可以重复。
 func applyItem(tx *gorm.DB, target *item.Item, req *ItemRequest) error {
 	if !itemCodePattern.MatchString(req.Code) {
 		return errors.New(item.ItemCodeInvalid)
-	}
-	var taken int64
-	if err := tx.Model(&item.Item{}).Where("code = ? AND id <> ?", req.Code, target.ID).Count(&taken).Error; err != nil {
-		return err
-	}
-	if taken > 0 {
-		return errors.New(item.ItemCodeTaken)
 	}
 	name := strings.TrimSpace(req.Name)
 	if n := utf8.RuneCountInString(name); n < 1 || n > 64 {
