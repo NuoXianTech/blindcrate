@@ -43,6 +43,7 @@ async function hasValidSession(request: NextRequest) {
   }
 }
 
+// 除接口、静态资源和带扩展名的文件外都经过这里, 具体哪些页面要登录由 requiresAuth 判断, 不在这里重复列出
 export const config = {
-  matcher: ['/', '/home/:path*', '/wallet/:path*', '/inventory/:path*', '/leaderboard/:path*', '/stats/:path*', '/match/:path*', '/matches/:path*', '/admin/:path*'],
+  matcher: ['/((?!api/|_next/|.*\\..*).*)'],
 };

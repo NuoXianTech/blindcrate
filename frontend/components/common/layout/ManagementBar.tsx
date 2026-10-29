@@ -3,39 +3,13 @@
 import {useState} from 'react';
 import {usePathname} from 'next/navigation';
 import {useTheme} from 'next-themes';
-import {
-  ArrowDownUp,
-  Backpack,
-  CalendarRange,
-  ChartColumn,
-  Coins,
-  Dices,
-  Gem,
-  Gamepad2,
-  History,
-  LogOut,
-  Medal,
-  Mountain,
-  Package,
-  Palette,
-  ReceiptText,
-  ScrollText,
-  Settings,
-  ShieldAlert,
-  ShoppingBag,
-  Store,
-  Swords,
-  Tags,
-  Trophy,
-  Users,
-  Wallet,
-  Warehouse,
-} from 'lucide-react';
+import {LayoutDashboard, LogOut, Palette} from 'lucide-react';
 import {toast} from 'sonner';
 import {FloatingDock, type DockEntry} from '@/components/ui/floating-dock';
 import {useAuth} from '@/components/common/auth';
 import {ProfileDialog, UserAvatar} from '@/components/common/user';
 import {ROUTES} from '@/lib/access';
+import {ADMIN_NAV, PLAYER_NAV, isActive} from '@/lib/nav';
 import {THEMES} from '@/lib/themes';
 
 /** 底部悬浮导航: 桌面端居中, 移动端右下角 */
@@ -59,38 +33,21 @@ export function ManagementBar() {
     }
   };
 
-  const items: DockEntry[] = [
-    {title: '大厅', icon: <Gamepad2 />, href: ROUTES.gameHome, active: pathname === ROUTES.gameHome},
-    {title: '战绩', icon: <History />, href: ROUTES.matches, active: pathname.startsWith(ROUTES.matches)},
-    {title: '背包', icon: <Backpack />, href: ROUTES.inventory, active: pathname.startsWith(ROUTES.inventory)},
-    {title: '商城', icon: <Store />, href: ROUTES.shop, active: pathname.startsWith(ROUTES.shop)},
-    {title: '钱包', icon: <Wallet />, href: ROUTES.wallet, active: pathname.startsWith(ROUTES.wallet)},
-    {title: '排行榜', icon: <Trophy />, href: ROUTES.leaderboard, active: pathname.startsWith(ROUTES.leaderboard)},
-    {title: '数据', icon: <ChartColumn />, href: ROUTES.stats, active: pathname.startsWith(ROUTES.stats)},
-  ];
+  const items: DockEntry[] = PLAYER_NAV.map((entry) => ({
+    title: entry.title,
+    icon: <entry.icon />,
+    href: entry.href,
+    active: isActive(entry, pathname),
+  }));
 
-  // 管理区域, 单独一组
+  // 管理区域只放一个入口, 各管理页面在管理区顶部切换
   if (user?.is_admin) {
-    items.push(
-        null,
-        {title: '用户管理', icon: <Users />, href: ROUTES.adminUsers, active: pathname.startsWith(ROUTES.adminUsers)},
-        {title: '物品管理', icon: <Package />, href: ROUTES.adminItems, active: pathname.startsWith(ROUTES.adminItems)},
-        {title: '品质管理', icon: <Gem />, href: ROUTES.adminQualities, active: pathname.startsWith(ROUTES.adminQualities)},
-        {title: '货币管理', icon: <Coins />, href: ROUTES.adminCurrencies, active: pathname.startsWith(ROUTES.adminCurrencies)},
-        {title: '掉落池', icon: <Dices />, href: ROUTES.adminLootPools, active: pathname.startsWith(ROUTES.adminLootPools)},
-        {title: '地图管理', icon: <Warehouse />, href: ROUTES.adminVenues, active: pathname.startsWith(ROUTES.adminVenues)},
-        {title: '榜单管理', icon: <Medal />, href: ROUTES.adminLeaderboards, active: pathname.startsWith(ROUTES.adminLeaderboards)},
-        {title: '赛季管理', icon: <CalendarRange />, href: ROUTES.adminSeasons, active: pathname.startsWith(ROUTES.adminSeasons)},
-        {title: '段位管理', icon: <Mountain />, href: ROUTES.adminTiers, active: pathname.startsWith(ROUTES.adminTiers)},
-        {title: '对局管理', icon: <Swords />, href: ROUTES.adminMatches, active: pathname.startsWith(ROUTES.adminMatches)},
-        {title: '可疑名单', icon: <ShieldAlert />, href: ROUTES.adminSuspects, active: pathname.startsWith(ROUTES.adminSuspects)},
-        {title: '商品管理', icon: <Tags />, href: ROUTES.adminShopItems, active: pathname.startsWith(ROUTES.adminShopItems)},
-        {title: '商城订单', icon: <ShoppingBag />, href: ROUTES.adminShopOrders, active: pathname.startsWith(ROUTES.adminShopOrders)},
-        {title: '流水查询', icon: <ReceiptText />, href: ROUTES.adminTransactions, active: pathname.startsWith(ROUTES.adminTransactions)},
-        {title: '操作日志', icon: <ScrollText />, href: ROUTES.adminAuditLogs, active: pathname.startsWith(ROUTES.adminAuditLogs)},
-        {title: '导入导出', icon: <ArrowDownUp />, href: ROUTES.adminPacks, active: pathname.startsWith(ROUTES.adminPacks)},
-        {title: '系统设置', icon: <Settings />, href: ROUTES.adminSettings, active: pathname.startsWith(ROUTES.adminSettings)},
-    );
+    items.push(null, {
+      title: '管理后台',
+      icon: <LayoutDashboard />,
+      href: ADMIN_NAV[0].entries[0].href,
+      active: pathname === ROUTES.admin || pathname.startsWith(`${ROUTES.admin}/`),
+    });
   }
 
   // 个人区域: 只有一个主题时不显示切换
