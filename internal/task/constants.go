@@ -48,4 +48,5 @@ const (
 	TypeMatchBotFill      = "match:bot_fill"      // 排队等到补位时间, 用人机补齐后组局
 	TypeMatchSweep        = "match:sweep"         // 定时巡检到期未推进的对局和排队, cron 为 schedule.match_sweep
 	TypeStatsCleanup      = "stats:cleanup"       // 定时清理保留天数之前的按天统计, cron 为 schedule.stats_cleanup, 进 low
+	TypeSeasonSettle      = "season:settle"       // 定时给已结束的赛季发放赛季奖励, cron 为 schedule.season_settle, 进 low
 )

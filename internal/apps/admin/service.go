@@ -1411,7 +1411,15 @@ func doCreateSeason(ctx context.Context, req *CreateSeasonRequest) (*season.View
 	if !target.EndsAt.After(now) {
 		return nil, errors.New(season.TimeInvalid)
 	}
-	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	rewards, err := season.NormalizeRewards(req.Rewards)
+	if err != nil {
+		return nil, err
+	}
+	target.Rewards = rewards
+	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := season.CheckRewards(tx, target.Rewards); err != nil {
+			return err
+		}
 		if err := season.Lock(tx); err != nil {
 			return err
 		}
@@ -1439,7 +1447,11 @@ func doUpdateSeason(ctx context.Context, seasonID uint64, req *SeasonRequest) (*
 		changes map[string]interface{}
 		now     = time.Now()
 	)
-	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	rewards, err := season.NormalizeRewards(req.Rewards)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := season.Lock(tx); err != nil {
 			return err
 		}
@@ -1451,6 +1463,7 @@ func doUpdateSeason(ctx context.Context, seasonID uint64, req *SeasonRequest) (*
 		startChanged := !startsAt.Equal(target.StartsAt.Truncate(time.Minute))
 		endChanged := !endsAt.Equal(target.EndsAt.Truncate(time.Minute))
 		carryChanged := req.RatingCarry != target.RatingCarry
+		rewardsChanged := !reflect.DeepEqual(rewards, target.Rewards)
 		switch target.StatusAt(now) {
 		case season.StatusUpcoming:
 		case season.StatusActive:
@@ -1458,13 +1471,20 @@ func doUpdateSeason(ctx context.Context, seasonID uint64, req *SeasonRequest) (*
 				return errors.New(season.StartLocked)
 			}
 		default:
-			if startChanged || endChanged || carryChanged {
+			if startChanged || endChanged || carryChanged || rewardsChanged {
 				return errors.New(season.SeasonEnded)
 			}
 		}
 
 		target.Name = strings.TrimSpace(req.Name)
 		target.RatingCarry = req.RatingCarry
+		if rewardsChanged {
+			// 没有修改时不重新检查, 奖励中的物品删除后仍能修改其他字段
+			if err := season.CheckRewards(tx, rewards); err != nil {
+				return err
+			}
+			target.Rewards = rewards
+		}
 		if startChanged {
 			target.StartsAt = startsAt
 		}
@@ -1558,15 +1578,16 @@ func seasonFields(target *season.Season) map[string]interface{} {
 		"starts_at":    target.StartsAt.UTC().Format(time.RFC3339),
 		"ends_at":      target.EndsAt.UTC().Format(time.RFC3339),
 		"rating_carry": target.RatingCarry,
+		"rewards":      target.Rewards,
 	}
 }
 
-// seasonChanges 本次修改了哪些字段, 用于操作日志
+// seasonChanges 本次修改了哪些字段, 用于操作日志; 奖励是切片, 按内容比较
 func seasonChanges(old, next *season.Season) map[string]interface{} {
 	changes := map[string]interface{}{}
 	nextFields := seasonFields(next)
 	for key, oldValue := range seasonFields(old) {
-		if newValue := nextFields[key]; oldValue != newValue {
+		if newValue := nextFields[key]; !reflect.DeepEqual(oldValue, newValue) {
 			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
 		}
 	}

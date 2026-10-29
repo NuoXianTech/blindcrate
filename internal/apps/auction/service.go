@@ -693,7 +693,7 @@ func (st *state) grantWarehouse(tx *gorm.DB, p *Player) error {
 		bundle.Items = append(bundle.Items, reward.ItemLine{ItemID: it.ItemID, Quantity: 1})
 		prices[it.ItemID] = reward.CurrencyLine{Currency: it.SellCurrency, Amount: it.SellPrice}
 	}
-	bundle, err := deliverable(tx, bundle, prices)
+	bundle, err := reward.Deliverable(tx, bundle, prices)
 	if err != nil {
 		return err
 	}
@@ -705,7 +705,7 @@ func (st *state) refund(tx *gorm.DB, p *Player) error {
 	if p.EntryCost.IsEmpty() {
 		return nil
 	}
-	bundle, err := deliverable(tx, p.EntryCost, nil)
+	bundle, err := reward.Deliverable(tx, p.EntryCost, nil)
 	if err != nil {
 		return err
 	}
@@ -754,36 +754,6 @@ func (st *state) applyReward(tx *gorm.DB, p *Player, bundle reward.Bundle, bizTy
 	}
 	pushResult(tx, result, replayed)
 	return nil
-}
-
-// deliverable 发放前把已下架或已删除的物品换成货币, 这些物品不能再发放
-//
-// prices 为物品 ID -> 折算的货币和单价, 没有时按物品当前的回收价; 单价为 0 的物品不折算。
-func deliverable(tx *gorm.DB, bundle reward.Bundle, prices map[uint64]reward.CurrencyLine) (reward.Bundle, error) {
-	itemIDs := make([]uint64, len(bundle.Items))
-	for i, line := range bundle.Items {
-		itemIDs[i] = line.ItemID
-	}
-	items, err := item.Resolve(tx, itemIDs)
-	if err != nil {
-		return reward.Bundle{}, err
-	}
-	result := reward.Bundle{Currencies: append([]reward.CurrencyLine{}, bundle.Currencies...)}
-	for _, line := range bundle.Items {
-		target := items[line.ItemID]
-		if !target.IsPlaceholder && target.IsEnabled {
-			result.Items = append(result.Items, line)
-			continue
-		}
-		price, ok := prices[line.ItemID]
-		if !ok {
-			price = reward.CurrencyLine{Currency: target.SellCurrency, Amount: target.SellPrice}
-		}
-		if price.Amount > 0 {
-			result.Currencies = append(result.Currencies, reward.CurrencyLine{Currency: price.Currency, Amount: price.Amount * line.Quantity})
-		}
-	}
-	return result, nil
 }
 
 // pushResult 事务提交后推送余额和物品变动, 重放时不推送

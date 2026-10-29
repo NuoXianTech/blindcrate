@@ -1,6 +1,6 @@
 'use client';
 
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {Plus, Search} from 'lucide-react';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
@@ -9,12 +9,14 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {Table, TableBody, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
+import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import services from '@/lib/services';
 import type {ListSeasonsData} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {Tier} from '@/lib/services/ranked';
 import type {Season} from '@/lib/services/season';
 import {SeasonActionDialog, type SeasonAction} from './SeasonActionDialog';
-import {SeasonDialog} from './SeasonDialog';
+import {SeasonDialog, type SeasonOptions} from './SeasonDialog';
 import {SeasonRow} from './SeasonRow';
 import {PAGE_SIZE, STATUS_FILTERS, type StatusFilter} from './constants';
 
@@ -30,6 +32,9 @@ export function SeasonsMain() {
   const [current, setCurrent] = useState(1);
   const [data, setData] = useState<ListSeasonsData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const catalog = useAdminCatalog();
+  const [tiers, setTiers] = useState<Tier[] | null>(null);
 
   // null: 关闭; "new": 新建; 赛季: 编辑
   const [editing, setEditing] = useState<Season | 'new' | null>(null);
@@ -59,6 +64,21 @@ export function SeasonsMain() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 筛选条件变化时重新拉取
     void load();
   }, [load]);
+
+  // 段位只在编辑奖励时用到, 挂载时拉取一次
+  useEffect(() => {
+    if (!isAdmin) return;
+    services.admin.listTiers()
+        .then((data) => setTiers(data.tiers))
+        .catch((err) => toast.error(toErrorMessage(err)));
+  }, [isAdmin]);
+
+  const options = useMemo<SeasonOptions>(() => ({
+    items: catalog.items,
+    currencies: catalog.currencies,
+    tiers: tiers ?? [],
+    loaded: catalog.loaded && tiers !== null,
+  }), [catalog.items, catalog.currencies, catalog.loaded, tiers]);
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -143,7 +163,7 @@ export function SeasonsMain() {
 
       <Pagination current={current} size={PAGE_SIZE} total={data?.total ?? 0} onChange={setCurrent} />
 
-      <SeasonDialog season={editing} onClose={() => setEditing(null)} onSaved={load} />
+      <SeasonDialog season={editing} options={options} onClose={() => setEditing(null)} onSaved={load} />
       <SeasonActionDialog target={acting} onClose={() => setActing(null)} onSaved={load} />
     </div>
   );

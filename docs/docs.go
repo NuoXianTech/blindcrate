@@ -6346,7 +6346,7 @@ const docTemplate = `{
         },
         "/api/v1/seasons/current": {
             "get": {
-                "description": "进行中的赛季和下一个未开始的赛季, 都可能为空",
+                "description": "进行中的赛季和下一个未开始的赛季, 都可能为空; 带进行中的赛季的奖励",
                 "produces": [
                     "application/json"
                 ],
@@ -7031,6 +7031,13 @@ const docTemplate = `{
                     "type": "integer",
                     "maximum": 100,
                     "minimum": 0
+                },
+                "rewards": {
+                    "description": "赛季奖励, 分数线不能重复, 每档至少一项; 赛季结束后不能修改",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/season.Reward"
+                    }
                 },
                 "starts_at": {
                     "description": "RFC3339, 包含; 赛季开始后不能修改",
@@ -7854,6 +7861,13 @@ const docTemplate = `{
                     "type": "integer",
                     "maximum": 100,
                     "minimum": 0
+                },
+                "rewards": {
+                    "description": "赛季奖励, 分数线不能重复, 每档至少一项; 赛季结束后不能修改",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/season.Reward"
+                    }
                 },
                 "starts_at": {
                     "description": "RFC3339, 包含; 赛季开始后不能修改",
@@ -9991,6 +10005,13 @@ const docTemplate = `{
                             "$ref": "#/definitions/season.View"
                         }
                     ]
+                },
+                "rewards": {
+                    "description": "进行中的赛季的奖励, 带货币和物品的名称; 没有进行中的赛季时为空列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/season.RewardView"
+                    }
                 }
             }
         },
@@ -10000,6 +10021,64 @@ const docTemplate = `{
                 "data": {},
                 "error_msg": {
                     "type": "string"
+                }
+            }
+        },
+        "season.Reward": {
+            "type": "object",
+            "properties": {
+                "bundle": {
+                    "description": "数量为正数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "min_rating": {
+                    "description": "分数线, 包含",
+                    "type": "integer"
+                }
+            }
+        },
+        "season.RewardLine": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "货币金额或物品数量",
+                    "type": "integer"
+                },
+                "currency": {
+                    "description": "与 item_id 二选一",
+                    "type": "string"
+                },
+                "decimals": {
+                    "description": "货币的展示用小数位, 物品为 0",
+                    "type": "integer"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "season.RewardView": {
+            "type": "object",
+            "properties": {
+                "lines": {
+                    "description": "货币在前, 物品在后",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/season.RewardLine"
+                    }
+                },
+                "min_rating": {
+                    "type": "integer"
                 }
             }
         },
@@ -10026,6 +10105,13 @@ const docTemplate = `{
                 "rating_carry": {
                     "description": "段位分继承上一个赛季的百分比, 初始分 = 基础分 + (上赛季的段位分 - 基础分) × 比例; 0 有效, 模型中不设默认值",
                     "type": "integer"
+                },
+                "rewards": {
+                    "description": "赛季奖励, 按分数线从低到高, 见 NormalizeRewards",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/season.Reward"
+                    }
                 },
                 "settled_at": {
                     "description": "赛季奖励发完的时间, 没有发完时为空",

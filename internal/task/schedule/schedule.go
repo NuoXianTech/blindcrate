@@ -92,6 +92,14 @@ func StartScheduler() error {
 			return
 		}
 
+		// 发放赛季奖励, 可以重复执行, 失败时重试几次; 未配置时不发放
+		if cron := config.Config.Schedule.SeasonSettle; cron == "" {
+			logger.WarnF(context.Background(), "[Scheduler] schedule.season_settle is empty, season rewards will not be granted")
+		} else if _, err = scheduler.Register(cron, asynq.NewTask(task.TypeSeasonSettle, nil), asynq.Queue(task.QueueLow), asynq.MaxRetry(3)); err != nil {
+			err = fmt.Errorf("register %s failed: %w", task.TypeSeasonSettle, err)
+			return
+		}
+
 		// 启动调度器
 		err = scheduler.Run()
 	})

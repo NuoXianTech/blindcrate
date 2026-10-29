@@ -27,6 +27,7 @@
 //   - 时间: 从开始时间(含)到结束时间(不含), 赛季之间不能重叠, 可以有间隔, 同一时刻最多一个进行中的赛季
 //   - 状态: 由时间推算出未开始、进行中、已结束, 赛季奖励发完后为已结算, 见 Season.StatusAt
 //   - 统计: 进行中的赛季在结算对局时额外写入 season:<code> 周期, 见 Period, 不需要清空数据
+//   - 奖励: 按赛季中的最高段位分分档, 赛季结束后由定时任务发放, 见 Season.RewardOf 和 ranked.HandleSeasonSettle
 package season
 
 // 赛季的状态
@@ -39,3 +40,10 @@ const (
 
 // periodPrefix 赛季统计周期的前缀, 见 Period
 const periodPrefix = "season:"
+
+// 赛季奖励的限制
+const (
+	maxRewards      = 10      // 最多的档数
+	maxRewardLines  = 8       // 每档最多的行数
+	maxRewardRating = 1000000 // 分数线的上限, 与段位的分数线一致
+)

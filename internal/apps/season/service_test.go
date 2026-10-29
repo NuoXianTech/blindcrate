@@ -25,9 +25,12 @@
 package season
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 )
 
 func TestStatusAt(t *testing.T) {
@@ -88,5 +91,80 @@ func TestValidate(t *testing.T) {
 func TestPeriodLength(t *testing.T) {
 	if got := len(Period(strings.Repeat("a", 24))); got > 32 {
 		t.Errorf("period length %d exceeds 32", got)
+	}
+}
+
+func TestNormalizeRewards(t *testing.T) {
+	chip := func(amount int64) reward.Bundle {
+		return reward.Bundle{Currencies: []reward.CurrencyLine{{Currency: "chip", Amount: amount}}}
+	}
+	got, err := NormalizeRewards([]Reward{
+		{MinRating: 1250, Bundle: reward.Bundle{Items: []reward.ItemLine{{ItemID: 3, Quantity: 1}, {ItemID: 3, Quantity: 2}}}},
+		{MinRating: 0, Bundle: chip(100)},
+	})
+	if err != nil {
+		t.Fatalf("valid: got %v", err)
+	}
+	want := []Reward{
+		{MinRating: 0, Bundle: chip(100)},
+		{MinRating: 1250, Bundle: reward.Bundle{Items: []reward.ItemLine{{ItemID: 3, Quantity: 3}}}},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("valid: got %+v, want %+v", got, want)
+	}
+	if got, err := NormalizeRewards(nil); err != nil || got == nil || len(got) != 0 {
+		t.Errorf("nil: got %v, %v", got, err)
+	}
+
+	many := make([]Reward, maxRewards+1)
+	for i := range many {
+		many[i] = Reward{MinRating: int32(i), Bundle: chip(1)}
+	}
+	lines := reward.Bundle{}
+	for i := range maxRewardLines + 1 {
+		lines.Items = append(lines.Items, reward.ItemLine{ItemID: uint64(i + 1), Quantity: 1})
+	}
+	cases := []struct {
+		name    string
+		rewards []Reward
+		want    string
+	}{
+		{"too many", many, RewardsTooMany},
+		{"rating negative", []Reward{{MinRating: -1, Bundle: chip(1)}}, RewardRatingInvalid},
+		{"rating over", []Reward{{MinRating: maxRewardRating + 1, Bundle: chip(1)}}, RewardRatingInvalid},
+		{"rating taken", []Reward{{MinRating: 1100, Bundle: chip(1)}, {MinRating: 1100, Bundle: chip(2)}}, RewardRatingTaken},
+		{"empty", []Reward{{MinRating: 0}}, RewardEmpty},
+		{"lines", []Reward{{MinRating: 0, Bundle: lines}}, RewardLinesTooMany},
+		{"amount zero", []Reward{{MinRating: 0, Bundle: chip(0)}}, RewardAmountInvalid},
+		{"quantity negative", []Reward{{MinRating: 0, Bundle: reward.Bundle{Items: []reward.ItemLine{{ItemID: 1, Quantity: -1}}}}}, RewardAmountInvalid},
+		{"currency empty", []Reward{{MinRating: 0, Bundle: reward.Bundle{Currencies: []reward.CurrencyLine{{Amount: 1}}}}}, RewardAmountInvalid},
+	}
+	for _, c := range cases {
+		if _, err := NormalizeRewards(c.rewards); err == nil || err.Error() != c.want {
+			t.Errorf("%s: got %v, want %s", c.name, err, c.want)
+		}
+	}
+}
+
+func TestRewardOf(t *testing.T) {
+	s := Season{Rewards: []Reward{{MinRating: 1100}, {MinRating: 1250}, {MinRating: 1400}}}
+	cases := []struct {
+		peak int32
+		want int32 // 领取的分数线, -1 为没有奖励
+	}{
+		{1099, -1},
+		{1100, 1100},
+		{1249, 1100},
+		{1250, 1250},
+		{5000, 1400},
+	}
+	for _, c := range cases {
+		got := s.RewardOf(c.peak)
+		if (got == nil) != (c.want < 0) || (got != nil && got.MinRating != c.want) {
+			t.Errorf("peak %d: got %+v, want %d", c.peak, got, c.want)
+		}
+	}
+	if got := (&Season{}).RewardOf(5000); got != nil {
+		t.Errorf("no rewards: got %+v", got)
 	}
 }

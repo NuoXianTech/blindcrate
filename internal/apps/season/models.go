@@ -27,6 +27,7 @@ package season
 import (
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"gorm.io/gorm"
 )
 
@@ -39,8 +40,15 @@ type Season struct {
 	EndsAt      time.Time  `gorm:"not null" json:"ends_at"`                                                                    // 不包含
 	SettledAt   *time.Time `json:"settled_at"`                                                                                 // 赛季奖励发完的时间, 没有发完时为空
 	RatingCarry int16      `gorm:"not null;check:chk_seasons_rating_carry,rating_carry BETWEEN 0 AND 100" json:"rating_carry"` // 段位分继承上一个赛季的百分比, 初始分 = 基础分 + (上赛季的段位分 - 基础分) × 比例; 0 有效, 模型中不设默认值
+	Rewards     []Reward   `gorm:"type:jsonb;serializer:json;not null;default:'[]'" json:"rewards"`                            // 赛季奖励, 按分数线从低到高, 见 NormalizeRewards
 	CreatedAt   time.Time  `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time  `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
+}
+
+// Reward 一档赛季奖励, 赛季中的最高段位分不低于分数线时可以领取; 每人只发满足条件的最高一档
+type Reward struct {
+	MinRating int32         `json:"min_rating"` // 分数线, 包含
+	Bundle    reward.Bundle `json:"bundle"`     // 数量为正数
 }
 
 // TableName 自定义表名
@@ -68,10 +76,36 @@ func (s *Season) StatusAt(now time.Time) string {
 	}
 }
 
+// RewardOf 最高段位分 peak 可以领取的那一档奖励, 一档都不满足时返回 nil; Rewards 需按分数线从低到高排列
+func (s *Season) RewardOf(peak int32) *Reward {
+	for i := len(s.Rewards) - 1; i >= 0; i-- {
+		if s.Rewards[i].MinRating <= peak {
+			return &s.Rewards[i]
+		}
+	}
+	return nil
+}
+
 // View 赛季和当前的状态
 type View struct {
 	Season
 	Status string `json:"status"` // upcoming、active、ended 或 settled
+}
+
+// RewardView 玩家看到的一档赛季奖励
+type RewardView struct {
+	MinRating int32        `json:"min_rating"`
+	Lines     []RewardLine `json:"lines"` // 货币在前, 物品在后
+}
+
+// RewardLine 奖励中的一种货币或物品, 带名称便于展示
+type RewardLine struct {
+	Currency string `json:"currency,omitempty"` // 与 item_id 二选一
+	ItemID   uint64 `json:"item_id,omitempty"`
+	Name     string `json:"name"`
+	ImageURL string `json:"image_url"`
+	Decimals int16  `json:"decimals"` // 货币的展示用小数位, 物品为 0
+	Amount   int64  `json:"amount"`   // 货币金额或物品数量
 }
 
 // NewView 赛季和 now 时的状态
