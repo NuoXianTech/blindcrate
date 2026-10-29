@@ -17,6 +17,12 @@ export const CODE_PATTERN = /^[a-z0-9_]{1,64}$/;
 export const MAX_SELL_PRICE = 1_000_000_000_000;
 export const MAX_SIZE = 10;
 
+/** 藏品类别, 不能配置使用效果 */
+export const COLLECTIBLE = 'collectible';
+
+/** 效果下拉框中"不能使用"的取值, Select 不接受空字符串 */
+export const NO_EFFECT = 'none';
+
 /** 物品转为修改接口的请求体, 修改接口需要提交全部字段 */
 export function toRequest(item: AdminItem): ItemRequest {
   return {
@@ -31,5 +37,7 @@ export function toRequest(item: AdminItem): ItemRequest {
     width: item.width,
     height: item.height,
     is_enabled: item.is_enabled,
+    effect: item.effect,
+    effect_params: item.effect_params,
   };
 }

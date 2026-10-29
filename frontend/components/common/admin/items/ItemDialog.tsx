@@ -10,15 +10,16 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {Switch} from '@/components/ui/switch';
 import {Textarea} from '@/components/ui/textarea';
 import {ImageUploadField, SubmitButton} from '@/components/common/form';
+import {fromParamsDraft, newParamsDraft, ParamField, toParamsDraft, type ParamsDraft} from '@/components/common/admin/editors';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities, useSite} from '@/components/common/site';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem, Currency, ItemCategory, ItemRequest} from '@/lib/services/admin';
+import type {AdminItem, Currency, ItemCategory, ItemEffect, ItemRequest} from '@/lib/services/admin';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {checkImageURL} from '@/lib/validation';
-import {CODE_PATTERN, MAX_SELL_PRICE, MAX_SIZE} from './constants';
+import {CODE_PATTERN, COLLECTIBLE, MAX_SELL_PRICE, MAX_SIZE, NO_EFFECT} from './constants';
 
 /**
  * 物品对话框的Props接口
@@ -30,6 +31,8 @@ interface ItemDialogProps {
   currencies: Currency[];
   /** 可选的物品类别 */
   categories: ItemCategory[];
+  /** 可选的使用效果 */
+  effects: ItemEffect[];
   onClose: () => void;
   /** 保存成功后刷新列表 */
   onSaved: () => void;
@@ -59,7 +62,7 @@ export function ItemDialog({item, ...props}: ItemDialogProps) {
 /**
  * 物品表单, item 为 null 时新建
  */
-function ItemForm({item, currencies, categories, onClose, onSaved}: Omit<ItemDialogProps, 'item'> & {
+function ItemForm({item, currencies, categories, effects, onClose, onSaved}: Omit<ItemDialogProps, 'item'> & {
   item: AdminItem | null;
 }) {
   const {pending, submit} = useSubmit();
@@ -78,6 +81,17 @@ function ItemForm({item, currencies, categories, onClose, onSaved}: Omit<ItemDia
   const [width, setWidth] = useState(String(item?.width ?? 1));
   const [height, setHeight] = useState(String(item?.height ?? 1));
   const [enabled, setEnabled] = useState(item?.is_enabled ?? true);
+  const [effectCode, setEffectCode] = useState(item?.effect || NO_EFFECT);
+  const [effectParams, setEffectParams] = useState<ParamsDraft>(() => toParamsDraft(item?.effect_params));
+  // 藏品不能配置使用效果, 切换到藏品时提交空效果
+  const usable = category !== COLLECTIBLE;
+  const effect = usable ? effects.find((e) => e.code === effectCode) : undefined;
+
+  const changeEffect = (code: string) => {
+    setEffectCode(code);
+    const next = effects.find((e) => e.code === code);
+    setEffectParams(next ? newParamsDraft(next.fields, currencies) : {});
+  };
 
   const handleSubmit = submit(async () => {
     const body: ItemRequest = {
@@ -92,7 +106,11 @@ function ItemForm({item, currencies, categories, onClose, onSaved}: Omit<ItemDia
       width: parseAmount(width) ?? 0,
       height: parseAmount(height) ?? 0,
       is_enabled: enabled,
+      effect: usable && effectCode !== NO_EFFECT ? effectCode : '',
+      effect_params: {},
     };
+    check(body.effect && !effect ? '使用效果不存在, 请重新选择' : null);
+    if (effect) body.effect_params = fromParamsDraft(effect.fields, effectParams, '效果参数');
     check(CODE_PATTERN.test(body.code) ? null : '物品代码需为 1-64 个小写字母、数字或下划线');
     check(body.name.length === 0 || [...body.name].length > 64 ? '物品名称需为 1-64 个字符' : null);
     check([...body.description].length > 255 ? '描述最多 255 个字符' : null);
@@ -236,6 +254,50 @@ function ItemForm({item, currencies, categories, onClose, onSaved}: Omit<ItemDia
           <Input id="item-height" inputMode="numeric" value={height} onChange={(e) => setHeight(e.target.value)} disabled={pending} />
         </div>
       </div>
+
+      {usable && (
+        <div className="flex flex-col gap-3 rounded-lg border p-3">
+          <div className="flex flex-col gap-2">
+            <Label>使用效果</Label>
+            <Select value={effectCode} onValueChange={changeEffect} disabled={pending}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_EFFECT}>不能使用</SelectItem>
+                {effectCode !== NO_EFFECT && !effects.some((e) => e.code === effectCode) && (
+                  <SelectItem value={effectCode}>未知效果 {effectCode}</SelectItem>
+                )}
+                {effects.map((e) => (
+                  <SelectItem key={e.code} value={e.code}>
+                    {e.label}
+                    <span className="text-xs text-muted-foreground">{e.scene_name}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-muted-foreground">
+              {effect?.description ?? '配置效果后玩家可以使用, 每次消耗 1 个; 能在哪些地图使用见地图的道具规则'}
+            </span>
+          </div>
+          {effect && effect.fields.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              {effect.fields.map((field) => (
+                <ParamField
+                  key={field.key}
+                  id={`item-effect-${field.key}`}
+                  field={field}
+                  value={effectParams[field.key]}
+                  onChange={(value) => setEffectParams((prev) => ({...prev, [field.key]: value}))}
+                  items={[]}
+                  currencies={currencies}
+                  disabled={pending}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
         <div className="flex flex-col gap-0.5">

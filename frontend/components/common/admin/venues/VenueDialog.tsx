@@ -12,10 +12,19 @@ import {SubmitButton} from '@/components/common/form';
 import {useSite} from '@/components/common/site';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem, AdminVenue, ConditionType, Currency, LootPoolListItem, Simulation} from '@/lib/services/admin';
+import type {
+  AdminItem,
+  AdminVenue,
+  ConditionType,
+  Currency,
+  ItemEffect,
+  LootPoolListItem,
+  Simulation,
+} from '@/lib/services/admin';
 import {AuctionTab} from './AuctionTab';
 import {BasicTab} from './BasicTab';
 import {BotTab} from './BotTab';
+import {ConsumableTab} from './ConsumableTab';
 import {EntryTab} from './EntryTab';
 import {SimulationStats} from './SimulationStats';
 import {WarehouseTab} from './WarehouseTab';
@@ -30,6 +39,8 @@ export interface VenueOptions {
   types: ConditionType[];
   /** 入场条件中统计范围的候选项 */
   scopes: ScopeOption[];
+  /** 物品的使用效果, 用于筛选能在对局中使用的道具 */
+  effects: ItemEffect[];
   loaded: boolean;
 }
 
@@ -79,7 +90,7 @@ export function VenueDialog({venue, options, onClose, onSaved}: VenueDialogProps
  * 地图表单, venue 为 null 时新建
  */
 function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 'venue'> & { venue: AdminVenue | null }) {
-  const {items, currencies, pools, types, scopes} = options;
+  const {items, currencies, pools, types, scopes, effects} = options;
   const save = useSubmit();
   const simulate = useSubmit();
   const pending = save.pending || simulate.pending;
@@ -126,6 +137,7 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
           <TabsTrigger value="warehouse">仓库</TabsTrigger>
           <TabsTrigger value="auction">拍卖</TabsTrigger>
           <TabsTrigger value="bots">人机</TabsTrigger>
+          <TabsTrigger value="consumables">道具</TabsTrigger>
           <TabsTrigger value="simulation">模拟</TabsTrigger>
         </TabsList>
         <div className="max-h-[60vh] overflow-y-auto px-1 py-2">
@@ -143,6 +155,9 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
           </TabsContent>
           <TabsContent value="bots">
             <BotTab {...tabProps} currency={currency} />
+          </TabsContent>
+          <TabsContent value="consumables">
+            <ConsumableTab {...tabProps} items={items} effects={effects} />
           </TabsContent>
           <TabsContent value="simulation" className="flex flex-col gap-3">
             {simulate.pending && (

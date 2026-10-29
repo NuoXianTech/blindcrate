@@ -1,6 +1,6 @@
 'use client';
 
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import Link from 'next/link';
 import {SearchX} from 'lucide-react';
 import {toast} from 'sonner';
@@ -17,6 +17,8 @@ import {MATCH_MESSAGES, MATCH_STATUS, type MatchView} from '@/lib/services/match
 import {AuctionHeader} from './AuctionHeader';
 import {BidPanel} from './BidPanel';
 import {FeedbackList} from './FeedbackList';
+import {IntelResult, intelPieces} from './IntelResult';
+import {ItemBar} from './ItemBar';
 import {ResultPanel} from './ResultPanel';
 import {SeatList} from './SeatList';
 import {Warehouse} from './Warehouse';
@@ -79,6 +81,9 @@ export function AuctionMain({matchId}: { matchId: number }) {
     if (data.id === matchId) setMatch((prev) => newer(prev, data));
   });
 
+  const uses = view?.self.uses;
+  const intel = useMemo(() => intelPieces((uses ?? []).map((u) => u.result)), [uses]);
+
   const finished = !!match && match.status !== MATCH_STATUS.playing;
   const remaining = useCountdown(finished ? null : view?.phase_ends_at ?? null);
   const expired = remaining === 0;
@@ -119,7 +124,7 @@ export function AuctionMain({matchId}: { matchId: number }) {
       <AuctionHeader view={view} finished={finished} remaining={remaining} />
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto grid w-full max-w-6xl gap-6 p-4 lg:grid-cols-[1fr_380px]">
-          <Warehouse view={view} decimals={decimals} finished={finished} />
+          <Warehouse view={view} decimals={decimals} finished={finished} intel={intel} />
           <div className="flex flex-col gap-4">
             <SeatList view={view} players={match.players} decimals={decimals} />
             {view.result ? (
@@ -137,6 +142,28 @@ export function AuctionMain({matchId}: { matchId: number }) {
                 decimals={decimals}
                 onBid={(next) => setView((prev) => newer(prev, next))}
               />
+            )}
+            {!view.result && view.venue.max_uses > 0 && (
+              <ItemBar key={view.match_id} view={view} onUse={(next) => setView((prev) => newer(prev, next))} />
+            )}
+            {view.self.uses.length > 0 && (
+              <section className="flex flex-col gap-2">
+                <h2 className="flex items-center justify-between text-sm font-medium">
+                  道具情报
+                  <span className="text-xs font-normal text-muted-foreground">仅自己可见</span>
+                </h2>
+                <ul className="flex flex-col gap-1.5">
+                  {[...view.self.uses].reverse().map((u) => (
+                    <li key={`${u.round}-${u.item_id}`} className="flex flex-col gap-1.5 rounded-lg border bg-card px-3 py-2 text-sm">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="font-medium">{u.name}</span>
+                        <span className="text-xs text-muted-foreground">第 {u.round} 轮</span>
+                      </span>
+                      <IntelResult intel={u.result} currency={view.venue.bid_currency} decimals={decimals} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
             )}
             <section className="flex flex-col gap-2">
               <h2 className="text-sm font-medium">每轮反馈</h2>

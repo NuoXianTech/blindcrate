@@ -12,7 +12,7 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import services from '@/lib/services';
-import type {AdminVenue, ConditionType, ListVenuesData, LootPoolListItem} from '@/lib/services/admin';
+import type {AdminVenue, ConditionType, ItemEffect, ListVenuesData, LootPoolListItem} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
 import {DeleteVenueDialog} from './DeleteVenueDialog';
 import {VenueDialog, type VenueOptions} from './VenueDialog';
@@ -38,6 +38,7 @@ export function VenuesMain() {
   const catalog = useAdminCatalog();
   const [pools, setPools] = useState<LootPoolListItem[] | null>(null);
   const [types, setTypes] = useState<ConditionType[] | null>(null);
+  const [effects, setEffects] = useState<ItemEffect[] | null>(null);
 
   // null: 关闭; "new": 新建; 地图: 编辑
   const [editing, setEditing] = useState<AdminVenue | 'new' | null>(null);
@@ -68,13 +69,18 @@ export function VenuesMain() {
     void load();
   }, [load]);
 
-  // 掉落池和条件类型只在编辑时用到, 挂载时拉取一次
+  // 掉落池、条件类型和使用效果只在编辑时用到, 挂载时拉取一次
   useEffect(() => {
     if (!isAdmin) return;
-    Promise.all([services.admin.listLootPools({current: 1, size: POOL_LIMIT}), services.admin.listConditionTypes()])
-        .then(([poolData, typeData]) => {
+    Promise.all([
+      services.admin.listLootPools({current: 1, size: POOL_LIMIT}),
+      services.admin.listConditionTypes(),
+      services.admin.listItemEffects(),
+    ])
+        .then(([poolData, typeData, effectData]) => {
           setPools(poolData.pools);
           setTypes(typeData.types);
+          setEffects(effectData.effects);
         })
         .catch((err) => toast.error(toErrorMessage(err)));
   }, [isAdmin]);
@@ -87,9 +93,10 @@ export function VenuesMain() {
       pools: pools ?? [],
       types: types ?? [],
       scopes: scopeOptions(venues ?? []),
-      loaded: catalog.loaded && pools !== null && types !== null,
+      effects: effects ?? [],
+      loaded: catalog.loaded && pools !== null && types !== null && effects !== null,
     };
-  }, [catalog.items, catalog.currencies, catalog.loaded, pools, types, venues]);
+  }, [catalog.items, catalog.currencies, catalog.loaded, pools, types, effects, venues]);
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

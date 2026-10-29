@@ -24,6 +24,10 @@ export const MAX_ENTRY_COST_LINES = 8;
 export const MAX_REQUIREMENTS = 16;
 export const MAX_SLOTS = 8;
 export const MAX_ROUND_FACTORS = 12;
+export const MAX_USES = 10;
+export const MAX_ALLOWED_ITEMS = 50;
+/** 对局中使用的效果场景, 与后端 effect.SceneMatch 对应 */
+export const SCENE_MATCH = 'match';
 /** 人机的三个等级 */
 export const BOT_LEVELS = ['低', '中', '高'];
 
@@ -45,5 +49,6 @@ export function toRequest(venue: AdminVenue): VenueRequest {
     auction: venue.auction,
     bots: venue.bots,
     pve: venue.pve,
+    consumables: venue.consumables,
   };
 }

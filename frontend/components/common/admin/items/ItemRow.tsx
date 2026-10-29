@@ -6,7 +6,7 @@ import {TableCell, TableRow} from '@/components/ui/table';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
-import type {AdminItem, Currency, ItemCategory} from '@/lib/services/admin';
+import type {AdminItem, Currency, ItemCategory, ItemEffect} from '@/lib/services/admin';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 
 /**
@@ -18,6 +18,8 @@ interface ItemRowProps {
   currency?: Currency;
   /** 物品类别, 未注册的类别按代码展示 */
   category?: ItemCategory;
+  /** 使用效果, 没有效果时为空 */
+  effect?: ItemEffect;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
@@ -26,7 +28,7 @@ interface ItemRowProps {
 /**
  * 物品列表的一行: 物品信息和操作按钮
  */
-export function ItemRow({item, currency, category, onEdit, onToggle, onDelete}: ItemRowProps) {
+export function ItemRow({item, currency, category, effect, onEdit, onToggle, onDelete}: ItemRowProps) {
   const q = useQualities().qualityOf(item.quality);
   return (
     <TableRow>
@@ -49,7 +51,10 @@ export function ItemRow({item, currency, category, onEdit, onToggle, onDelete}: 
         <span className={q.text}>{q.name}</span>
       </TableCell>
       <TableCell>
-        <Badge variant="outline">{category?.label ?? item.category}</Badge>
+        <div className="flex flex-wrap items-center gap-1">
+          <Badge variant="outline">{category?.label ?? item.category}</Badge>
+          {item.effect && <Badge variant="secondary">{effect?.label ?? item.effect}</Badge>}
+        </div>
       </TableCell>
       <TableCell className="text-right">
         {item.sell_price > 0 ? (

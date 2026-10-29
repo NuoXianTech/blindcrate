@@ -1,13 +1,14 @@
 'use client';
 
 import {useEffect, useState} from 'react';
+import {Eye} from 'lucide-react';
 import {motion, useReducedMotion} from 'motion/react';
 import {cn} from 'cn';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
 import {scanProgress} from '@/lib/auction';
-import {AUCTION_OUTCOME, type AuctionPublicView} from '@/lib/services/auction';
+import {AUCTION_OUTCOME, type AuctionPublicView, type PieceIntel} from '@/lib/services/auction';
 import {formatAmount} from '@/lib/utils';
 
 /** 扫描进度的刷新间隔, 毫秒 */
@@ -50,14 +51,35 @@ function FogCell({quality, children}: { quality?: number; children?: React.React
 }
 
 /**
+ * 出价时的一件藏品: 公开的品质所有人都看得到; 道具看到的品质和名称只有自己看得到, 带眼睛标记
+ */
+function FootprintCell({quality, intel}: { quality: number; intel?: PieceIntel }) {
+  const {qualityOf} = useQualities();
+  if (!intel) return <FogCell quality={quality} />;
+  const q = qualityOf(intel.quality);
+  return (
+    <div title={`仅自己可见: ${intel.name ? `${intel.name} · ` : ''}${q.name}`} className="size-full">
+      <FogCell quality={intel.quality}>
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 p-1 text-center">
+          <Eye className="size-3.5 text-muted-foreground" aria-label="仅自己可见" />
+          {intel.name && <span className={cn('line-clamp-2 text-[10px] leading-tight', q.text)}>{intel.name}</span>}
+        </span>
+      </FogCell>
+    </div>
+  );
+}
+
+/**
  * 仓库: 出价时只看得到每件藏品占的格子和已公开的品质;
  * 开箱后按扫描顺序逐件扫描, 扫完才显示品质、名称和回收价, 中途进入或重连时按已过去的时间接着扫
  */
-export function Warehouse({view, decimals, finished}: {
+export function Warehouse({view, decimals, finished, intel}: {
   view: AuctionPublicView;
   decimals: number;
   /** 对局已结束, 直接显示全部藏品 */
   finished: boolean;
+  /** 道具看到的藏品, 按扫描顺序索引, 只在出价时显示 */
+  intel?: Map<number, PieceIntel>;
 }) {
   const reduced = useReducedMotion();
   const {qualityOf} = useQualities();
@@ -163,7 +185,7 @@ export function Warehouse({view, decimals, finished}: {
           }) :
           view.footprints.map((f) => (
             <div key={f.scan_order} className="absolute p-0.5" style={cellStyle(f, grid)}>
-              <FogCell quality={f.quality} />
+              <FootprintCell quality={f.quality} intel={intel?.get(f.scan_order)} />
             </div>
           ))}
       </div>

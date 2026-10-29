@@ -21,6 +21,20 @@ export const AUCTION_MESSAGES = {
   bid: 'auction:bid',
   /** 开局、每轮结束和开箱时推送, data 为 AuctionView */
   updated: 'auction:updated',
+  /** 使用道具, data 为 UseRequest, 回复的 data 为 AuctionView */
+  use: 'auction:use',
+} as const;
+
+/** 对局中的道具效果, 与后端 internal/apps/auction/effects.go 的 Effect 常量对应 */
+export const AUCTION_EFFECT = {
+  /** 看几件还不知道品质的藏品的品质 */
+  revealQuality: 'reveal_quality',
+  /** 某个品质及以上的藏品各有几件 */
+  countQuality: 'count_quality',
+  /** 看几件某个品质及以上的藏品的名称 */
+  revealName: 'reveal_name',
+  /** 仓库价值的区间 */
+  valueRange: 'value_range',
 } as const;
 
 /** 对局中展示的地图参数, 来自开局时的快照 */
@@ -34,6 +48,10 @@ export interface AuctionVenue {
   /** 前 rounds-1 轮的速胜倍率, 基点 */
   quick_win: number[];
   max_extra_rounds: number;
+  /** 这个模式每局最多使用几个道具, 0 表示不能用 */
+  max_uses: number;
+  /** 可以用的道具, 为空表示所有对局中可用的道具 */
+  allowed_items: number[];
 }
 
 /** 已公开品质的藏品 */
@@ -73,6 +91,57 @@ export interface AuctionSelf {
   /** 现在是否可以出价 */
   can_bid: boolean;
   feedback: Feedback[];
+  /** 自己用过的道具和得到的情报, 按使用顺序 */
+  uses: UseView[];
+  /** 本局还能用几个道具, 练习局为 0; 不考虑阶段和轮次 */
+  uses_left: number;
+}
+
+/** 道具看到的一件藏品, 以扫描顺序对应 Footprint */
+export interface PieceIntel {
+  scan_order: number;
+  quality: number;
+  /** 只有看名称的道具有 */
+  name?: string;
+  image_url?: string;
+}
+
+/** 一种品质的藏品件数 */
+export interface QualityCount {
+  quality: number;
+  count: number;
+}
+
+/** 使用一个道具得到的情报, 字段按效果使用其中的一部分, 对应后端 auction.Intel */
+export interface Intel {
+  /** 看到品质或名称的藏品, 按扫描顺序; 没有符合条件的藏品时没有 */
+  pieces?: PieceIntel[];
+  /** 统计或查看的最低品质 */
+  min_quality?: number;
+  /** 最低品质及以上各品质的件数, 品质从高到低, 没有的品质不列出 */
+  counts?: QualityCount[];
+  /** 仓库价值的区间, 出价货币 */
+  value_min?: number;
+  value_max?: number;
+}
+
+/** 自己用过的一个道具 */
+export interface UseView {
+  round: number;
+  item_id: number;
+  /** 使用时的物品名称 */
+  name: string;
+  /** 效果代码, 见 AUCTION_EFFECT, 按它展示 result */
+  effect: string;
+  result: Intel;
+  created_at: string;
+}
+
+/** 开箱后公开的一个座位用某种道具的个数 */
+export interface UseCount {
+  item_id: number;
+  name: string;
+  count: number;
 }
 
 /** 开箱后公开的一件藏品 */
@@ -112,6 +181,8 @@ export interface SeatResult {
   seat: number;
   /** 最后的出价, 0 表示没出过价 */
   bid: number;
+  /** 用过的道具, 按第一次使用的顺序, 不公开得到的情报 */
+  uses: UseCount[];
 }
 
 /** 结算结果 */
@@ -192,6 +263,17 @@ export interface AuctionPlayer {
 export interface AuctionAdminView extends AuctionPublicView {
   /** 按座位号排序 */
   players: AuctionPlayer[];
+  /** 全部座位用过的道具和得到的情报, 按使用顺序 */
+  uses: AuctionUse[];
+}
+
+/** 对局中用掉的一个道具, 对应后端 auction.Use */
+export interface AuctionUse extends UseView {
+  id: number;
+  match_id: number;
+  seat: number;
+  /** 使用时的效果参数 */
+  params: Record<string, unknown>;
 }
 
 /** 出价请求 */
@@ -201,4 +283,23 @@ export interface BidRequest {
   round: number;
   /** 0 表示不加价 */
   amount: number;
+}
+
+/** 使用道具 */
+export interface UseRequest {
+  match_id: number;
+  /** 使用时的轮次, 与当前轮次不一致时被拒绝 */
+  round: number;
+  item_id: number;
+}
+
+/** 背包中这局可以用的一种道具, 对应后端 auction.UsableItem */
+export interface UsableItem {
+  item_id: number;
+  name: string;
+  description: string;
+  quality: number;
+  image_url: string;
+  effect: string;
+  quantity: number;
 }

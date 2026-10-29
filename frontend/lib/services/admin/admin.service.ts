@@ -22,6 +22,7 @@ import type {
   CurrencyRequest,
   Item,
   ItemCategory,
+  ItemEffect,
   ItemRequest,
   LeaderboardRequest,
   AdminLeaderboard,
@@ -149,6 +150,11 @@ export class AdminService extends BaseService {
   /** 由后端代码注册的物品类别, 按注册顺序 */
   static listItemCategories() {
     return this.get<{ categories: ItemCategory[] }>('/items/categories');
+  }
+
+  /** 由后端代码注册的使用效果和参数的字段描述, 按注册顺序 */
+  static listItemEffects() {
+    return this.get<{ effects: ItemEffect[] }>('/items/effects');
   }
 
   /** 删除后已持有的玩家背包保留为占位物品, 返回删除时的持有人数 */
