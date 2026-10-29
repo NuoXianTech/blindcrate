@@ -202,7 +202,17 @@ function SeatRow({player: p, auction: a, settled, winner, decimals}: {
           {a?.is_practice && <Badge variant="outline">练习</Badge>}
         </span>
       </TableCell>
-      <TableCell className="font-mono tabular-nums">{p.rank || '-'}</TableCell>
+      <TableCell className="font-mono tabular-nums">
+        {p.rank || '-'}
+        {!!a?.rating_delta && (
+          <span
+            className={cn('ml-1.5 text-xs', a.rating_delta > 0 ? 'text-quality-green' : 'text-quality-red')}
+            title={`段位分变化, 结算后为 ${a.rating}`}
+          >
+            {formatAmount(a.rating_delta, 0, {signed: true})}
+          </span>
+        )}
+      </TableCell>
       {a && (
         <>
           <TableCell className="text-right font-mono tabular-nums">{amount(a.carry)}</TableCell>

@@ -9,7 +9,7 @@ import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {ROUTES, matchHref} from '@/lib/access';
-import {OUTCOMES} from '@/lib/auction';
+import {OUTCOMES, parseMode} from '@/lib/auction';
 import services from '@/lib/services';
 import {AUCTION_OUTCOME, type AuctionView} from '@/lib/services/auction';
 import {toErrorMessage} from '@/lib/services/core';
@@ -17,7 +17,7 @@ import type {MatchPlayer} from '@/lib/services/match';
 import {formatAmount} from '@/lib/utils';
 
 /**
- * 结算结果: 成交价、仓库价值和自己的盈亏; 结算后对局随即释放, 开箱时就可以离开或再来一局
+ * 结算结果: 成交价、仓库价值、自己的盈亏和排位的段位分变化; 结算后对局随即释放, 开箱时就可以离开或再来一局
  */
 export function ResultPanel({view, players, decimals, finished, released}: {
   view: AuctionView;
@@ -35,6 +35,8 @@ export function ResultPanel({view, players, decimals, finished, released}: {
 
   const winner = players.find((p) => p.seat === result.winner_seat);
   const sold = result.outcome === AUCTION_OUTCOME.sold;
+  // 排位成交后按名次加减段位分, 流拍和练习局不计分
+  const rated = sold && parseMode(view.mode)?.kind === 'ranked' && !view.self.is_practice;
 
   let title: string;
   if (sold && winner?.is_self) {
@@ -96,6 +98,24 @@ export function ResultPanel({view, players, decimals, finished, released}: {
           {formatAmount(result.profit, decimals, {signed: true})}
         </span>
       </div>
+
+      {rated && (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground">段位分</span>
+          <span className="flex items-baseline gap-2 font-mono tabular-nums">
+            <span className="text-xl font-bold">{result.rating}</span>
+            <span
+              className={cn(
+                  'text-sm',
+                  result.rating_delta > 0 && 'text-quality-green',
+                  result.rating_delta < 0 && 'text-quality-red',
+              )}
+            >
+              {formatAmount(result.rating_delta, 0, {signed: true})}
+            </span>
+          </span>
+        </div>
+      )}
 
       {released ? (
         <div className="flex flex-col gap-2">

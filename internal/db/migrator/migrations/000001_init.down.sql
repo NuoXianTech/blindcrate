@@ -3,6 +3,7 @@ DROP TABLE IF EXISTS auction_bids;
 DROP TABLE IF EXISTS auction_players;
 DROP TABLE IF EXISTS auction_matches;
 DROP TABLE IF EXISTS venues;
+DROP TABLE IF EXISTS ranked_ratings;
 DROP TABLE IF EXISTS seasons;
 DROP TABLE IF EXISTS leaderboards;
 DROP TABLE IF EXISTS stats;

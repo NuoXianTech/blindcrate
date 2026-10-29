@@ -57,6 +57,8 @@ export interface MatchSummary {
   profit: number;
   /** 自己打的是否为练习局 */
   is_practice: boolean;
+  /** 自己段位分的变化, 只有排位成交时有 */
+  rating_delta: number;
 }
 
 /** 玩家看到的对局, 对应后端 match.MatchView */

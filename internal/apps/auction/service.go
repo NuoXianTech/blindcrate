@@ -39,8 +39,8 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
+	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
-	_ "github.com/NuoXianTech/blindcrate/internal/apps/season" // 注册赛季统计周期, 结算时写入进行中的赛季
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
@@ -78,11 +78,12 @@ type Summary struct {
 	Venue       string `json:"venue"`      // 地图代码
 	VenueName   string `json:"venue_name"` // 开局时的地图名称
 	BidCurrency string `json:"bid_currency"`
-	Outcome     string `json:"outcome"`     // 结算前为空, 之后为 sold、unsold 或 cancelled
-	Price       int64  `json:"price"`       // 成交价, 没有成交时为 0
-	Won         bool   `json:"won"`         // 是否由自己成交
-	Profit      int64  `json:"profit"`      // 自己的盈亏, 结算前为 0
-	IsPractice  bool   `json:"is_practice"` // 自己打的是否为练习局
+	Outcome     string `json:"outcome"`      // 结算前为空, 之后为 sold、unsold 或 cancelled
+	Price       int64  `json:"price"`        // 成交价, 没有成交时为 0
+	Won         bool   `json:"won"`          // 是否由自己成交
+	Profit      int64  `json:"profit"`       // 自己的盈亏, 结算前为 0
+	IsPractice  bool   `json:"is_practice"`  // 自己打的是否为练习局
+	RatingDelta int32  `json:"rating_delta"` // 自己段位分的变化, 只有排位成交时有
 }
 
 // Summaries 实现 match.Summarizer, 为对局记录附带地图、成交结果和自己的盈亏
@@ -113,6 +114,7 @@ func (p *provider) Summaries(ctx context.Context, viewerID uint64, matchIDs []ui
 			summary.Won = m.WinnerSeat != 0 && m.WinnerSeat == player.Seat
 			summary.Profit = player.Profit
 			summary.IsPractice = player.IsPractice
+			summary.RatingDelta = player.RatingDelta
 		}
 		summaries[m.MatchID] = summary
 	}
@@ -581,7 +583,7 @@ func (st *state) humanCanBid() bool {
 	return false
 }
 
-// settle 结算: 成交时扣除成交价并发放藏品, 流拍时退还入场代价; 解冻剩余的带入资金, 写入盈亏、名次和统计
+// settle 结算: 成交时扣除成交价并发放藏品, 流拍时退还入场代价; 解冻剩余的带入资金, 写入盈亏、名次和统计; 排位成交时结算段位分
 //
 // 练习局只计算盈亏, 不变动资金也不写统计; 人机只计算盈亏。
 func (st *state) settle(tx *gorm.DB, result verdict) error {
@@ -640,12 +642,43 @@ func (st *state) settle(tx *gorm.DB, result verdict) error {
 			return err
 		}
 	}
+	if sold && st.kind() == venue.ModeRanked {
+		if err := st.settleRatings(tx, ranks, now); err != nil {
+			return err
+		}
+	}
 	if err := match.SetRanks(tx, st.match.ID, ranks); err != nil {
 		return err
 	}
 
 	a.Outcome, a.WinnerSeat, a.Price, a.SettledAt, a.Contenders = result.Outcome, result.Winner, result.Price, &now, []int16{}
 	return tx.Model(a).Select("outcome", "winner_seat", "price", "settled_at", "contenders").Updates(a).Error
+}
+
+// settleRatings 按名次结算真人的段位分, 练习局不计分
+func (st *state) settleRatings(tx *gorm.DB, ranks map[int16]int16, now time.Time) error {
+	var results []ranked.Result
+	for _, p := range st.players {
+		if p.UserID != 0 && !p.IsPractice {
+			results = append(results, ranked.Result{UserID: p.UserID, Rank: ranks[p.Seat]})
+		}
+	}
+	changes, err := ranked.Settle(tx, now, results)
+	if err != nil {
+		return err
+	}
+	for i := range st.players {
+		p := &st.players[i]
+		change, ok := changes[p.UserID]
+		if p.UserID == 0 || !ok {
+			continue
+		}
+		p.RatingDelta, p.Rating = change.Delta, change.Rating
+		if err := tx.Model(p).Select("rating_delta", "rating").Updates(p).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // grantWarehouse 把仓库里的藏品发给成交者, 已下架或已删除的藏品按开局时的回收价折成货币
@@ -930,14 +963,16 @@ type PieceView struct {
 
 // ResultView 结算结果
 type ResultView struct {
-	Outcome    string       `json:"outcome"`     // sold、unsold 或 cancelled
-	WinnerSeat int16        `json:"winner_seat"` // 没有成交时为 0
-	Price      int64        `json:"price"`
-	Value      int64        `json:"value"`     // 仓库价值
-	Profit     int64        `json:"profit"`    // 自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0
-	Pieces     []PieceView  `json:"pieces"`    // 按扫描顺序
-	Seats      []SeatResult `json:"seats"`     // 按座位号排序
-	ScanFrom   *time.Time   `json:"scan_from"` // 开始扫描的时间, 即结算时间; 按已过去的时间和每件的扫描时长算出扫描进度
+	Outcome     string       `json:"outcome"`     // sold、unsold 或 cancelled
+	WinnerSeat  int16        `json:"winner_seat"` // 没有成交时为 0
+	Price       int64        `json:"price"`
+	Value       int64        `json:"value"`        // 仓库价值
+	Profit      int64        `json:"profit"`       // 自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0
+	RatingDelta int32        `json:"rating_delta"` // 自己段位分的变化, 只有排位成交时有; 管理员查看时为 0
+	Rating      int32        `json:"rating"`       // 自己结算后的段位分, 只有排位成交时有; 管理员查看时为 0
+	Pieces      []PieceView  `json:"pieces"`       // 按扫描顺序
+	Seats       []SeatResult `json:"seats"`        // 按座位号排序
+	ScanFrom    *time.Time   `json:"scan_from"`    // 开始扫描的时间, 即结算时间; 按已过去的时间和每件的扫描时长算出扫描进度
 }
 
 // PublicView 一局暗拍中所有人都看得到的部分
@@ -996,7 +1031,7 @@ func (st *state) view(viewerID uint64, items []WarehouseItem) *AuctionView {
 		},
 	}
 	if view.Result != nil {
-		view.Result.Profit = self.Profit
+		view.Result.Profit, view.Result.RatingDelta, view.Result.Rating = self.Profit, self.RatingDelta, self.Rating
 	}
 	return view
 }

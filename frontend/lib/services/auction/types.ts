@@ -124,6 +124,10 @@ export interface AuctionResult {
   value: number;
   /** 自己的盈亏, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0 */
   profit: number;
+  /** 自己段位分的变化, 只有排位成交时有; 管理员查看时为 0 */
+  rating_delta: number;
+  /** 自己结算后的段位分, 只有排位成交时有; 管理员查看时为 0 */
+  rating: number;
   /** 按扫描顺序 */
   pieces: AuctionPiece[];
   /** 按座位号排序 */
@@ -177,6 +181,10 @@ export interface AuctionPlayer {
   bid: number;
   /** 结算后的盈亏; 练习局按正式局计算 */
   profit: number;
+  /** 本局段位分的变化, 只有排位成交时有 */
+  rating_delta: number;
+  /** 结算后的段位分, 只有排位成交时有 */
+  rating: number;
   feedback: Feedback[];
 }
 

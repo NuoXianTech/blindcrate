@@ -372,19 +372,37 @@ ON CONFLICT (code) DO NOTHING;
 -- 赛季, 时间不能互相重叠; 状态由时间推算, 赛季奖励发完后写入 settled_at
 CREATE TABLE IF NOT EXISTS seasons
 (
-    id         BIGSERIAL PRIMARY KEY,
-    code       VARCHAR(24) NOT NULL, -- 自然键, 拼进统计周期 season:<code>, 创建后不能修改
-    name       VARCHAR(64) NOT NULL,
-    starts_at  TIMESTAMPTZ NOT NULL, -- 包含
-    ends_at    TIMESTAMPTZ NOT NULL, -- 不包含
-    settled_at TIMESTAMPTZ,          -- 赛季奖励发完的时间
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_seasons_time CHECK (ends_at > starts_at)
+    id           BIGSERIAL PRIMARY KEY,
+    code         VARCHAR(24) NOT NULL,            -- 自然键, 拼进统计周期 season:<code>, 创建后不能修改
+    name         VARCHAR(64) NOT NULL,
+    starts_at    TIMESTAMPTZ NOT NULL,            -- 包含
+    ends_at      TIMESTAMPTZ NOT NULL,            -- 不包含
+    settled_at   TIMESTAMPTZ,                     -- 赛季奖励发完的时间
+    rating_carry SMALLINT    NOT NULL DEFAULT 50, -- 段位分继承上一个赛季的百分比
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_seasons_time CHECK (ends_at > starts_at),
+    CONSTRAINT chk_seasons_rating_carry CHECK (rating_carry BETWEEN 0 AND 100)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_seasons_code ON seasons (code);
 CREATE INDEX IF NOT EXISTS idx_seasons_starts_at ON seasons (starts_at);
+
+-- 段位分, 每人每个赛季一行, 赛季之外的排位记在赛季 0; 第一次结算排位时按初始分创建
+CREATE TABLE IF NOT EXISTS ranked_ratings
+(
+    user_id    BIGINT      NOT NULL,
+    season_id  BIGINT      NOT NULL,           -- 赛季之外为 0
+    rating     INTEGER     NOT NULL,
+    peak       INTEGER     NOT NULL,           -- 本赛季的最高分
+    matches    INTEGER     NOT NULL DEFAULT 0, -- 本赛季计分的排位局数
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, season_id)
+);
+
+-- 段位分排行榜按赛季取分数最高的若干行
+CREATE INDEX IF NOT EXISTS idx_ranked_ratings_board ON ranked_ratings (season_id, rating DESC);
 
 -- 地图(拍卖场), 每张地图有人机和排位两种玩法; 软删除, 代码在已删除的地图中也唯一
 CREATE TABLE IF NOT EXISTS venues
@@ -435,21 +453,23 @@ CREATE TABLE IF NOT EXISTS auction_matches
 -- 暗拍中的座位, 真人在准入时创建(此时座位号为 0), 人机在开局时创建
 CREATE TABLE IF NOT EXISTS auction_players
 (
-    id          BIGSERIAL PRIMARY KEY,
-    match_id    BIGINT      NOT NULL,
-    seat        SMALLINT    NOT NULL DEFAULT 0,
-    user_id     BIGINT      NOT NULL DEFAULT 0,     -- 人机为 0
-    is_practice BOOLEAN     NOT NULL DEFAULT FALSE, -- 练习局, 不扣入场代价、不冻结资金、不发藏品、不写统计
-    entry_cost  JSONB       NOT NULL DEFAULT '{}',  -- 实际扣除的入场代价
-    carry       BIGINT      NOT NULL DEFAULT 0,     -- 带入资金, 出价的上限
-    frozen      BIGINT      NOT NULL DEFAULT 0,     -- 冻结的带入资金
-    estimate    BIGINT      NOT NULL DEFAULT 0,     -- 人机对仓库价值的估值
-    bid         BIGINT      NOT NULL DEFAULT 0,     -- 当前出价
-    bid_at      TIMESTAMPTZ,                        -- 当前出价的提交时间
-    feedback    JSONB       NOT NULL DEFAULT '[]',  -- 每轮结束后的反馈
-    profit      BIGINT      NOT NULL DEFAULT 0,     -- 结算后的盈亏
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id           BIGSERIAL PRIMARY KEY,
+    match_id     BIGINT      NOT NULL,
+    seat         SMALLINT    NOT NULL DEFAULT 0,
+    user_id      BIGINT      NOT NULL DEFAULT 0,     -- 人机为 0
+    is_practice  BOOLEAN     NOT NULL DEFAULT FALSE, -- 练习局, 不扣入场代价、不冻结资金、不发藏品、不写统计
+    entry_cost   JSONB       NOT NULL DEFAULT '{}',  -- 实际扣除的入场代价
+    carry        BIGINT      NOT NULL DEFAULT 0,     -- 带入资金, 出价的上限
+    frozen       BIGINT      NOT NULL DEFAULT 0,     -- 冻结的带入资金
+    estimate     BIGINT      NOT NULL DEFAULT 0,     -- 人机对仓库价值的估值
+    bid          BIGINT      NOT NULL DEFAULT 0,     -- 当前出价
+    bid_at       TIMESTAMPTZ,                        -- 当前出价的提交时间
+    feedback     JSONB       NOT NULL DEFAULT '[]',  -- 每轮结束后的反馈
+    profit       BIGINT      NOT NULL DEFAULT 0,     -- 结算后的盈亏
+    rating_delta INTEGER     NOT NULL DEFAULT 0,     -- 本局段位分的变化, 只有排位成交时有
+    rating       INTEGER     NOT NULL DEFAULT 0,     -- 结算后的段位分, 只有排位成交时有
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_auction_players_match_id ON auction_players (match_id);

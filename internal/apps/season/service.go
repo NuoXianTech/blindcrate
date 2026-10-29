@@ -64,6 +64,9 @@ func Validate(s *Season) error {
 	if !s.EndsAt.After(s.StartsAt) {
 		return errors.New(TimeInvalid)
 	}
+	if s.RatingCarry < 0 || s.RatingCarry > 100 {
+		return errors.New(CarryInvalid)
+	}
 	return nil
 }
 
@@ -103,6 +106,11 @@ func Latest(tx *gorm.DB, at time.Time) (*Season, error) {
 // Next 获取 at 之后最早开始的赛季, 没有时返回 nil
 func Next(tx *gorm.DB, at time.Time) (*Season, error) {
 	return first(tx.Where("starts_at > ?", at).Order("starts_at"))
+}
+
+// Previous 获取 s 之前最近的一个赛季, 没有时返回 nil
+func Previous(tx *gorm.DB, s *Season) (*Season, error) {
+	return first(tx.Where("starts_at < ?", s.StartsAt).Order("starts_at DESC"))
 }
 
 // first 获取查询到的第一个赛季, 没有时返回 nil

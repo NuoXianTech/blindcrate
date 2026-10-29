@@ -72,6 +72,8 @@ func TestValidate(t *testing.T) {
 		{"name long", func(s *Season) { s.Name = strings.Repeat("赛", 65) }, NameInvalid},
 		{"end equals start", func(s *Season) { s.EndsAt = s.StartsAt }, TimeInvalid},
 		{"end before start", func(s *Season) { s.EndsAt = s.StartsAt.Add(-time.Hour) }, TimeInvalid},
+		{"carry negative", func(s *Season) { s.RatingCarry = -1 }, CarryInvalid},
+		{"carry over", func(s *Season) { s.RatingCarry = 101 }, CarryInvalid},
 	}
 	for _, c := range cases {
 		s := valid

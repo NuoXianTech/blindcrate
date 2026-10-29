@@ -2015,9 +2015,10 @@ func ListSeasons(c *gin.Context) {
 
 // SeasonRequest 修改赛季请求体, 代码创建后不能修改; 时间精确到分钟, 秒会被舍去
 type SeasonRequest struct {
-	Name     string    `json:"name" binding:"required,max=64"`
-	StartsAt time.Time `json:"starts_at" binding:"required"` // RFC3339, 包含; 赛季开始后不能修改
-	EndsAt   time.Time `json:"ends_at" binding:"required"`   // RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改
+	Name        string    `json:"name" binding:"required,max=64"`
+	StartsAt    time.Time `json:"starts_at" binding:"required"`         // RFC3339, 包含; 赛季开始后不能修改
+	EndsAt      time.Time `json:"ends_at" binding:"required"`           // RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改
+	RatingCarry int16     `json:"rating_carry" binding:"min=0,max=100"` // 段位分继承上一个赛季的百分比; 赛季开始后不能修改
 }
 
 // CreateSeasonRequest 新建赛季请求体
@@ -2029,7 +2030,7 @@ type CreateSeasonRequest struct {
 // seasonErrorStatus 赛季配置错误对应的状态码, 不是配置错误时返回 0
 func seasonErrorStatus(err error) int {
 	switch err.Error() {
-	case season.CodeInvalid, season.NameInvalid, season.TimeInvalid:
+	case season.CodeInvalid, season.NameInvalid, season.TimeInvalid, season.CarryInvalid:
 		return http.StatusBadRequest
 	case season.SeasonNotFound:
 		return http.StatusNotFound

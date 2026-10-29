@@ -21,12 +21,13 @@ import {
 } from '@/lib/services/match';
 import type {Venue} from '@/lib/services/venue';
 import {MatchmakingBar} from './MatchmakingBar';
+import {RatingBadge} from './RatingBadge';
 import {SeasonBadge} from './SeasonBadge';
 import {VenueCard} from './VenueCard';
 import {VenueDetailDialog} from './VenueDetailDialog';
 
 /**
- * 游戏大厅: 当前赛季、地图列表、地图详情和匹配
+ * 游戏大厅: 当前赛季和段位分、地图列表、地图详情和匹配
  * 加入后凑够一局时直接进入对局; 排队时等待 match:updated 推送, 被拒绝或开局失败时提示
  * 推送不保证送达, 连上 WebSocket 后重新拉取匹配状态
  */
@@ -118,7 +119,10 @@ export function LobbyMain() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">游戏大厅</h1>
-        <SeasonBadge />
+        <div className="flex flex-wrap items-center gap-2">
+          <RatingBadge />
+          <SeasonBadge />
+        </div>
       </div>
 
       {status && (
