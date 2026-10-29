@@ -45,8 +45,10 @@ type Item struct {
 	SellPrice     int64          `gorm:"not null;default:0;check:chk_items_sell_price,sell_price >= 0" json:"sell_price"` // 0 表示不可卖出
 	Width         int16          `gorm:"not null;default:1;check:chk_items_width,width >= 1" json:"width"`                // 在仓库中占的格数
 	Height        int16          `gorm:"not null;default:1;check:chk_items_height,height >= 1" json:"height"`
-	IsEnabled     bool           `gorm:"not null;default:false" json:"is_enabled"` // 下架后不会掉落, 也不能再发放
-	IsPlaceholder bool           `gorm:"-" json:"is_placeholder,omitempty"`        // 是否为占位物品, 只由 Resolve 生成
+	Effect        string         `gorm:"size:32;not null;default:''" json:"effect"`                             // 使用效果代码, 空表示不能使用, 藏品没有效果; 见 effect 模块
+	EffectParams  map[string]any `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"effect_params"` // 效果参数, 结构由效果决定, 没有效果时为空对象
+	IsEnabled     bool           `gorm:"not null;default:false" json:"is_enabled"`                              // 下架后不会掉落, 也不能再发放
+	IsPlaceholder bool           `gorm:"-" json:"is_placeholder,omitempty"`                                     // 是否为占位物品, 只由 Resolve 生成
 	CreatedAt     time.Time      `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 	UpdatedAt     time.Time      `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`

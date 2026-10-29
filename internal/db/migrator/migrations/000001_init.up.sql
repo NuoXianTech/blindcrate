@@ -179,6 +179,8 @@ CREATE TABLE IF NOT EXISTS items
     sell_price    BIGINT        NOT NULL DEFAULT 0,             -- 卖出价格, 0 表示不可卖出
     width         SMALLINT      NOT NULL DEFAULT 1,             -- 在仓库中占的格数
     height        SMALLINT      NOT NULL DEFAULT 1,
+    effect        VARCHAR(32)   NOT NULL DEFAULT '',            -- 使用效果代码, 空表示不能使用, 藏品没有效果
+    effect_params JSONB         NOT NULL DEFAULT '{}',          -- 效果参数, 结构由效果决定
     is_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,         -- 下架后不会掉落, 也不能再发放, 已有的保留
     created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
@@ -449,6 +451,7 @@ CREATE TABLE IF NOT EXISTS venues
     auction        JSONB         NOT NULL DEFAULT '{}',   -- 拍卖参数
     bots           JSONB         NOT NULL DEFAULT '{}',   -- 人机参数
     pve            JSONB         NOT NULL DEFAULT '{}',   -- 人机模式防刷参数
+    consumables    JSONB         NOT NULL DEFAULT '{}',   -- 对局中使用道具的规则
     simulation     JSONB         NOT NULL DEFAULT '{}',   -- 保存时的模拟结果
     created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
@@ -534,6 +537,23 @@ CREATE TABLE IF NOT EXISTS auction_warehouse_items
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_warehouse_items_match_id_reveal_order ON auction_warehouse_items (match_id, reveal_order);
+
+-- 暗拍中用掉的道具, 结果在使用时算出并保存; 每人每轮同一种道具只用一次
+CREATE TABLE IF NOT EXISTS auction_uses
+(
+    id         BIGSERIAL PRIMARY KEY,
+    match_id   BIGINT      NOT NULL,
+    seat       SMALLINT    NOT NULL,
+    item_id    BIGINT      NOT NULL,
+    round      INTEGER     NOT NULL,
+    name       VARCHAR(64) NOT NULL,              -- 使用时的物品名称
+    effect     VARCHAR(32) NOT NULL,              -- 使用时的效果代码
+    params     JSONB       NOT NULL DEFAULT '{}', -- 使用时的效果参数
+    result     JSONB       NOT NULL DEFAULT '{}', -- 得到的情报, 只给使用者看
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_uses_match_id_seat_item_id_round ON auction_uses (match_id, seat, item_id, round);
 
 CREATE TABLE IF NOT EXISTS auction_suspect_reviews
 (

@@ -38,6 +38,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
@@ -720,17 +721,19 @@ func ListItems(c *gin.Context) {
 
 // ItemRequest 新建或修改物品请求体
 type ItemRequest struct {
-	Code         string `json:"code" binding:"required,max=64"` // 英文别名, 小写字母、数字和下划线, 可以重复
-	Name         string `json:"name" binding:"required,max=64"`
-	Description  string `json:"description" binding:"max=255"`
-	Quality      int16  `json:"quality" binding:"required,min=1"`   // 品质等级, 必须存在
-	Category     string `json:"category" binding:"required,max=32"` // 类别代码, 必须已注册
-	ImageURL     string `json:"image_url" binding:"omitempty,max=1024,image_url"`
-	SellCurrency string `json:"sell_currency" binding:"required,max=32"`
-	SellPrice    int64  `json:"sell_price" binding:"min=0,max=1000000000000"` // 0 表示不可卖出
-	Width        int16  `json:"width" binding:"required,min=1,max=10"`        // 在仓库中占的格数
-	Height       int16  `json:"height" binding:"required,min=1,max=10"`
-	IsEnabled    bool   `json:"is_enabled"` // 下架后不会掉落, 也不能再发放, 已有的保留
+	Code         string         `json:"code" binding:"required,max=64"` // 英文别名, 小写字母、数字和下划线, 可以重复
+	Name         string         `json:"name" binding:"required,max=64"`
+	Description  string         `json:"description" binding:"max=255"`
+	Quality      int16          `json:"quality" binding:"required,min=1"`   // 品质等级, 必须存在
+	Category     string         `json:"category" binding:"required,max=32"` // 类别代码, 必须已注册
+	ImageURL     string         `json:"image_url" binding:"omitempty,max=1024,image_url"`
+	SellCurrency string         `json:"sell_currency" binding:"required,max=32"`
+	SellPrice    int64          `json:"sell_price" binding:"min=0,max=1000000000000"` // 0 表示不可卖出
+	Width        int16          `json:"width" binding:"required,min=1,max=10"`        // 在仓库中占的格数
+	Height       int16          `json:"height" binding:"required,min=1,max=10"`
+	Effect       string         `json:"effect,omitempty" binding:"max=32"`            // 使用效果代码, 空表示不能使用; 藏品不能配置
+	EffectParams map[string]any `json:"effect_params,omitempty" swaggertype:"object"` // 效果参数, 结构见 GET /admin/items/effects
+	IsEnabled    bool           `json:"is_enabled"`                                   // 下架后不会掉落, 也不能再发放, 已有的保留
 }
 
 // CreateItem
@@ -760,6 +763,11 @@ func CreateItem(c *gin.Context) {
 	}
 	created, err := doCreateItem(ctx, &req)
 	if err != nil {
+		var invalid *effect.InvalidError
+		if errors.As(err, &invalid) {
+			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
+			return
+		}
 		switch err.Error() {
 		case item.ItemCodeInvalid, item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
@@ -807,6 +815,11 @@ func UpdateItem(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateItem(ctx, itemID, &req)
 	if err != nil {
+		var invalid *effect.InvalidError
+		if errors.As(err, &invalid) {
+			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
+			return
+		}
 		switch err.Error() {
 		case item.ItemCodeInvalid, item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
@@ -891,6 +904,24 @@ type ListItemCategoriesResponseData struct {
 // @Router /api/v1/admin/items/categories [get]
 func ListItemCategories(c *gin.Context) {
 	c.JSON(http.StatusOK, Response{Data: ListItemCategoriesResponseData{Categories: item.Categories()}})
+}
+
+// ListItemEffectsResponseData 物品的使用效果列表
+type ListItemEffectsResponseData struct {
+	Effects []effect.TypeView `json:"effects"`
+}
+
+// ListItemEffects
+// @Tags admin
+// @Summary 获取物品的使用效果
+// @Description 由代码注册的全部效果, 按注册顺序; fields 为参数的表单描述, 与条件类型相同
+// @Produce json
+// @Success 200 {object} Response{data=ListItemEffectsResponseData}
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Router /api/v1/admin/items/effects [get]
+func ListItemEffects(c *gin.Context) {
+	c.JSON(http.StatusOK, Response{Data: ListItemEffectsResponseData{Effects: effect.Types()}})
 }
 
 // ListQualitiesResponseData 品质列表
@@ -1427,6 +1458,7 @@ type VenueRequest struct {
 	Auction       venue.AuctionRule     `json:"auction" binding:"-"`
 	Bots          venue.BotRule         `json:"bots" binding:"-"`
 	Pve           venue.PveRule         `json:"pve" binding:"-"`
+	Consumables   venue.ConsumableRule  `json:"consumables" binding:"-"` // 对局中使用道具的规则
 }
 
 // CreateVenue

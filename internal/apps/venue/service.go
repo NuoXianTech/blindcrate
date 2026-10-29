@@ -36,6 +36,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
@@ -102,6 +103,9 @@ func Validate(tx *gorm.DB, v *Venue) error {
 		return err
 	}
 	if err := validateRules(v); err != nil {
+		return err
+	}
+	if err := validateConsumables(tx, v); err != nil {
 		return err
 	}
 
@@ -192,6 +196,7 @@ func validateRules(v *Venue) error {
 		{"拍卖参数", &v.Auction},
 		{"人机参数", &v.Bots},
 		{"人机模式", &v.Pve},
+		{"道具规则", &v.Consumables},
 	}
 	for _, section := range sections {
 		if err := settings.ValidateStruct(section.value); err != nil {
@@ -221,6 +226,36 @@ func validateRules(v *Venue) error {
 	}
 	if weights == 0 {
 		return invalid(BotWeightsInvalid)
+	}
+	return nil
+}
+
+// validateConsumables 可用道具需为未删除且效果属于对局场景的物品; 校验后去掉重复的 ID
+func validateConsumables(tx *gorm.DB, v *Venue) error {
+	allowed := slices.Compact(slices.Sorted(slices.Values(v.Consumables.Allowed)))
+	if allowed == nil {
+		allowed = []uint64{}
+	}
+	v.Consumables.Allowed = allowed
+	if len(allowed) == 0 {
+		return nil
+	}
+	var items []item.Item
+	if err := tx.Where("id IN ?", allowed).Find(&items).Error; err != nil {
+		return err
+	}
+	found := make(map[uint64]*item.Item, len(items))
+	for i := range items {
+		found[items[i].ID] = &items[i]
+	}
+	for _, id := range allowed {
+		target, ok := found[id]
+		if !ok {
+			return invalid(ConsumableNotFound, id)
+		}
+		if effect.SceneOf(target.Effect) != effect.SceneMatch {
+			return invalid(ConsumableUnusable, target.Name)
+		}
 	}
 	return nil
 }

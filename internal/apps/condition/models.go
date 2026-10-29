@@ -41,13 +41,13 @@ type Progress struct {
 	Text    string `json:"text"`    // 展示给玩家的描述, 如 "完成 10 局排位(3/10)"
 }
 
-// Field 条件参数的描述, 后台据此自动生成表单
+// Field 条件或道具效果参数的描述, 后台据此自动生成表单
 type Field struct {
 	Key     string   `json:"key"`
 	Label   string   `json:"label"`
 	Help    string   `json:"help"`
 	Type    string   `json:"type"`              // string / bool / int
-	Input   string   `json:"input"`             // text / switch / number, 或选择器 currency / item / scope / metric
+	Input   string   `json:"input"`             // text / switch / number, 或选择器 currency / item / quality / scope / metric
 	Options []Option `json:"options,omitempty"` // 选择器 metric 的可选值
 }
 

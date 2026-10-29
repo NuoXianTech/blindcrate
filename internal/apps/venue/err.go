@@ -46,4 +46,6 @@ const (
 	MaxCarryInvalid    = "带入资金上限不能低于起拍价"
 	QuickWinInvalid    = "速胜倍率需要 %d 个, 即轮数减 1"
 	BotWeightsInvalid  = "人机等级的权重不能全为 0"
+	ConsumableNotFound = "可用道具中的物品 %d 不存在"
+	ConsumableUnusable = "可用道具中的 %s 不能在对局中使用"
 )

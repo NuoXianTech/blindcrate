@@ -35,4 +35,12 @@ const (
 	BidTooLow        = "出价不能低于起拍价 %d"
 	BidBelowPrevious = "出价不能低于你之前的出价 %d"
 	BidOverCarry     = "出价不能超过带入资金 %d"
+
+	UsePractice      = "练习局不能使用道具"
+	UseDisabled      = "这张地图的这个模式不能使用道具"
+	UseNotAllowed    = "这张地图不能使用这个道具"
+	UseUnusable      = "这个物品不能在对局中使用"
+	UseLimitReached  = "本局最多使用 %d 个道具"
+	UseRepeated      = "本轮已经用过这个道具"
+	UseQuantityShort = "道具数量不足"
 )

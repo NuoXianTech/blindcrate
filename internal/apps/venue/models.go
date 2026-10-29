@@ -25,6 +25,7 @@
 package venue
 
 import (
+	"slices"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
@@ -52,6 +53,7 @@ type Venue struct {
 	Auction       AuctionRule           `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"auction"`      // 拍卖参数
 	Bots          BotRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"bots"`         // 人机参数
 	Pve           PveRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"pve"`          // 人机模式防刷参数
+	Consumables   ConsumableRule        `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"consumables"`  // 对局中使用道具的规则
 	Simulation    Simulation            `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"simulation"`   // 保存时的模拟结果, 掉落池或物品改动后需要重新保存才会更新
 	CreatedAt     time.Time             `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 	UpdatedAt     time.Time             `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
@@ -137,6 +139,34 @@ type PveRule struct {
 	PracticeOnly   bool  `json:"practice_only" label:"只能练习"`                                        // 人机模式只能打练习局
 	DailyProfitCap int64 `json:"daily_profit_cap" label:"每日收益上限" binding:"min=0,max=1000000000000"` // 当天在这张地图人机模式的净收益达到上限后转为练习局, 0 表示不单独限制; 全局的人机每日收益上限另外生效
 	ValueFactor    int32 `json:"value_factor" label:"仓库价值系数" binding:"min=1000,max=10000"`          // 人机模式按这个系数缩放各档位的抽取次数
+}
+
+// ConsumableLimit 一种模式中使用道具的次数限制
+type ConsumableLimit struct {
+	MaxPerMatch int32 `json:"max_per_match" label:"每局最多使用" binding:"min=0,max=10"` // 0 表示这个模式不能用道具
+}
+
+// ConsumableRule 对局中使用道具的规则, 只有效果属于对局场景的物品可以用
+type ConsumableRule struct {
+	Pve     ConsumableLimit `json:"pve" label:"人机模式"`
+	Ranked  ConsumableLimit `json:"ranked" label:"排位模式"`
+	Allowed []uint64        `json:"allowed" label:"可用道具" binding:"max=50"` // 物品 ID, 为空表示所有对局中可用的道具都可以用
+}
+
+// MaxPerMatch 这个模式每局最多使用几个道具, 0 表示不能用
+func (r *ConsumableRule) MaxPerMatch(mode string) int32 {
+	switch mode {
+	case ModePve:
+		return r.Pve.MaxPerMatch
+	case ModeRanked:
+		return r.Ranked.MaxPerMatch
+	}
+	return 0
+}
+
+// Allows 是否允许使用这个物品, 不检查物品的效果
+func (r *ConsumableRule) Allows(itemID uint64) bool {
+	return len(r.Allowed) == 0 || slices.Contains(r.Allowed, itemID)
 }
 
 // ValueStats 模拟仓库的价值分布, 价值为出价货币的回收价之和

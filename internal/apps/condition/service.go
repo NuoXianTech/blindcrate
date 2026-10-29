@@ -79,7 +79,7 @@ var (
 
 // Register 注册一种条件类型, 需要在启动前调用; 类型为空、过长、重复或参数结构体有不支持的字段时 panic
 //
-// P 为参数结构体, 字段 tag 与设置组一致(json、label、help、binding), 另可用 input 指定选择器(currency、item、scope、metric);
+// P 为参数结构体, 字段 tag 与设置组一致(json、label、help、binding), 另可用 input 指定选择器(currency、item、quality、scope、metric);
 // P 的指针可以实现 ParamsValidator。check 只读, 不能有副作用, 返回的 Progress 不需要填 Type。
 func Register[P any](conditionType, label, description string, check func(tx *gorm.DB, userID uint64, params *P) (*Progress, error)) {
 	if conditionType == "" || len(conditionType) > 32 {
@@ -91,7 +91,7 @@ func Register[P any](conditionType, label, description string, check func(tx *go
 	definitions[conditionType] = &definition{
 		label:       label,
 		description: description,
-		fields:      fieldsOf[P](conditionType),
+		fields:      FieldsOf[P](conditionType),
 		decode: func(raw json.RawMessage, strict bool) (any, error) {
 			params := new(P)
 			if len(raw) == 0 {
@@ -113,11 +113,13 @@ func Register[P any](conditionType, label, description string, check func(tx *go
 	typeOrder = append(typeOrder, conditionType)
 }
 
-// fieldsOf 根据参数结构体的 tag 生成表单描述
-func fieldsOf[P any](conditionType string) []Field {
+// FieldsOf 根据参数结构体的 tag 生成表单描述, 道具效果等同样按参数结构体生成表单的模块也使用它
+//
+// name 只用于出错时的提示; P 不是结构体或有不支持的字段类型时 panic, 需要在启动前调用。
+func FieldsOf[P any](name string) []Field {
 	typ := reflect.TypeFor[P]()
 	if typ.Kind() != reflect.Struct {
-		panic(fmt.Sprintf("condition: params of %s must be a struct", conditionType))
+		panic(fmt.Sprintf("condition: params of %s must be a struct", name))
 	}
 	fields := []Field{}
 	for i := range typ.NumField() {
@@ -142,7 +144,7 @@ func fieldsOf[P any](conditionType string) []Field {
 				f.Input = "number"
 			}
 		default:
-			panic(fmt.Sprintf("condition: %s.%s: unsupported type %s", conditionType, sf.Name, sf.Type))
+			panic(fmt.Sprintf("condition: %s.%s: unsupported type %s", name, sf.Name, sf.Type))
 		}
 		fields = append(fields, f)
 	}
