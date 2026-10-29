@@ -23,6 +23,8 @@ export const ROUTES = {
   adminLeaderboards: '/admin/leaderboards',
   adminSeasons: '/admin/seasons',
   adminTiers: '/admin/tiers',
+  adminShopItems: '/admin/shop-items',
+  adminShopOrders: '/admin/shop-orders',
   adminMatches: '/admin/matches',
   adminSuspects: '/admin/suspects',
   adminSettings: '/admin/settings',

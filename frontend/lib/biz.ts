@@ -11,6 +11,9 @@ export const WALLET_BIZ_LABELS: Record<string, string> = {
   match_refund: '对局退还',
   match_reward: '竞拍所得',
   season_reward: '赛季奖励',
+  shop_buy: '商城购买',
+  shop_grant: '商城获得',
+  shop_refund: '商城退款',
 };
 
 /** 背包流水的业务类型名称, 与后端 internal/apps/inventory/constants.go 的 Biz 常量对应 */
@@ -21,4 +24,7 @@ export const INVENTORY_BIZ_LABELS: Record<string, string> = {
   match_refund: '对局退还',
   match_reward: '竞拍所得',
   season_reward: '赛季奖励',
+  shop_buy: '商城购买',
+  shop_grant: '商城获得',
+  shop_refund: '商城退款',
 };

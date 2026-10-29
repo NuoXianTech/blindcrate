@@ -513,6 +513,29 @@ definitions:
           $ref: '#/definitions/settings.GroupView'
         type: array
     type: object
+  admin.ListShopItemsResponseData:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/shop.Item'
+        type: array
+      tabs:
+        description: 未删除的商品用到的页签, 按名称排列, 不含空页签
+        items:
+          type: string
+        type: array
+      total:
+        type: integer
+    type: object
+  admin.ListShopOrdersResponseData:
+    properties:
+      orders:
+        items:
+          $ref: '#/definitions/admin.ShopOrderItem'
+        type: array
+      total:
+        type: integer
+    type: object
   admin.ListUserBalancesResponseData:
     properties:
       balances:
@@ -816,6 +839,102 @@ definitions:
         type: string
       version:
         type: integer
+    type: object
+  admin.ShopItemRequest:
+    properties:
+      code:
+        description: 小写字母、数字和下划线, 创建后不能修改
+        maxLength: 32
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      ends_at:
+        description: RFC3339, 不包含, 为空时不限
+        type: string
+      goods:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 一份商品, 数量为正数, 不能为空
+      image_url:
+        maxLength: 1024
+        type: string
+      is_enabled:
+        type: boolean
+      limits:
+        $ref: '#/definitions/shop.Limits'
+      name:
+        maxLength: 64
+        type: string
+      original_price:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 原价, 只用于展示折扣
+      price:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 一份的价格, 数量为正数, 为空时免费
+      requirements:
+        items:
+          $ref: '#/definitions/condition.Condition'
+        type: array
+      sort_order:
+        description: 商城中从小到大排列
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+      starts_at:
+        description: RFC3339, 包含, 为空时不限
+        type: string
+      stock:
+        description: 剩余库存, 为空时不限; 修改时直接覆盖
+        type: integer
+      tab:
+        maxLength: 16
+        type: string
+    required:
+    - code
+    - name
+    type: object
+  admin.ShopOrderItem:
+    properties:
+      created_at:
+        type: string
+      goods:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 实际得到的全部商品, 数量为正数
+      id:
+        type: integer
+      item_code:
+        type: string
+      name:
+        type: string
+      price:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 实际支付的总价, 数量为正数
+      quantity:
+        description: 购买的份数
+        type: integer
+      refunded_at:
+        type: string
+      refunded_by:
+        description: 退款的管理员, 没有退款时为 0
+        type: integer
+      refunded_username:
+        description: 没有退款时为空
+        type: string
+      shop_item_id:
+        type: integer
+      status:
+        description: paid 或 refunded
+        type: string
+      user_id:
+        type: integer
+      username:
+        description: 用户已不存在时为空
+        type: string
     type: object
   admin.TestMailRequest:
     properties:
@@ -2298,6 +2417,27 @@ definitions:
         description: 正数获得, 负数消耗
         type: integer
     type: object
+  reward.Line:
+    properties:
+      amount:
+        description: 货币金额或物品数量
+        type: integer
+      currency:
+        description: 与 item_id 二选一
+        type: string
+      decimals:
+        description: 货币的展示用小数位, 物品为 0
+        type: integer
+      image_url:
+        type: string
+      item_id:
+        type: integer
+      name:
+        type: string
+      quality:
+        description: 物品的品质等级, 货币为 0
+        type: integer
+    type: object
   season.GetCurrentResponseData:
     properties:
       current:
@@ -2514,6 +2654,240 @@ definitions:
         type: object
       version:
         type: integer
+    type: object
+  shop.CreateOrderRequest:
+    properties:
+      code:
+        maxLength: 32
+        type: string
+      idempotency_key:
+        description: 每次打开购买确认框生成一个, 重复提交只生效一次
+        maxLength: 64
+        type: string
+      price:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 商城中看到的一份的价格, 传入时与当前不一致则拒绝购买
+      quantity:
+        maximum: 99
+        minimum: 1
+        type: integer
+    required:
+    - code
+    - idempotency_key
+    - quantity
+    type: object
+  shop.Item:
+    properties:
+      code:
+        description: 自然键, 拼进限购计数的指标, 创建后不能修改
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      ends_at:
+        description: 下架时间, 不包含, 为空时不限
+        type: string
+      goods:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 一份商品, 数量为正数, 不能为空
+      id:
+        type: integer
+      image_url:
+        type: string
+      is_enabled:
+        type: boolean
+      limits:
+        allOf:
+        - $ref: '#/definitions/shop.Limits'
+        description: 每人限购的份数
+      name:
+        type: string
+      original_price:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 原价, 只用于展示折扣, 为空时不展示
+      price:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 一份的价格, 数量为正数, 为空时免费
+      requirements:
+        description: 购买条件, 需要全部满足
+        items:
+          $ref: '#/definitions/condition.Condition'
+        type: array
+      sold:
+        description: 已售出的份数, 退款时扣回
+        type: integer
+      sort_order:
+        description: 商城中从小到大排列
+        type: integer
+      starts_at:
+        description: 上架时间, 包含, 为空时不限
+        type: string
+      stock:
+        description: 全服剩余库存, 为空时不限
+        type: integer
+      tab:
+        description: 页签, 如 道具、礼包; 为空时归入默认页签
+        type: string
+      updated_at:
+        type: string
+    type: object
+  shop.ItemView:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      eligible:
+        description: 满足全部购买条件
+        type: boolean
+      ends_at:
+        description: 下架时间, 为空时不限
+        type: string
+      goods:
+        description: 一份商品
+        items:
+          $ref: '#/definitions/reward.Line'
+        type: array
+      image_url:
+        type: string
+      limits:
+        description: 设置了的限购和已购买的份数
+        items:
+          $ref: '#/definitions/shop.LimitView'
+        type: array
+      name:
+        type: string
+      original_price:
+        description: 原价, 为空时不展示
+        items:
+          $ref: '#/definitions/reward.Line'
+        type: array
+      price:
+        description: 一份的价格, 为空时免费
+        items:
+          $ref: '#/definitions/reward.Line'
+        type: array
+      requirements:
+        description: 每个购买条件的达成情况
+        items:
+          $ref: '#/definitions/condition.Progress'
+        type: array
+      stock:
+        description: 全服剩余库存, 为空时不限
+        type: integer
+      tab:
+        type: string
+    type: object
+  shop.LimitView:
+    properties:
+      bought:
+        description: 赛季限购在没有进行中的赛季时为 0, 此时不能购买
+        type: integer
+      limit:
+        type: integer
+      type:
+        description: total、daily 或 season
+        type: string
+    type: object
+  shop.Limits:
+    properties:
+      daily:
+        description: 每天, 日期按 schedule.time_zone 计算
+        type: integer
+      season:
+        description: 每赛季, 设置后只能在赛季中购买
+        type: integer
+      total:
+        description: 累计
+        type: integer
+    type: object
+  shop.ListItemsResponseData:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/shop.ItemView'
+        type: array
+    type: object
+  shop.ListOrdersResponseData:
+    properties:
+      orders:
+        items:
+          $ref: '#/definitions/shop.OrderView'
+        type: array
+      total:
+        type: integer
+    type: object
+  shop.Order:
+    properties:
+      created_at:
+        type: string
+      goods:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 实际得到的全部商品, 数量为正数
+      id:
+        type: integer
+      item_code:
+        type: string
+      name:
+        type: string
+      price:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 实际支付的总价, 数量为正数
+      quantity:
+        description: 购买的份数
+        type: integer
+      refunded_at:
+        type: string
+      refunded_by:
+        description: 退款的管理员, 没有退款时为 0
+        type: integer
+      shop_item_id:
+        type: integer
+      status:
+        description: paid 或 refunded
+        type: string
+      user_id:
+        type: integer
+    type: object
+  shop.OrderView:
+    properties:
+      created_at:
+        type: string
+      goods:
+        description: 实际得到的全部商品
+        items:
+          $ref: '#/definitions/reward.Line'
+        type: array
+      id:
+        type: integer
+      item_code:
+        type: string
+      name:
+        type: string
+      price:
+        description: 实际支付的总价
+        items:
+          $ref: '#/definitions/reward.Line'
+        type: array
+      quantity:
+        type: integer
+      refunded_at:
+        type: string
+      status:
+        type: string
+    type: object
+  shop.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
     type: object
   stats.DayValues:
     properties:
@@ -5239,6 +5613,311 @@ paths:
       summary: 发送测试邮件
       tags:
       - admin
+  /api/v1/admin/shop/items:
+    get:
+      description: 按排序值和 ID 排列, 不含已删除的商品
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - in: query
+        name: is_enabled
+        type: boolean
+      - description: 按代码或名称搜索, 不区分大小写
+        in: query
+        maxLength: 64
+        name: keyword
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - description: 按页签筛选, 为空时不筛选
+        in: query
+        maxLength: 16
+        name: tab
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListShopItemsResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取商品列表
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.ShopItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/shop.Item'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 新建商品
+      tags:
+      - admin
+  /api/v1/admin/shop/items/{id}:
+    delete:
+      description: 软删除, 代码不能再被新商品使用; 已有订单仍可退款
+      parameters:
+      - description: shop item id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 删除商品
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: 需提交全部字段, 代码不能修改; 已有订单不受影响
+      parameters:
+      - description: shop item id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.ShopItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/shop.Item'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 修改商品
+      tags:
+      - admin
+  /api/v1/admin/shop/orders:
+    get:
+      description: 从新到旧, 带上用户和退款的管理员的用户名
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: RFC3339, 不包含
+        in: query
+        name: end_time
+        type: string
+      - in: query
+        name: shop_item_id
+        type: integer
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - description: RFC3339, 包含
+        in: query
+        name: start_time
+        type: string
+      - enum:
+        - paid
+        - refunded
+        in: query
+        name: status
+        type: string
+      - in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ListShopOrdersResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 获取订单列表
+      tags:
+      - admin
+  /api/v1/admin/shop/orders/{id}/refund:
+    post:
+      description: 退还价格并收回商品, 恢复库存, 不恢复限购数量; 价格中已下架的物品按回收价折成货币退还, 用户的货币或物品不足以收回商品时返回
+        409
+      parameters:
+      - description: order id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/shop.Order'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.Response'
+      summary: 订单退款
+      tags:
+      - admin
   /api/v1/admin/users:
     get:
       parameters:
@@ -7209,6 +7888,134 @@ paths:
       summary: 获取公开设置
       tags:
       - settings
+  /api/v1/shop/items:
+    get:
+      description: 按排序值和 ID 排列, 带价格和商品的名称、当前用户对购买条件的达成情况和已购买的份数; 页签由前端按 tab 分组
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/shop.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/shop.ListItemsResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/shop.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/shop.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/shop.Response'
+      summary: 获取上架中的商品
+      tags:
+      - shop
+  /api/v1/shop/orders:
+    get:
+      description: 从新到旧
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/shop.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/shop.ListOrdersResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/shop.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/shop.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/shop.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/shop.Response'
+      summary: 获取当前用户的购买记录
+      tags:
+      - shop
+    post:
+      consumes:
+      - application/json
+      description: 扣除价格并发放商品, 全部成功或全部失败; 重复提交返回原订单。不在上架时间、库存不足、不满足购买条件或达到限购时返回 403
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/shop.CreateOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/shop.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/shop.OrderView'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/shop.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/shop.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/shop.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/shop.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/shop.Response'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/shop.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/shop.Response'
+      summary: 购买商品
+      tags:
+      - shop
   /api/v1/stats:
     get:
       description: 返回一个统计范围的累计数据和最近 7 天每天的数据; 只能查看自己的数据, 练习局不计入

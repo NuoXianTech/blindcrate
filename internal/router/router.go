@@ -44,6 +44,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/apps/shop"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
@@ -210,6 +211,14 @@ func Serve() {
 				rankedRouter.GET("/tiers", ranked.ListTiers)
 			}
 
+			shopRouter := apiV1Router.Group("/shop")
+			shopRouter.Use(auth.LoginRequired())
+			{
+				shopRouter.GET("/items", shop.ListItems)
+				shopRouter.GET("/orders", shop.ListOrders)
+				shopRouter.POST("/orders", ratelimit.ByUser("shop:buy", ratelimit.PerMinute(60)), shop.CreateOrder)
+			}
+
 			// Admin
 			adminRouter := apiV1Router.Group("/admin")
 			adminRouter.Use(auth.LoginRequired(), admin.LoginAdminRequired())
@@ -323,6 +332,16 @@ func Serve() {
 				{
 					rankedSuspectAdminRouter.GET("", admin.ListRankedSuspects)
 					rankedSuspectAdminRouter.POST("/review", admin.ReviewRankedSuspect)
+				}
+
+				shopAdminRouter := adminRouter.Group("/shop")
+				{
+					shopAdminRouter.GET("/items", admin.ListShopItems)
+					shopAdminRouter.POST("/items", admin.CreateShopItem)
+					shopAdminRouter.PUT("/items/:id", admin.UpdateShopItem)
+					shopAdminRouter.DELETE("/items/:id", admin.DeleteShopItem)
+					shopAdminRouter.GET("/orders", admin.ListShopOrders)
+					shopAdminRouter.POST("/orders/:id/refund", admin.RefundShopOrder)
 				}
 
 				// Inventory

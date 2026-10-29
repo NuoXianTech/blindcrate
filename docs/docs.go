@@ -3446,6 +3446,488 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/shop/items": {
+            "get": {
+                "description": "按排序值和 ID 排列, 不含已删除的商品",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取商品列表",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "name": "is_enabled",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 64,
+                        "type": "string",
+                        "description": "按代码或名称搜索, 不区分大小写",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 16,
+                        "type": "string",
+                        "description": "按页签筛选, 为空时不筛选",
+                        "name": "tab",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListShopItemsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "新建商品",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.ShopItemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/shop.Item"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/shop/items/{id}": {
+            "put": {
+                "description": "需提交全部字段, 代码不能修改; 已有订单不受影响",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "修改商品",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "shop item id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.ShopItemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/shop.Item"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "软删除, 代码不能再被新商品使用; 已有订单仍可退款",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "删除商品",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "shop item id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/shop/orders": {
+            "get": {
+                "description": "从新到旧, 带上用户和退款的管理员的用户名",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取订单列表",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339, 不包含",
+                        "name": "end_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "name": "shop_item_id",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339, 包含",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "paid",
+                            "refunded"
+                        ],
+                        "type": "string",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ListShopOrdersResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/shop/orders/{id}/refund": {
+            "post": {
+                "description": "退还价格并收回商品, 恢复库存, 不恢复限购数量; 价格中已下架的物品按回收价折成货币退还, 用户的货币或物品不足以收回商品时返回 409",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "订单退款",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "order id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/shop.Order"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/users": {
             "get": {
                 "produces": [
@@ -6588,6 +7070,213 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/shop/items": {
+            "get": {
+                "description": "按排序值和 ID 排列, 带价格和商品的名称、当前用户对购买条件的达成情况和已购买的份数; 页签由前端按 tab 分组",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "shop"
+                ],
+                "summary": "获取上架中的商品",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/shop.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/shop.ListItemsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/shop/orders": {
+            "get": {
+                "description": "从新到旧",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "shop"
+                ],
+                "summary": "获取当前用户的购买记录",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/shop.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/shop.ListOrdersResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "扣除价格并发放商品, 全部成功或全部失败; 重复提交返回原订单。不在上架时间、库存不足、不满足购买条件或达到限购时返回 403",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "shop"
+                ],
+                "summary": "购买商品",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/shop.CreateOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/shop.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/shop.OrderView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/shop.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/stats": {
             "get": {
                 "description": "返回一个统计范围的累计数据和最近 7 天每天的数据; 只能查看自己的数据, 练习局不计入",
@@ -7677,6 +8366,41 @@ const docTemplate = `{
                 }
             }
         },
+        "admin.ListShopItemsResponseData": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/shop.Item"
+                    }
+                },
+                "tabs": {
+                    "description": "未删除的商品用到的页签, 按名称排列, 不含空页签",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "admin.ListShopOrdersResponseData": {
+            "type": "object",
+            "properties": {
+                "orders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/admin.ShopOrderItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "admin.ListUserBalancesResponseData": {
             "type": "object",
             "properties": {
@@ -8104,6 +8828,152 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "integer"
+                }
+            }
+        },
+        "admin.ShopItemRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "name"
+            ],
+            "properties": {
+                "code": {
+                    "description": "小写字母、数字和下划线, 创建后不能修改",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "ends_at": {
+                    "description": "RFC3339, 不包含, 为空时不限",
+                    "type": "string"
+                },
+                "goods": {
+                    "description": "一份商品, 数量为正数, 不能为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "image_url": {
+                    "type": "string",
+                    "maxLength": 1024
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "limits": {
+                    "$ref": "#/definitions/shop.Limits"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "original_price": {
+                    "description": "原价, 只用于展示折扣",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "price": {
+                    "description": "一份的价格, 数量为正数, 为空时免费",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "requirements": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "sort_order": {
+                    "description": "商城中从小到大排列",
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
+                },
+                "starts_at": {
+                    "description": "RFC3339, 包含, 为空时不限",
+                    "type": "string"
+                },
+                "stock": {
+                    "description": "剩余库存, 为空时不限; 修改时直接覆盖",
+                    "type": "integer"
+                },
+                "tab": {
+                    "type": "string",
+                    "maxLength": 16
+                }
+            }
+        },
+        "admin.ShopOrderItem": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "goods": {
+                    "description": "实际得到的全部商品, 数量为正数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "item_code": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "description": "实际支付的总价, 数量为正数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "quantity": {
+                    "description": "购买的份数",
+                    "type": "integer"
+                },
+                "refunded_at": {
+                    "type": "string"
+                },
+                "refunded_by": {
+                    "description": "退款的管理员, 没有退款时为 0",
+                    "type": "integer"
+                },
+                "refunded_username": {
+                    "description": "没有退款时为空",
+                    "type": "string"
+                },
+                "shop_item_id": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "paid 或 refunded",
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                },
+                "username": {
+                    "description": "用户已不存在时为空",
+                    "type": "string"
                 }
             }
         },
@@ -10283,6 +11153,36 @@ const docTemplate = `{
                 }
             }
         },
+        "reward.Line": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "货币金额或物品数量",
+                    "type": "integer"
+                },
+                "currency": {
+                    "description": "与 item_id 二选一",
+                    "type": "string"
+                },
+                "decimals": {
+                    "description": "货币的展示用小数位, 物品为 0",
+                    "type": "integer"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "quality": {
+                    "description": "物品的品质等级, 货币为 0",
+                    "type": "integer"
+                }
+            }
+        },
         "season.GetCurrentResponseData": {
             "type": "object",
             "properties": {
@@ -10601,6 +11501,359 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "integer"
+                }
+            }
+        },
+        "shop.CreateOrderRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "idempotency_key",
+                "quantity"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "idempotency_key": {
+                    "description": "每次打开购买确认框生成一个, 重复提交只生效一次",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "price": {
+                    "description": "商城中看到的一份的价格, 传入时与当前不一致则拒绝购买",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "quantity": {
+                    "type": "integer",
+                    "maximum": 99,
+                    "minimum": 1
+                }
+            }
+        },
+        "shop.Item": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "自然键, 拼进限购计数的指标, 创建后不能修改",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "ends_at": {
+                    "description": "下架时间, 不包含, 为空时不限",
+                    "type": "string"
+                },
+                "goods": {
+                    "description": "一份商品, 数量为正数, 不能为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "limits": {
+                    "description": "每人限购的份数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/shop.Limits"
+                        }
+                    ]
+                },
+                "name": {
+                    "type": "string"
+                },
+                "original_price": {
+                    "description": "原价, 只用于展示折扣, 为空时不展示",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "price": {
+                    "description": "一份的价格, 数量为正数, 为空时免费",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "requirements": {
+                    "description": "购买条件, 需要全部满足",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "sold": {
+                    "description": "已售出的份数, 退款时扣回",
+                    "type": "integer"
+                },
+                "sort_order": {
+                    "description": "商城中从小到大排列",
+                    "type": "integer"
+                },
+                "starts_at": {
+                    "description": "上架时间, 包含, 为空时不限",
+                    "type": "string"
+                },
+                "stock": {
+                    "description": "全服剩余库存, 为空时不限",
+                    "type": "integer"
+                },
+                "tab": {
+                    "description": "页签, 如 道具、礼包; 为空时归入默认页签",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "shop.ItemView": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "eligible": {
+                    "description": "满足全部购买条件",
+                    "type": "boolean"
+                },
+                "ends_at": {
+                    "description": "下架时间, 为空时不限",
+                    "type": "string"
+                },
+                "goods": {
+                    "description": "一份商品",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "limits": {
+                    "description": "设置了的限购和已购买的份数",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/shop.LimitView"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "original_price": {
+                    "description": "原价, 为空时不展示",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                },
+                "price": {
+                    "description": "一份的价格, 为空时免费",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                },
+                "requirements": {
+                    "description": "每个购买条件的达成情况",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Progress"
+                    }
+                },
+                "stock": {
+                    "description": "全服剩余库存, 为空时不限",
+                    "type": "integer"
+                },
+                "tab": {
+                    "type": "string"
+                }
+            }
+        },
+        "shop.LimitView": {
+            "type": "object",
+            "properties": {
+                "bought": {
+                    "description": "赛季限购在没有进行中的赛季时为 0, 此时不能购买",
+                    "type": "integer"
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "total、daily 或 season",
+                    "type": "string"
+                }
+            }
+        },
+        "shop.Limits": {
+            "type": "object",
+            "properties": {
+                "daily": {
+                    "description": "每天, 日期按 schedule.time_zone 计算",
+                    "type": "integer"
+                },
+                "season": {
+                    "description": "每赛季, 设置后只能在赛季中购买",
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "累计",
+                    "type": "integer"
+                }
+            }
+        },
+        "shop.ListItemsResponseData": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/shop.ItemView"
+                    }
+                }
+            }
+        },
+        "shop.ListOrdersResponseData": {
+            "type": "object",
+            "properties": {
+                "orders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/shop.OrderView"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "shop.Order": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "goods": {
+                    "description": "实际得到的全部商品, 数量为正数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "item_code": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "description": "实际支付的总价, 数量为正数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "quantity": {
+                    "description": "购买的份数",
+                    "type": "integer"
+                },
+                "refunded_at": {
+                    "type": "string"
+                },
+                "refunded_by": {
+                    "description": "退款的管理员, 没有退款时为 0",
+                    "type": "integer"
+                },
+                "shop_item_id": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "paid 或 refunded",
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "shop.OrderView": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "goods": {
+                    "description": "实际得到的全部商品",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "item_code": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "description": "实际支付的总价",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "refunded_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "shop.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
                 }
             }
         },

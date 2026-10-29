@@ -10,6 +10,8 @@ import type {
   AdminUser,
   AdminMatch,
   AdminQuality,
+  AdminShopItem,
+  AdminShopOrder,
   AdminVenue,
   ConditionType,
   CreateCurrencyRequest,
@@ -38,6 +40,10 @@ import type {
   ListLootPoolsParams,
   ListSeasonsData,
   ListSeasonsParams,
+  ListShopItemsData,
+  ListShopItemsParams,
+  ListShopOrdersData,
+  ListShopOrdersParams,
   ListSuspectsData,
   ListSuspectsParams,
   ListUsersData,
@@ -58,6 +64,7 @@ import type {
   ListSettingsData,
   SettingGroup,
   SettingRevisionDetail,
+  ShopItemRequest,
   Simulation,
   StatMetric,
   UpdateSettingRequest,
@@ -274,6 +281,34 @@ export class AdminService extends BaseService {
   /** 标记为已处理, 之后两人又一起打了排位时重新进入待处理 */
   static reviewSuspect(body: ReviewSuspectRequest) {
     return this.post<SuspectReview>('/ranked/suspects/review', body);
+  }
+
+  static listShopItems(params: ListShopItemsParams) {
+    return this.get<ListShopItemsData>('/shop/items', {params});
+  }
+
+  static createShopItem(body: ShopItemRequest) {
+    return this.post<AdminShopItem>('/shop/items', body);
+  }
+
+  /** 已有订单不受影响 */
+  static updateShopItem(id: number, body: ShopItemRequest) {
+    return this.put<AdminShopItem>(`/shop/items/${id}`, body);
+  }
+
+  /** 软删除, 代码不能再被新商品使用; 已有订单仍可退款 */
+  static deleteShopItem(id: number) {
+    return this.delete<null>(`/shop/items/${id}`);
+  }
+
+  /** 从新到旧 */
+  static listShopOrders(params: ListShopOrdersParams) {
+    return this.get<ListShopOrdersData>('/shop/orders', {params});
+  }
+
+  /** 退还价格并收回商品, 恢复库存, 不恢复限购数量; 用户的货币或物品不足以收回商品时失败 */
+  static refundShopOrder(id: number) {
+    return this.post<AdminShopOrder>(`/shop/orders/${id}/refund`);
   }
 
   static listConditionTypes() {

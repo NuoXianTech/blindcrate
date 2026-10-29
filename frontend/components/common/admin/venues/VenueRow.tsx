@@ -2,6 +2,7 @@ import {Pencil, Power, Trash2} from 'lucide-react';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {TableCell, TableRow} from '@/components/ui/table';
+import {bundleText} from '@/components/common/admin/editors';
 import type {AdminItem, AdminVenue, Currency} from '@/lib/services/admin';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 import {MODES} from './constants';
@@ -22,15 +23,8 @@ interface VenueRowProps {
  * 地图列表的一行: 名称、开放的模式、入场代价、模拟的价值中位数和操作按钮
  */
 export function VenueRow({venue, items, currencies, onEdit, onToggle, onDelete}: VenueRowProps) {
-  const currencyOf = (code: string) => currencies.find((c) => c.code === code);
-  const bid = currencyOf(venue.bid_currency);
-  const cost = [
-    ...(venue.entry_cost.currencies ?? []).map((l) => {
-      const currency = currencyOf(l.currency);
-      return `${formatAmount(l.amount, currency?.decimals ?? 0)} ${currency?.name ?? l.currency}`;
-    }),
-    ...(venue.entry_cost.items ?? []).map((l) => `${items.find((i) => i.id === l.item_id)?.name ?? `#${l.item_id}`} ×${l.quantity}`),
-  ];
+  const bid = currencies.find((c) => c.code === venue.bid_currency);
+  const cost = bundleText(venue.entry_cost, items, currencies);
   const modes = MODES.filter((m) => (m.value === 'pve' ? venue.pve_enabled : venue.ranked_enabled));
 
   return (

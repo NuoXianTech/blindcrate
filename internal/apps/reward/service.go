@@ -156,6 +156,56 @@ func Deliverable(tx *gorm.DB, bundle Bundle, prices map[uint64]CurrencyLine) (Bu
 	return result, nil
 }
 
+// Lines 把每个 Bundle 换成带名称的行, 按 bundles 的顺序返回, 每个 Bundle 内货币在前、物品在后
+//
+// 不存在的货币以代码为名称, 已删除的物品显示为占位物品。
+func Lines(tx *gorm.DB, bundles ...Bundle) ([][]Line, error) {
+	var (
+		codes   []string
+		itemIDs []uint64
+	)
+	for _, b := range bundles {
+		for _, line := range b.Currencies {
+			codes = append(codes, line.Currency)
+		}
+		for _, line := range b.Items {
+			itemIDs = append(itemIDs, line.ItemID)
+		}
+	}
+	currencies := make(map[string]wallet.Currency, len(codes))
+	if len(codes) > 0 {
+		var found []wallet.Currency
+		if err := tx.Where("code IN ?", codes).Find(&found).Error; err != nil {
+			return nil, err
+		}
+		for _, c := range found {
+			currencies[c.Code] = c
+		}
+	}
+	items, err := item.Resolve(tx, itemIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([][]Line, len(bundles))
+	for i, b := range bundles {
+		lines := make([]Line, 0, len(b.Currencies)+len(b.Items))
+		for _, line := range b.Currencies {
+			c, ok := currencies[line.Currency]
+			if !ok {
+				c = wallet.Currency{Code: line.Currency, Name: line.Currency}
+			}
+			lines = append(lines, Line{Currency: c.Code, Name: c.Name, Decimals: c.Decimals, Amount: line.Amount})
+		}
+		for _, line := range b.Items {
+			target := items[line.ItemID]
+			lines = append(lines, Line{ItemID: line.ItemID, Name: target.Name, ImageURL: target.ImageURL, Quality: target.Quality, Amount: line.Quantity})
+		}
+		result[i] = lines
+	}
+	return result, nil
+}
+
 // lineKey 每一行的幂等键, 货币和物品的流水在不同的表中, 不会互相冲突
 func lineKey(key, suffix string) string {
 	if key == "" {
