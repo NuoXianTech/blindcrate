@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package admin
+package pack
 
 import (
 	"archive/zip"
@@ -35,7 +35,10 @@ import (
 	"testing"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard/leaderboardadmin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/loot/lootadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
+	"github.com/NuoXianTech/blindcrate/internal/apps/venue/venueadmin"
 )
 
 // buildPack 按文件名和内容打包 zip
@@ -157,7 +160,7 @@ func TestRenameScope(t *testing.T) {
 }
 
 func TestPackStatus(t *testing.T) {
-	a := LeaderboardRequest{Code: "wins", Name: "胜场"}
+	a := leaderboardadmin.LeaderboardRequest{Code: "wins", Name: "胜场"}
 	b := a
 	if got := packStatus(false, a, b); got != PackStatusNew {
 		t.Errorf("not found: %s", got)
@@ -170,8 +173,8 @@ func TestPackStatus(t *testing.T) {
 		t.Errorf("changed: %s", got)
 	}
 	// 条件参数中的字段顺序不影响比较
-	x := VenueRequest{Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"metric":"wins","scope":"all"}`)}}}
-	y := VenueRequest{Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"scope": "all", "metric": "wins"}`)}}}
+	x := venueadmin.VenueRequest{Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"metric":"wins","scope":"all"}`)}}}
+	y := venueadmin.VenueRequest{Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"scope": "all", "metric": "wins"}`)}}}
 	if got := packStatus(true, x, y); got != PackStatusSame {
 		t.Errorf("params order: %s", got)
 	}
@@ -181,13 +184,13 @@ func TestChooseActions(t *testing.T) {
 	newPack := func() (*packRun, []*packEntry) {
 		p := &pack{
 			currencies: []packCurrency{{Code: "chip"}},
-			lootPools:  []packLootPool{{LootPoolRequest: LootPoolRequest{Code: "crate"}}, {LootPoolRequest: LootPoolRequest{Code: "box"}}},
-			venues: []VenueRequest{{
+			lootPools:  []packLootPool{{LootPoolRequest: lootadmin.LootPoolRequest{Code: "crate"}}, {LootPoolRequest: lootadmin.LootPoolRequest{Code: "box"}}},
+			venues: []venueadmin.VenueRequest{{
 				Code:         "dock",
 				Warehouse:    venue.WarehouseRule{Slots: []venue.Slot{{Pool: "crate"}, {Pool: "box"}}},
 				Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"metric":"wins","scope":"venue:dock:pve"}`)}},
 			}},
-			leaderboards: []LeaderboardRequest{{Code: "wins", Scope: "venue:dock"}},
+			leaderboards: []leaderboardadmin.LeaderboardRequest{{Code: "wins", Scope: "venue:dock"}},
 		}
 		r := &packRun{pack: p}
 		entries, err := r.entries()
@@ -239,7 +242,7 @@ func TestChooseActions(t *testing.T) {
 }
 
 func TestPackEntriesDuplicate(t *testing.T) {
-	r := &packRun{pack: &pack{venues: []VenueRequest{{Code: "dock"}, {Code: "dock"}}}}
+	r := &packRun{pack: &pack{venues: []venueadmin.VenueRequest{{Code: "dock"}, {Code: "dock"}}}}
 	if _, err := r.entries(); err == nil || err.Error() != fmt.Sprintf(PackKeyDuplicate, packSectionLabels[PackVenues], "dock") {
 		t.Errorf("err = %v", err)
 	}

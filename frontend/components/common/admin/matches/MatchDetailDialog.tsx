@@ -57,7 +57,7 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
 
   useEffect(() => {
     if (!isAuction) return;
-    services.admin.getMatchAuction(m.id)
+    services.admin.getAuction(m.id)
         .then(setAuction)
         .catch((err) => toast.error(toErrorMessage(err)))
         .finally(() => setLoading(false));

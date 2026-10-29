@@ -123,16 +123,16 @@ export class AdminService extends BaseService {
   }
 
   static listCurrencies() {
-    return this.get<{ currencies: Currency[] }>('/wallet/currencies');
+    return this.get<{ currencies: Currency[] }>('/currencies');
   }
 
   static createCurrency(body: CreateCurrencyRequest) {
-    return this.post<Currency>('/wallet/currencies', body);
+    return this.post<Currency>('/currencies', body);
   }
 
   /** 已被使用的货币不能修改小数位, 基础货币不能停用 */
   static updateCurrency(code: string, body: CurrencyRequest) {
-    return this.put<Currency>(`/wallet/currencies/${encodeURIComponent(code)}`, body);
+    return this.put<Currency>(`/currencies/${encodeURIComponent(code)}`, body);
   }
 
   static listItems(params: ListItemsParams) {
@@ -412,7 +412,7 @@ export class AdminService extends BaseService {
   }
 
   static listUserInventory(id: number, params: ListUserItemsParams) {
-    return this.get<ListUserItemsData>(`/users/${id}/inventory`, {params});
+    return this.get<ListUserItemsData>(`/users/${id}/inventory/items`, {params});
   }
 
   static adjustUserInventory(id: number, body: AdjustInventoryRequest) {
@@ -432,8 +432,8 @@ export class AdminService extends BaseService {
   }
 
   /** 一局暗拍的公开部分和每个座位的暗拍数据 */
-  static getMatchAuction(id: number) {
-    return this.get<AuctionAdminView>(`/matches/${id}/auction`);
+  static getAuction(matchID: number) {
+    return this.get<AuctionAdminView>(`/auctions/${matchID}`);
   }
 
   /** 取消进行中的对局, 玩法会退还入场代价并解冻资金; 原因记录在操作日志中 */

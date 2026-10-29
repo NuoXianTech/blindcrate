@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package admin
+package pack
 
 // 配置包的格式
 const (

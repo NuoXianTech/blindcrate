@@ -1,1222 +1,4 @@
 definitions:
-  admin.AdjustUserBalanceRequest:
-    properties:
-      amount:
-        description: 正数加款, 负数扣款, 扣款后余额不能为负
-        type: integer
-      currency:
-        maxLength: 32
-        type: string
-      idempotency_key:
-        description: 每次打开调账表单生成一个, 重复提交只生效一次
-        maxLength: 64
-        type: string
-      remark:
-        description: 调账原因, 用户可在流水中看到
-        type: string
-    required:
-    - amount
-    - currency
-    - idempotency_key
-    - remark
-    type: object
-  admin.AdjustUserInventoryRequest:
-    properties:
-      idempotency_key:
-        description: 每次打开表单生成一个, 重复提交只生效一次
-        maxLength: 64
-        type: string
-      item_id:
-        type: integer
-      quantity:
-        description: 正数发放, 负数扣除, 扣除后数量不能为负
-        type: integer
-      remark:
-        description: 调整原因, 用户可在流水中看到
-        type: string
-    required:
-    - idempotency_key
-    - item_id
-    - quantity
-    - remark
-    type: object
-  admin.AuditLogItem:
-    properties:
-      action:
-        type: string
-      actor_id:
-        type: integer
-      actor_username:
-        description: 操作人用户名, 未登录或用户已不存在时为空
-        type: string
-      created_at:
-        type: string
-      detail:
-        type: object
-      id:
-        type: integer
-      ip:
-        type: string
-      scope:
-        type: string
-      target_id:
-        type: integer
-      target_type:
-        type: string
-      user_agent:
-        type: string
-    type: object
-  admin.BanUserRequest:
-    properties:
-      banned_until:
-        description: RFC3339, 必须晚于当前时间; 永久封禁请使用停用
-        type: string
-      reason:
-        maxLength: 255
-        type: string
-    required:
-    - banned_until
-    type: object
-  admin.CancelMatchRequest:
-    properties:
-      reason:
-        description: 记录在操作日志中
-        maxLength: 255
-        type: string
-    required:
-    - reason
-    type: object
-  admin.CreateCurrencyRequest:
-    properties:
-      code:
-        description: 自然键, 小写字母、数字和下划线
-        maxLength: 32
-        type: string
-      decimals:
-        description: 展示用小数位, 已被使用的货币不能修改
-        maximum: 6
-        minimum: 0
-        type: integer
-      is_enabled:
-        description: 停用后不能再入账或扣款, 基础货币不能停用
-        type: boolean
-      name:
-        maxLength: 32
-        type: string
-      sort_order:
-        description: 余额和下拉框中从小到大排列
-        maximum: 1000000
-        minimum: -1000000
-        type: integer
-    required:
-    - code
-    - name
-    type: object
-  admin.CreateQualityRequest:
-    properties:
-      code:
-        description: 自然键, 小写字母、数字和下划线
-        maxLength: 32
-        type: string
-      color:
-        description: '#rrggbb'
-        maxLength: 7
-        type: string
-      effect:
-        description: 特效, 空表示纯色, rainbow 为流动渐变
-        maxLength: 16
-        type: string
-      level:
-        description: 等级, 越大越稀有
-        maximum: 999
-        minimum: 1
-        type: integer
-      name:
-        maxLength: 32
-        type: string
-      scan_ms:
-        description: 开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久
-        maximum: 10000
-        minimum: 100
-        type: integer
-      sort_order:
-        description: 筛选和图例中从小到大排列
-        maximum: 1000000
-        minimum: -1000000
-        type: integer
-    required:
-    - code
-    - color
-    - level
-    - name
-    type: object
-  admin.CreateSeasonRequest:
-    properties:
-      code:
-        description: 自然键, 小写字母、数字和下划线
-        maxLength: 24
-        type: string
-      ends_at:
-        description: RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改
-        type: string
-      name:
-        maxLength: 64
-        type: string
-      rating_carry:
-        description: 段位分继承上一个赛季的百分比; 赛季开始后不能修改
-        maximum: 100
-        minimum: 0
-        type: integer
-      rewards:
-        description: 赛季奖励, 分数线不能重复, 每档至少一项; 赛季结束后不能修改
-        items:
-          $ref: '#/definitions/season.Reward'
-        type: array
-      starts_at:
-        description: RFC3339, 包含; 赛季开始后不能修改
-        type: string
-    required:
-    - code
-    - ends_at
-    - name
-    - starts_at
-    type: object
-  admin.CurrencyRequest:
-    properties:
-      decimals:
-        description: 展示用小数位, 已被使用的货币不能修改
-        maximum: 6
-        minimum: 0
-        type: integer
-      is_enabled:
-        description: 停用后不能再入账或扣款, 基础货币不能停用
-        type: boolean
-      name:
-        maxLength: 32
-        type: string
-      sort_order:
-        description: 余额和下拉框中从小到大排列
-        maximum: 1000000
-        minimum: -1000000
-        type: integer
-    required:
-    - name
-    type: object
-  admin.DeleteItemResponseData:
-    properties:
-      holder_count:
-        description: 删除时持有该物品的用户数
-        type: integer
-    type: object
-  admin.DeleteLootPoolResponseData:
-    properties:
-      entry_count:
-        description: 一同删除的条目数
-        type: integer
-    type: object
-  admin.ExportPackRequest:
-    properties:
-      author:
-        maxLength: 64
-        type: string
-      name:
-        description: 配置包的名称
-        maxLength: 64
-        type: string
-      sections:
-        description: '导出的配置种类: currencies、qualities、items、loot_pools、venues、shop_items、leaderboards、settings'
-        items:
-          type: string
-        maxItems: 8
-        minItems: 1
-        type: array
-    required:
-    - name
-    - sections
-    type: object
-  admin.Import:
-    properties:
-      author:
-        type: string
-      created:
-        type: integer
-      created_at:
-        type: string
-      digest:
-        description: 文件的 sha256
-        type: string
-      entries:
-        description: 每一项的处理结果, 列表中不返回
-        items:
-          $ref: '#/definitions/admin.PackEntryResult'
-        type: array
-      id:
-        type: integer
-      name:
-        description: 配置包的名称
-        type: string
-      size:
-        description: 文件大小, 字节
-        type: integer
-      skipped:
-        description: 跳过的项, 包括与已有配置相同的项
-        type: integer
-      updated:
-        type: integer
-      user_id:
-        description: 导入的管理员
-        type: integer
-      version:
-        description: 配置包的格式版本
-        type: integer
-    type: object
-  admin.InventoryTransactionItem:
-    properties:
-      biz_id:
-        type: string
-      biz_type:
-        type: string
-      created_at:
-        type: string
-      id:
-        type: integer
-      idempotency_key:
-        type: string
-      item_id:
-        type: integer
-      item_name:
-        type: string
-      operator_id:
-        type: integer
-      operator_username:
-        description: 系统操作或用户已不存在时为空
-        type: string
-      quantity:
-        type: integer
-      quantity_after:
-        type: integer
-      remark:
-        type: string
-      user_id:
-        type: integer
-      username:
-        description: 用户已不存在时为空
-        type: string
-    type: object
-  admin.ItemListItem:
-    properties:
-      category:
-        description: 类别代码, 见 RegisterCategory
-        type: string
-      code:
-        description: 英文别名, 可以重复, 物品以 ID 区分
-        type: string
-      created_at:
-        type: string
-      description:
-        type: string
-      effect:
-        description: 使用效果代码, 空表示不能使用, 藏品没有效果; 见 effect 模块
-        type: string
-      effect_params:
-        additionalProperties: {}
-        description: 效果参数, 结构由效果决定, 没有效果时为空对象
-        type: object
-      height:
-        type: integer
-      holder_count:
-        description: 持有该物品的用户数, 删除前用于提示
-        type: integer
-      id:
-        type: integer
-      image_url:
-        type: string
-      is_enabled:
-        description: 下架后不会掉落, 也不能再发放
-        type: boolean
-      is_placeholder:
-        description: 是否为占位物品, 只由 Resolve 生成
-        type: boolean
-      name:
-        type: string
-      quality:
-        description: 品质等级, 见 Quality
-        type: integer
-      sell_currency:
-        type: string
-      sell_price:
-        description: 0 表示不可卖出
-        type: integer
-      updated_at:
-        type: string
-      width:
-        description: 在仓库中占的格数
-        type: integer
-    type: object
-  admin.ItemRequest:
-    properties:
-      category:
-        description: 类别代码, 必须已注册
-        maxLength: 32
-        type: string
-      code:
-        description: 英文别名, 小写字母、数字和下划线, 可以重复
-        maxLength: 64
-        type: string
-      description:
-        maxLength: 255
-        type: string
-      effect:
-        description: 使用效果代码, 空表示不能使用; 藏品不能配置
-        maxLength: 32
-        type: string
-      effect_params:
-        description: 效果参数, 结构见 GET /admin/items/effects
-        type: object
-      height:
-        maximum: 10
-        minimum: 1
-        type: integer
-      image_url:
-        maxLength: 1024
-        type: string
-      is_enabled:
-        description: 下架后不会掉落, 也不能再发放, 已有的保留
-        type: boolean
-      name:
-        maxLength: 64
-        type: string
-      quality:
-        description: 品质等级, 必须存在
-        minimum: 1
-        type: integer
-      sell_currency:
-        maxLength: 32
-        type: string
-      sell_price:
-        description: 0 表示不可卖出
-        maximum: 1000000000000
-        minimum: 0
-        type: integer
-      width:
-        description: 在仓库中占的格数
-        maximum: 10
-        minimum: 1
-        type: integer
-    required:
-    - category
-    - code
-    - height
-    - name
-    - quality
-    - sell_currency
-    - width
-    type: object
-  admin.LeaderboardRequest:
-    properties:
-      code:
-        description: 自然键, 小写字母、数字和下划线
-        maxLength: 64
-        type: string
-      description:
-        maxLength: 255
-        type: string
-      is_enabled:
-        description: 停用后玩家看不到
-        type: boolean
-      metric:
-        description: 排名的指标, 见可以排名的指标
-        maxLength: 64
-        type: string
-      min_matches:
-        description: 同一范围和周期内至少完成多少局才上榜
-        type: integer
-      name:
-        maxLength: 64
-        type: string
-      period:
-        description: total 累计、day 当天或 season 当前赛季
-        type: string
-      scope:
-        description: 统计范围, 如 all、mode:ranked、venue:dock
-        maxLength: 64
-        type: string
-      size:
-        description: 展示前多少名, 10-500
-        type: integer
-      sort_order:
-        description: 玩家页面的页签从小到大排列
-        maximum: 1000000
-        minimum: -1000000
-        type: integer
-    required:
-    - code
-    - metric
-    - name
-    - period
-    - scope
-    type: object
-  admin.ListAuditLogsResponseData:
-    properties:
-      logs:
-        items:
-          $ref: '#/definitions/admin.AuditLogItem'
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.ListConditionTypesResponseData:
-    properties:
-      types:
-        items:
-          $ref: '#/definitions/condition.TypeView'
-        type: array
-    type: object
-  admin.ListCurrenciesResponseData:
-    properties:
-      currencies:
-        items:
-          $ref: '#/definitions/wallet.Currency'
-        type: array
-    type: object
-  admin.ListInventoryTransactionsResponseData:
-    properties:
-      total:
-        type: integer
-      transactions:
-        items:
-          $ref: '#/definitions/admin.InventoryTransactionItem'
-        type: array
-    type: object
-  admin.ListItemCategoriesResponseData:
-    properties:
-      categories:
-        items:
-          $ref: '#/definitions/item.Category'
-        type: array
-    type: object
-  admin.ListItemEffectsResponseData:
-    properties:
-      effects:
-        items:
-          $ref: '#/definitions/effect.TypeView'
-        type: array
-    type: object
-  admin.ListItemsResponseData:
-    properties:
-      items:
-        items:
-          $ref: '#/definitions/admin.ItemListItem'
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.ListLeaderboardMetricsResponseData:
-    properties:
-      metrics:
-        items:
-          $ref: '#/definitions/github_com_NuoXianTech_blindcrate_internal_apps_stats.Metric'
-        type: array
-    type: object
-  admin.ListLeaderboardsResponseData:
-    properties:
-      boards:
-        items:
-          $ref: '#/definitions/leaderboard.Board'
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.ListLootPoolsResponseData:
-    properties:
-      pools:
-        items:
-          $ref: '#/definitions/admin.LootPoolListItem'
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.ListMatchesResponseData:
-    properties:
-      matches:
-        items:
-          $ref: '#/definitions/match.MatchDetail'
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.ListPackImportsResponseData:
-    properties:
-      imports:
-        description: 不含每一项的结果
-        items:
-          $ref: '#/definitions/admin.Import'
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.ListQualitiesResponseData:
-    properties:
-      qualities:
-        items:
-          $ref: '#/definitions/admin.QualityListItem'
-        type: array
-    type: object
-  admin.ListRankedSuspectsResponseData:
-    properties:
-      suspects:
-        items:
-          $ref: '#/definitions/auction.Suspect'
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.ListRankedTiersResponseData:
-    properties:
-      tiers:
-        description: 按分数线从低到高
-        items:
-          $ref: '#/definitions/ranked.Tier'
-        type: array
-    type: object
-  admin.ListSeasonsResponseData:
-    properties:
-      seasons:
-        items:
-          $ref: '#/definitions/season.View'
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.ListSettingRevisionsResponseData:
-    properties:
-      revisions:
-        items:
-          $ref: '#/definitions/admin.SettingRevisionItem'
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.ListSettingsResponseData:
-    properties:
-      categories:
-        items:
-          $ref: '#/definitions/settings.Category'
-        type: array
-      groups:
-        items:
-          $ref: '#/definitions/settings.GroupView'
-        type: array
-    type: object
-  admin.ListShopItemsResponseData:
-    properties:
-      items:
-        items:
-          $ref: '#/definitions/shop.Item'
-        type: array
-      tabs:
-        description: 未删除的商品用到的页签, 按名称排列, 不含空页签
-        items:
-          type: string
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.ListShopOrdersResponseData:
-    properties:
-      orders:
-        items:
-          $ref: '#/definitions/admin.ShopOrderItem'
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.ListUserBalancesResponseData:
-    properties:
-      balances:
-        items:
-          $ref: '#/definitions/wallet.BalanceItem'
-        type: array
-    type: object
-  admin.ListUserInventoryResponseData:
-    properties:
-      items:
-        items:
-          $ref: '#/definitions/inventory.UserItemDetail'
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.ListUsersResponseData:
-    properties:
-      total:
-        type: integer
-      users:
-        items:
-          $ref: '#/definitions/auth.User'
-        type: array
-    type: object
-  admin.ListVenuesResponseData:
-    properties:
-      total:
-        type: integer
-      venues:
-        items:
-          $ref: '#/definitions/venue.Venue'
-        type: array
-    type: object
-  admin.ListWalletTransactionsResponseData:
-    properties:
-      total:
-        type: integer
-      transactions:
-        items:
-          $ref: '#/definitions/admin.WalletTransactionItem'
-        type: array
-    type: object
-  admin.LootPoolEntriesResponseData:
-    properties:
-      entries:
-        description: 按条目 ID 排序, 包含不参与抽取的条目
-        items:
-          $ref: '#/definitions/loot.EntryDetail'
-        type: array
-      pool:
-        $ref: '#/definitions/loot.Pool'
-    type: object
-  admin.LootPoolEntryRequest:
-    properties:
-      currency:
-        description: 掉落的货币
-        maxLength: 32
-        type: string
-      item_id:
-        description: 掉落的物品, 与 currency 二选一
-        type: integer
-      max_quantity:
-        maximum: 1000000000000
-        minimum: 1
-        type: integer
-      min_quantity:
-        description: 每次掉落的数量范围, 货币为金额, 物品最多 1000000
-        maximum: 1000000000000
-        minimum: 1
-        type: integer
-      weight:
-        description: 权重
-        maximum: 1000000
-        minimum: 1
-        type: integer
-    required:
-    - max_quantity
-    - min_quantity
-    - weight
-    type: object
-  admin.LootPoolListItem:
-    properties:
-      code:
-        description: 玩法中引用的代码, 如 crate_basic
-        type: string
-      created_at:
-        type: string
-      description:
-        type: string
-      entry_count:
-        type: integer
-      id:
-        type: integer
-      is_enabled:
-        description: 停用后不能再抽取
-        type: boolean
-      name:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  admin.LootPoolRequest:
-    properties:
-      code:
-        description: 玩法中引用的代码, 小写字母、数字和下划线
-        maxLength: 64
-        type: string
-      description:
-        maxLength: 255
-        type: string
-      is_enabled:
-        description: 停用后不能再抽取
-        type: boolean
-      name:
-        maxLength: 64
-        type: string
-    required:
-    - code
-    - name
-    type: object
-  admin.PackEntryResult:
-    properties:
-      action:
-        description: 见 PackAction 开头的常量
-        type: string
-      code:
-        description: 改名导入时的新代码
-        type: string
-      key:
-        description: 包中的代码, 品质为等级, 物品为 ID, 设置为设置组的 key
-        type: string
-      name:
-        description: 包中的名称
-        type: string
-      reason:
-        description: 无法导入的原因
-        type: string
-      section:
-        description: 配置种类, 见 Pack 开头的常量
-        type: string
-      status:
-        description: 见 PackStatus 开头的常量, 跳过的项为与已有配置比较的结果
-        type: string
-    type: object
-  admin.PackManifest:
-    properties:
-      author:
-        type: string
-      exported_at:
-        type: string
-      format:
-        description: 固定为 blindcrate-pack
-        type: string
-      name:
-        type: string
-      sections:
-        description: 包含的配置种类, 见 Pack 开头的常量
-        items:
-          type: string
-        type: array
-      version:
-        description: 格式版本
-        type: integer
-    type: object
-  admin.PackPreview:
-    properties:
-      digest:
-        description: 文件的 sha256
-        type: string
-      entries:
-        items:
-          $ref: '#/definitions/admin.PackEntryResult'
-        type: array
-      manifest:
-        $ref: '#/definitions/admin.PackManifest'
-      size:
-        type: integer
-    type: object
-  admin.QualityListItem:
-    properties:
-      code:
-        description: 自然键, 导入导出时用来对应
-        type: string
-      color:
-        description: '#rrggbb'
-        type: string
-      created_at:
-        type: string
-      effect:
-        description: 特效, 空表示纯色, 见 constants.go
-        type: string
-      item_count:
-        description: 使用该品质的未删除物品数, 不为 0 时不能删除
-        type: integer
-      level:
-        type: integer
-      name:
-        type: string
-      scan_ms:
-        description: 开箱时扫描这一品质藏品的时长, 毫秒
-        type: integer
-      sort_order:
-        description: 筛选和图例中从小到大排列
-        type: integer
-      updated_at:
-        type: string
-    type: object
-  admin.QualityRequest:
-    properties:
-      color:
-        description: '#rrggbb'
-        maxLength: 7
-        type: string
-      effect:
-        description: 特效, 空表示纯色, rainbow 为流动渐变
-        maxLength: 16
-        type: string
-      name:
-        maxLength: 32
-        type: string
-      scan_ms:
-        description: 开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久
-        maximum: 10000
-        minimum: 100
-        type: integer
-      sort_order:
-        description: 筛选和图例中从小到大排列
-        maximum: 1000000
-        minimum: -1000000
-        type: integer
-    required:
-    - color
-    - name
-    type: object
-  admin.RankedTierRequest:
-    properties:
-      color:
-        description: '#rrggbb'
-        maxLength: 7
-        type: string
-      min_rating:
-        description: 分数线, 段位分不低于它时属于这个段位, 0-1000000
-        type: integer
-      name:
-        maxLength: 32
-        type: string
-    required:
-    - color
-    - name
-    type: object
-  admin.ReplaceLootPoolEntriesRequest:
-    properties:
-      entries:
-        description: 提交空数组清空条目
-        items:
-          $ref: '#/definitions/admin.LootPoolEntryRequest'
-        maxItems: 200
-        type: array
-    required:
-    - entries
-    type: object
-  admin.ResetSettingRequest:
-    properties:
-      version:
-        description: 当前版本, 已被别人修改时返回 409
-        minimum: 0
-        type: integer
-    required:
-    - version
-    type: object
-  admin.Response:
-    properties:
-      data: {}
-      error_msg:
-        type: string
-    type: object
-  admin.ReviewRankedSuspectRequest:
-    properties:
-      last_match_id:
-        description: 处理到的对局, 即名单中的 last_match_id
-        type: integer
-      note:
-        description: 处理结果, 如已封禁、正常组队
-        maxLength: 255
-        type: string
-      user_a:
-        type: integer
-      user_b:
-        description: 大于 user_a
-        type: integer
-    required:
-    - last_match_id
-    - user_a
-    - user_b
-    type: object
-  admin.RollbackSettingRequest:
-    properties:
-      target:
-        description: 回滚到的版本
-        minimum: 0
-        type: integer
-      version:
-        description: 当前版本, 已被别人修改时返回 409
-        minimum: 0
-        type: integer
-    required:
-    - target
-    - version
-    type: object
-  admin.SeasonRequest:
-    properties:
-      ends_at:
-        description: RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改
-        type: string
-      name:
-        maxLength: 64
-        type: string
-      rating_carry:
-        description: 段位分继承上一个赛季的百分比; 赛季开始后不能修改
-        maximum: 100
-        minimum: 0
-        type: integer
-      rewards:
-        description: 赛季奖励, 分数线不能重复, 每档至少一项; 赛季结束后不能修改
-        items:
-          $ref: '#/definitions/season.Reward'
-        type: array
-      starts_at:
-        description: RFC3339, 包含; 赛季开始后不能修改
-        type: string
-    required:
-    - ends_at
-    - name
-    - starts_at
-    type: object
-  admin.SetUserDisabledRequest:
-    properties:
-      disabled:
-        type: boolean
-    required:
-    - disabled
-    type: object
-  admin.SettingRevisionItem:
-    properties:
-      action:
-        type: string
-      changes:
-        additionalProperties: true
-        type: object
-      created_at:
-        type: string
-      from_version:
-        type: integer
-      updated_by:
-        type: integer
-      updated_by_username:
-        description: 系统操作或用户已不存在时为空
-        type: string
-      version:
-        type: integer
-    type: object
-  admin.ShopItemRequest:
-    properties:
-      code:
-        description: 小写字母、数字和下划线, 创建后不能修改
-        maxLength: 32
-        type: string
-      description:
-        maxLength: 255
-        type: string
-      ends_at:
-        description: RFC3339, 不包含, 为空时不限
-        type: string
-      goods:
-        allOf:
-        - $ref: '#/definitions/reward.Bundle'
-        description: 一份商品, 数量为正数, 不能为空
-      image_url:
-        maxLength: 1024
-        type: string
-      is_enabled:
-        type: boolean
-      limits:
-        $ref: '#/definitions/shop.Limits'
-      name:
-        maxLength: 64
-        type: string
-      original_price:
-        allOf:
-        - $ref: '#/definitions/reward.Bundle'
-        description: 原价, 只用于展示折扣
-      price:
-        allOf:
-        - $ref: '#/definitions/reward.Bundle'
-        description: 一份的价格, 数量为正数, 为空时免费
-      requirements:
-        items:
-          $ref: '#/definitions/condition.Condition'
-        type: array
-      sort_order:
-        description: 商城中从小到大排列
-        maximum: 1000000
-        minimum: -1000000
-        type: integer
-      starts_at:
-        description: RFC3339, 包含, 为空时不限
-        type: string
-      stock:
-        description: 剩余库存, 为空时不限; 修改时直接覆盖
-        type: integer
-      tab:
-        maxLength: 16
-        type: string
-    required:
-    - code
-    - name
-    type: object
-  admin.ShopOrderItem:
-    properties:
-      created_at:
-        type: string
-      goods:
-        allOf:
-        - $ref: '#/definitions/reward.Bundle'
-        description: 实际得到的全部商品, 数量为正数
-      id:
-        type: integer
-      item_code:
-        type: string
-      name:
-        type: string
-      price:
-        allOf:
-        - $ref: '#/definitions/reward.Bundle'
-        description: 实际支付的总价, 数量为正数
-      quantity:
-        description: 购买的份数
-        type: integer
-      refunded_at:
-        type: string
-      refunded_by:
-        description: 退款的管理员, 没有退款时为 0
-        type: integer
-      refunded_username:
-        description: 没有退款时为空
-        type: string
-      shop_item_id:
-        type: integer
-      status:
-        description: paid 或 refunded
-        type: string
-      user_id:
-        type: integer
-      username:
-        description: 用户已不存在时为空
-        type: string
-    type: object
-  admin.TestMailRequest:
-    properties:
-      to:
-        description: 收件人
-        type: string
-    required:
-    - to
-    type: object
-  admin.UpdateSettingRequest:
-    properties:
-      clear_secrets:
-        description: 需要清空的密钥字段
-        items:
-          type: string
-        maxItems: 32
-        type: array
-      value:
-        description: 设置组的字段, 只需提交改动的字段, 没有提交的保持不变, 密钥字段留空表示不修改
-        type: object
-      version:
-        description: 读取时的版本, 已被别人修改时返回 409
-        minimum: 0
-        type: integer
-    required:
-    - value
-    - version
-    type: object
-  admin.UpdateUserRequest:
-    properties:
-      avatar_url:
-        description: 不传表示不修改, 传空字符串表示清除头像
-        type: string
-      nickname:
-        description: 不传表示不修改
-        type: string
-      username:
-        description: 不传表示不修改
-        type: string
-    type: object
-  admin.VenueRequest:
-    properties:
-      auction:
-        $ref: '#/definitions/venue.AuctionRule'
-      bid_currency:
-        maxLength: 32
-        type: string
-      bots:
-        $ref: '#/definitions/venue.BotRule'
-      code:
-        description: 小写字母、数字和下划线, 创建后不能修改
-        maxLength: 24
-        type: string
-      consumables:
-        allOf:
-        - $ref: '#/definitions/venue.ConsumableRule'
-        description: 对局中使用道具的规则
-      description:
-        maxLength: 255
-        type: string
-      entry_cost:
-        allOf:
-        - $ref: '#/definitions/reward.Bundle'
-        description: 数量为正数, 开局时扣除
-      image_url:
-        maxLength: 1024
-        type: string
-      is_enabled:
-        type: boolean
-      name:
-        maxLength: 64
-        type: string
-      pve:
-        $ref: '#/definitions/venue.PveRule'
-      pve_enabled:
-        type: boolean
-      ranked_enabled:
-        type: boolean
-      requirements:
-        items:
-          $ref: '#/definitions/condition.Condition'
-        type: array
-      sort_order:
-        description: 大厅中从小到大排列
-        maximum: 1000000
-        minimum: -1000000
-        type: integer
-      warehouse:
-        $ref: '#/definitions/venue.WarehouseRule'
-    required:
-    - bid_currency
-    - code
-    - name
-    type: object
-  admin.WalletTransactionItem:
-    properties:
-      amount:
-        type: integer
-      balance_after:
-        type: integer
-      biz_id:
-        type: string
-      biz_type:
-        type: string
-      created_at:
-        type: string
-      currency:
-        type: string
-      frozen_after:
-        type: integer
-      frozen_amount:
-        type: integer
-      id:
-        type: integer
-      idempotency_key:
-        type: string
-      operator_id:
-        type: integer
-      operator_username:
-        description: 系统操作或用户已不存在时为空
-        type: string
-      remark:
-        type: string
-      user_id:
-        type: integer
-      username:
-        description: 用户已不存在时为空
-        type: string
-    type: object
   auction.AdminView:
     properties:
       contenders:
@@ -1732,6 +514,53 @@ definitions:
       start_price:
         type: integer
     type: object
+  auctionadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  auditadmin.AuditLogItem:
+    properties:
+      action:
+        type: string
+      actor_id:
+        type: integer
+      actor_username:
+        description: 操作人用户名, 未登录或用户已不存在时为空
+        type: string
+      created_at:
+        type: string
+      detail:
+        type: object
+      id:
+        type: integer
+      ip:
+        type: string
+      scope:
+        type: string
+      target_id:
+        type: integer
+      target_type:
+        type: string
+      user_agent:
+        type: string
+    type: object
+  auditadmin.ListAuditLogsResponseData:
+    properties:
+      logs:
+        items:
+          $ref: '#/definitions/auditadmin.AuditLogItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  auditadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
   auth.BasicUserInfo:
     properties:
       avatar_url:
@@ -1840,6 +669,51 @@ definitions:
     - code
     - email
     type: object
+  authadmin.BanUserRequest:
+    properties:
+      banned_until:
+        description: RFC3339, 必须晚于当前时间; 永久封禁请使用停用
+        type: string
+      reason:
+        maxLength: 255
+        type: string
+    required:
+    - banned_until
+    type: object
+  authadmin.ListUsersResponseData:
+    properties:
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/auth.User'
+        type: array
+    type: object
+  authadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  authadmin.SetUserDisabledRequest:
+    properties:
+      disabled:
+        type: boolean
+    required:
+    - disabled
+    type: object
+  authadmin.UpdateUserRequest:
+    properties:
+      avatar_url:
+        description: 不传表示不修改, 传空字符串表示清除头像
+        type: string
+      nickname:
+        description: 不传表示不修改
+        type: string
+      username:
+        description: 不传表示不修改
+        type: string
+    type: object
   condition.Condition:
     properties:
       params:
@@ -1904,6 +778,19 @@ definitions:
       label:
         type: string
       type:
+        type: string
+    type: object
+  conditionadmin.ListConditionTypesResponseData:
+    properties:
+      types:
+        items:
+          $ref: '#/definitions/condition.TypeView'
+        type: array
+    type: object
+  conditionadmin.Response:
+    properties:
+      data: {}
+      error_msg:
         type: string
     type: object
   effect.TypeView:
@@ -2158,6 +1045,83 @@ definitions:
       width:
         type: integer
     type: object
+  inventoryadmin.AdjustUserInventoryRequest:
+    properties:
+      idempotency_key:
+        description: 每次打开表单生成一个, 重复提交只生效一次
+        maxLength: 64
+        type: string
+      item_id:
+        type: integer
+      quantity:
+        description: 正数发放, 负数扣除, 扣除后数量不能为负
+        type: integer
+      remark:
+        description: 调整原因, 用户可在流水中看到
+        type: string
+    required:
+    - idempotency_key
+    - item_id
+    - quantity
+    - remark
+    type: object
+  inventoryadmin.InventoryTransactionItem:
+    properties:
+      biz_id:
+        type: string
+      biz_type:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      idempotency_key:
+        type: string
+      item_id:
+        type: integer
+      item_name:
+        type: string
+      operator_id:
+        type: integer
+      operator_username:
+        description: 系统操作或用户已不存在时为空
+        type: string
+      quantity:
+        type: integer
+      quantity_after:
+        type: integer
+      remark:
+        type: string
+      user_id:
+        type: integer
+      username:
+        description: 用户已不存在时为空
+        type: string
+    type: object
+  inventoryadmin.ListInventoryTransactionsResponseData:
+    properties:
+      total:
+        type: integer
+      transactions:
+        items:
+          $ref: '#/definitions/inventoryadmin.InventoryTransactionItem'
+        type: array
+    type: object
+  inventoryadmin.ListUserInventoryResponseData:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/inventory.UserItemDetail'
+        type: array
+      total:
+        type: integer
+    type: object
+  inventoryadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
   item.Category:
     properties:
       code:
@@ -2247,6 +1211,251 @@ definitions:
         type: string
     type: object
   item.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  itemadmin.CreateQualityRequest:
+    properties:
+      code:
+        description: 自然键, 小写字母、数字和下划线
+        maxLength: 32
+        type: string
+      color:
+        description: '#rrggbb'
+        maxLength: 7
+        type: string
+      effect:
+        description: 特效, 空表示纯色, rainbow 为流动渐变
+        maxLength: 16
+        type: string
+      level:
+        description: 等级, 越大越稀有
+        maximum: 999
+        minimum: 1
+        type: integer
+      name:
+        maxLength: 32
+        type: string
+      scan_ms:
+        description: 开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久
+        maximum: 10000
+        minimum: 100
+        type: integer
+      sort_order:
+        description: 筛选和图例中从小到大排列
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+    required:
+    - code
+    - color
+    - level
+    - name
+    type: object
+  itemadmin.DeleteItemResponseData:
+    properties:
+      holder_count:
+        description: 删除时持有该物品的用户数
+        type: integer
+    type: object
+  itemadmin.ItemListItem:
+    properties:
+      category:
+        description: 类别代码, 见 RegisterCategory
+        type: string
+      code:
+        description: 英文别名, 可以重复, 物品以 ID 区分
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      effect:
+        description: 使用效果代码, 空表示不能使用, 藏品没有效果; 见 effect 模块
+        type: string
+      effect_params:
+        additionalProperties: {}
+        description: 效果参数, 结构由效果决定, 没有效果时为空对象
+        type: object
+      height:
+        type: integer
+      holder_count:
+        description: 持有该物品的用户数, 删除前用于提示
+        type: integer
+      id:
+        type: integer
+      image_url:
+        type: string
+      is_enabled:
+        description: 下架后不会掉落, 也不能再发放
+        type: boolean
+      is_placeholder:
+        description: 是否为占位物品, 只由 Resolve 生成
+        type: boolean
+      name:
+        type: string
+      quality:
+        description: 品质等级, 见 Quality
+        type: integer
+      sell_currency:
+        type: string
+      sell_price:
+        description: 0 表示不可卖出
+        type: integer
+      updated_at:
+        type: string
+      width:
+        description: 在仓库中占的格数
+        type: integer
+    type: object
+  itemadmin.ItemRequest:
+    properties:
+      category:
+        description: 类别代码, 必须已注册
+        maxLength: 32
+        type: string
+      code:
+        description: 英文别名, 小写字母、数字和下划线, 可以重复
+        maxLength: 64
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      effect:
+        description: 使用效果代码, 空表示不能使用; 藏品不能配置
+        maxLength: 32
+        type: string
+      effect_params:
+        description: 效果参数, 结构见 GET /admin/items/effects
+        type: object
+      height:
+        maximum: 10
+        minimum: 1
+        type: integer
+      image_url:
+        maxLength: 1024
+        type: string
+      is_enabled:
+        description: 下架后不会掉落, 也不能再发放, 已有的保留
+        type: boolean
+      name:
+        maxLength: 64
+        type: string
+      quality:
+        description: 品质等级, 必须存在
+        minimum: 1
+        type: integer
+      sell_currency:
+        maxLength: 32
+        type: string
+      sell_price:
+        description: 0 表示不可卖出
+        maximum: 1000000000000
+        minimum: 0
+        type: integer
+      width:
+        description: 在仓库中占的格数
+        maximum: 10
+        minimum: 1
+        type: integer
+    required:
+    - category
+    - code
+    - height
+    - name
+    - quality
+    - sell_currency
+    - width
+    type: object
+  itemadmin.ListItemCategoriesResponseData:
+    properties:
+      categories:
+        items:
+          $ref: '#/definitions/item.Category'
+        type: array
+    type: object
+  itemadmin.ListItemEffectsResponseData:
+    properties:
+      effects:
+        items:
+          $ref: '#/definitions/effect.TypeView'
+        type: array
+    type: object
+  itemadmin.ListItemsResponseData:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/itemadmin.ItemListItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  itemadmin.ListQualitiesResponseData:
+    properties:
+      qualities:
+        items:
+          $ref: '#/definitions/itemadmin.QualityListItem'
+        type: array
+    type: object
+  itemadmin.QualityListItem:
+    properties:
+      code:
+        description: 自然键, 导入导出时用来对应
+        type: string
+      color:
+        description: '#rrggbb'
+        type: string
+      created_at:
+        type: string
+      effect:
+        description: 特效, 空表示纯色, 见 constants.go
+        type: string
+      item_count:
+        description: 使用该品质的未删除物品数, 不为 0 时不能删除
+        type: integer
+      level:
+        type: integer
+      name:
+        type: string
+      scan_ms:
+        description: 开箱时扫描这一品质藏品的时长, 毫秒
+        type: integer
+      sort_order:
+        description: 筛选和图例中从小到大排列
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  itemadmin.QualityRequest:
+    properties:
+      color:
+        description: '#rrggbb'
+        maxLength: 7
+        type: string
+      effect:
+        description: 特效, 空表示纯色, rainbow 为流动渐变
+        maxLength: 16
+        type: string
+      name:
+        maxLength: 32
+        type: string
+      scan_ms:
+        description: 开箱时扫描这一品质藏品的时长, 毫秒; 品质越高可以扫得越久
+        maximum: 10000
+        minimum: 100
+        type: integer
+      sort_order:
+        description: 筛选和图例中从小到大排列
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+    required:
+    - color
+    - name
+    type: object
+  itemadmin.Response:
     properties:
       data: {}
       error_msg:
@@ -2398,6 +1607,72 @@ definitions:
       error_msg:
         type: string
     type: object
+  leaderboardadmin.LeaderboardRequest:
+    properties:
+      code:
+        description: 自然键, 小写字母、数字和下划线
+        maxLength: 64
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      is_enabled:
+        description: 停用后玩家看不到
+        type: boolean
+      metric:
+        description: 排名的指标, 见可以排名的指标
+        maxLength: 64
+        type: string
+      min_matches:
+        description: 同一范围和周期内至少完成多少局才上榜
+        type: integer
+      name:
+        maxLength: 64
+        type: string
+      period:
+        description: total 累计、day 当天或 season 当前赛季
+        type: string
+      scope:
+        description: 统计范围, 如 all、mode:ranked、venue:dock
+        maxLength: 64
+        type: string
+      size:
+        description: 展示前多少名, 10-500
+        type: integer
+      sort_order:
+        description: 玩家页面的页签从小到大排列
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+    required:
+    - code
+    - metric
+    - name
+    - period
+    - scope
+    type: object
+  leaderboardadmin.ListLeaderboardMetricsResponseData:
+    properties:
+      metrics:
+        items:
+          $ref: '#/definitions/github_com_NuoXianTech_blindcrate_internal_apps_stats.Metric'
+        type: array
+    type: object
+  leaderboardadmin.ListLeaderboardsResponseData:
+    properties:
+      boards:
+        items:
+          $ref: '#/definitions/leaderboard.Board'
+        type: array
+      total:
+        type: integer
+    type: object
+  leaderboardadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
   loot.EntryDetail:
     properties:
       created_at:
@@ -2470,6 +1745,116 @@ definitions:
         type: string
     type: object
   loot.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  lootadmin.DeleteLootPoolResponseData:
+    properties:
+      entry_count:
+        description: 一同删除的条目数
+        type: integer
+    type: object
+  lootadmin.ListLootPoolsResponseData:
+    properties:
+      pools:
+        items:
+          $ref: '#/definitions/lootadmin.LootPoolListItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  lootadmin.LootPoolEntriesResponseData:
+    properties:
+      entries:
+        description: 按条目 ID 排序, 包含不参与抽取的条目
+        items:
+          $ref: '#/definitions/loot.EntryDetail'
+        type: array
+      pool:
+        $ref: '#/definitions/loot.Pool'
+    type: object
+  lootadmin.LootPoolEntryRequest:
+    properties:
+      currency:
+        description: 掉落的货币
+        maxLength: 32
+        type: string
+      item_id:
+        description: 掉落的物品, 与 currency 二选一
+        type: integer
+      max_quantity:
+        maximum: 1000000000000
+        minimum: 1
+        type: integer
+      min_quantity:
+        description: 每次掉落的数量范围, 货币为金额, 物品最多 1000000
+        maximum: 1000000000000
+        minimum: 1
+        type: integer
+      weight:
+        description: 权重
+        maximum: 1000000
+        minimum: 1
+        type: integer
+    required:
+    - max_quantity
+    - min_quantity
+    - weight
+    type: object
+  lootadmin.LootPoolListItem:
+    properties:
+      code:
+        description: 玩法中引用的代码, 如 crate_basic
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      entry_count:
+        type: integer
+      id:
+        type: integer
+      is_enabled:
+        description: 停用后不能再抽取
+        type: boolean
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  lootadmin.LootPoolRequest:
+    properties:
+      code:
+        description: 玩法中引用的代码, 小写字母、数字和下划线
+        maxLength: 64
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      is_enabled:
+        description: 停用后不能再抽取
+        type: boolean
+      name:
+        maxLength: 64
+        type: string
+    required:
+    - code
+    - name
+    type: object
+  lootadmin.ReplaceLootPoolEntriesRequest:
+    properties:
+      entries:
+        description: 提交空数组清空条目
+        items:
+          $ref: '#/definitions/lootadmin.LootPoolEntryRequest'
+        maxItems: 200
+        type: array
+    required:
+    - entries
+    type: object
+  lootadmin.Response:
     properties:
       data: {}
       error_msg:
@@ -2671,6 +2056,160 @@ definitions:
       error_msg:
         type: string
     type: object
+  matchadmin.CancelMatchRequest:
+    properties:
+      reason:
+        description: 记录在操作日志中
+        maxLength: 255
+        type: string
+    required:
+    - reason
+    type: object
+  matchadmin.ListMatchesResponseData:
+    properties:
+      matches:
+        items:
+          $ref: '#/definitions/match.MatchDetail'
+        type: array
+      total:
+        type: integer
+    type: object
+  matchadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  pack.ExportPackRequest:
+    properties:
+      author:
+        maxLength: 64
+        type: string
+      name:
+        description: 配置包的名称
+        maxLength: 64
+        type: string
+      sections:
+        description: '导出的配置种类: currencies、qualities、items、loot_pools、venues、shop_items、leaderboards、settings'
+        items:
+          type: string
+        maxItems: 8
+        minItems: 1
+        type: array
+    required:
+    - name
+    - sections
+    type: object
+  pack.Import:
+    properties:
+      author:
+        type: string
+      created:
+        type: integer
+      created_at:
+        type: string
+      digest:
+        description: 文件的 sha256
+        type: string
+      entries:
+        description: 每一项的处理结果, 列表中不返回
+        items:
+          $ref: '#/definitions/pack.PackEntryResult'
+        type: array
+      id:
+        type: integer
+      name:
+        description: 配置包的名称
+        type: string
+      size:
+        description: 文件大小, 字节
+        type: integer
+      skipped:
+        description: 跳过的项, 包括与已有配置相同的项
+        type: integer
+      updated:
+        type: integer
+      user_id:
+        description: 导入的管理员
+        type: integer
+      version:
+        description: 配置包的格式版本
+        type: integer
+    type: object
+  pack.ListPackImportsResponseData:
+    properties:
+      imports:
+        description: 不含每一项的结果
+        items:
+          $ref: '#/definitions/pack.Import'
+        type: array
+      total:
+        type: integer
+    type: object
+  pack.PackEntryResult:
+    properties:
+      action:
+        description: 见 PackAction 开头的常量
+        type: string
+      code:
+        description: 改名导入时的新代码
+        type: string
+      key:
+        description: 包中的代码, 品质为等级, 物品为 ID, 设置为设置组的 key
+        type: string
+      name:
+        description: 包中的名称
+        type: string
+      reason:
+        description: 无法导入的原因
+        type: string
+      section:
+        description: 配置种类, 见 Pack 开头的常量
+        type: string
+      status:
+        description: 见 PackStatus 开头的常量, 跳过的项为与已有配置比较的结果
+        type: string
+    type: object
+  pack.PackManifest:
+    properties:
+      author:
+        type: string
+      exported_at:
+        type: string
+      format:
+        description: 固定为 blindcrate-pack
+        type: string
+      name:
+        type: string
+      sections:
+        description: 包含的配置种类, 见 Pack 开头的常量
+        items:
+          type: string
+        type: array
+      version:
+        description: 格式版本
+        type: integer
+    type: object
+  pack.PackPreview:
+    properties:
+      digest:
+        description: 文件的 sha256
+        type: string
+      entries:
+        items:
+          $ref: '#/definitions/pack.PackEntryResult'
+        type: array
+      manifest:
+        $ref: '#/definitions/pack.PackManifest'
+      size:
+        type: integer
+    type: object
+  pack.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
   ranked.ListTiersResponseData:
     properties:
       tiers:
@@ -2723,6 +2262,64 @@ definitions:
         allOf:
         - $ref: '#/definitions/ranked.Tier'
         description: 当前的段位, 低于最低的分数线时为空
+    type: object
+  rankedadmin.ListRankedSuspectsResponseData:
+    properties:
+      suspects:
+        items:
+          $ref: '#/definitions/auction.Suspect'
+        type: array
+      total:
+        type: integer
+    type: object
+  rankedadmin.ListRankedTiersResponseData:
+    properties:
+      tiers:
+        description: 按分数线从低到高
+        items:
+          $ref: '#/definitions/ranked.Tier'
+        type: array
+    type: object
+  rankedadmin.RankedTierRequest:
+    properties:
+      color:
+        description: '#rrggbb'
+        maxLength: 7
+        type: string
+      min_rating:
+        description: 分数线, 段位分不低于它时属于这个段位, 0-1000000
+        type: integer
+      name:
+        maxLength: 32
+        type: string
+    required:
+    - color
+    - name
+    type: object
+  rankedadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  rankedadmin.ReviewRankedSuspectRequest:
+    properties:
+      last_match_id:
+        description: 处理到的对局, 即名单中的 last_match_id
+        type: integer
+      note:
+        description: 处理结果, 如已封禁、正常组队
+        maxLength: 255
+        type: string
+      user_a:
+        type: integer
+      user_b:
+        description: 大于 user_a
+        type: integer
+    required:
+    - last_match_id
+    - user_a
+    - user_b
     type: object
   reward.Bundle:
     properties:
@@ -2866,6 +2463,78 @@ definitions:
       updated_at:
         type: string
     type: object
+  seasonadmin.CreateSeasonRequest:
+    properties:
+      code:
+        description: 自然键, 小写字母、数字和下划线
+        maxLength: 24
+        type: string
+      ends_at:
+        description: RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改
+        type: string
+      name:
+        maxLength: 64
+        type: string
+      rating_carry:
+        description: 段位分继承上一个赛季的百分比; 赛季开始后不能修改
+        maximum: 100
+        minimum: 0
+        type: integer
+      rewards:
+        description: 赛季奖励, 分数线不能重复, 每档至少一项; 赛季结束后不能修改
+        items:
+          $ref: '#/definitions/season.Reward'
+        type: array
+      starts_at:
+        description: RFC3339, 包含; 赛季开始后不能修改
+        type: string
+    required:
+    - code
+    - ends_at
+    - name
+    - starts_at
+    type: object
+  seasonadmin.ListSeasonsResponseData:
+    properties:
+      seasons:
+        items:
+          $ref: '#/definitions/season.View'
+        type: array
+      total:
+        type: integer
+    type: object
+  seasonadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  seasonadmin.SeasonRequest:
+    properties:
+      ends_at:
+        description: RFC3339, 不包含; 需晚于开始时间和当前时间, 赛季结束后不能修改
+        type: string
+      name:
+        maxLength: 64
+        type: string
+      rating_carry:
+        description: 段位分继承上一个赛季的百分比; 赛季开始后不能修改
+        maximum: 100
+        minimum: 0
+        type: integer
+      rewards:
+        description: 赛季奖励, 分数线不能重复, 每档至少一项; 赛季结束后不能修改
+        items:
+          $ref: '#/definitions/season.Reward'
+        type: array
+      starts_at:
+        description: RFC3339, 包含; 赛季开始后不能修改
+        type: string
+    required:
+    - ends_at
+    - name
+    - starts_at
+    type: object
   settings.Category:
     properties:
       key:
@@ -2988,6 +2657,101 @@ definitions:
         type: object
       version:
         type: integer
+    type: object
+  settingsadmin.ListSettingRevisionsResponseData:
+    properties:
+      revisions:
+        items:
+          $ref: '#/definitions/settingsadmin.SettingRevisionItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  settingsadmin.ListSettingsResponseData:
+    properties:
+      categories:
+        items:
+          $ref: '#/definitions/settings.Category'
+        type: array
+      groups:
+        items:
+          $ref: '#/definitions/settings.GroupView'
+        type: array
+    type: object
+  settingsadmin.ResetSettingRequest:
+    properties:
+      version:
+        description: 当前版本, 已被别人修改时返回 409
+        minimum: 0
+        type: integer
+    required:
+    - version
+    type: object
+  settingsadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  settingsadmin.RollbackSettingRequest:
+    properties:
+      target:
+        description: 回滚到的版本
+        minimum: 0
+        type: integer
+      version:
+        description: 当前版本, 已被别人修改时返回 409
+        minimum: 0
+        type: integer
+    required:
+    - target
+    - version
+    type: object
+  settingsadmin.SettingRevisionItem:
+    properties:
+      action:
+        type: string
+      changes:
+        additionalProperties: true
+        type: object
+      created_at:
+        type: string
+      from_version:
+        type: integer
+      updated_by:
+        type: integer
+      updated_by_username:
+        description: 系统操作或用户已不存在时为空
+        type: string
+      version:
+        type: integer
+    type: object
+  settingsadmin.TestMailRequest:
+    properties:
+      to:
+        description: 收件人
+        type: string
+    required:
+    - to
+    type: object
+  settingsadmin.UpdateSettingRequest:
+    properties:
+      clear_secrets:
+        description: 需要清空的密钥字段
+        items:
+          type: string
+        maxItems: 32
+        type: array
+      value:
+        description: 设置组的字段, 只需提交改动的字段, 没有提交的保持不变, 密钥字段留空表示不修改
+        type: object
+      version:
+        description: 读取时的版本, 已被别人修改时返回 409
+        minimum: 0
+        type: integer
+    required:
+    - value
+    - version
     type: object
   shop.CreateOrderRequest:
     properties:
@@ -3221,6 +2985,131 @@ definitions:
     properties:
       data: {}
       error_msg:
+        type: string
+    type: object
+  shopadmin.ListShopItemsResponseData:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/shop.Item'
+        type: array
+      tabs:
+        description: 未删除的商品用到的页签, 按名称排列, 不含空页签
+        items:
+          type: string
+        type: array
+      total:
+        type: integer
+    type: object
+  shopadmin.ListShopOrdersResponseData:
+    properties:
+      orders:
+        items:
+          $ref: '#/definitions/shopadmin.ShopOrderItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  shopadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  shopadmin.ShopItemRequest:
+    properties:
+      code:
+        description: 小写字母、数字和下划线, 创建后不能修改
+        maxLength: 32
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      ends_at:
+        description: RFC3339, 不包含, 为空时不限
+        type: string
+      goods:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 一份商品, 数量为正数, 不能为空
+      image_url:
+        maxLength: 1024
+        type: string
+      is_enabled:
+        type: boolean
+      limits:
+        $ref: '#/definitions/shop.Limits'
+      name:
+        maxLength: 64
+        type: string
+      original_price:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 原价, 只用于展示折扣
+      price:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 一份的价格, 数量为正数, 为空时免费
+      requirements:
+        items:
+          $ref: '#/definitions/condition.Condition'
+        type: array
+      sort_order:
+        description: 商城中从小到大排列
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+      starts_at:
+        description: RFC3339, 包含, 为空时不限
+        type: string
+      stock:
+        description: 剩余库存, 为空时不限; 修改时直接覆盖
+        type: integer
+      tab:
+        maxLength: 16
+        type: string
+    required:
+    - code
+    - name
+    type: object
+  shopadmin.ShopOrderItem:
+    properties:
+      created_at:
+        type: string
+      goods:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 实际得到的全部商品, 数量为正数
+      id:
+        type: integer
+      item_code:
+        type: string
+      name:
+        type: string
+      price:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 实际支付的总价, 数量为正数
+      quantity:
+        description: 购买的份数
+        type: integer
+      refunded_at:
+        type: string
+      refunded_by:
+        description: 退款的管理员, 没有退款时为 0
+        type: integer
+      refunded_username:
+        description: 没有退款时为空
+        type: string
+      shop_item_id:
+        type: integer
+      status:
+        description: paid 或 refunded
+        type: string
+      user_id:
+        type: integer
+      username:
+        description: 用户已不存在时为空
         type: string
     type: object
   stats.DayValues:
@@ -3722,6 +3611,75 @@ definitions:
         minItems: 1
         type: array
     type: object
+  venueadmin.ListVenuesResponseData:
+    properties:
+      total:
+        type: integer
+      venues:
+        items:
+          $ref: '#/definitions/venue.Venue'
+        type: array
+    type: object
+  venueadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  venueadmin.VenueRequest:
+    properties:
+      auction:
+        $ref: '#/definitions/venue.AuctionRule'
+      bid_currency:
+        maxLength: 32
+        type: string
+      bots:
+        $ref: '#/definitions/venue.BotRule'
+      code:
+        description: 小写字母、数字和下划线, 创建后不能修改
+        maxLength: 24
+        type: string
+      consumables:
+        allOf:
+        - $ref: '#/definitions/venue.ConsumableRule'
+        description: 对局中使用道具的规则
+      description:
+        maxLength: 255
+        type: string
+      entry_cost:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 数量为正数, 开局时扣除
+      image_url:
+        maxLength: 1024
+        type: string
+      is_enabled:
+        type: boolean
+      name:
+        maxLength: 64
+        type: string
+      pve:
+        $ref: '#/definitions/venue.PveRule'
+      pve_enabled:
+        type: boolean
+      ranked_enabled:
+        type: boolean
+      requirements:
+        items:
+          $ref: '#/definitions/condition.Condition'
+        type: array
+      sort_order:
+        description: 大厅中从小到大排列
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+      warehouse:
+        $ref: '#/definitions/venue.WarehouseRule'
+    required:
+    - bid_currency
+    - code
+    - name
+    type: object
   wallet.BalanceItem:
     properties:
       balance:
@@ -3829,6 +3787,138 @@ definitions:
       remark:
         type: string
     type: object
+  walletadmin.AdjustUserBalanceRequest:
+    properties:
+      amount:
+        description: 正数加款, 负数扣款, 扣款后余额不能为负
+        type: integer
+      currency:
+        maxLength: 32
+        type: string
+      idempotency_key:
+        description: 每次打开调账表单生成一个, 重复提交只生效一次
+        maxLength: 64
+        type: string
+      remark:
+        description: 调账原因, 用户可在流水中看到
+        type: string
+    required:
+    - amount
+    - currency
+    - idempotency_key
+    - remark
+    type: object
+  walletadmin.CreateCurrencyRequest:
+    properties:
+      code:
+        description: 自然键, 小写字母、数字和下划线
+        maxLength: 32
+        type: string
+      decimals:
+        description: 展示用小数位, 已被使用的货币不能修改
+        maximum: 6
+        minimum: 0
+        type: integer
+      is_enabled:
+        description: 停用后不能再入账或扣款, 基础货币不能停用
+        type: boolean
+      name:
+        maxLength: 32
+        type: string
+      sort_order:
+        description: 余额和下拉框中从小到大排列
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+    required:
+    - code
+    - name
+    type: object
+  walletadmin.CurrencyRequest:
+    properties:
+      decimals:
+        description: 展示用小数位, 已被使用的货币不能修改
+        maximum: 6
+        minimum: 0
+        type: integer
+      is_enabled:
+        description: 停用后不能再入账或扣款, 基础货币不能停用
+        type: boolean
+      name:
+        maxLength: 32
+        type: string
+      sort_order:
+        description: 余额和下拉框中从小到大排列
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+    required:
+    - name
+    type: object
+  walletadmin.ListCurrenciesResponseData:
+    properties:
+      currencies:
+        items:
+          $ref: '#/definitions/wallet.Currency'
+        type: array
+    type: object
+  walletadmin.ListUserBalancesResponseData:
+    properties:
+      balances:
+        items:
+          $ref: '#/definitions/wallet.BalanceItem'
+        type: array
+    type: object
+  walletadmin.ListWalletTransactionsResponseData:
+    properties:
+      total:
+        type: integer
+      transactions:
+        items:
+          $ref: '#/definitions/walletadmin.WalletTransactionItem'
+        type: array
+    type: object
+  walletadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  walletadmin.WalletTransactionItem:
+    properties:
+      amount:
+        type: integer
+      balance_after:
+        type: integer
+      biz_id:
+        type: string
+      biz_type:
+        type: string
+      created_at:
+        type: string
+      currency:
+        type: string
+      frozen_after:
+        type: integer
+      frozen_amount:
+        type: integer
+      id:
+        type: integer
+      idempotency_key:
+        type: string
+      operator_id:
+        type: integer
+      operator_username:
+        description: 系统操作或用户已不存在时为空
+        type: string
+      remark:
+        type: string
+      user_id:
+        type: integer
+      username:
+        description: 用户已不存在时为空
+        type: string
+    type: object
   ws.Response:
     properties:
       data: {}
@@ -3840,6 +3930,50 @@ info:
   title: BlindCrate
   version: 0.1.0
 paths:
+  /api/v1/admin/auctions/{match_id}:
+    get:
+      description: 与玩家看到的公开部分相同, 附带每个座位的带入资金、出价、估值和盈亏
+      parameters:
+      - description: match id
+        in: path
+        name: match_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/auctionadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/auction.AdminView'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auctionadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auctionadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auctionadmin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/auctionadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auctionadmin.Response'
+      summary: 获取一局暗拍的详情
+      tags:
+      - admin
   /api/v1/admin/audit-logs:
     get:
       description: 包含用户和管理员的操作
@@ -3888,27 +4022,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/auditadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListAuditLogsResponseData'
+                  $ref: '#/definitions/auditadmin.ListAuditLogsResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/auditadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/auditadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/auditadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/auditadmin.Response'
       summary: 获取操作日志列表
       tags:
       - admin
@@ -3922,20 +4056,151 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/conditionadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListConditionTypesResponseData'
+                  $ref: '#/definitions/conditionadmin.ListConditionTypesResponseData'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/conditionadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/conditionadmin.Response'
       summary: 获取全部条件类型
+      tags:
+      - admin
+  /api/v1/admin/currencies:
+    get:
+      description: 包含已停用的货币
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/walletadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/walletadmin.ListCurrenciesResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+      summary: 获取全部货币定义
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/walletadmin.CreateCurrencyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/walletadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wallet.Currency'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+      summary: 新建货币
+      tags:
+      - admin
+  /api/v1/admin/currencies/{code}:
+    put:
+      consumes:
+      - application/json
+      description: 需提交全部字段, 代码不能修改; 已被余额、物品、地图或掉落池使用的货币不能修改小数位, 基础货币不能停用
+      parameters:
+      - description: currency code
+        in: path
+        name: code
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/walletadmin.CurrencyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/walletadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wallet.Currency'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/walletadmin.Response'
+      summary: 修改货币
       tags:
       - admin
   /api/v1/admin/inventory/transactions:
@@ -3982,27 +4247,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/inventoryadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListInventoryTransactionsResponseData'
+                  $ref: '#/definitions/inventoryadmin.ListInventoryTransactionsResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/inventoryadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/inventoryadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/inventoryadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/inventoryadmin.Response'
       summary: 获取全部用户的背包流水
       tags:
       - admin
@@ -4044,27 +4309,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/itemadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListItemsResponseData'
+                  $ref: '#/definitions/itemadmin.ListItemsResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
       summary: 获取物品列表
       tags:
       - admin
@@ -4077,7 +4342,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.ItemRequest'
+          $ref: '#/definitions/itemadmin.ItemRequest'
       produces:
       - application/json
       responses:
@@ -4085,7 +4350,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/itemadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/item.Item'
@@ -4093,23 +4358,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
       summary: 新建物品
       tags:
       - admin
@@ -4129,31 +4394,31 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/itemadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.DeleteItemResponseData'
+                  $ref: '#/definitions/itemadmin.DeleteItemResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
       summary: 删除物品
       tags:
       - admin
@@ -4172,7 +4437,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.ItemRequest'
+          $ref: '#/definitions/itemadmin.ItemRequest'
       produces:
       - application/json
       responses:
@@ -4180,7 +4445,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/itemadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/item.Item'
@@ -4188,27 +4453,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
       summary: 修改物品
       tags:
       - admin
@@ -4222,19 +4487,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/itemadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListItemCategoriesResponseData'
+                  $ref: '#/definitions/itemadmin.ListItemCategoriesResponseData'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
       summary: 获取物品类别
       tags:
       - admin
@@ -4248,19 +4513,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/itemadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListItemEffectsResponseData'
+                  $ref: '#/definitions/itemadmin.ListItemEffectsResponseData'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
       summary: 获取物品的使用效果
       tags:
       - admin
@@ -4292,27 +4557,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/leaderboardadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListLeaderboardsResponseData'
+                  $ref: '#/definitions/leaderboardadmin.ListLeaderboardsResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
       summary: 获取榜单列表
       tags:
       - admin
@@ -4325,7 +4590,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.LeaderboardRequest'
+          $ref: '#/definitions/leaderboardadmin.LeaderboardRequest'
       produces:
       - application/json
       responses:
@@ -4333,7 +4598,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/leaderboardadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/leaderboard.Board'
@@ -4341,23 +4606,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
       summary: 新建榜单
       tags:
       - admin
@@ -4376,27 +4641,27 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
       summary: 删除榜单
       tags:
       - admin
@@ -4415,7 +4680,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.LeaderboardRequest'
+          $ref: '#/definitions/leaderboardadmin.LeaderboardRequest'
       produces:
       - application/json
       responses:
@@ -4423,7 +4688,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/leaderboardadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/leaderboard.Board'
@@ -4431,27 +4696,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
       summary: 修改榜单
       tags:
       - admin
@@ -4465,23 +4730,23 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/leaderboardadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListLeaderboardMetricsResponseData'
+                  $ref: '#/definitions/leaderboardadmin.ListLeaderboardMetricsResponseData'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/leaderboardadmin.Response'
       summary: 获取可以排名的指标
       tags:
       - admin
@@ -4512,27 +4777,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/lootadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListLootPoolsResponseData'
+                  $ref: '#/definitions/lootadmin.ListLootPoolsResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
       summary: 获取掉落池列表
       tags:
       - admin
@@ -4546,7 +4811,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.LootPoolRequest'
+          $ref: '#/definitions/lootadmin.LootPoolRequest'
       produces:
       - application/json
       responses:
@@ -4554,7 +4819,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/lootadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/loot.Pool'
@@ -4562,23 +4827,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
       summary: 新建掉落池
       tags:
       - admin
@@ -4598,31 +4863,31 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/lootadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.DeleteLootPoolResponseData'
+                  $ref: '#/definitions/lootadmin.DeleteLootPoolResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
       summary: 删除掉落池
       tags:
       - admin
@@ -4641,7 +4906,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.LootPoolRequest'
+          $ref: '#/definitions/lootadmin.LootPoolRequest'
       produces:
       - application/json
       responses:
@@ -4649,7 +4914,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/lootadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/loot.Pool'
@@ -4657,27 +4922,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
       summary: 修改掉落池
       tags:
       - admin
@@ -4697,31 +4962,31 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/lootadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.LootPoolEntriesResponseData'
+                  $ref: '#/definitions/lootadmin.LootPoolEntriesResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
       summary: 获取掉落池的全部条目
       tags:
       - admin
@@ -4740,7 +5005,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.ReplaceLootPoolEntriesRequest'
+          $ref: '#/definitions/lootadmin.ReplaceLootPoolEntriesRequest'
       produces:
       - application/json
       responses:
@@ -4748,31 +5013,31 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/lootadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.LootPoolEntriesResponseData'
+                  $ref: '#/definitions/lootadmin.LootPoolEntriesResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/lootadmin.Response'
       summary: 替换掉落池的全部条目
       tags:
       - admin
@@ -4821,72 +5086,28 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/matchadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListMatchesResponseData'
+                  $ref: '#/definitions/matchadmin.ListMatchesResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/matchadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/matchadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/matchadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/matchadmin.Response'
       summary: 获取对局列表
-      tags:
-      - admin
-  /api/v1/admin/matches/{id}/auction:
-    get:
-      description: 与玩家看到的公开部分相同, 附带每个座位的带入资金、出价、估值和盈亏
-      parameters:
-      - description: match id
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/admin.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/auction.AdminView'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/admin.Response'
-      summary: 获取一局暗拍的详情
       tags:
       - admin
   /api/v1/admin/matches/{id}/cancel:
@@ -4905,7 +5126,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.CancelMatchRequest'
+          $ref: '#/definitions/matchadmin.CancelMatchRequest'
       produces:
       - application/json
       responses:
@@ -4913,7 +5134,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/matchadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/match.Match'
@@ -4921,27 +5142,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/matchadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/matchadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/matchadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/matchadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/matchadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/matchadmin.Response'
       summary: 取消进行中的对局
       tags:
       - admin
@@ -4958,7 +5179,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.ExportPackRequest'
+          $ref: '#/definitions/pack.ExportPackRequest'
       produces:
       - application/zip
       responses:
@@ -4969,23 +5190,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "429":
           description: Too Many Requests
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
       summary: 导出配置包
       tags:
       - admin
@@ -5013,46 +5234,46 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/pack.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.Import'
+                  $ref: '#/definitions/pack.Import'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "409":
           description: Conflict
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/pack.Response'
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/admin.PackEntryResult'
+                    $ref: '#/definitions/pack.PackEntryResult'
                   type: array
               type: object
         "413":
           description: Request Entity Too Large
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "429":
           description: Too Many Requests
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
       summary: 导入配置包
       tags:
       - admin
@@ -5076,27 +5297,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/pack.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListPackImportsResponseData'
+                  $ref: '#/definitions/pack.ListPackImportsResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
       summary: 获取导入记录列表
       tags:
       - admin
@@ -5116,31 +5337,31 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/pack.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.Import'
+                  $ref: '#/definitions/pack.Import'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
       summary: 获取导入记录详情
       tags:
       - admin
@@ -5168,35 +5389,35 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/pack.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.PackPreview'
+                  $ref: '#/definitions/pack.PackPreview'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "413":
           description: Request Entity Too Large
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "429":
           description: Too Many Requests
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/pack.Response'
       summary: 预览配置包
       tags:
       - admin
@@ -5210,23 +5431,23 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/itemadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListQualitiesResponseData'
+                  $ref: '#/definitions/itemadmin.ListQualitiesResponseData'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
       summary: 获取品质列表
       tags:
       - admin
@@ -5239,7 +5460,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.CreateQualityRequest'
+          $ref: '#/definitions/itemadmin.CreateQualityRequest'
       produces:
       - application/json
       responses:
@@ -5247,7 +5468,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/itemadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/item.Quality'
@@ -5255,23 +5476,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
       summary: 新建品质
       tags:
       - admin
@@ -5290,31 +5511,31 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
       summary: 删除品质
       tags:
       - admin
@@ -5333,7 +5554,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.QualityRequest'
+          $ref: '#/definitions/itemadmin.QualityRequest'
       produces:
       - application/json
       responses:
@@ -5341,7 +5562,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/itemadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/item.Quality'
@@ -5349,23 +5570,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/itemadmin.Response'
       summary: 修改品质
       tags:
       - admin
@@ -5393,27 +5614,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/rankedadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListRankedSuspectsResponseData'
+                  $ref: '#/definitions/rankedadmin.ListRankedSuspectsResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
       summary: 获取排位的可疑名单
       tags:
       - admin
@@ -5428,7 +5649,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.ReviewRankedSuspectRequest'
+          $ref: '#/definitions/rankedadmin.ReviewRankedSuspectRequest'
       produces:
       - application/json
       responses:
@@ -5436,7 +5657,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/rankedadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/auction.SuspectReview'
@@ -5444,19 +5665,19 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
       summary: 把一对可疑账号标记为已处理
       tags:
       - admin
@@ -5470,23 +5691,23 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/rankedadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListRankedTiersResponseData'
+                  $ref: '#/definitions/rankedadmin.ListRankedTiersResponseData'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
       summary: 获取段位列表
       tags:
       - admin
@@ -5499,7 +5720,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.RankedTierRequest'
+          $ref: '#/definitions/rankedadmin.RankedTierRequest'
       produces:
       - application/json
       responses:
@@ -5507,7 +5728,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/rankedadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/ranked.Tier'
@@ -5515,23 +5736,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
       summary: 新建段位
       tags:
       - admin
@@ -5550,27 +5771,27 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
       summary: 删除段位
       tags:
       - admin
@@ -5589,7 +5810,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.RankedTierRequest'
+          $ref: '#/definitions/rankedadmin.RankedTierRequest'
       produces:
       - application/json
       responses:
@@ -5597,7 +5818,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/rankedadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/ranked.Tier'
@@ -5605,27 +5826,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/rankedadmin.Response'
       summary: 修改段位
       tags:
       - admin
@@ -5663,27 +5884,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/seasonadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListSeasonsResponseData'
+                  $ref: '#/definitions/seasonadmin.ListSeasonsResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
       summary: 获取赛季列表
       tags:
       - admin
@@ -5697,7 +5918,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.CreateSeasonRequest'
+          $ref: '#/definitions/seasonadmin.CreateSeasonRequest'
       produces:
       - application/json
       responses:
@@ -5705,7 +5926,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/seasonadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/season.View'
@@ -5713,23 +5934,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
       summary: 新建赛季
       tags:
       - admin
@@ -5748,31 +5969,31 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
       summary: 删除赛季
       tags:
       - admin
@@ -5791,7 +6012,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.SeasonRequest'
+          $ref: '#/definitions/seasonadmin.SeasonRequest'
       produces:
       - application/json
       responses:
@@ -5799,7 +6020,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/seasonadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/season.View'
@@ -5807,27 +6028,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
       summary: 修改赛季
       tags:
       - admin
@@ -5847,7 +6068,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/seasonadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/season.View'
@@ -5855,27 +6076,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/seasonadmin.Response'
       summary: 提前结束赛季
       tags:
       - admin
@@ -5897,27 +6118,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/settingsadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListSettingsResponseData'
+                  $ref: '#/definitions/settingsadmin.ListSettingsResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
       summary: 获取设置组
       tags:
       - admin
@@ -5936,7 +6157,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/settingsadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/settings.GroupView'
@@ -5944,19 +6165,19 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
       summary: 获取一个设置组
       tags:
       - admin
@@ -5975,7 +6196,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.UpdateSettingRequest'
+          $ref: '#/definitions/settingsadmin.UpdateSettingRequest'
       produces:
       - application/json
       responses:
@@ -5983,7 +6204,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/settingsadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/settings.GroupView'
@@ -5991,27 +6212,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
       summary: 保存一个设置组
       tags:
       - admin
@@ -6031,7 +6252,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.ResetSettingRequest'
+          $ref: '#/definitions/settingsadmin.ResetSettingRequest'
       produces:
       - application/json
       responses:
@@ -6039,7 +6260,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/settingsadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/settings.GroupView'
@@ -6047,27 +6268,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
       summary: 恢复设置组的默认值
       tags:
       - admin
@@ -6096,31 +6317,31 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/settingsadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListSettingRevisionsResponseData'
+                  $ref: '#/definitions/settingsadmin.ListSettingRevisionsResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
       summary: 获取设置组的历史版本
       tags:
       - admin
@@ -6145,7 +6366,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/settingsadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/settings.RevisionView'
@@ -6153,23 +6374,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
       summary: 获取设置组某个版本的快照
       tags:
       - admin
@@ -6189,7 +6410,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.RollbackSettingRequest'
+          $ref: '#/definitions/settingsadmin.RollbackSettingRequest'
       produces:
       - application/json
       responses:
@@ -6197,7 +6418,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/settingsadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/settings.GroupView'
@@ -6205,27 +6426,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
       summary: 回滚设置组
       tags:
       - admin
@@ -6240,38 +6461,38 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.TestMailRequest'
+          $ref: '#/definitions/settingsadmin.TestMailRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "429":
           description: Too Many Requests
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
         "502":
           description: Bad Gateway
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/settingsadmin.Response'
       summary: 发送测试邮件
       tags:
       - admin
@@ -6308,27 +6529,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/shopadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListShopItemsResponseData'
+                  $ref: '#/definitions/shopadmin.ListShopItemsResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
       summary: 获取商品列表
       tags:
       - admin
@@ -6341,7 +6562,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.ShopItemRequest'
+          $ref: '#/definitions/shopadmin.ShopItemRequest'
       produces:
       - application/json
       responses:
@@ -6349,7 +6570,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/shopadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/shop.Item'
@@ -6357,23 +6578,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
       summary: 新建商品
       tags:
       - admin
@@ -6392,27 +6613,27 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
       summary: 删除商品
       tags:
       - admin
@@ -6431,7 +6652,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.ShopItemRequest'
+          $ref: '#/definitions/shopadmin.ShopItemRequest'
       produces:
       - application/json
       responses:
@@ -6439,7 +6660,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/shopadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/shop.Item'
@@ -6447,23 +6668,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
       summary: 修改商品
       tags:
       - admin
@@ -6507,27 +6728,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/shopadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListShopOrdersResponseData'
+                  $ref: '#/definitions/shopadmin.ListShopOrdersResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
       summary: 获取订单列表
       tags:
       - admin
@@ -6548,7 +6769,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/shopadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/shop.Order'
@@ -6556,27 +6777,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/shopadmin.Response'
       summary: 订单退款
       tags:
       - admin
@@ -6613,27 +6834,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/authadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListUsersResponseData'
+                  $ref: '#/definitions/authadmin.ListUsersResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
       summary: 获取用户列表
       tags:
       - admin
@@ -6652,7 +6873,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.UpdateUserRequest'
+          $ref: '#/definitions/authadmin.UpdateUserRequest'
       produces:
       - application/json
       responses:
@@ -6660,7 +6881,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/authadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/auth.BasicUserInfo'
@@ -6668,27 +6889,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
       summary: 修改用户资料
       tags:
       - admin
@@ -6706,27 +6927,27 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
       summary: 解除封禁
       tags:
       - admin
@@ -6745,34 +6966,34 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.BanUserRequest'
+          $ref: '#/definitions/authadmin.BanUserRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
       summary: 封禁用户
       tags:
       - admin
@@ -6792,38 +7013,94 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.SetUserDisabledRequest'
+          $ref: '#/definitions/authadmin.SetUserDisabledRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/authadmin.Response'
       summary: 停用或启用用户
       tags:
       - admin
-  /api/v1/admin/users/{id}/inventory:
+  /api/v1/admin/users/{id}/inventory/adjust:
+    post:
+      consumes:
+      - application/json
+      description: 写入一条 admin_adjust 流水, 不能给自己调整; 重复提交返回原流水
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/inventoryadmin.AdjustUserInventoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/inventoryadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/inventory.Transaction'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/inventoryadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/inventoryadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/inventoryadmin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/inventoryadmin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/inventoryadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/inventoryadmin.Response'
+      summary: 给用户发放或扣除物品
+      tags:
+      - admin
+  /api/v1/admin/users/{id}/inventory/items:
     get:
       parameters:
       - description: user id
@@ -6852,88 +7129,32 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/inventoryadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListUserInventoryResponseData'
+                  $ref: '#/definitions/inventoryadmin.ListUserInventoryResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/inventoryadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/inventoryadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/inventoryadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/inventoryadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/inventoryadmin.Response'
       summary: 获取指定用户背包中的物品
-      tags:
-      - admin
-  /api/v1/admin/users/{id}/inventory/adjust:
-    post:
-      consumes:
-      - application/json
-      description: 写入一条 admin_adjust 流水, 不能给自己调整; 重复提交返回原流水
-      parameters:
-      - description: user id
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: request body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/admin.AdjustUserInventoryRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/admin.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/inventory.Transaction'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/admin.Response'
-      summary: 给用户发放或扣除物品
       tags:
       - admin
   /api/v1/admin/users/{id}/wallet/adjust:
@@ -6952,7 +7173,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.AdjustUserBalanceRequest'
+          $ref: '#/definitions/walletadmin.AdjustUserBalanceRequest'
       produces:
       - application/json
       responses:
@@ -6960,7 +7181,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/walletadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/wallet.Transaction'
@@ -6968,27 +7189,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
       summary: 给用户调账
       tags:
       - admin
@@ -7008,31 +7229,31 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/walletadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListUserBalancesResponseData'
+                  $ref: '#/definitions/walletadmin.ListUserBalancesResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
       summary: 获取指定用户的各货币余额
       tags:
       - admin
@@ -7064,27 +7285,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/venueadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListVenuesResponseData'
+                  $ref: '#/definitions/venueadmin.ListVenuesResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
       summary: 获取地图列表
       tags:
       - admin
@@ -7098,7 +7319,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.VenueRequest'
+          $ref: '#/definitions/venueadmin.VenueRequest'
       produces:
       - application/json
       responses:
@@ -7106,7 +7327,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/venueadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/venue.Venue'
@@ -7114,23 +7335,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
       summary: 新建地图
       tags:
       - admin
@@ -7149,27 +7370,27 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
       summary: 删除地图
       tags:
       - admin
@@ -7188,7 +7409,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.VenueRequest'
+          $ref: '#/definitions/venueadmin.VenueRequest'
       produces:
       - application/json
       responses:
@@ -7196,7 +7417,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/venueadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/venue.Venue'
@@ -7204,23 +7425,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
       summary: 修改地图
       tags:
       - admin
@@ -7235,7 +7456,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.VenueRequest'
+          $ref: '#/definitions/venueadmin.VenueRequest'
       produces:
       - application/json
       responses:
@@ -7243,7 +7464,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/venueadmin.Response'
             - properties:
                 data:
                   $ref: '#/definitions/venue.Simulation'
@@ -7251,155 +7472,24 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "429":
           description: Too Many Requests
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/venueadmin.Response'
       summary: 试算地图
-      tags:
-      - admin
-  /api/v1/admin/wallet/currencies:
-    get:
-      description: 包含已停用的货币
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/admin.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/admin.ListCurrenciesResponseData'
-              type: object
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/admin.Response'
-      summary: 获取全部货币定义
-      tags:
-      - admin
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: request body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/admin.CreateCurrencyRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/admin.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/wallet.Currency'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/admin.Response'
-      summary: 新建货币
-      tags:
-      - admin
-  /api/v1/admin/wallet/currencies/{code}:
-    put:
-      consumes:
-      - application/json
-      description: 需提交全部字段, 代码不能修改; 已被余额、物品、地图或掉落池使用的货币不能修改小数位, 基础货币不能停用
-      parameters:
-      - description: currency code
-        in: path
-        name: code
-        required: true
-        type: string
-      - description: request body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/admin.CurrencyRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/admin.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/wallet.Currency'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/admin.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/admin.Response'
-      summary: 修改货币
       tags:
       - admin
   /api/v1/admin/wallet/transactions:
@@ -7447,27 +7537,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/admin.Response'
+            - $ref: '#/definitions/walletadmin.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ListWalletTransactionsResponseData'
+                  $ref: '#/definitions/walletadmin.ListWalletTransactionsResponseData'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/admin.Response'
+            $ref: '#/definitions/walletadmin.Response'
       summary: 获取全部用户的余额流水
       tags:
       - admin
