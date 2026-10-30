@@ -26,7 +26,7 @@
 //
 // 每个用户每个范围每个周期每个指标一行, 结算时在同一个事务中调用 Add 一次写入所有组合:
 //   - 范围: 全部、某种模式、某张地图、某张地图的某种模式, 见 ScopeAll 和 Scope 开头的函数
-//   - 周期: 累计和当天, 见 PeriodTotal 和 PeriodDay; 日期按 schedule.time_zone 计算, 与定时任务一致; 赛季等周期见 RegisterPeriod
+//   - 周期: 累计、当天和当周, 见 PeriodTotal、PeriodDay 和 PeriodWeek; 日期按 schedule.time_zone 计算, 与定时任务一致; 赛季等周期见 RegisterPeriod
 //   - 指标: 对局数、胜利次数等计数指标用 RegisterMetric 注册, 可以在条件中使用; 净收益按货币分开, 见 MetricProfit
 //
 // 新增一种统计数据只需注册指标并在结算时写入, 不需要改表; 练习局不写统计。
@@ -38,8 +38,14 @@ const ScopeAll = "all"
 // PeriodTotal 统计周期: 累计
 const PeriodTotal = "total"
 
-// periodDayPrefix 按天统计周期的前缀, 见 PeriodDay
-const periodDayPrefix = "day:"
+// 按天和按周统计周期的前缀, 见 PeriodDay 和 PeriodWeek
+const (
+	periodDayPrefix  = "day:"
+	periodWeekPrefix = "week:"
+)
+
+// profitPrefix 净收益指标的前缀, 见 MetricProfit
+const profitPrefix = "profit:"
 
 // 通用的计数指标, 所有玩法结算时都会写入
 const (
@@ -57,6 +63,6 @@ const (
 	maxPeriodLength = 32
 	// maxMetricLength 指标的最大长度, 与 stats.metric 一致
 	maxMetricLength = 64
-	// cleanupBatch 清理按天统计时每批删除的行数
+	// cleanupBatch 清理按天和按周统计及登记的表时每批删除的行数
 	cleanupBatch = 5000
 )

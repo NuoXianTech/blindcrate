@@ -335,7 +335,7 @@ CREATE TABLE IF NOT EXISTS stats
 (
     user_id    BIGINT      NOT NULL,
     scope      VARCHAR(64) NOT NULL,           -- 统计范围, 如 all、mode:ranked、venue:dock
-    period     VARCHAR(32) NOT NULL,           -- 统计周期, 如 total、day:2026-10-28
+    period     VARCHAR(32) NOT NULL,           -- 统计周期, 如 total、day:2026-10-28、week:2026-W44
     metric     VARCHAR(64) NOT NULL,           -- 指标, 如 matches、wins、profit:chip
     value      BIGINT      NOT NULL DEFAULT 0, -- 累计值, 金额按最小单位计, 可以为负
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -703,3 +703,37 @@ CREATE TABLE IF NOT EXISTS mail_broadcasts
 
 CREATE INDEX IF NOT EXISTS idx_mail_broadcasts_expires_at ON mail_broadcasts (expires_at);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_mail_broadcasts_idempotency_key ON mail_broadcasts (idempotency_key);
+
+-- 任务, 进度为 stats 中对应范围、周期和指标的值; 删除为软删除, 代码在已删除的任务中也唯一
+CREATE TABLE IF NOT EXISTS missions
+(
+    id           BIGSERIAL PRIMARY KEY,
+    code         VARCHAR(32)  NOT NULL,              -- 自然键, 创建后不能修改
+    name         VARCHAR(64)  NOT NULL,
+    description  VARCHAR(255) NOT NULL DEFAULT '',
+    cycle        VARCHAR(16)  NOT NULL,              -- daily / weekly / once
+    scope        VARCHAR(64)  NOT NULL,              -- 统计范围, 如 all、mode:ranked
+    metric       VARCHAR(64)  NOT NULL,              -- 统计指标, 如 matches、profit:chip
+    target       BIGINT       NOT NULL,              -- 指标达到这个值时完成
+    reward       JSONB        NOT NULL DEFAULT '{}', -- 奖励 reward.Bundle, 数量为正数
+    requirements JSONB        NOT NULL DEFAULT '[]', -- 领取条件 []condition.Condition
+    sort_order   INTEGER      NOT NULL DEFAULT 0,    -- 同一周期内从小到大排列
+    is_enabled   BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    deleted_at   TIMESTAMPTZ,
+    CONSTRAINT chk_missions_target CHECK (target > 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_missions_code ON missions (code);
+CREATE INDEX IF NOT EXISTS idx_missions_deleted_at ON missions (deleted_at);
+
+-- 任务的领取记录, 同一任务同一用户在同一统计周期内只有一行
+CREATE TABLE IF NOT EXISTS mission_claims
+(
+    mission_id BIGINT      NOT NULL,
+    user_id    BIGINT      NOT NULL,
+    period     VARCHAR(32) NOT NULL,              -- 领取时的统计周期, 如 day:2026-10-30、week:2026-W44、total
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (mission_id, user_id, period)
+);

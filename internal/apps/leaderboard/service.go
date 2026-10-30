@@ -30,14 +30,12 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/redis/go-redis/v9"
@@ -46,9 +44,6 @@ import (
 
 // codePattern 榜单代码, 小写字母、数字和下划线
 var codePattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
-
-// profitPrefix 净收益指标的前缀, 见 stats.MetricProfit
-const profitPrefix = "profit:"
 
 // Validate 保存前校验榜单, 名称和描述需已去掉首尾空白
 //
@@ -84,15 +79,13 @@ func Validate(tx *gorm.DB, b *Board) error {
 
 // QueryMetrics 可以排名的指标: 已注册的计数指标、段位分和每种货币的净收益
 func QueryMetrics(ctx context.Context) ([]stats.Metric, error) {
-	var currencies []wallet.Currency
-	if err := db.DB(ctx).Order("sort_order, code").Find(&currencies).Error; err != nil {
+	profits, err := stats.ProfitMetrics(db.DB(ctx))
+	if err != nil {
 		return nil, err
 	}
-	options := append(stats.Metrics(), stats.Metric{Key: MetricRating, Label: ratingName})
-	for _, currency := range currencies {
-		options = append(options, stats.Metric{Key: stats.MetricProfit(currency.Code), Label: profitName(currency.Name)})
-	}
-	return options, nil
+	// 段位分排在计数指标之后、净收益之前
+	metrics := append(stats.Metrics(), stats.Metric{Key: MetricRating, Label: ratingName})
+	return append(metrics, profits...), nil
 }
 
 // metricName 指标的展示名称; 指标未注册或货币不存在时返回 MetricInvalid
@@ -100,26 +93,14 @@ func metricName(tx *gorm.DB, metric string) (string, error) {
 	if metric == MetricRating {
 		return ratingName, nil
 	}
-	if m := stats.FindMetric(metric); m != nil {
-		return m.Label, nil
+	name, ok, err := stats.MetricName(tx, metric)
+	if err != nil {
+		return "", err
 	}
-	code, ok := strings.CutPrefix(metric, profitPrefix)
 	if !ok {
 		return "", errors.New(MetricInvalid)
 	}
-	var currency wallet.Currency
-	if err := currency.Exact(tx, code); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", errors.New(MetricInvalid)
-		}
-		return "", err
-	}
-	return profitName(currency.Name), nil
-}
-
-// profitName 净收益指标的展示名称, 如 "净收益(筹码)"
-func profitName(currency string) string {
-	return "净收益(" + currency + ")"
+	return name, nil
 }
 
 // statsPeriod 榜单在 now 时对应的统计周期, 如 total、day:2026-10-28、season:s1, 以及赛季榜单对应的赛季
@@ -278,7 +259,7 @@ func newView(tx *gorm.DB, b *Board) (*BoardView, error) {
 		Size:        b.Size,
 		MinMatches:  b.MinMatches,
 	}
-	if code, ok := strings.CutPrefix(b.Metric, profitPrefix); ok {
+	if code, ok := stats.ProfitCurrency(b.Metric); ok {
 		view.Currency = code
 	}
 	return view, nil

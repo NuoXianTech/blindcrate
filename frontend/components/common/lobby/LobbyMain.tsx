@@ -6,6 +6,7 @@ import {Map as MapIcon} from 'lucide-react';
 import {toast} from 'sonner';
 import {Skeleton} from '@/components/ui/skeleton';
 import {useAuth} from '@/components/common/auth';
+import {MissionsBadge} from '@/components/common/missions';
 import {useWsConnected, useWsEvent} from '@/hooks/use-ws';
 import {matchHref} from '@/lib/access';
 import {modeCode, parseMode, type ModeKind} from '@/lib/auction';
@@ -28,7 +29,7 @@ import {VenueCard} from './VenueCard';
 import {VenueDetailDialog} from './VenueDetailDialog';
 
 /**
- * 游戏大厅: 当前赛季和段位分、地图列表、地图详情和匹配
+ * 游戏大厅: 任务入口、当前赛季和段位分、地图列表、地图详情和匹配
  * 加入后凑够一局时直接进入对局; 排队时等待 match:updated 推送, 被拒绝或开局失败时提示, 队列人数变化时更新人数
  * 推送不保证送达, 连上 WebSocket 后重新拉取匹配状态
  */
@@ -141,6 +142,7 @@ export function LobbyMain() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">游戏大厅</h1>
         <div className="flex flex-wrap items-center gap-2">
+          <MissionsBadge />
           <RatingBadge />
           <SeasonBadge />
         </div>

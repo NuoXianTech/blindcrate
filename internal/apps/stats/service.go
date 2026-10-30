@@ -33,6 +33,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/task/schedule"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -83,19 +84,76 @@ func PeriodDay(t time.Time) string {
 	return periodDayPrefix + t.In(schedule.Location).Format(time.DateOnly)
 }
 
+// PeriodWeek 统计周期: t 所在的 ISO 周, 周一开始, 如 week:2026-W44
+func PeriodWeek(t time.Time) string {
+	year, week := t.In(schedule.Location).ISOWeek()
+	return fmt.Sprintf("%s%04d-W%02d", periodWeekPrefix, year, week)
+}
+
 // PeriodFunc 返回在 at 时累加统计需要额外写入的周期, 如赛季周期 season:s1; 不需要时返回空字符串
 //
 // 在结算的事务中调用, 返回的周期不能超过 stats.period 的长度。
 type PeriodFunc func(tx *gorm.DB, at time.Time) (string, error)
 
-// RegisterPeriod 注册一种额外的统计周期, Add 时与累计和当天一起写入, 需要在启动前调用
+// RegisterPeriod 注册一种额外的统计周期, Add 时与累计、当天和本周一起写入, 需要在启动前调用
 func RegisterPeriod(fn PeriodFunc) {
 	periodFuncs = append(periodFuncs, fn)
 }
 
 // MetricProfit 指标: 以某种货币计的净收益, 如 profit:chip; 不同货币的收益不能相加, 所以按货币分开
 func MetricProfit(currency string) string {
-	return "profit:" + currency
+	return profitPrefix + currency
+}
+
+// ProfitCurrency 净收益指标的货币代码, 不是净收益指标时返回 false
+func ProfitCurrency(metric string) (string, bool) {
+	return strings.CutPrefix(metric, profitPrefix)
+}
+
+// profitName 净收益指标的展示名称, 如 "净收益(筹码)"
+func profitName(currency string) string {
+	return "净收益(" + currency + ")"
+}
+
+// ProfitMetrics 每种货币的净收益指标, 货币按排序值和代码排列
+func ProfitMetrics(tx *gorm.DB) ([]Metric, error) {
+	var currencies []wallet.Currency
+	if err := tx.Order("sort_order, code").Find(&currencies).Error; err != nil {
+		return nil, err
+	}
+	options := make([]Metric, len(currencies))
+	for i, currency := range currencies {
+		options[i] = Metric{Key: MetricProfit(currency.Code), Label: profitName(currency.Name)}
+	}
+	return options, nil
+}
+
+// ValueMetrics 可以作为排名或目标的指标: 已注册的计数指标在前, 每种货币的净收益在后
+func ValueMetrics(tx *gorm.DB) ([]Metric, error) {
+	profits, err := ProfitMetrics(tx)
+	if err != nil {
+		return nil, err
+	}
+	return append(Metrics(), profits...), nil
+}
+
+// MetricName 计数指标或净收益指标的展示名称; 指标未注册或货币不存在时 ok 为 false
+func MetricName(tx *gorm.DB, metric string) (name string, ok bool, err error) {
+	if m := FindMetric(metric); m != nil {
+		return m.Label, true, nil
+	}
+	code, isProfit := ProfitCurrency(metric)
+	if !isProfit {
+		return "", false, nil
+	}
+	var currency wallet.Currency
+	if err := currency.Exact(tx, code); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	return profitName(currency.Name), true, nil
 }
 
 // RegisterMetric 注册一个计数指标, 注册后可以在条件中使用, 需要在启动前调用; 格式不正确或重复时 panic
@@ -127,7 +185,7 @@ func FindMetric(key string) *Metric {
 // Values 指标 -> 增量
 type Values map[string]int64
 
-// Add 把增量累加到用户在每个统计范围的累计统计、at 当天的统计和注册的额外周期中, 见 RegisterPeriod
+// Add 把增量累加到用户在每个统计范围的累计统计、at 当天和当周的统计, 以及注册的额外周期中, 见 RegisterPeriod
 //
 // 应在结算对局的事务中调用, 与结算一起提交或回滚; 重复的范围只累加一次, 增量为 0 的指标不写入。
 func Add(tx *gorm.DB, userID uint64, scopes []string, at time.Time, values Values) error {
@@ -147,7 +205,7 @@ func Add(tx *gorm.DB, userID uint64, scopes []string, at time.Time, values Value
 		return nil
 	}
 
-	periods := []string{PeriodDay(at), PeriodTotal}
+	periods := []string{PeriodDay(at), PeriodWeek(at), PeriodTotal}
 	for _, fn := range periodFuncs {
 		period, err := fn(tx, at)
 		if err != nil {

@@ -51,6 +51,8 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/mailbox/mailboxadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match/matchadmin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/mission"
+	"github.com/NuoXianTech/blindcrate/internal/apps/mission/missionadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked/rankedadmin"
@@ -263,6 +265,14 @@ func Serve() {
 				mailRouter.DELETE("/:id", mailbox.DeleteMail)
 			}
 
+			// Mission
+			missionRouter := apiV1Router.Group("/missions")
+			missionRouter.Use(auth.LoginRequired())
+			{
+				missionRouter.GET("", mission.ListMissions)
+				missionRouter.POST("/:code/claim", ratelimit.ByUser("mission:claim", ratelimit.PerMinute(60)), mission.ClaimMission)
+			}
+
 			// Upload
 			apiV1Router.POST("/uploads", auth.LoginRequired(), ratelimit.ByUser("upload", ratelimit.PerHour(60)), upload.CreateUpload)
 
@@ -415,6 +425,16 @@ func Serve() {
 					mailBroadcastAdminRouter.GET("", mailboxadmin.ListMailBroadcasts)
 					mailBroadcastAdminRouter.POST("", mailboxadmin.CreateMailBroadcast)
 					mailBroadcastAdminRouter.POST("/:id/revoke", mailboxadmin.RevokeMailBroadcast)
+				}
+
+				// Mission
+				missionAdminRouter := adminRouter.Group("/missions")
+				{
+					missionAdminRouter.GET("", missionadmin.ListMissions)
+					missionAdminRouter.GET("/options", missionadmin.ListMissionOptions)
+					missionAdminRouter.POST("", missionadmin.CreateMission)
+					missionAdminRouter.PUT("/:id", missionadmin.UpdateMission)
+					missionAdminRouter.DELETE("/:id", missionadmin.DeleteMission)
 				}
 
 				// Inventory

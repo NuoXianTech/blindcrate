@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS mission_claims;
+DROP TABLE IF EXISTS missions;
 DROP TABLE IF EXISTS mail_broadcasts;
 DROP TABLE IF EXISTS mails;
 DROP TABLE IF EXISTS imports;
