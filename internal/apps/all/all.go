@@ -31,6 +31,7 @@ import (
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/auction"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	_ "github.com/NuoXianTech/blindcrate/internal/apps/checkin"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/economy"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/effect"

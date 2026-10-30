@@ -729,6 +729,105 @@ definitions:
         description: 不传表示不修改
         type: string
     type: object
+  checkin.CheckinResult:
+    properties:
+      day:
+        description: 领到的是第几天的奖励
+        type: integer
+      received:
+        description: 实际得到的货币和物品, 已下架的物品按回收价折成了货币
+        items:
+          $ref: '#/definitions/reward.Line'
+        type: array
+      streak:
+        description: 含今天在内的连续签到天数
+        type: integer
+    type: object
+  checkin.Day:
+    properties:
+      created_at:
+        type: string
+      day:
+        type: integer
+      reward:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 数量为正数, 不能为空
+      updated_at:
+        type: string
+    type: object
+  checkin.DayView:
+    properties:
+      day:
+        type: integer
+      reward:
+        items:
+          $ref: '#/definitions/reward.Line'
+        type: array
+    type: object
+  checkin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  checkin.StatusView:
+    properties:
+      checked_in:
+        description: 今天已签到
+        type: boolean
+      days:
+        description: 整个周期的奖励
+        items:
+          $ref: '#/definitions/checkin.DayView'
+        type: array
+      enabled:
+        description: 关闭时其他字段为空
+        type: boolean
+      streak:
+        description: 连续签到的天数, 今天还没签时为到昨天为止的天数, 已断开时为 0
+        type: integer
+      today:
+        description: 今天签到领(或已领)第几天的奖励, 已签到后周期有变化时按新的周期计算; 没有配置奖励时为 0
+        type: integer
+      total:
+        description: 累计签到天数
+        type: integer
+    type: object
+  checkinadmin.DayRequest:
+    properties:
+      reward:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 数量为正数, 不能为空
+    type: object
+  checkinadmin.DaysData:
+    properties:
+      days:
+        description: 按天排列, 从第 1 天开始连续
+        items:
+          $ref: '#/definitions/checkin.Day'
+        type: array
+      max_days:
+        description: 最多的天数
+        type: integer
+    type: object
+  checkinadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  checkinadmin.UpdateDaysRequest:
+    properties:
+      days:
+        description: 第 1 项为第 1 天, 1-31 天
+        items:
+          $ref: '#/definitions/checkinadmin.DayRequest'
+        type: array
+    required:
+    - days
+    type: object
   condition.Condition:
     properties:
       params:
@@ -4621,6 +4720,77 @@ paths:
           schema:
             $ref: '#/definitions/auditadmin.Response'
       summary: 获取操作日志的操作类型和名称
+      tags:
+      - admin
+  /api/v1/admin/checkin/days:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/checkinadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/checkinadmin.DaysData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/checkinadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/checkinadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/checkinadmin.Response'
+      summary: 获取签到奖励
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: 整体保存, 第 1 项为第 1 天; 天数减少时多出的天数删除。玩家的连续天数不变, 超过新的周期时从第 1 天重新开始
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/checkinadmin.UpdateDaysRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/checkinadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/checkinadmin.DaysData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/checkinadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/checkinadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/checkinadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/checkinadmin.Response'
+      summary: 保存签到奖励
       tags:
       - admin
   /api/v1/admin/conditions/types:
@@ -9053,6 +9223,70 @@ paths:
       summary: 修改当前用户的昵称和头像
       tags:
       - auth
+  /api/v1/checkin:
+    get:
+      description: 今天是否已签到、连续和累计签到天数、整个周期的奖励和今天对应第几天; 签到关闭时 enabled 为 false
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/checkin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/checkin.StatusView'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/checkin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/checkin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/checkin.Response'
+      summary: 获取签到情况
+      tags:
+      - checkin
+    post:
+      description: 每天一次, 按连续签到的天数领取对应一天的奖励; 已下架的物品按回收价折成货币。签到关闭、没有配置奖励或奖励暂时无法发放时返回
+        403
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/checkin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/checkin.CheckinResult'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/checkin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/checkin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/checkin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/checkin.Response'
+      summary: 签到
+      tags:
+      - checkin
   /api/v1/health:
     get:
       produces:

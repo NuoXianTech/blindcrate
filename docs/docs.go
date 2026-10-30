@@ -244,6 +244,123 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/checkin/days": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取签到奖励",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/checkinadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/checkinadmin.DaysData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/checkinadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/checkinadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/checkinadmin.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "整体保存, 第 1 项为第 1 天; 天数减少时多出的天数删除。玩家的连续天数不变, 超过新的周期时从第 1 天重新开始",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "保存签到奖励",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/checkinadmin.UpdateDaysRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/checkinadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/checkinadmin.DaysData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/checkinadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/checkinadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/checkinadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/checkinadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/conditions/types": {
             "get": {
                 "description": "包含每种条件的参数表单描述, 用于条件编辑器; input 为 currency、item、scope 的字段需要用选择器填写",
@@ -7288,6 +7405,110 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/checkin": {
+            "get": {
+                "description": "今天是否已签到、连续和累计签到天数、整个周期的奖励和今天对应第几天; 签到关闭时 enabled 为 false",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "checkin"
+                ],
+                "summary": "获取签到情况",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/checkin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/checkin.StatusView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/checkin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/checkin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/checkin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "每天一次, 按连续签到的天数领取对应一天的奖励; 已下架的物品按回收价折成货币。签到关闭、没有配置奖励或奖励暂时无法发放时返回 403",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "checkin"
+                ],
+                "summary": "签到",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/checkin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/checkin.CheckinResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/checkin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/checkin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/checkin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/checkin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/health": {
             "get": {
                 "produces": [
@@ -10828,6 +11049,156 @@ const docTemplate = `{
                 "username": {
                     "description": "不传表示不修改",
                     "type": "string"
+                }
+            }
+        },
+        "checkin.CheckinResult": {
+            "type": "object",
+            "properties": {
+                "day": {
+                    "description": "领到的是第几天的奖励",
+                    "type": "integer"
+                },
+                "received": {
+                    "description": "实际得到的货币和物品, 已下架的物品按回收价折成了货币",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                },
+                "streak": {
+                    "description": "含今天在内的连续签到天数",
+                    "type": "integer"
+                }
+            }
+        },
+        "checkin.Day": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "day": {
+                    "type": "integer"
+                },
+                "reward": {
+                    "description": "数量为正数, 不能为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "checkin.DayView": {
+            "type": "object",
+            "properties": {
+                "day": {
+                    "type": "integer"
+                },
+                "reward": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                }
+            }
+        },
+        "checkin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "checkin.StatusView": {
+            "type": "object",
+            "properties": {
+                "checked_in": {
+                    "description": "今天已签到",
+                    "type": "boolean"
+                },
+                "days": {
+                    "description": "整个周期的奖励",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/checkin.DayView"
+                    }
+                },
+                "enabled": {
+                    "description": "关闭时其他字段为空",
+                    "type": "boolean"
+                },
+                "streak": {
+                    "description": "连续签到的天数, 今天还没签时为到昨天为止的天数, 已断开时为 0",
+                    "type": "integer"
+                },
+                "today": {
+                    "description": "今天签到领(或已领)第几天的奖励, 已签到后周期有变化时按新的周期计算; 没有配置奖励时为 0",
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "累计签到天数",
+                    "type": "integer"
+                }
+            }
+        },
+        "checkinadmin.DayRequest": {
+            "type": "object",
+            "properties": {
+                "reward": {
+                    "description": "数量为正数, 不能为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                }
+            }
+        },
+        "checkinadmin.DaysData": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "description": "按天排列, 从第 1 天开始连续",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/checkin.Day"
+                    }
+                },
+                "max_days": {
+                    "description": "最多的天数",
+                    "type": "integer"
+                }
+            }
+        },
+        "checkinadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "checkinadmin.UpdateDaysRequest": {
+            "type": "object",
+            "required": [
+                "days"
+            ],
+            "properties": {
+                "days": {
+                    "description": "第 1 项为第 1 天, 1-31 天",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/checkinadmin.DayRequest"
+                    }
                 }
             }
         },

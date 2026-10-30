@@ -737,3 +737,24 @@ CREATE TABLE IF NOT EXISTS mission_claims
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (mission_id, user_id, period)
 );
+
+-- 签到周期中每一天的奖励, 天数从 1 开始连续; 连续签到超过周期时从第 1 天重新开始
+CREATE TABLE IF NOT EXISTS checkin_days
+(
+    day        SMALLINT    NOT NULL PRIMARY KEY,
+    reward     JSONB       NOT NULL DEFAULT '{}', -- 奖励 reward.Bundle, 数量为正数, 不能为空
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_checkin_days_day CHECK (day BETWEEN 1 AND 31)
+);
+
+-- 签到记录, 同一用户每天一行; 只用今天和昨天的记录计算连续天数, 更早的随按天统计一起清理
+CREATE TABLE IF NOT EXISTS checkins
+(
+    user_id    BIGINT      NOT NULL,
+    period     VARCHAR(16) NOT NULL, -- 签到的日期, 与统计的按天周期相同, 如 day:2026-10-30
+    streak     INTEGER     NOT NULL, -- 含这一天在内的连续签到天数
+    cycle_day  SMALLINT    NOT NULL, -- 这次领到的是第几天的奖励
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, period)
+);

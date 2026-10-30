@@ -37,6 +37,8 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit/auditadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth/authadmin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/checkin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/checkin/checkinadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition/conditionadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
@@ -273,6 +275,14 @@ func Serve() {
 				missionRouter.POST("/:code/claim", ratelimit.ByUser("mission:claim", ratelimit.PerMinute(60)), mission.ClaimMission)
 			}
 
+			// Checkin
+			checkinRouter := apiV1Router.Group("/checkin")
+			checkinRouter.Use(auth.LoginRequired())
+			{
+				checkinRouter.GET("", checkin.GetCheckin)
+				checkinRouter.POST("", ratelimit.ByUser("checkin", ratelimit.PerMinute(30)), checkin.DoCheckin)
+			}
+
 			// Upload
 			apiV1Router.POST("/uploads", auth.LoginRequired(), ratelimit.ByUser("upload", ratelimit.PerHour(60)), upload.CreateUpload)
 
@@ -435,6 +445,13 @@ func Serve() {
 					missionAdminRouter.POST("", missionadmin.CreateMission)
 					missionAdminRouter.PUT("/:id", missionadmin.UpdateMission)
 					missionAdminRouter.DELETE("/:id", missionadmin.DeleteMission)
+				}
+
+				// Checkin
+				checkinAdminRouter := adminRouter.Group("/checkin")
+				{
+					checkinAdminRouter.GET("/days", checkinadmin.ListCheckinDays)
+					checkinAdminRouter.PUT("/days", checkinadmin.UpdateCheckinDays)
 				}
 
 				// Inventory
