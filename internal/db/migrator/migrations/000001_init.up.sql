@@ -659,3 +659,47 @@ CREATE TABLE IF NOT EXISTS imports
 
 CREATE INDEX IF NOT EXISTS idx_imports_user_id ON imports (user_id);
 CREATE INDEX IF NOT EXISTS idx_imports_created_at ON imports (created_at);
+
+-- 游戏邮件, 每个收件人一行; 玩家删除和超出保留封数时为软删除, 来源单号仍然占用
+CREATE TABLE IF NOT EXISTS mails
+(
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT        NOT NULL,
+    source      VARCHAR(16)   NOT NULL,             -- 来源, 如 admin / broadcast
+    source_id   VARCHAR(64)   NOT NULL,             -- 来源单号, 同一来源和用户内唯一
+    sender      VARCHAR(32)   NOT NULL,
+    title       VARCHAR(64)   NOT NULL,
+    content     VARCHAR(2000) NOT NULL DEFAULT '',
+    attachments JSONB         NOT NULL DEFAULT '{}', -- 附件 reward.Bundle, 为空时没有附件
+    read_at     TIMESTAMPTZ,
+    claimed_at  TIMESTAMPTZ,                        -- 领取附件的时间
+    expires_at  TIMESTAMPTZ   NOT NULL,
+    created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    deleted_at  TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_mails_user_id ON mails (user_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_mails_source ON mails (source, source_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_mails_expires_at ON mails (expires_at);
+CREATE INDEX IF NOT EXISTS idx_mails_deleted_at ON mails (deleted_at);
+
+-- 全服邮件, 玩家打开信箱时按收件条件展开成 mails 中的一行
+CREATE TABLE IF NOT EXISTS mail_broadcasts
+(
+    id                BIGSERIAL PRIMARY KEY,
+    sender            VARCHAR(32)   NOT NULL,
+    title             VARCHAR(64)   NOT NULL,
+    content           VARCHAR(2000) NOT NULL DEFAULT '',
+    attachments       JSONB         NOT NULL DEFAULT '{}', -- 附件 reward.Bundle
+    requirements      JSONB         NOT NULL DEFAULT '[]', -- 收件条件, 需要全部满足
+    registered_before TIMESTAMPTZ,                        -- 只发给这个时间之前注册的用户, 为空时不限
+    expires_at        TIMESTAMPTZ   NOT NULL,             -- 展开的邮件同时过期
+    idempotency_key   VARCHAR(64)   NOT NULL,             -- 幂等键, 重复提交只发送一次
+    created_by        BIGINT        NOT NULL DEFAULT 0,
+    revoked_at        TIMESTAMPTZ,
+    revoked_by        BIGINT        NOT NULL DEFAULT 0,
+    created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mail_broadcasts_expires_at ON mail_broadcasts (expires_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_mail_broadcasts_idempotency_key ON mail_broadcasts (idempotency_key);

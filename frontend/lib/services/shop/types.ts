@@ -1,5 +1,6 @@
 import type {Bundle} from '../auction';
 import type {PageParams} from '../core';
+import type {RewardLine} from '../reward';
 import type {RequirementProgress} from '../venue';
 
 /** 订单的状态, 对应后端 shop.StatusPaid 等 */
@@ -12,21 +13,6 @@ export type ShopOrderStatus = (typeof SHOP_ORDER_STATUS)[keyof typeof SHOP_ORDER
 
 /** 限购的类型, 对应后端 shop.LimitTotal 等 */
 export type ShopLimitType = 'total' | 'daily' | 'season';
-
-/** 价格或商品中的一种货币或物品, 对应后端 reward.Line */
-export interface ShopLine {
-  /** 货币代码, 与 item_id 二选一 */
-  currency?: string;
-  item_id?: number;
-  name: string;
-  image_url: string;
-  /** 物品的品质等级, 货币为 0 */
-  quality: number;
-  /** 货币的展示用小数位, 物品为 0 */
-  decimals: number;
-  /** 货币金额或物品数量 */
-  amount: number;
-}
 
 /** 一种限购和已购买的份数, 对应后端 shop.LimitView */
 export interface ShopLimit {
@@ -45,11 +31,11 @@ export interface ShopItem {
   /** 页签, 为空时归入默认页签 */
   tab: string;
   /** 一份商品 */
-  goods: ShopLine[];
+  goods: RewardLine[];
   /** 一份的价格, 为空时免费 */
-  price: ShopLine[];
+  price: RewardLine[];
   /** 原价, 为空时不展示 */
-  original_price: ShopLine[];
+  original_price: RewardLine[];
   /** 每个购买条件的达成情况 */
   requirements: RequirementProgress[];
   /** 满足全部购买条件 */
@@ -84,9 +70,9 @@ export interface ShopOrder {
   name: string;
   quantity: number;
   /** 实际支付的总价 */
-  price: ShopLine[];
+  price: RewardLine[];
   /** 实际得到的全部商品 */
-  goods: ShopLine[];
+  goods: RewardLine[];
   status: ShopOrderStatus;
   refunded_at: string | null;
   created_at: string;

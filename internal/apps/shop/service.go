@@ -118,54 +118,25 @@ func Validate(tx *gorm.DB, it *Item) error {
 	return nil
 }
 
-// checkBundle 价格或商品的数量需为正数, 货币需存在, 物品需未删除; 返回合并同类项后的结果
-//
-// 已停用的货币和已下架的物品可以保存, 购买时才拒绝, 便于提前配置。
+// bundleReasons reward.Check 的提示 -> 商城的说法, 没有列出的原样展示
+var bundleReasons = map[string]string{
+	reward.LinesTooMany:     LinesTooMany,
+	reward.AmountInvalid:    AmountInvalid,
+	reward.CurrencyNotFound: CurrencyNotFound,
+	reward.ItemsNotFound:    ItemsNotFound,
+}
+
+// checkBundle 用 reward.Check 校验价格或商品, 提示换成商城的说法; 已停用的货币和已下架的物品可以保存, 购买时才拒绝
 func checkBundle(tx *gorm.DB, b reward.Bundle) (reward.Bundle, error) {
-	if len(b.Currencies) > maxBundleLines || len(b.Items) > maxBundleLines {
-		return reward.Bundle{}, &InvalidError{Reason: LinesTooMany}
+	normalized, err := reward.Check(tx, b)
+	var invalid *reward.InvalidError
+	if errors.As(err, &invalid) {
+		if reason, ok := bundleReasons[invalid.Reason]; ok {
+			return reward.Bundle{}, &InvalidError{Reason: reason}
+		}
+		return reward.Bundle{}, &InvalidError{Reason: invalid.Reason}
 	}
-	for _, line := range b.Currencies {
-		if line.Amount <= 0 {
-			return reward.Bundle{}, &InvalidError{Reason: AmountInvalid}
-		}
-	}
-	for _, line := range b.Items {
-		if line.Quantity <= 0 {
-			return reward.Bundle{}, &InvalidError{Reason: AmountInvalid}
-		}
-	}
-	normalized, err := b.Normalize()
-	if err != nil {
-		return reward.Bundle{}, &InvalidError{Reason: err.Error()}
-	}
-	if len(normalized.Currencies) > 0 {
-		codes := make([]string, len(normalized.Currencies))
-		for i, line := range normalized.Currencies {
-			codes[i] = line.Currency
-		}
-		var count int64
-		if err := tx.Model(&wallet.Currency{}).Where("code IN ?", codes).Count(&count).Error; err != nil {
-			return reward.Bundle{}, err
-		}
-		if count != int64(len(codes)) {
-			return reward.Bundle{}, &InvalidError{Reason: CurrencyNotFound}
-		}
-	}
-	if len(normalized.Items) > 0 {
-		itemIDs := make([]uint64, len(normalized.Items))
-		for i, line := range normalized.Items {
-			itemIDs[i] = line.ItemID
-		}
-		var count int64
-		if err := tx.Model(&item.Item{}).Where("id IN ?", itemIDs).Count(&count).Error; err != nil {
-			return reward.Bundle{}, err
-		}
-		if count != int64(len(itemIDs)) {
-			return reward.Bundle{}, &InvalidError{Reason: ItemsNotFound}
-		}
-	}
-	return normalized, nil
+	return normalized, err
 }
 
 // PurchaseRequest 一次购买

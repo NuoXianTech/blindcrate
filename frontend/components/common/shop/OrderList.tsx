@@ -10,7 +10,7 @@ import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import {SHOP_ORDER_STATUS, type ListShopOrdersData} from '@/lib/services/shop';
 import {formatDateTime} from '@/lib/utils';
-import {GoodsList, PriceText} from './Lines';
+import {PriceText, RewardList} from '@/components/common/reward';
 import {ORDER_PAGE_SIZE} from './constants';
 
 /**
@@ -71,7 +71,7 @@ export function OrderList() {
                     <PriceText lines={order.price} />
                   </TableCell>
                   <TableCell>
-                    <GoodsList lines={order.goods} className="min-w-40" />
+                    <RewardList lines={order.goods} className="min-w-40" />
                   </TableCell>
                   <TableCell>
                     {order.status === SHOP_ORDER_STATUS.refunded ? (

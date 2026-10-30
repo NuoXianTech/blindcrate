@@ -126,6 +126,65 @@ func Apply(tx *gorm.DB, req *ApplyRequest) (*Result, bool, error) {
 	return result, lines > 0 && replayedLines == lines, nil
 }
 
+// InvalidError 配置中的奖励或价格不合法, Error 返回的提示可以直接展示给管理员
+type InvalidError struct {
+	Reason string
+}
+
+func (e *InvalidError) Error() string { return e.Reason }
+
+// Check 保存配置前校验一组奖励或价格: 货币和物品各自最多 MaxLines 行, 数量为正数, 货币需存在, 物品需未删除;
+// 返回合并同类项后的结果
+//
+// 不合法时返回 *InvalidError, 其他错误为查库失败等内部错误。
+// 已停用的货币和已下架的物品可以保存, 便于提前配置; 发放时已下架的物品用 Deliverable 折成货币。
+func Check(tx *gorm.DB, b Bundle) (Bundle, error) {
+	if len(b.Currencies) > MaxLines || len(b.Items) > MaxLines {
+		return Bundle{}, &InvalidError{Reason: LinesTooMany}
+	}
+	for _, line := range b.Currencies {
+		if line.Amount <= 0 {
+			return Bundle{}, &InvalidError{Reason: AmountInvalid}
+		}
+	}
+	for _, line := range b.Items {
+		if line.Quantity <= 0 {
+			return Bundle{}, &InvalidError{Reason: AmountInvalid}
+		}
+	}
+	normalized, err := b.Normalize()
+	if err != nil {
+		return Bundle{}, &InvalidError{Reason: err.Error()}
+	}
+	if len(normalized.Currencies) > 0 {
+		codes := make([]string, len(normalized.Currencies))
+		for i, line := range normalized.Currencies {
+			codes[i] = line.Currency
+		}
+		var count int64
+		if err := tx.Model(&wallet.Currency{}).Where("code IN ?", codes).Count(&count).Error; err != nil {
+			return Bundle{}, err
+		}
+		if count != int64(len(codes)) {
+			return Bundle{}, &InvalidError{Reason: CurrencyNotFound}
+		}
+	}
+	if len(normalized.Items) > 0 {
+		itemIDs := make([]uint64, len(normalized.Items))
+		for i, line := range normalized.Items {
+			itemIDs[i] = line.ItemID
+		}
+		var count int64
+		if err := tx.Model(&item.Item{}).Where("id IN ?", itemIDs).Count(&count).Error; err != nil {
+			return Bundle{}, err
+		}
+		if count != int64(len(itemIDs)) {
+			return Bundle{}, &InvalidError{Reason: ItemsNotFound}
+		}
+	}
+	return normalized, nil
+}
+
 // Deliverable 发放前把已下架或已删除的物品换成货币, 这些物品不能再发放
 //
 // prices 为物品 ID -> 折算的货币和单价, 没有时按物品当前的回收价; 单价为 0 的物品不折算。

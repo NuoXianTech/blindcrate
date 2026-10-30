@@ -1890,6 +1890,305 @@ definitions:
       error_msg:
         type: string
     type: object
+  mailbox.Broadcast:
+    properties:
+      attachments:
+        $ref: '#/definitions/reward.Bundle'
+      content:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      expires_at:
+        description: 展开的邮件同时过期
+        type: string
+      id:
+        type: integer
+      registered_before:
+        description: 只发给这个时间之前注册的用户, 为空时之后注册的用户也能收到
+        type: string
+      requirements:
+        description: 收件条件, 需要全部满足, 展开时检查
+        items:
+          $ref: '#/definitions/condition.Condition'
+        type: array
+      revoked_at:
+        type: string
+      revoked_by:
+        type: integer
+      sender:
+        type: string
+      title:
+        type: string
+    type: object
+  mailbox.ClaimResult:
+    properties:
+      claimed:
+        description: 领取了附件的封数
+        type: integer
+      received:
+        description: 实际得到的货币和物品, 已下架的物品按回收价折成了货币
+        items:
+          $ref: '#/definitions/reward.Line'
+        type: array
+      skipped:
+        description: 附件暂时无法领取而跳过的封数, 只有一键领取会跳过
+        type: integer
+    type: object
+  mailbox.Counts:
+    properties:
+      claimable:
+        type: integer
+      unread:
+        type: integer
+    type: object
+  mailbox.ListMailsResponseData:
+    properties:
+      mails:
+        items:
+          $ref: '#/definitions/mailbox.MailView'
+        type: array
+      total:
+        type: integer
+    type: object
+  mailbox.MailView:
+    properties:
+      attachments:
+        items:
+          $ref: '#/definitions/reward.Line'
+        type: array
+      claimed_at:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: integer
+      read_at:
+        type: string
+      sender:
+        type: string
+      source:
+        type: string
+      title:
+        type: string
+    type: object
+  mailbox.ReadAllMailsResponseData:
+    properties:
+      read:
+        description: 本次标记的封数
+        type: integer
+    type: object
+  mailbox.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  mailbox.Source:
+    properties:
+      code:
+        type: string
+      label:
+        description: 后台展示的名称, 如 "全服邮件"
+        type: string
+    type: object
+  mailboxadmin.BroadcastItem:
+    properties:
+      attachments:
+        $ref: '#/definitions/reward.Bundle'
+      claimed:
+        description: 已领取附件的人数
+        type: integer
+      content:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      created_username:
+        type: string
+      expanded:
+        description: 已放进信箱的人数, 包括之后删除的
+        type: integer
+      expires_at:
+        description: 展开的邮件同时过期
+        type: string
+      id:
+        type: integer
+      registered_before:
+        description: 只发给这个时间之前注册的用户, 为空时之后注册的用户也能收到
+        type: string
+      requirements:
+        description: 收件条件, 需要全部满足, 展开时检查
+        items:
+          $ref: '#/definitions/condition.Condition'
+        type: array
+      revoked_at:
+        type: string
+      revoked_by:
+        type: integer
+      revoked_username:
+        type: string
+      sender:
+        type: string
+      title:
+        type: string
+    type: object
+  mailboxadmin.BroadcastRequest:
+    properties:
+      attachments:
+        $ref: '#/definitions/reward.Bundle'
+      content:
+        maxLength: 2000
+        type: string
+      expire_days:
+        description: 有效期, 0 表示使用默认有效期
+        maximum: 365
+        minimum: 0
+        type: integer
+      idempotency_key:
+        description: 每次打开发送框生成一个, 重复提交只发送一次
+        maxLength: 64
+        type: string
+      include_new_users:
+        description: 发送之后注册的用户也能收到, 默认只发给已注册的用户
+        type: boolean
+      requirements:
+        description: 收件条件, 需要全部满足; 玩家打开信箱时检查, 之后满足的也能收到
+        items:
+          $ref: '#/definitions/condition.Condition'
+        type: array
+      sender:
+        description: 为空时为 "系统"
+        maxLength: 32
+        type: string
+      title:
+        maxLength: 64
+        type: string
+    required:
+    - idempotency_key
+    - title
+    type: object
+  mailboxadmin.ListBroadcastsResponseData:
+    properties:
+      broadcasts:
+        items:
+          $ref: '#/definitions/mailboxadmin.BroadcastItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  mailboxadmin.ListMailSourcesResponseData:
+    properties:
+      sources:
+        items:
+          $ref: '#/definitions/mailbox.Source'
+        type: array
+    type: object
+  mailboxadmin.ListMailsResponseData:
+    properties:
+      mails:
+        items:
+          $ref: '#/definitions/mailboxadmin.MailItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  mailboxadmin.MailItem:
+    properties:
+      attachments:
+        $ref: '#/definitions/reward.Bundle'
+      claimed_at:
+        description: 领取附件的时间, 没有附件时始终为空
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: integer
+      read_at:
+        type: string
+      removed_at:
+        description: 玩家删除或超出保留封数被移出信箱的时间, 在信箱中时为空
+        type: string
+      sender:
+        type: string
+      source:
+        description: 见 RegisterSource
+        type: string
+      source_id:
+        description: 来源单号, 同一来源和用户内唯一
+        type: string
+      title:
+        type: string
+      user_id:
+        type: integer
+      username:
+        description: 用户已不存在时为空
+        type: string
+    type: object
+  mailboxadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  mailboxadmin.RevokeMailBroadcastResponseData:
+    properties:
+      broadcast:
+        $ref: '#/definitions/mailbox.Broadcast'
+      removed:
+        description: 移出信箱的封数, 已领取附件的邮件保留
+        type: integer
+    type: object
+  mailboxadmin.SendMailsRequest:
+    properties:
+      attachments:
+        $ref: '#/definitions/reward.Bundle'
+      content:
+        maxLength: 2000
+        type: string
+      expire_days:
+        description: 有效期, 0 表示使用默认有效期
+        maximum: 365
+        minimum: 0
+        type: integer
+      idempotency_key:
+        description: 每次打开发送框生成一个, 重复提交只发送一次
+        maxLength: 64
+        type: string
+      sender:
+        description: 为空时为 "系统"
+        maxLength: 32
+        type: string
+      title:
+        maxLength: 64
+        type: string
+      user_ids:
+        items:
+          type: integer
+        maxItems: 1000
+        minItems: 1
+        type: array
+    required:
+    - idempotency_key
+    - title
+    - user_ids
+    type: object
+  mailboxadmin.SendMailsResponseData:
+    properties:
+      sent:
+        description: 实际发送的封数, 重复提交时不计已发送的
+        type: integer
+    type: object
   match.JoinMatchmakingRequest:
     properties:
       mode:
@@ -5113,6 +5412,269 @@ paths:
           schema:
             $ref: '#/definitions/lootadmin.Response'
       summary: 替换掉落池的全部条目
+      tags:
+      - admin
+  /api/v1/admin/mail-broadcasts:
+    get:
+      description: 从新到旧, 带上已放进信箱和已领取附件的人数
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: 按标题搜索, 不区分大小写
+        in: query
+        maxLength: 64
+        name: keyword
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mailboxadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mailboxadmin.ListBroadcastsResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+      summary: 获取全服邮件列表
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: 只写一条记录, 玩家打开信箱时放进信箱; 发送后不能修改, 只能撤回。幂等键相同的重复提交返回已有的全服邮件
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mailboxadmin.BroadcastRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mailboxadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mailbox.Broadcast'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+      summary: 发送全服邮件
+      tags:
+      - admin
+  /api/v1/admin/mail-broadcasts/{id}/revoke:
+    post:
+      description: 不再放进信箱; 已放进信箱但附件未领取的邮件移出信箱, 已领取的附件不收回
+      parameters:
+      - description: broadcast id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mailboxadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mailboxadmin.RevokeMailBroadcastResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+      summary: 撤回全服邮件
+      tags:
+      - admin
+  /api/v1/admin/mails:
+    get:
+      description: 从新到旧, 包括已删除的邮件, 带上收件人的用户名
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: 按标题搜索, 不区分大小写
+        in: query
+        maxLength: 64
+        name: keyword
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - in: query
+        maxLength: 16
+        name: source
+        type: string
+      - in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mailboxadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mailboxadmin.ListMailsResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+      summary: 查询邮件
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: 一次最多 1000 人, 用户不存在时整体不发送; 幂等键相同的重复提交不会重复发送
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mailboxadmin.SendMailsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mailboxadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mailboxadmin.SendMailsResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+      summary: 发邮件给指定用户
+      tags:
+      - admin
+  /api/v1/admin/mails/sources:
+    get:
+      description: 按登记顺序, 用于邮件查询的筛选和展示
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mailboxadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mailboxadmin.ListMailSourcesResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailboxadmin.Response'
+      summary: 获取邮件来源
       tags:
       - admin
   /api/v1/admin/matches:
@@ -8419,6 +8981,269 @@ paths:
       summary: 获取掉落池的公示概率
       tags:
       - loot
+  /api/v1/mails:
+    get:
+      description: 从新到旧, 不含已删除和已过期的邮件; 会先把可以收到的全服邮件放进信箱
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mailbox.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mailbox.ListMailsResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+      summary: 获取信箱中的邮件
+      tags:
+      - mailbox
+  /api/v1/mails/{id}:
+    delete:
+      description: 附件未领取且未过期的邮件不能删除, 返回 409
+      parameters:
+      - description: mail id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+      summary: 删除邮件
+      tags:
+      - mailbox
+  /api/v1/mails/{id}/claim:
+    post:
+      description: 同时标记为已读; 已下架的物品按回收价折成货币发放。附件中的货币已停用时返回 403, 可以之后再领取
+      parameters:
+      - description: mail id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mailbox.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mailbox.ClaimResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+      summary: 领取邮件的附件
+      tags:
+      - mailbox
+  /api/v1/mails/{id}/read:
+    post:
+      parameters:
+      - description: mail id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+      summary: 标记邮件为已读
+      tags:
+      - mailbox
+  /api/v1/mails/claim-all:
+    post:
+      description: 从旧到新, 一次最多 100 封, 同时标记为已读; 附件暂时无法领取的跳过, 见 skipped
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mailbox.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mailbox.ClaimResult'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+      summary: 一键领取全部附件
+      tags:
+      - mailbox
+  /api/v1/mails/counts:
+    get:
+      description: 会先把可以收到的全服邮件放进信箱; 收到 mailbox:new 推送或切回页面时调用
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mailbox.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mailbox.Counts'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+      summary: 获取未读和附件未领取的封数
+      tags:
+      - mailbox
+  /api/v1/mails/read-all:
+    post:
+      description: 不领取附件
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mailbox.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mailbox.ReadAllMailsResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mailbox.Response'
+      summary: 把信箱中的邮件全部标记为已读
+      tags:
+      - mailbox
   /api/v1/matches:
     get:
       description: 可按玩法代码冒号前后的部分筛选, 如 prefix=pve、suffix=<地图代码>; 玩法实现了 Summarizer 时附带

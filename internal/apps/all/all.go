@@ -39,6 +39,7 @@ import (
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/loot"
+	_ "github.com/NuoXianTech/blindcrate/internal/apps/mailbox"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/match"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/reward"

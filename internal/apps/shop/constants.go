@@ -48,8 +48,7 @@ const metricPrefix = "shop_buy:"
 
 // 商品配置的限制
 const (
-	maxBundleLines = 8         // 价格和商品各自最多的行数
-	maxTabLength   = 16        // 页签的最大字符数
-	MaxQuantity    = 99        // 一次最多购买的份数
-	maxLimit       = 1_000_000 // 限购数量和库存的上限
+	maxTabLength = 16        // 页签的最大字符数
+	MaxQuantity  = 99        // 一次最多购买的份数
+	maxLimit     = 1_000_000 // 限购数量和库存的上限
 )

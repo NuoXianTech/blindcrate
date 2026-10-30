@@ -20,6 +20,8 @@ export interface DockItem {
   href?: string;
   onClick?: () => void;
   active?: boolean;
+  /** 角标数字, 为 0 或空时不显示 */
+  badge?: number;
 }
 
 /** 用 null 分隔不同分组 */
@@ -65,9 +67,25 @@ function ItemAction({
   );
 }
 
+/** 角标: 超过 99 显示 99+ */
+function DockBadge({ count, className }: { count?: number; className?: string }) {
+  if (!count) return null;
+  return (
+    <span
+      className={cn(
+        "pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-none font-medium text-white tabular-nums",
+        className,
+      )}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 function FloatingDockMobile({ items, className }: { items: DockEntry[]; className?: string }) {
   const [open, setOpen] = useState(false);
   const flat = items.filter((item): item is DockItem => item !== null);
+  const badged = flat.some((item) => item.badge);
 
   return (
     <div className={cn("relative block md:hidden", className)}>
@@ -85,11 +103,12 @@ function FloatingDockMobile({ items, className }: { items: DockEntry[]; classNam
                 <ItemAction
                   item={{ ...item, onClick: () => (item.onClick?.(), setOpen(false)) }}
                   className={cn(
-                    "flex size-10 items-center justify-center rounded-full border bg-popover text-muted-foreground",
+                    "relative flex size-10 items-center justify-center rounded-full border bg-popover text-muted-foreground",
                     item.active && "text-primary",
                   )}
                 >
                   <span className="size-4">{item.icon}</span>
+                  <DockBadge count={item.badge} />
                 </ItemAction>
               </motion.div>
             ))}
@@ -100,9 +119,10 @@ function FloatingDockMobile({ items, className }: { items: DockEntry[]; classNam
         type="button"
         aria-label="展开导航"
         onClick={() => setOpen(!open)}
-        className="flex size-10 items-center justify-center rounded-full border bg-card text-muted-foreground backdrop-blur-md"
+        className="relative flex size-10 items-center justify-center rounded-full border bg-card text-muted-foreground backdrop-blur-md"
       >
         <PanelBottomOpen className="size-5" />
+        {!open && badged && <span className="absolute top-0 right-0 size-2.5 rounded-full bg-destructive" />}
       </button>
     </div>
   );
@@ -177,6 +197,7 @@ function IconContainer({ mouseX, item }: { mouseX: MotionValue<number>; item: Do
         <motion.div style={{ width: iconSize, height: iconSize }} className="flex items-center justify-center [&>svg]:size-full">
           {item.icon}
         </motion.div>
+        <DockBadge count={item.badge} />
       </motion.div>
     </ItemAction>
   );
