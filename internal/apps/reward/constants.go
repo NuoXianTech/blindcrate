@@ -26,3 +26,6 @@ package reward
 
 // MaxIdempotencyKeyLength 幂等键的最大长度, 加上 ":" 和最长 32 的货币代码后不超过余额流水幂等键的 128
 const MaxIdempotencyKeyLength = 95
+
+// MaxLines 配置中的一组奖励或价格, 货币和物品各自最多的行数, 见 Check
+const MaxLines = 8

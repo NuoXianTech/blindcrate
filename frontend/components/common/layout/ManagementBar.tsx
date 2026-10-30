@@ -8,8 +8,9 @@ import {toast} from 'sonner';
 import {FloatingDock, type DockEntry} from '@/components/ui/floating-dock';
 import {useAuth} from '@/components/common/auth';
 import {ProfileDialog, UserAvatar} from '@/components/common/user';
+import {useMailCounts, useMailCountsSync} from '@/hooks/use-mail-counts';
 import {ROUTES} from '@/lib/access';
-import {ADMIN_NAV, PLAYER_NAV, isActive} from '@/lib/nav';
+import {ADMIN_NAV, PLAYER_NAV, isActive, type NavBadge} from '@/lib/nav';
 import {THEMES} from '@/lib/themes';
 
 /** 底部悬浮导航: 桌面端居中, 移动端右下角 */
@@ -18,6 +19,9 @@ export function ManagementBar() {
   const {theme, setTheme} = useTheme();
   const {user, logout} = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
+  useMailCountsSync(user?.id);
+  const mailCounts = useMailCounts();
+  const badges: Record<NavBadge, number> = {mail: mailCounts?.unread ?? 0};
 
   const cycleTheme = () => {
     const idx = THEMES.findIndex((t) => t.value === theme);
@@ -38,6 +42,7 @@ export function ManagementBar() {
     icon: <entry.icon />,
     href: entry.href,
     active: isActive(entry, pathname),
+    badge: entry.badge && badges[entry.badge],
   }));
 
   // 管理区域只放一个入口, 各管理页面在管理区顶部切换

@@ -5,7 +5,7 @@ import {Button} from '@/components/ui/button';
 import {ItemImage} from '@/components/common/item';
 import type {ShopItem} from '@/lib/services/shop';
 import {formatDateTime} from '@/lib/utils';
-import {GoodsList, PriceText} from './Lines';
+import {PriceText, RewardList} from '@/components/common/reward';
 import {LIMIT_LABELS, imageOf, unavailableReason} from './constants';
 
 /**
@@ -28,7 +28,7 @@ export function ShopItemCard({item, onBuy}: { item: ShopItem; onBuy: () => void 
       </div>
 
       <div className="flex flex-1 flex-col gap-3 px-4 pb-4">
-        <GoodsList lines={item.goods} />
+        <RewardList lines={item.goods} />
 
         {item.requirements.length > 0 && (
           <ul className="flex flex-col gap-1 text-sm">

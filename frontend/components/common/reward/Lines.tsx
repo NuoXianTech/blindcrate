@@ -2,18 +2,18 @@ import {cn} from 'cn';
 import {ItemImage} from '@/components/common/item';
 import {useQualities} from '@/components/common/site';
 import {CurrencyIcon} from '@/components/common/wallet';
-import type {ShopLine} from '@/lib/services/shop';
+import type {RewardLine} from '@/lib/services/reward';
 import {formatAmount} from '@/lib/utils';
 
 /** 一行的 key, 货币和物品不会重复 */
-function lineKey(line: ShopLine) {
+function lineKey(line: RewardLine) {
   return line.currency ?? `item:${line.item_id}`;
 }
 
 /**
  * 价格: 货币显示图标和金额, 物品显示名称和数量, 为空时显示免费
  */
-export function PriceText({lines, className}: { lines: ShopLine[]; className?: string }) {
+export function PriceText({lines, className}: { lines: RewardLine[]; className?: string }) {
   const {qualityOf} = useQualities();
   if (!lines.length) return <span className={cn('font-medium text-quality-green', className)}>免费</span>;
   return (
@@ -39,9 +39,9 @@ export function PriceText({lines, className}: { lines: ShopLine[]; className?: s
 }
 
 /**
- * 商品内容: 每行一种货币或物品, 物品带图片和品质色
+ * 奖励或商品的内容: 每行一种货币或物品, 物品带图片和品质色
  */
-export function GoodsList({lines, className}: { lines: ShopLine[]; className?: string }) {
+export function RewardList({lines, className}: { lines: RewardLine[]; className?: string }) {
   const {qualityOf} = useQualities();
   return (
     <ul className={cn('flex flex-col gap-1.5 text-sm', className)}>

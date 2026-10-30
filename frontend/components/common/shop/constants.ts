@@ -1,5 +1,6 @@
 import type {Bundle} from '@/lib/services/auction';
-import type {ShopItem, ShopLimitType, ShopLine} from '@/lib/services/shop';
+import type {RewardLine} from '@/lib/services/reward';
+import type {ShopItem, ShopLimitType} from '@/lib/services/shop';
 
 /** 一次最多购买的份数, 与后端 shop.MaxQuantity 一致 */
 export const MAX_QUANTITY = 99;
@@ -17,7 +18,7 @@ export const LIMIT_LABELS: Record<ShopLimitType, string> = {
 };
 
 /** 商品中的行转回 Bundle, 用于提交看到的价格 */
-export function toBundle(lines: ShopLine[]): Bundle {
+export function toBundle(lines: RewardLine[]): Bundle {
   return {
     currencies: lines.flatMap((l) => (l.currency ? [{currency: l.currency, amount: l.amount}] : [])),
     items: lines.flatMap((l) => (l.item_id ? [{item_id: l.item_id, quantity: l.amount}] : [])),
@@ -25,7 +26,7 @@ export function toBundle(lines: ShopLine[]): Bundle {
 }
 
 /** 每一行乘以份数 */
-export function scaleLines(lines: ShopLine[], quantity: number): ShopLine[] {
+export function scaleLines(lines: RewardLine[], quantity: number): RewardLine[] {
   return lines.map((l) => ({...l, amount: l.amount * quantity}));
 }
 

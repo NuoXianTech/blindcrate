@@ -26,4 +26,9 @@ package reward
 
 const (
 	IdempotencyConflict = "幂等键已被其他请求使用"
+
+	LinesTooMany     = "货币和物品各自最多 8 项"
+	AmountInvalid    = "数量需大于 0"
+	CurrencyNotFound = "货币不存在"
+	ItemsNotFound    = "物品不存在"
 )

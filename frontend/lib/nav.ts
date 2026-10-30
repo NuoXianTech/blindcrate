@@ -8,6 +8,8 @@ import {
   Gem,
   Gamepad2,
   History,
+  Mail,
+  Mails,
   Medal,
   Mountain,
   Package,
@@ -37,7 +39,12 @@ export interface NavEntry {
   icon: LucideIcon;
   /** 只在路径完全相同时高亮, 用于有子页面的入口 */
   exact?: boolean;
+  /** 角标显示的数字, 取值见 ManagementBar */
+  badge?: NavBadge;
 }
+
+/** 入口角标的种类 */
+export type NavBadge = 'mail';
 
 export interface NavGroup {
   label: string;
@@ -51,6 +58,7 @@ export const PLAYER_NAV: NavEntry[] = [
   {title: '背包', icon: Backpack, href: ROUTES.inventory},
   {title: '商城', icon: Store, href: ROUTES.shop},
   {title: '钱包', icon: Wallet, href: ROUTES.wallet},
+  {title: '邮件', icon: Mail, href: ROUTES.mail, badge: 'mail'},
   {title: '排行榜', icon: Trophy, href: ROUTES.leaderboard},
   {title: '数据', icon: ChartColumn, href: ROUTES.stats},
 ];
@@ -82,6 +90,12 @@ export const ADMIN_NAV: NavGroup[] = [
     entries: [
       {title: '商品管理', icon: Tags, href: ROUTES.adminShopItems},
       {title: '商城订单', icon: ShoppingBag, href: ROUTES.adminShopOrders},
+    ],
+  },
+  {
+    label: '运营',
+    entries: [
+      {title: '游戏邮件', icon: Mails, href: ROUTES.adminMails},
     ],
   },
   {

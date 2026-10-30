@@ -47,6 +47,8 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard/leaderboardadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot/lootadmin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/mailbox"
+	"github.com/NuoXianTech/blindcrate/internal/apps/mailbox/mailboxadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match/matchadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
@@ -248,6 +250,19 @@ func Serve() {
 				shopRouter.POST("/orders", ratelimit.ByUser("shop:buy", ratelimit.PerMinute(60)), shop.CreateOrder)
 			}
 
+			// Mailbox
+			mailRouter := apiV1Router.Group("/mails")
+			mailRouter.Use(auth.LoginRequired())
+			{
+				mailRouter.GET("", mailbox.ListMails)
+				mailRouter.GET("/counts", mailbox.GetCounts)
+				mailRouter.POST("/read-all", mailbox.ReadAllMails)
+				mailRouter.POST("/claim-all", ratelimit.ByUser("mail:claim", ratelimit.PerMinute(60)), mailbox.ClaimAllMails)
+				mailRouter.POST("/:id/read", mailbox.ReadMail)
+				mailRouter.POST("/:id/claim", ratelimit.ByUser("mail:claim", ratelimit.PerMinute(60)), mailbox.ClaimMail)
+				mailRouter.DELETE("/:id", mailbox.DeleteMail)
+			}
+
 			// Upload
 			apiV1Router.POST("/uploads", auth.LoginRequired(), ratelimit.ByUser("upload", ratelimit.PerHour(60)), upload.CreateUpload)
 
@@ -386,6 +401,20 @@ func Serve() {
 					shopAdminRouter.DELETE("/items/:id", shopadmin.DeleteShopItem)
 					shopAdminRouter.GET("/orders", shopadmin.ListShopOrders)
 					shopAdminRouter.POST("/orders/:id/refund", shopadmin.RefundShopOrder)
+				}
+
+				// Mailbox
+				mailAdminRouter := adminRouter.Group("/mails")
+				{
+					mailAdminRouter.GET("", mailboxadmin.ListMails)
+					mailAdminRouter.GET("/sources", mailboxadmin.ListMailSources)
+					mailAdminRouter.POST("", mailboxadmin.SendMails)
+				}
+				mailBroadcastAdminRouter := adminRouter.Group("/mail-broadcasts")
+				{
+					mailBroadcastAdminRouter.GET("", mailboxadmin.ListMailBroadcasts)
+					mailBroadcastAdminRouter.POST("", mailboxadmin.CreateMailBroadcast)
+					mailBroadcastAdminRouter.POST("/:id/revoke", mailboxadmin.RevokeMailBroadcast)
 				}
 
 				// Inventory

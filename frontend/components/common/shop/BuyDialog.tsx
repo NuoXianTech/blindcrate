@@ -11,7 +11,7 @@ import services from '@/lib/services';
 import {ApiError} from '@/lib/services/core';
 import type {ShopItem} from '@/lib/services/shop';
 import {parseAmount} from '@/lib/utils';
-import {GoodsList, PriceText} from './Lines';
+import {PriceText, RewardList} from '@/components/common/reward';
 import {maxQuantity, scaleLines, toBundle} from './constants';
 
 /**
@@ -84,7 +84,7 @@ function BuyForm({item, onClose, onRefresh}: Omit<BuyDialogProps, 'item'> & { it
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 text-sm">
         <div className="flex flex-col gap-2">
           <span className="text-muted-foreground">得到</span>
-          <GoodsList lines={scaleLines(item.goods, quantity ?? 1)} />
+          <RewardList lines={scaleLines(item.goods, quantity ?? 1)} />
         </div>
         <div className="flex items-start justify-between gap-4 border-t pt-3 font-bold">
           <span>总价</span>

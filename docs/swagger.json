@@ -1834,6 +1834,430 @@
                 }
             }
         },
+        "/api/v1/admin/mail-broadcasts": {
+            "get": {
+                "description": "从新到旧, 带上已放进信箱和已领取附件的人数",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取全服邮件列表",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 64,
+                        "type": "string",
+                        "description": "按标题搜索, 不区分大小写",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/mailboxadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/mailboxadmin.ListBroadcastsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "只写一条记录, 玩家打开信箱时放进信箱; 发送后不能修改, 只能撤回。幂等键相同的重复提交返回已有的全服邮件",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "发送全服邮件",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.BroadcastRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/mailboxadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/mailbox.Broadcast"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/mail-broadcasts/{id}/revoke": {
+            "post": {
+                "description": "不再放进信箱; 已放进信箱但附件未领取的邮件移出信箱, 已领取的附件不收回",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "撤回全服邮件",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "broadcast id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/mailboxadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/mailboxadmin.RevokeMailBroadcastResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/mails": {
+            "get": {
+                "description": "从新到旧, 包括已删除的邮件, 带上收件人的用户名",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "查询邮件",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 64,
+                        "type": "string",
+                        "description": "按标题搜索, 不区分大小写",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 16,
+                        "type": "string",
+                        "name": "source",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/mailboxadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/mailboxadmin.ListMailsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "一次最多 1000 人, 用户不存在时整体不发送; 幂等键相同的重复提交不会重复发送",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "发邮件给指定用户",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.SendMailsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/mailboxadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/mailboxadmin.SendMailsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/mails/sources": {
+            "get": {
+                "description": "按登记顺序, 用于邮件查询的筛选和展示",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取邮件来源",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/mailboxadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/mailboxadmin.ListMailSourcesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/matches": {
             "get": {
                 "description": "包含每个座位是真人还是人机, 按开始时间从新到旧",
@@ -7075,6 +7499,427 @@
                 }
             }
         },
+        "/api/v1/mails": {
+            "get": {
+                "description": "从新到旧, 不含已删除和已过期的邮件; 会先把可以收到的全服邮件放进信箱",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mailbox"
+                ],
+                "summary": "获取信箱中的邮件",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/mailbox.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/mailbox.ListMailsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/mails/claim-all": {
+            "post": {
+                "description": "从旧到新, 一次最多 100 封, 同时标记为已读; 附件暂时无法领取的跳过, 见 skipped",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mailbox"
+                ],
+                "summary": "一键领取全部附件",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/mailbox.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/mailbox.ClaimResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/mails/counts": {
+            "get": {
+                "description": "会先把可以收到的全服邮件放进信箱; 收到 mailbox:new 推送或切回页面时调用",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mailbox"
+                ],
+                "summary": "获取未读和附件未领取的封数",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/mailbox.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/mailbox.Counts"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/mails/read-all": {
+            "post": {
+                "description": "不领取附件",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mailbox"
+                ],
+                "summary": "把信箱中的邮件全部标记为已读",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/mailbox.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/mailbox.ReadAllMailsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/mails/{id}": {
+            "delete": {
+                "description": "附件未领取且未过期的邮件不能删除, 返回 409",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mailbox"
+                ],
+                "summary": "删除邮件",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "mail id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/mails/{id}/claim": {
+            "post": {
+                "description": "同时标记为已读; 已下架的物品按回收价折成货币发放。附件中的货币已停用时返回 403, 可以之后再领取",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mailbox"
+                ],
+                "summary": "领取邮件的附件",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "mail id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/mailbox.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/mailbox.ClaimResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/mails/{id}/read": {
+            "post": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mailbox"
+                ],
+                "summary": "标记邮件为已读",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "mail id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/mailbox.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/matches": {
             "get": {
                 "description": "可按玩法代码冒号前后的部分筛选, 如 prefix=pve、suffix=\u003c地图代码\u003e; 玩法实现了 Summarizer 时附带 summary, 暗拍为 auction.Summary",
@@ -11158,6 +12003,440 @@
                 "data": {},
                 "error_msg": {
                     "type": "string"
+                }
+            }
+        },
+        "mailbox.Broadcast": {
+            "type": "object",
+            "properties": {
+                "attachments": {
+                    "$ref": "#/definitions/reward.Bundle"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "integer"
+                },
+                "expires_at": {
+                    "description": "展开的邮件同时过期",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "registered_before": {
+                    "description": "只发给这个时间之前注册的用户, 为空时之后注册的用户也能收到",
+                    "type": "string"
+                },
+                "requirements": {
+                    "description": "收件条件, 需要全部满足, 展开时检查",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "revoked_at": {
+                    "type": "string"
+                },
+                "revoked_by": {
+                    "type": "integer"
+                },
+                "sender": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "mailbox.ClaimResult": {
+            "type": "object",
+            "properties": {
+                "claimed": {
+                    "description": "领取了附件的封数",
+                    "type": "integer"
+                },
+                "received": {
+                    "description": "实际得到的货币和物品, 已下架的物品按回收价折成了货币",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                },
+                "skipped": {
+                    "description": "附件暂时无法领取而跳过的封数, 只有一键领取会跳过",
+                    "type": "integer"
+                }
+            }
+        },
+        "mailbox.Counts": {
+            "type": "object",
+            "properties": {
+                "claimable": {
+                    "type": "integer"
+                },
+                "unread": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mailbox.ListMailsResponseData": {
+            "type": "object",
+            "properties": {
+                "mails": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mailbox.MailView"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mailbox.MailView": {
+            "type": "object",
+            "properties": {
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                },
+                "claimed_at": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "read_at": {
+                    "type": "string"
+                },
+                "sender": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "mailbox.ReadAllMailsResponseData": {
+            "type": "object",
+            "properties": {
+                "read": {
+                    "description": "本次标记的封数",
+                    "type": "integer"
+                }
+            }
+        },
+        "mailbox.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "mailbox.Source": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "label": {
+                    "description": "后台展示的名称, 如 \"全服邮件\"",
+                    "type": "string"
+                }
+            }
+        },
+        "mailboxadmin.BroadcastItem": {
+            "type": "object",
+            "properties": {
+                "attachments": {
+                    "$ref": "#/definitions/reward.Bundle"
+                },
+                "claimed": {
+                    "description": "已领取附件的人数",
+                    "type": "integer"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "integer"
+                },
+                "created_username": {
+                    "type": "string"
+                },
+                "expanded": {
+                    "description": "已放进信箱的人数, 包括之后删除的",
+                    "type": "integer"
+                },
+                "expires_at": {
+                    "description": "展开的邮件同时过期",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "registered_before": {
+                    "description": "只发给这个时间之前注册的用户, 为空时之后注册的用户也能收到",
+                    "type": "string"
+                },
+                "requirements": {
+                    "description": "收件条件, 需要全部满足, 展开时检查",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "revoked_at": {
+                    "type": "string"
+                },
+                "revoked_by": {
+                    "type": "integer"
+                },
+                "revoked_username": {
+                    "type": "string"
+                },
+                "sender": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "mailboxadmin.BroadcastRequest": {
+            "type": "object",
+            "required": [
+                "idempotency_key",
+                "title"
+            ],
+            "properties": {
+                "attachments": {
+                    "$ref": "#/definitions/reward.Bundle"
+                },
+                "content": {
+                    "type": "string",
+                    "maxLength": 2000
+                },
+                "expire_days": {
+                    "description": "有效期, 0 表示使用默认有效期",
+                    "type": "integer",
+                    "maximum": 365,
+                    "minimum": 0
+                },
+                "idempotency_key": {
+                    "description": "每次打开发送框生成一个, 重复提交只发送一次",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "include_new_users": {
+                    "description": "发送之后注册的用户也能收到, 默认只发给已注册的用户",
+                    "type": "boolean"
+                },
+                "requirements": {
+                    "description": "收件条件, 需要全部满足; 玩家打开信箱时检查, 之后满足的也能收到",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "sender": {
+                    "description": "为空时为 \"系统\"",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 64
+                }
+            }
+        },
+        "mailboxadmin.ListBroadcastsResponseData": {
+            "type": "object",
+            "properties": {
+                "broadcasts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mailboxadmin.BroadcastItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mailboxadmin.ListMailSourcesResponseData": {
+            "type": "object",
+            "properties": {
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mailbox.Source"
+                    }
+                }
+            }
+        },
+        "mailboxadmin.ListMailsResponseData": {
+            "type": "object",
+            "properties": {
+                "mails": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mailboxadmin.MailItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mailboxadmin.MailItem": {
+            "type": "object",
+            "properties": {
+                "attachments": {
+                    "$ref": "#/definitions/reward.Bundle"
+                },
+                "claimed_at": {
+                    "description": "领取附件的时间, 没有附件时始终为空",
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "read_at": {
+                    "type": "string"
+                },
+                "removed_at": {
+                    "description": "玩家删除或超出保留封数被移出信箱的时间, 在信箱中时为空",
+                    "type": "string"
+                },
+                "sender": {
+                    "type": "string"
+                },
+                "source": {
+                    "description": "见 RegisterSource",
+                    "type": "string"
+                },
+                "source_id": {
+                    "description": "来源单号, 同一来源和用户内唯一",
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                },
+                "username": {
+                    "description": "用户已不存在时为空",
+                    "type": "string"
+                }
+            }
+        },
+        "mailboxadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "mailboxadmin.RevokeMailBroadcastResponseData": {
+            "type": "object",
+            "properties": {
+                "broadcast": {
+                    "$ref": "#/definitions/mailbox.Broadcast"
+                },
+                "removed": {
+                    "description": "移出信箱的封数, 已领取附件的邮件保留",
+                    "type": "integer"
+                }
+            }
+        },
+        "mailboxadmin.SendMailsRequest": {
+            "type": "object",
+            "required": [
+                "idempotency_key",
+                "title",
+                "user_ids"
+            ],
+            "properties": {
+                "attachments": {
+                    "$ref": "#/definitions/reward.Bundle"
+                },
+                "content": {
+                    "type": "string",
+                    "maxLength": 2000
+                },
+                "expire_days": {
+                    "description": "有效期, 0 表示使用默认有效期",
+                    "type": "integer",
+                    "maximum": 365,
+                    "minimum": 0
+                },
+                "idempotency_key": {
+                    "description": "每次打开发送框生成一个, 重复提交只发送一次",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "sender": {
+                    "description": "为空时为 \"系统\"",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "user_ids": {
+                    "type": "array",
+                    "maxItems": 1000,
+                    "minItems": 1,
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "mailboxadmin.SendMailsResponseData": {
+            "type": "object",
+            "properties": {
+                "sent": {
+                    "description": "实际发送的封数, 重复提交时不计已发送的",
+                    "type": "integer"
                 }
             }
         },

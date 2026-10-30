@@ -3,6 +3,7 @@ import {AuctionService} from './auction';
 import {AuthService} from './auth';
 import {InventoryService} from './inventory';
 import {LeaderboardService} from './leaderboard';
+import {MailboxAdminService, MailboxService} from './mailbox';
 import {MatchService} from './match';
 import {RankedService} from './ranked';
 import {SeasonService} from './season';
@@ -53,12 +54,16 @@ const services = {
   stats: StatsService,
   /** 商城 */
   shop: ShopService,
+  /** 游戏邮件 */
+  mailbox: MailboxService,
   /** 图片上传 */
   upload: UploadService,
   /** 仓库暗拍 */
   auction: AuctionService,
   /** 管理后台 */
   admin: AdminService,
+  /** 后台: 游戏邮件 */
+  mailboxAdmin: MailboxAdminService,
 };
 
 export default services;

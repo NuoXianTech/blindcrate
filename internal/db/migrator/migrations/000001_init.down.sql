@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS mail_broadcasts;
+DROP TABLE IF EXISTS mails;
 DROP TABLE IF EXISTS imports;
 DROP TABLE IF EXISTS uploads;
 DROP TABLE IF EXISTS shop_orders;
