@@ -25,6 +25,7 @@
 package cmd
 
 import (
+	_ "github.com/NuoXianTech/blindcrate/internal/apps/all" // 执行各模块的登记
 	"github.com/NuoXianTech/blindcrate/internal/router"
 	"github.com/spf13/cobra"
 )

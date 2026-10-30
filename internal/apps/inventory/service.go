@@ -36,12 +36,32 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func init() {
+	// 本模块和早期模块的业务类型, 新模块在自己的 init 中登记
+	for _, t := range []ledger.BizType{
+		{Code: BizAdminAdjust, Label: "管理员调整"},
+		{Code: BizItemSell, Label: "出售物品"},
+		{Code: BizItemUse, Label: "使用道具"},
+		{Code: BizItemUseRefund, Label: "退还道具"},
+		{Code: BizMatchEntryFee, Label: "对局入场费"},
+		{Code: BizMatchRefund, Label: "对局退还"},
+		{Code: BizMatchReward, Label: "竞拍所得"},
+		{Code: BizSeasonReward, Label: "赛季奖励"},
+		{Code: BizShopBuy, Label: "商城购买"},
+		{Code: BizShopGrant, Label: "商城获得"},
+		{Code: BizShopRefund, Label: "商城退款"},
+	} {
+		ledger.RegisterBizType(ledger.KindInventory, t.Code, t.Label)
+	}
+}
 
 // ChangeRequest 一次背包变动
 type ChangeRequest struct {
@@ -127,6 +147,9 @@ func validateChange(req *ChangeRequest) error {
 	}
 	if len(req.BizType) > 32 || len(req.BizID) > 64 || len(req.IdempotencyKey) > 128 || utf8.RuneCountInString(req.Remark) > 255 {
 		return errors.New("inventory: biz_type, biz_id, idempotency_key or remark too long")
+	}
+	if !ledger.Registered(ledger.KindInventory, req.BizType) {
+		return errors.New("inventory: biz_type " + req.BizType + " not registered")
 	}
 	if req.Quantity == 0 || req.Quantity < -MaxQuantity || req.Quantity > MaxQuantity {
 		return errors.New(QuantityInvalid)

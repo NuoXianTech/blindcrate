@@ -25,9 +25,9 @@
 // Package task 异步任务, 基于 asynq, 任务存放在 Redis 队列中
 //
 // 新增一个任务:
-//   - 在这里定义任务类型, 格式为 <app>:<动作>, 如 dashboard:update_stats
-//   - 处理函数放在对应 app 的 tasks.go, 并在 worker.StartWorker 中注册
-//   - 定时任务在 schedule.StartScheduler 中注册, cron 表达式放在配置的 schedule 下
+//   - 在对应 app 的 constants.go 中定义任务类型, 格式为 <app>:<动作>, 如 mailbox:cleanup
+//   - 处理函数放在对应 app 的 tasks.go, 并在 init 中用 Register 登记, worker 和调度器不需要改动
+//   - 定时任务在登记时给出默认的 cron, 可以在配置 schedule.crons 中按类型覆盖
 //   - 对战阶段超时等一次性的定时器用 schedule.EnqueueOnce 投递, 提前结束时用 schedule.Cancel 取消
 //
 // 任务至少会执行一次: 失败重试或 worker 中途退出后, 同一个任务可能再次执行, 处理函数需要保证幂等。
@@ -42,7 +42,7 @@ const (
 	QueueLow      = "low"
 )
 
-// 任务类型
+// 早期模块的任务类型, 新模块在自己的 constants.go 中定义
 const (
 	TypeMatchPhaseTimeout = "match:phase_timeout" // 对局阶段到期, 进 critical
 	TypeMatchBotFill      = "match:bot_fill"      // 排队等到补位时间, 用人机补齐后组局

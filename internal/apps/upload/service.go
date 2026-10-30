@@ -32,6 +32,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -40,6 +41,40 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/storage"
 	"gorm.io/gorm"
 )
+
+// tableNamePattern 登记引用时的表名和字段名, 拼进 SQL 中, 只允许小写字母、数字和下划线
+var tableNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+
+// RegisterPurpose 登记一种图片用途, 需要在启动前调用; 格式不正确或重复时 panic
+//
+// adminOnly 为 true 时只有管理员可以上传; square 为 true 时从中间裁成正方形; maxSide 为缩小后的最大边长(像素)。
+func RegisterPurpose(code string, adminOnly, square bool, maxSide int) {
+	if !tableNamePattern.MatchString(code) || maxSide <= 0 {
+		panic(fmt.Sprintf("upload: invalid purpose %q", code))
+	}
+	if _, ok := purposes[code]; ok {
+		panic(fmt.Sprintf("upload: purpose %s already registered", code))
+	}
+	purposes[code] = purposeSpec{adminOnly: adminOnly, square: square, maxSide: maxSide}
+}
+
+// RegisterReference 登记一个保存图片地址的字段, 地址以存储 key 结尾的上传不会被清理; 需要在启动前调用
+func RegisterReference(table, column string) {
+	references = append(references, urlReference(checkName(table), checkName(column)))
+}
+
+// RegisterJSONReference 登记一个 JSON 字段, 内容中出现存储 key 的上传不会被清理, 用于图片地址保存在配置中的情况; 需要在启动前调用
+func RegisterJSONReference(table, column string) {
+	references = append(references, jsonReference(checkName(table), checkName(column)))
+}
+
+// checkName 校验表名或字段名, 不符合时 panic
+func checkName(name string) string {
+	if !tableNamePattern.MatchString(name) {
+		panic(fmt.Sprintf("upload: invalid table or column name %q", name))
+	}
+	return name
+}
 
 // SaveRequest 上传一张图片
 type SaveRequest struct {

@@ -10,7 +10,7 @@ import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout'
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {BalanceItem, WalletTransaction} from '@/lib/services/wallet';
-import {WALLET_BIZ_LABELS} from '@/lib/biz';
+import {useLabels} from '@/hooks/use-labels';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 import {CurrencyIcon} from './CurrencyIcon';
 import {ALL, PAGE_SIZE} from './constants';
@@ -19,6 +19,7 @@ import {ALL, PAGE_SIZE} from './constants';
  * 当前用户的余额流水, 可按货币筛选
  */
 export function TransactionList({balances}: { balances: BalanceItem[] }) {
+  const bizLabels = useLabels('walletBiz');
   const {user} = useAuth();
   const [currency, setCurrency] = useState<string>(ALL);
   const [current, setCurrent] = useState(1);
@@ -117,7 +118,7 @@ export function TransactionList({balances}: { balances: BalanceItem[] }) {
                     <TableCell className="text-right font-mono text-muted-foreground tabular-nums">
                       {formatAmount(t.balance_after, decimals)}
                     </TableCell>
-                    <TableCell>{WALLET_BIZ_LABELS[t.biz_type] ?? t.biz_type}</TableCell>
+                    <TableCell>{bizLabels[t.biz_type] ?? t.biz_type}</TableCell>
                     <TableCell className="max-w-64 truncate text-muted-foreground" title={t.remark || undefined}>
                       {t.remark || '-'}
                     </TableCell>

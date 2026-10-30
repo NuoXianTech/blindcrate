@@ -1,4 +1,4 @@
-import {BaseService} from '../core';
+import {BaseService, type CodeLabel} from '../core';
 import type {
   ListInventoryTransactionsData,
   ListInventoryTransactionsParams,
@@ -29,5 +29,10 @@ export class InventoryService extends BaseService {
 
   static listSellOrders(params: ListSellOrdersParams) {
     return this.get<ListSellOrdersData>('/sell-orders', {params});
+  }
+
+  /** 背包流水的业务类型和名称, 按后端登记的顺序 */
+  static listBizTypes() {
+    return this.get<{ biz_types: CodeLabel[] }>('/biz-types');
   }
 }

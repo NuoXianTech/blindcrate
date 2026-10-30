@@ -191,6 +191,50 @@
                 }
             }
         },
+        "/api/v1/admin/audit-logs/actions": {
+            "get": {
+                "description": "用于展示日志和筛选, 按登记顺序",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取操作日志的操作类型和名称",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/auditadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auditadmin.ListAuditActionsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/auditadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/auditadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/conditions/types": {
             "get": {
                 "description": "包含每种条件的参数表单描述, 用于条件编辑器; input 为 currency、item、scope 的字段需要用选择器填写",
@@ -6431,6 +6475,50 @@
                 }
             }
         },
+        "/api/v1/inventory/biz-types": {
+            "get": {
+                "description": "用于展示流水和筛选, 按登记顺序",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "获取背包流水的业务类型和名称",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/inventory.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/inventory.ListBizTypesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/inventory.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/inventory/items": {
             "get": {
                 "description": "只返回数量大于 0 的物品, 已删除的物品按占位物品返回",
@@ -8105,6 +8193,50 @@
                 }
             }
         },
+        "/api/v1/wallet/biz-types": {
+            "get": {
+                "description": "用于展示流水和筛选, 按登记顺序",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "wallet"
+                ],
+                "summary": "获取余额流水的业务类型和名称",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wallet.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wallet.ListBizTypesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/wallet.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/wallet.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/wallet/transactions": {
             "get": {
                 "produces": [
@@ -9011,6 +9143,18 @@
                 }
             }
         },
+        "audit.Action": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "label": {
+                    "description": "后台日志中展示的名称, 如 \"新建物品\"",
+                    "type": "string"
+                }
+            }
+        },
         "auditadmin.AuditLogItem": {
             "type": "object",
             "properties": {
@@ -9047,6 +9191,17 @@
                 },
                 "user_agent": {
                     "type": "string"
+                }
+            }
+        },
+        "auditadmin.ListAuditActionsResponseData": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/audit.Action"
+                    }
                 }
             }
         },
@@ -9465,6 +9620,17 @@
                 "data": {},
                 "error_msg": {
                     "type": "string"
+                }
+            }
+        },
+        "inventory.ListBizTypesResponseData": {
+            "type": "object",
+            "properties": {
+                "biz_types": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ledger.BizType"
+                    }
                 }
             }
         },
@@ -10665,6 +10831,18 @@
             "properties": {
                 "data": {},
                 "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "ledger.BizType": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "label": {
+                    "description": "流水中展示的名称, 如 \"商城购买\"",
                     "type": "string"
                 }
             }
@@ -13679,6 +13857,17 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/wallet.BalanceItem"
+                    }
+                }
+            }
+        },
+        "wallet.ListBizTypesResponseData": {
+            "type": "object",
+            "properties": {
+                "biz_types": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ledger.BizType"
                     }
                 }
             }

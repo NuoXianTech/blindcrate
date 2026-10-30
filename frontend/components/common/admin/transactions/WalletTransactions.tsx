@@ -11,7 +11,7 @@ import {CurrencyIcon} from '@/components/common/wallet';
 import services from '@/lib/services';
 import type {AdminWalletTransaction, Currency} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
-import {WALLET_BIZ_LABELS} from '@/lib/biz';
+import {useLabels} from '@/hooks/use-labels';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 import {Actor, BizTypeSelect, IDFilterForm} from './TransactionFilters';
 import {ALL, PAGE_SIZE, type IDFilters} from './constants';
@@ -20,6 +20,7 @@ import {ALL, PAGE_SIZE, type IDFilters} from './constants';
  * 全部用户的余额流水, 可按用户、操作人、货币和类型筛选
  */
 export function WalletTransactions({initialUserID}: { initialUserID?: number }) {
+  const bizLabels = useLabels('walletBiz');
   const isAdmin = !!useAuth().user?.is_admin;
   const [ids, setIDs] = useState<IDFilters>({user_id: initialUserID});
   const [currency, setCurrency] = useState(ALL);
@@ -100,7 +101,7 @@ export function WalletTransactions({initialUserID}: { initialUserID?: number }) 
         </Select>
         <BizTypeSelect
           value={bizType}
-          labels={WALLET_BIZ_LABELS}
+          labels={bizLabels}
           onChange={(value) => {
             setCurrent(1);
             setBizType(value);
@@ -154,7 +155,7 @@ export function WalletTransactions({initialUserID}: { initialUserID?: number }) 
                     <TableCell className="text-right font-mono text-muted-foreground tabular-nums">
                       {formatAmount(t.balance_after, decimals)}
                     </TableCell>
-                    <TableCell>{WALLET_BIZ_LABELS[t.biz_type] ?? t.biz_type}</TableCell>
+                    <TableCell>{bizLabels[t.biz_type] ?? t.biz_type}</TableCell>
                     <TableCell>
                       <Actor id={t.operator_id} username={t.operator_username} system />
                     </TableCell>

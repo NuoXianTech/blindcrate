@@ -31,6 +31,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -39,6 +40,26 @@ import (
 
 func init() {
 	settings.RegisterRef(RefCurrency, currencyOptions)
+	// 本模块和早期模块的业务类型, 新模块在自己的 init 中登记
+	for _, t := range []ledger.BizType{
+		{Code: BizAdminAdjust, Label: "管理员调整"},
+		{Code: BizItemSell, Label: "出售物品"},
+		{Code: BizItemSellFee, Label: "出售手续费"},
+		{Code: BizItemUseRefund, Label: "道具折现退还"},
+		{Code: BizSignupGrant, Label: "新手资金"},
+		{Code: BizMatchEntryFee, Label: "对局入场费"},
+		{Code: BizMatchCarryFreeze, Label: "冻结带入资金"},
+		{Code: BizMatchCarryRelease, Label: "解冻带入资金"},
+		{Code: BizMatchBidSettle, Label: "竞拍成交"},
+		{Code: BizMatchRefund, Label: "对局退还"},
+		{Code: BizMatchReward, Label: "竞拍所得"},
+		{Code: BizSeasonReward, Label: "赛季奖励"},
+		{Code: BizShopBuy, Label: "商城购买"},
+		{Code: BizShopGrant, Label: "商城获得"},
+		{Code: BizShopRefund, Label: "商城退款"},
+	} {
+		ledger.RegisterBizType(ledger.KindWallet, t.Code, t.Label)
+	}
 }
 
 // codePattern 货币代码, 小写字母、数字和下划线
@@ -135,6 +156,9 @@ func validateChange(req *ChangeRequest) error {
 	}
 	if len(req.BizType) > 32 || len(req.BizID) > 64 || len(req.IdempotencyKey) > 128 || utf8.RuneCountInString(req.Remark) > 255 {
 		return errors.New("wallet: biz_type, biz_id, idempotency_key or remark too long")
+	}
+	if !ledger.Registered(ledger.KindWallet, req.BizType) {
+		return errors.New("wallet: biz_type " + req.BizType + " not registered")
 	}
 	if req.Amount == 0 && req.FrozenAmount == 0 {
 		return errors.New(AmountInvalid)

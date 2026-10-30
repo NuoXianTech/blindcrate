@@ -27,6 +27,7 @@ package cmd
 import (
 	"log"
 
+	_ "github.com/NuoXianTech/blindcrate/internal/apps/all" // 执行各模块的登记
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/probe"
 	"github.com/NuoXianTech/blindcrate/internal/task/schedule"

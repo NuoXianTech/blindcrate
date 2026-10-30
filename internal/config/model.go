@@ -107,6 +107,9 @@ type scheduleConfig struct {
 	StatsCleanup  string `mapstructure:"stats_cleanup"`  // 清理过期的按天统计的 cron 表达式, 留空时不清理
 	SeasonSettle  string `mapstructure:"season_settle"`  // 给已结束的赛季发放赛季奖励的 cron 表达式, 留空时不发放
 	UploadCleanup string `mapstructure:"upload_cleanup"` // 清理没有被引用的上传图片的 cron 表达式, 留空时不清理
+
+	// Crons 按任务类型覆盖登记时的默认 cron 表达式, 如 mailbox:cleanup, 为空字符串时不定时投递, 见 task.Register
+	Crons map[string]string `mapstructure:"crons"`
 }
 
 // workerConfig 任务处理配置

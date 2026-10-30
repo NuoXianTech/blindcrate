@@ -66,6 +66,7 @@ schedule:
   stats_cleanup: "0 4 * * *" # delete day stats older than the retention in settings; leave empty to keep them
   season_settle: "*/5 * * * *" # grant season rewards after a season ends; leave empty to never grant them
   upload_cleanup: "30 4 * * *" # delete uploaded images no longer referenced after the retention in settings; leave empty to keep them
+  crons: {} # override the default cron of other tasks by type, e.g. "mailbox:cleanup": "0 5 * * *"; an empty string turns it off
 
 # Worker
 worker:

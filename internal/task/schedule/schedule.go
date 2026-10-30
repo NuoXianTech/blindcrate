@@ -78,38 +78,37 @@ func StartScheduler() error {
 			},
 		)
 
-		// 巡检到期未推进的对局和排队, 失败时等下一次巡检, 不重试
-		if _, err = scheduler.Register(config.Config.Schedule.MatchSweep, asynq.NewTask(task.TypeMatchSweep, nil), asynq.MaxRetry(0)); err != nil {
-			err = fmt.Errorf("register %s failed: %w", task.TypeMatchSweep, err)
-			return
-		}
-
-		// 清理过期的按天统计, 可以重复执行, 失败时重试几次; 未配置时不清理
-		if cron := config.Config.Schedule.StatsCleanup; cron == "" {
-			logger.WarnF(context.Background(), "[Scheduler] schedule.stats_cleanup is empty, day stats will not be cleaned up")
-		} else if _, err = scheduler.Register(cron, asynq.NewTask(task.TypeStatsCleanup, nil), asynq.Queue(task.QueueLow), asynq.MaxRetry(3)); err != nil {
-			err = fmt.Errorf("register %s failed: %w", task.TypeStatsCleanup, err)
-			return
-		}
-
-		// 发放赛季奖励, 可以重复执行, 失败时重试几次; 未配置时不发放
-		if cron := config.Config.Schedule.SeasonSettle; cron == "" {
-			logger.WarnF(context.Background(), "[Scheduler] schedule.season_settle is empty, season rewards will not be granted")
-		} else if _, err = scheduler.Register(cron, asynq.NewTask(task.TypeSeasonSettle, nil), asynq.Queue(task.QueueLow), asynq.MaxRetry(3)); err != nil {
-			err = fmt.Errorf("register %s failed: %w", task.TypeSeasonSettle, err)
-			return
-		}
-
-		// 删除没有被引用的上传图片, 可以重复执行, 失败时重试几次; 未配置时不清理
-		if cron := config.Config.Schedule.UploadCleanup; cron == "" {
-			logger.WarnF(context.Background(), "[Scheduler] schedule.upload_cleanup is empty, unused uploads will not be cleaned up")
-		} else if _, err = scheduler.Register(cron, asynq.NewTask(task.TypeUploadCleanup, nil), asynq.Queue(task.QueueLow), asynq.MaxRetry(3)); err != nil {
-			err = fmt.Errorf("register %s failed: %w", task.TypeUploadCleanup, err)
-			return
+		// 按登记的任务定时投递, 见 task.Register
+		for _, job := range task.Jobs() {
+			if err = registerJob(job); err != nil {
+				return
+			}
 		}
 
 		// 启动调度器
 		err = scheduler.Run()
 	})
 	return err
+}
+
+// registerJob 按 cron 定时投递一种任务; 没有 cron 时跳过, 必需的任务返回错误
+func registerJob(job task.Job) error {
+	spec := job.CronSpec()
+	if spec == "" {
+		if job.Required {
+			return fmt.Errorf("cron of %s is required", job.Type)
+		}
+		if job.Periodic {
+			logger.WarnF(context.Background(), "[Scheduler] cron of %s is empty, it will not be scheduled", job.Type)
+		}
+		return nil
+	}
+	opts := []asynq.Option{asynq.MaxRetry(job.MaxRetry)}
+	if job.Queue != "" {
+		opts = append(opts, asynq.Queue(job.Queue))
+	}
+	if _, err := scheduler.Register(spec, asynq.NewTask(job.Type, nil), opts...); err != nil {
+		return fmt.Errorf("register %s failed: %w", job.Type, err)
+	}
+	return nil
 }

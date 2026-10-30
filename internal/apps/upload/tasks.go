@@ -28,35 +28,53 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/storage"
+	"github.com/NuoXianTech/blindcrate/internal/task"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 )
 
-// references 保存图片地址的位置, 地址以存储 key 结尾的上传视为被引用; 新增保存图片地址的字段时在这里补上
+func init() {
+	// 删除没有被引用的上传图片, 可以重复执行, 失败时重试几次; 未配置时不清理
+	task.Register(task.Job{Type: task.TypeUploadCleanup, Handler: HandleCleanup, Cron: config.Config.Schedule.UploadCleanup, Periodic: true, Queue: task.QueueLow, MaxRetry: 3})
+}
+
+// references 保存图片地址的位置, 见 RegisterReference 和 RegisterJSONReference; 只在启动前写入
 //
 // 已软删除的行也算引用, 恢复后图片仍可用; 设置组按整个 JSON 查找, 如站点 Logo。
 var references = []string{
-	"SELECT 1 FROM users WHERE RIGHT(avatar_url, LENGTH(uploads.key)) = uploads.key",
-	"SELECT 1 FROM items WHERE RIGHT(image_url, LENGTH(uploads.key)) = uploads.key",
-	"SELECT 1 FROM venues WHERE RIGHT(image_url, LENGTH(uploads.key)) = uploads.key",
-	"SELECT 1 FROM shop_items WHERE RIGHT(image_url, LENGTH(uploads.key)) = uploads.key",
-	"SELECT 1 FROM settings WHERE STRPOS(value::text, uploads.key) > 0",
+	urlReference("users", "avatar_url"),
+	urlReference("items", "image_url"),
+	urlReference("venues", "image_url"),
+	urlReference("shop_items", "image_url"),
+	jsonReference("settings", "value"),
 }
 
-// unreferenced 没有被引用的条件
-var unreferenced = func() string {
+// urlReference 字段保存一个图片地址, 地址以存储 key 结尾的上传视为被引用
+func urlReference(table, column string) string {
+	return fmt.Sprintf("SELECT 1 FROM %s WHERE RIGHT(%s, LENGTH(uploads.key)) = uploads.key", table, column)
+}
+
+// jsonReference 字段为 JSON, 内容中出现存储 key 的上传视为被引用
+func jsonReference(table, column string) string {
+	return fmt.Sprintf("SELECT 1 FROM %s WHERE STRPOS(%s::text, uploads.key) > 0", table, column)
+}
+
+// unreferenced 没有被引用的条件, 在启动后第一次清理时生成
+var unreferenced = sync.OnceValue(func() string {
 	conds := make([]string, 0, len(references))
 	for _, ref := range references {
 		conds = append(conds, "NOT EXISTS ("+ref+")")
 	}
 	return strings.Join(conds, " AND ")
-}()
+})
 
 // HandleCleanup 删除上传后超过保留天数仍没有被引用的图片, 保留天数见 settings.UploadSettings
 //
@@ -76,7 +94,7 @@ func HandleCleanup(ctx context.Context, _ *asynq.Task) error {
 	var lastID uint64
 	for {
 		var candidates []Upload
-		if err := db.DB(ctx).Where("id > ? AND created_at < ? AND "+unreferenced, lastID, cutoff).
+		if err := db.DB(ctx).Where("id > ? AND created_at < ? AND "+unreferenced(), lastID, cutoff).
 			Order("id").Limit(cleanupBatch).Find(&candidates).Error; err != nil {
 			return err
 		}
@@ -107,7 +125,7 @@ func deleteUpload(ctx context.Context, store storage.Storage, upload *Upload, cu
 		if err := lockKey(tx, upload.Key); err != nil {
 			return err
 		}
-		result := tx.Where("id = ? AND created_at < ? AND "+unreferenced, upload.ID, cutoff).Delete(&Upload{})
+		result := tx.Where("id = ? AND created_at < ? AND "+unreferenced(), upload.ID, cutoff).Delete(&Upload{})
 		if result.Error != nil {
 			return result.Error
 		}

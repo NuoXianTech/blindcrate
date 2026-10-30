@@ -24,3 +24,9 @@ export interface WsMessage<T = unknown> {
   error_msg?: string;
   data?: T;
 }
+
+/** 后端登记的代码和名称, 如流水的业务类型、操作日志的操作类型 */
+export interface CodeLabel {
+  code: string;
+  label: string;
+}

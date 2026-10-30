@@ -33,7 +33,7 @@
 // 推送: 调用 SendToUser、SendToUsers 或 Broadcast, 消息经 Redis Pub/Sub 转发到连接所在的 API 实例,
 // 因此 worker 等其他进程也可以推送。推送不保证送达, 用户不在线或断线期间的消息直接丢弃, 客户端重连后需要重新拉取数据。
 //
-// 新增一种客户端消息: 在对应 app 的 ws.go 中实现 HandlerFunc, 并在 router.Serve 中调用 Handle 注册。
+// 新增一种客户端消息: 在对应 app 的 ws.go 中实现 HandlerFunc, 并在 app 的 init 中调用 Handle 注册。
 // 每个连接每秒最多把 messageRate 条消息交给处理函数, 超出的直接回复 ratelimit.TooManyRequests;
 // 需要按用户或更严格的限制时, 在处理函数中调用 ratelimit.Allow。
 package ws

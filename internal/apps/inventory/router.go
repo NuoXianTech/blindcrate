@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -239,4 +240,22 @@ func ListSellOrders(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListSellOrdersResponseData{Total: total, Orders: orders}})
+}
+
+// ListBizTypesResponseData 业务类型和名称
+type ListBizTypesResponseData struct {
+	BizTypes []ledger.BizType `json:"biz_types"`
+}
+
+// ListBizTypes
+// @Tags inventory
+// @Summary 获取背包流水的业务类型和名称
+// @Description 用于展示流水和筛选, 按登记顺序
+// @Produce json
+// @Success 200 {object} Response{data=ListBizTypesResponseData}
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Router /api/v1/inventory/biz-types [get]
+func ListBizTypes(c *gin.Context) {
+	c.JSON(http.StatusOK, Response{Data: ListBizTypesResponseData{BizTypes: ledger.BizTypes(ledger.KindInventory)}})
 }
