@@ -207,7 +207,7 @@ type MailSettings struct {
 
 // StatsSettings 数据统计
 type StatsSettings struct {
-	DayRetention int `json:"day_retention" label:"按天统计保留天数" help:"含今天, 更早的按天统计每天定时清理, 累计统计不受影响; 个人数据页展示最近 7 天, 因此不能少于 7 天" binding:"min=7,max=3650"`
+	DayRetention int `json:"day_retention" label:"按天统计保留天数" help:"含今天, 更早的按天统计每天定时清理, 按周统计保留到包含最早一天的那一周, 累计统计不受影响; 个人数据页展示最近 7 天, 因此不能少于 7 天" binding:"min=7,max=3650"`
 }
 
 // UploadSettings 图片上传: 头像、物品图片、地图封面和商品图片

@@ -41,6 +41,7 @@ import (
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/mailbox"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/match"
+	_ "github.com/NuoXianTech/blindcrate/internal/apps/mission"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/season"

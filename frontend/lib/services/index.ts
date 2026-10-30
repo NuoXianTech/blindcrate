@@ -5,6 +5,7 @@ import {InventoryService} from './inventory';
 import {LeaderboardService} from './leaderboard';
 import {MailboxAdminService, MailboxService} from './mailbox';
 import {MatchService} from './match';
+import {MissionAdminService, MissionService} from './mission';
 import {RankedService} from './ranked';
 import {SeasonService} from './season';
 import {ShopService} from './shop';
@@ -56,6 +57,8 @@ const services = {
   shop: ShopService,
   /** 游戏邮件 */
   mailbox: MailboxService,
+  /** 任务 */
+  mission: MissionService,
   /** 图片上传 */
   upload: UploadService,
   /** 仓库暗拍 */
@@ -64,6 +67,8 @@ const services = {
   admin: AdminService,
   /** 后台: 游戏邮件 */
   mailboxAdmin: MailboxAdminService,
+  /** 后台: 任务 */
+  missionAdmin: MissionAdminService,
 };
 
 export default services;

@@ -30,7 +30,7 @@ import "time"
 type Stat struct {
 	UserID    uint64    `gorm:"primaryKey;autoIncrement:false" json:"user_id"`
 	Scope     string    `gorm:"primaryKey;size:64;index:idx_stats_board,priority:1" json:"scope"`           // 统计范围, 如 all、mode:ranked、venue:dock
-	Period    string    `gorm:"primaryKey;size:32;index:idx_stats_board,priority:2" json:"period"`          // 统计周期, 如 total、day:2026-10-28
+	Period    string    `gorm:"primaryKey;size:32;index:idx_stats_board,priority:2" json:"period"`          // 统计周期, 如 total、day:2026-10-28、week:2026-W44
 	Metric    string    `gorm:"primaryKey;size:64;index:idx_stats_board,priority:3" json:"metric"`          // 指标, 如 matches、profit:chip
 	Value     int64     `gorm:"not null;default:0;index:idx_stats_board,priority:4,sort:desc" json:"value"` // 累计值, 金额按最小单位计, 可以为负
 	CreatedAt time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`

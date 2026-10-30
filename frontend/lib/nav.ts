@@ -3,6 +3,7 @@ import {
   Backpack,
   CalendarRange,
   ChartColumn,
+  ClipboardList,
   Coins,
   Dices,
   Gem,
@@ -54,6 +55,7 @@ export interface NavGroup {
 /** 玩家页面, 按 dock 中的顺序 */
 export const PLAYER_NAV: NavEntry[] = [
   {title: '大厅', icon: Gamepad2, href: ROUTES.gameHome, exact: true},
+  {title: '任务', icon: ClipboardList, href: ROUTES.missions},
   {title: '战绩', icon: History, href: ROUTES.matches},
   {title: '背包', icon: Backpack, href: ROUTES.inventory},
   {title: '商城', icon: Store, href: ROUTES.shop},
@@ -96,6 +98,7 @@ export const ADMIN_NAV: NavGroup[] = [
     label: '运营',
     entries: [
       {title: '游戏邮件', icon: Mails, href: ROUTES.adminMails},
+      {title: '任务管理', icon: ClipboardList, href: ROUTES.adminMissions},
     ],
   },
   {

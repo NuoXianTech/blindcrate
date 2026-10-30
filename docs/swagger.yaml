@@ -2409,6 +2409,210 @@ definitions:
       error_msg:
         type: string
     type: object
+  mission.ClaimResult:
+    properties:
+      received:
+        description: 实际得到的货币和物品, 已下架的物品按回收价折成了货币
+        items:
+          $ref: '#/definitions/reward.Line'
+        type: array
+    type: object
+  mission.Cycle:
+    properties:
+      code:
+        type: string
+      label:
+        description: 每日、每周或成就
+        type: string
+    type: object
+  mission.GroupView:
+    properties:
+      cycle:
+        type: string
+      label:
+        description: 每日、每周或成就
+        type: string
+      missions:
+        items:
+          $ref: '#/definitions/mission.MissionView'
+        type: array
+      resets_at:
+        description: 下次重置的时间, 成就为空
+        type: string
+    type: object
+  mission.Mission:
+    properties:
+      code:
+        description: 自然键, 创建后不能修改
+        type: string
+      created_at:
+        type: string
+      cycle:
+        description: daily、weekly 或 once
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_enabled:
+        description: 停用后玩家看不到, 也不能领取
+        type: boolean
+      metric:
+        description: 统计指标, 如 matches、profit:chip
+        type: string
+      name:
+        type: string
+      requirements:
+        description: 领取条件, 需要全部满足
+        items:
+          $ref: '#/definitions/condition.Condition'
+        type: array
+      reward:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 数量为正数, 不能为空
+      scope:
+        description: 统计范围, 如 all、mode:ranked、venue:dock
+        type: string
+      sort_order:
+        description: 同一周期内从小到大排列
+        type: integer
+      target:
+        description: 指标达到这个值时完成
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  mission.MissionView:
+    properties:
+      claimable:
+        description: 已完成、满足条件且未领取
+        type: boolean
+      claimed:
+        description: 当前周期已领取
+        type: boolean
+      code:
+        type: string
+      currency:
+        description: 净收益指标的货币, 进度和目标按它的最小单位计; 计数指标为空
+        type: string
+      cycle:
+        type: string
+      decimals:
+        description: 货币的展示小数位, 计数指标为 0
+        type: integer
+      description:
+        type: string
+      eligible:
+        description: 满足全部任务条件
+        type: boolean
+      name:
+        type: string
+      progress:
+        description: 当前周期的指标值, 净收益可以为负
+        type: integer
+      requirements:
+        description: 每个任务条件的达成情况
+        items:
+          $ref: '#/definitions/condition.Progress'
+        type: array
+      reward:
+        items:
+          $ref: '#/definitions/reward.Line'
+        type: array
+      target:
+        type: integer
+    type: object
+  mission.MissionsData:
+    properties:
+      claimable:
+        description: 可以领取的任务数
+        type: integer
+      groups:
+        description: 按每日、每周、成就排列, 没有任务的周期也返回
+        items:
+          $ref: '#/definitions/mission.GroupView'
+        type: array
+    type: object
+  mission.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
+  missionadmin.ListMissionOptionsResponseData:
+    properties:
+      cycles:
+        items:
+          $ref: '#/definitions/mission.Cycle'
+        type: array
+      metrics:
+        description: 已注册的计数指标和每种货币的净收益
+        items:
+          $ref: '#/definitions/github_com_NuoXianTech_blindcrate_internal_apps_stats.Metric'
+        type: array
+    type: object
+  missionadmin.ListMissionsResponseData:
+    properties:
+      missions:
+        items:
+          $ref: '#/definitions/mission.Mission'
+        type: array
+      total:
+        type: integer
+    type: object
+  missionadmin.MissionRequest:
+    properties:
+      code:
+        description: 小写字母、数字和下划线, 创建后不能修改
+        maxLength: 32
+        type: string
+      cycle:
+        description: daily、weekly 或 once
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      is_enabled:
+        type: boolean
+      metric:
+        description: 统计指标, 见可以选择的指标
+        type: string
+      name:
+        maxLength: 64
+        type: string
+      requirements:
+        description: 领取条件, 需要全部满足
+        items:
+          $ref: '#/definitions/condition.Condition'
+        type: array
+      reward:
+        allOf:
+        - $ref: '#/definitions/reward.Bundle'
+        description: 数量为正数, 不能为空
+      scope:
+        description: 统计范围, 如 all、mode:ranked、venue:dock
+        type: string
+      sort_order:
+        maximum: 1000000
+        minimum: -1000000
+        type: integer
+      target:
+        description: 1-1000000000000
+        type: integer
+    required:
+    - code
+    - cycle
+    - metric
+    - name
+    - scope
+    type: object
+  missionadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
   pack.ExportPackRequest:
     properties:
       author:
@@ -5800,6 +6004,227 @@ paths:
           schema:
             $ref: '#/definitions/matchadmin.Response'
       summary: 取消进行中的对局
+      tags:
+      - admin
+  /api/v1/admin/missions:
+    get:
+      description: 按周期、排序值和 ID 排列, 不含已删除的任务
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: 按周期筛选, 为空时不筛选
+        in: query
+        maxLength: 16
+        name: cycle
+        type: string
+      - in: query
+        name: is_enabled
+        type: boolean
+      - description: 按代码或名称搜索, 不区分大小写
+        in: query
+        maxLength: 64
+        name: keyword
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/missionadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/missionadmin.ListMissionsResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+      summary: 获取任务列表
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/missionadmin.MissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/missionadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mission.Mission'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+      summary: 新建任务
+      tags:
+      - admin
+  /api/v1/admin/missions/{id}:
+    delete:
+      description: 软删除, 代码不能再被新任务使用; 已领取的奖励不收回
+      parameters:
+      - description: mission id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+      summary: 删除任务
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: 需提交全部字段, 代码和周期不能修改; 修改目标后, 本周期已领取的不受影响
+      parameters:
+      - description: mission id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/missionadmin.MissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/missionadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mission.Mission'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+      summary: 修改任务
+      tags:
+      - admin
+  /api/v1/admin/missions/options:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/missionadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/missionadmin.ListMissionOptionsResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/missionadmin.Response'
+      summary: 获取任务可以选择的周期和指标
       tags:
       - admin
   /api/v1/admin/packs/export:
@@ -9485,6 +9910,80 @@ paths:
       summary: 加入匹配队列
       tags:
       - match
+  /api/v1/missions:
+    get:
+      description: 启用的任务按每日、每周、成就分组, 每项带当前周期的进度和领取情况; 不满足任务条件的也返回, 见 requirements
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mission.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mission.MissionsData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mission.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mission.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mission.Response'
+      summary: 获取任务
+      tags:
+      - mission
+  /api/v1/missions/{code}/claim:
+    post:
+      description: 进度达到目标且满足任务条件时领取当前周期的奖励; 已下架的物品按回收价折成货币发放。不满足条件或奖励暂时无法发放时返回 403
+      parameters:
+      - description: mission code
+        in: path
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/mission.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/mission.ClaimResult'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mission.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mission.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mission.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/mission.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mission.Response'
+      summary: 领取任务奖励
+      tags:
+      - mission
   /api/v1/qualities:
     get:
       description: 按排序值排列, 无需登录; 前端用来展示品质的名称和颜色
