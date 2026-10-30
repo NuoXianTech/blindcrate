@@ -410,6 +410,7 @@ func Serve() {
 				// Pack
 				packAdminRouter := adminRouter.Group("/packs")
 				{
+					packAdminRouter.GET("/sections", pack.ListPackSections)
 					packAdminRouter.POST("/export", ratelimit.ByUser("admin:pack_export", ratelimit.PerMinute(10)), pack.ExportPack)
 					packAdminRouter.POST("/preview", ratelimit.ByUser("admin:pack_import", ratelimit.PerMinute(20)), pack.PreviewPack)
 					packAdminRouter.POST("/import", ratelimit.ByUser("admin:pack_import", ratelimit.PerMinute(20)), pack.ImportPack)

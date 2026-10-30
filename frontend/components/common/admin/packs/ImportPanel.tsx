@@ -24,7 +24,8 @@ import type {PackAction, PackActionType, PackEntryResult, PackImport, PackPrevie
 import {ApiError} from '@/lib/services/core';
 import {formatDateTime} from '@/lib/utils';
 import {PackEntriesTable} from './PackEntriesTable';
-import {ACTION_LABELS, MAX_PACK_SIZE, RENAMABLE, SECTION_LABELS, STATUS_LABELS, entryID, formatSize} from './constants';
+import {ACTION_LABELS, MAX_PACK_SIZE, STATUS_LABELS, entryID, formatSize} from './constants';
+import {sectionLabel, usePackSections} from './use-pack-sections';
 
 /** 一项配置选择的处理方式 */
 interface Choice {
@@ -40,6 +41,7 @@ const DEFAULT_CHOICE: Choice = {action: 'overwrite', code: ''};
  */
 export function ImportPanel({onImported}: { onImported: (record: PackImport) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const {sections} = usePackSections();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PackPreview | null>(null);
   const [choices, setChoices] = useState<Record<string, Choice>>({});
@@ -116,7 +118,7 @@ export function ImportPanel({onImported}: { onImported: (record: PackImport) => 
 
   const renderAction = (e: PackEntryResult) => {
     const choice = choices[entryID(e)] ?? DEFAULT_CHOICE;
-    const renamable = RENAMABLE.includes(e.section);
+    const renamable = sections.some((s) => s.code === e.section && s.renamable);
     return (
       <div className="flex items-center gap-2">
         <Select value={choice.action} onValueChange={(action) => choose(e, {action: action as PackActionType})} disabled={pending}>
@@ -155,7 +157,7 @@ export function ImportPanel({onImported}: { onImported: (record: PackImport) => 
     {label: '导出时间', value: formatDateTime(manifest.exported_at)},
     {label: '格式版本', value: String(manifest.version)},
     {label: '大小', value: formatSize(preview.size)},
-    {label: '配置种类', value: manifest.sections.map((s) => SECTION_LABELS[s] ?? s).join('、')},
+    {label: '配置种类', value: manifest.sections.map((s) => sectionLabel(sections, s)).join('、')},
   ] : [];
 
   return (

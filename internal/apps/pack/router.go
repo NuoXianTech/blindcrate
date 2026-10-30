@@ -50,7 +50,20 @@ type Response struct {
 type ExportPackRequest struct {
 	Name     string   `json:"name" binding:"required,max=64"` // 配置包的名称
 	Author   string   `json:"author" binding:"max=64"`
-	Sections []string `json:"sections" binding:"required,min=1,max=8"` // 导出的配置种类: currencies、qualities、items、loot_pools、venues、shop_items、leaderboards、settings
+	Sections []string `json:"sections" binding:"required,min=1,max=32"` // 导出的配置种类, 见 GET /admin/packs/sections
+}
+
+// ListPackSections
+// @Tags admin
+// @Summary 获取配置种类
+// @Description 按依赖顺序排列, 导入时也按这个顺序写入; renamable 为是否可以改名导入
+// @Produce json
+// @Success 200 {object} Response{data=[]SectionView}
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Router /api/v1/admin/packs/sections [get]
+func ListPackSections(c *gin.Context) {
+	c.JSON(http.StatusOK, Response{Data: Sections()})
 }
 
 // ExportPack

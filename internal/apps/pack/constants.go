@@ -43,7 +43,7 @@ const (
 	packFormOverhead = 1 << 20  // 上传表单中除文件以外的部分
 )
 
-// 配置的种类, 也是包中的文件名(加上 .json)
+// 内置的配置种类, 也是包中的文件名(加上 .json)
 const (
 	PackCurrencies   = "currencies"
 	PackQualities    = "qualities"
@@ -55,20 +55,17 @@ const (
 	PackSettings     = "settings" // 只有游戏分类的设置组, 不含密钥字段
 )
 
-// packSections 全部配置种类, 按依赖排列, 导入时按这个顺序写入
-var packSections = []string{PackCurrencies, PackQualities, PackItems, PackLootPools, PackVenues, PackShopItems, PackLeaderboards, PackSettings}
-
-// packSectionLabels 配置种类的名称, 用于提示
-var packSectionLabels = map[string]string{
-	PackCurrencies:   "货币",
-	PackQualities:    "品质",
-	PackItems:        "物品",
-	PackLootPools:    "掉落池",
-	PackVenues:       "地图",
-	PackShopItems:    "商品",
-	PackLeaderboards: "榜单",
-	PackSettings:     "设置",
-}
+// 内置配置种类的依赖顺序, 见 Section.Order; 其他模块按引用关系选择中间的值, 如引用物品和地图的配置用 55
+const (
+	OrderCurrencies   = 10
+	OrderQualities    = 20
+	OrderItems        = 30
+	OrderLootPools    = 40
+	OrderVenues       = 50
+	OrderShopItems    = 60
+	OrderLeaderboards = 70
+	OrderSettings     = 1000 // 设置排在最后
+)
 
 // 导入时一项配置与已有配置的比较结果
 const (
@@ -82,5 +79,5 @@ const (
 const (
 	PackActionOverwrite = "overwrite" // 新增, 或覆盖对应的配置; 没有指定处理方式时的默认值
 	PackActionSkip      = "skip"      // 跳过, 不导入
-	PackActionRename    = "rename"    // 以新的代码导入, 包中引用它的配置一起改为新代码; 只有掉落池、地图、商品和榜单可以改名
+	PackActionRename    = "rename"    // 以新的代码导入, 包中引用它的配置一起改为新代码; 只有 Section.Renamable 的配置种类可以改名
 )

@@ -11,7 +11,8 @@ import {SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {PackSection} from '@/lib/services/admin';
-import {MAX_NAME_LENGTH, SECTIONS, SECTION_HINTS, SECTION_LABELS, formatSize} from './constants';
+import {MAX_NAME_LENGTH, formatSize} from './constants';
+import {usePackSections} from './use-pack-sections';
 
 /**
  * 导出配置包: 填写名称和作者, 选择配置种类后下载 zip
@@ -19,12 +20,16 @@ import {MAX_NAME_LENGTH, SECTIONS, SECTION_HINTS, SECTION_LABELS, formatSize} fr
 export function ExportPanel() {
   const [name, setName] = useState('');
   const [author, setAuthor] = useState('');
-  const [sections, setSections] = useState<PackSection[]>(SECTIONS);
+  const {sections: all} = usePackSections();
+  const codes = all.map((s) => s.code);
+  // 没有改动过时选中全部种类
+  const [selected, setSelected] = useState<PackSection[] | null>(null);
+  const sections = selected ?? codes;
   const {pending, submit} = useSubmit();
 
   const toggle = (section: PackSection, on: boolean) => {
     // 保持依赖顺序
-    setSections((prev) => SECTIONS.filter((s) => (s === section ? on : prev.includes(s))));
+    setSelected(codes.filter((s) => (s === section ? on : sections.includes(s))));
   };
 
   const handleSubmit = submit(async () => {
@@ -75,18 +80,18 @@ export function ExportPanel() {
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => setSections(sections.length === SECTIONS.length ? [] : SECTIONS)}
-            disabled={pending}
+            onClick={() => setSelected(sections.length === codes.length ? [] : codes)}
+            disabled={pending || !codes.length}
           >
-            {sections.length === SECTIONS.length ? '全不选' : '全选'}
+            {sections.length === codes.length ? '全不选' : '全选'}
           </Button>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          {SECTIONS.map((s) => (
+          {all.map(({code: s, label, hint}) => (
             <div key={s} className="flex items-center justify-between gap-4 rounded-lg border p-3">
               <div className="flex flex-col gap-0.5">
-                <Label htmlFor={`pack-section-${s}`}>{SECTION_LABELS[s]}</Label>
-                <span className="text-xs text-muted-foreground">{SECTION_HINTS[s]}</span>
+                <Label htmlFor={`pack-section-${s}`}>{label}</Label>
+                <span className="text-xs text-muted-foreground">{hint}</span>
               </div>
               <Switch
                 id={`pack-section-${s}`}
