@@ -2120,10 +2120,10 @@ definitions:
         maxLength: 64
         type: string
       sections:
-        description: '导出的配置种类: currencies、qualities、items、loot_pools、venues、shop_items、leaderboards、settings'
+        description: 导出的配置种类, 见 GET /admin/packs/sections
         items:
           type: string
-        maxItems: 8
+        maxItems: 32
         minItems: 1
         type: array
     required:
@@ -2194,7 +2194,7 @@ definitions:
         description: 无法导入的原因
         type: string
       section:
-        description: 配置种类, 见 Pack 开头的常量
+        description: 配置种类, 见 RegisterSection
         type: string
       status:
         description: 见 PackStatus 开头的常量, 跳过的项为与已有配置比较的结果
@@ -2212,7 +2212,7 @@ definitions:
       name:
         type: string
       sections:
-        description: 包含的配置种类, 见 Pack 开头的常量
+        description: 包含的配置种类, 见 RegisterSection
         items:
           type: string
         type: array
@@ -2239,6 +2239,17 @@ definitions:
       data: {}
       error_msg:
         type: string
+    type: object
+  pack.SectionView:
+    properties:
+      code:
+        type: string
+      hint:
+        type: string
+      label:
+        type: string
+      renamable:
+        type: boolean
     type: object
   ranked.ListTiersResponseData:
     properties:
@@ -5482,6 +5493,34 @@ paths:
           schema:
             $ref: '#/definitions/pack.Response'
       summary: 预览配置包
+      tags:
+      - admin
+  /api/v1/admin/packs/sections:
+    get:
+      description: 按依赖顺序排列, 导入时也按这个顺序写入; renamable 为是否可以改名导入
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/pack.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/pack.SectionView'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/pack.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/pack.Response'
+      summary: 获取配置种类
       tags:
       - admin
   /api/v1/admin/qualities:

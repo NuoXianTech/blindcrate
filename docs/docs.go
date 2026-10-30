@@ -2438,6 +2438,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/packs/sections": {
+            "get": {
+                "description": "按依赖顺序排列, 导入时也按这个顺序写入; renamable 为是否可以改名导入",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取配置种类",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/pack.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/pack.SectionView"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/pack.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/pack.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/qualities": {
             "get": {
                 "description": "按排序值排列, 带上使用每个品质的物品数",
@@ -11460,9 +11507,9 @@ const docTemplate = `{
                     "maxLength": 64
                 },
                 "sections": {
-                    "description": "导出的配置种类: currencies、qualities、items、loot_pools、venues、shop_items、leaderboards、settings",
+                    "description": "导出的配置种类, 见 GET /admin/packs/sections",
                     "type": "array",
-                    "maxItems": 8,
+                    "maxItems": 32,
                     "minItems": 1,
                     "items": {
                         "type": "string"
@@ -11560,7 +11607,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "section": {
-                    "description": "配置种类, 见 Pack 开头的常量",
+                    "description": "配置种类, 见 RegisterSection",
                     "type": "string"
                 },
                 "status": {
@@ -11586,7 +11633,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "sections": {
-                    "description": "包含的配置种类, 见 Pack 开头的常量",
+                    "description": "包含的配置种类, 见 RegisterSection",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -11625,6 +11672,23 @@ const docTemplate = `{
                 "data": {},
                 "error_msg": {
                     "type": "string"
+                }
+            }
+        },
+        "pack.SectionView": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "hint": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "renamable": {
+                    "type": "boolean"
                 }
             }
         },

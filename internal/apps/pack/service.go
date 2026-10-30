@@ -38,34 +38,19 @@ import (
 	"io/fs"
 	"reflect"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
-	"github.com/NuoXianTech/blindcrate/internal/apps/item"
-	"github.com/NuoXianTech/blindcrate/internal/apps/item/itemadmin"
-	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
-	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard/leaderboardadmin"
-	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
-	"github.com/NuoXianTech/blindcrate/internal/apps/loot/lootadmin"
-	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
-	"github.com/NuoXianTech/blindcrate/internal/apps/shop"
-	"github.com/NuoXianTech/blindcrate/internal/apps/shop/shopadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
-	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
-	"github.com/NuoXianTech/blindcrate/internal/apps/venue/venueadmin"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet/walletadmin"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/storage"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // PackManifest 配置包的说明, 即包中的 manifest.json
@@ -75,12 +60,12 @@ type PackManifest struct {
 	Name       string    `json:"name"`
 	Author     string    `json:"author"`
 	ExportedAt time.Time `json:"exported_at"`
-	Sections   []string  `json:"sections"` // 包含的配置种类, 见 Pack 开头的常量
+	Sections   []string  `json:"sections"` // 包含的配置种类, 见 RegisterSection
 }
 
 // PackEntryResult 配置包中一项配置的比较或导入结果
 type PackEntryResult struct {
-	Section string `json:"section"`          // 配置种类, 见 Pack 开头的常量
+	Section string `json:"section"`          // 配置种类, 见 RegisterSection
 	Key     string `json:"key"`              // 包中的代码, 品质为等级, 物品为 ID, 设置为设置组的 key
 	Name    string `json:"name"`             // 包中的名称
 	Status  string `json:"status"`           // 见 PackStatus 开头的常量, 跳过的项为与已有配置比较的结果
@@ -106,49 +91,14 @@ type PackPreview struct {
 }
 
 // 包中每种配置的一项, 字段与后台保存时提交的内容相同; 品质、地图、商品和榜单直接使用保存时的请求
-type (
-	packCurrency struct {
-		Code string `json:"code" binding:"required,max=32"`
-		walletadmin.CurrencyRequest
-	}
-	packItem struct {
-		ID uint64 `json:"id" binding:"required"` // 物品以 ID 对应, 导入时沿用
-		itemadmin.ItemRequest
-	}
-	packLootPool struct {
-		lootadmin.LootPoolRequest
-		Entries []lootadmin.LootPoolEntryRequest `json:"entries" binding:"dive"`
-	}
-)
 
-// pack 读取后的配置包, 没有包含的配置种类为空
+// pack 读取后的配置包
 type pack struct {
-	manifest     PackManifest
-	digest       string
-	size         int64
-	currencies   []packCurrency
-	qualities    []itemadmin.CreateQualityRequest
-	items        []packItem
-	lootPools    []packLootPool
-	venues       []venueadmin.VenueRequest
-	shopItems    []shopadmin.ShopItemRequest
-	leaderboards []leaderboardadmin.LeaderboardRequest
-	settings     map[string]json.RawMessage // 按设置组的 key
-	images       map[string]*zip.File       // 按包中的路径, 如 images/item/ab/abcd.png
-}
-
-// sectionTargets 每种配置解析到的位置
-func (p *pack) sectionTargets() map[string]any {
-	return map[string]any{
-		PackCurrencies:   &p.currencies,
-		PackQualities:    &p.qualities,
-		PackItems:        &p.items,
-		PackLootPools:    &p.lootPools,
-		PackVenues:       &p.venues,
-		PackShopItems:    &p.shopItems,
-		PackLeaderboards: &p.leaderboards,
-		PackSettings:     &p.settings,
-	}
+	manifest PackManifest
+	digest   string
+	size     int64
+	contents map[string]Content   // 按配置种类, 只有 manifest 中列出的种类
+	images   map[string]*zip.File // 按包中的路径, 如 images/item/ab/abcd.png
 }
 
 // PackError 配置包或处理方式不符合要求, 可以直接展示
@@ -174,9 +124,6 @@ const packSavePoint = "pack_entry"
 // errPackRollback 预览结束后回滚事务
 var errPackRollback = errors.New("pack preview rollback")
 
-// packRenamable 可以改名导入的配置种类, 其余种类的代码或 ID 被别处直接引用, 或者不能修改
-var packRenamable = []string{PackLootPools, PackVenues, PackShopItems, PackLeaderboards}
-
 // checkPackNames 去掉配置包名称和作者首尾的空白并校验
 func checkPackNames(name, author string) (string, string, error) {
 	name, author = strings.TrimSpace(name), strings.TrimSpace(author)
@@ -192,14 +139,14 @@ func orderPackSections(sections []string) ([]string, error) {
 		return nil, packErrorf(PackSectionsRequired)
 	}
 	for _, section := range sections {
-		if !slices.Contains(packSections, section) {
+		if sectionOf(section) == nil {
 			return nil, packErrorf(PackSectionInvalid, section)
 		}
 	}
 	ordered := make([]string, 0, len(sections))
-	for _, section := range packSections {
-		if slices.Contains(sections, section) {
-			ordered = append(ordered, section)
+	for _, section := range sectionList() {
+		if slices.Contains(sections, section.Code) {
+			ordered = append(ordered, section.Code)
 		}
 	}
 	return ordered, nil
@@ -211,130 +158,6 @@ func packImage(url string) string {
 		return packImageDir + key
 	}
 	return url
-}
-
-// utcMinute 时间去掉秒并转为 UTC, 包中的时间与已有配置按这个格式比较
-func utcMinute(t *time.Time) *time.Time {
-	if t == nil {
-		return nil
-	}
-	utc := t.UTC().Truncate(time.Minute)
-	return &utc
-}
-
-func currencyPack(c *wallet.Currency) packCurrency {
-	return packCurrency{Code: c.Code, CurrencyRequest: walletadmin.CurrencyRequest{
-		Name:      c.Name,
-		Decimals:  c.Decimals,
-		SortOrder: c.SortOrder,
-		IsEnabled: c.IsEnabled,
-	}}
-}
-
-func qualityPack(q *item.Quality) itemadmin.CreateQualityRequest {
-	return itemadmin.CreateQualityRequest{Level: q.Level, Code: q.Code, QualityRequest: itemadmin.QualityRequest{
-		Name:      q.Name,
-		Color:     q.Color,
-		Effect:    q.Effect,
-		ScanMs:    q.ScanMs,
-		SortOrder: q.SortOrder,
-	}}
-}
-
-func itemPack(it *item.Item, image func(string) string) packItem {
-	return packItem{ID: it.ID, ItemRequest: itemadmin.ItemRequest{
-		Code:         it.Code,
-		Name:         it.Name,
-		Description:  it.Description,
-		Quality:      it.Quality,
-		Category:     it.Category,
-		ImageURL:     image(it.ImageURL),
-		SellCurrency: it.SellCurrency,
-		SellPrice:    it.SellPrice,
-		Width:        it.Width,
-		Height:       it.Height,
-		Effect:       it.Effect,
-		EffectParams: it.EffectParams,
-		IsEnabled:    it.IsEnabled,
-	}}
-}
-
-func lootPoolPack(pool *loot.Pool, entries []loot.Entry) packLootPool {
-	result := packLootPool{
-		LootPoolRequest: lootadmin.LootPoolRequest{Code: pool.Code, Name: pool.Name, Description: pool.Description, IsEnabled: pool.IsEnabled},
-		Entries:         make([]lootadmin.LootPoolEntryRequest, len(entries)),
-	}
-	for i, entry := range entries {
-		result.Entries[i] = lootadmin.LootPoolEntryRequest{
-			ItemID:      entry.ItemID,
-			Currency:    entry.Currency,
-			Weight:      entry.Weight,
-			MinQuantity: entry.MinQuantity,
-			MaxQuantity: entry.MaxQuantity,
-		}
-	}
-	return result
-}
-
-func venuePack(v *venue.Venue, image func(string) string) venueadmin.VenueRequest {
-	return venueadmin.VenueRequest{
-		Code:          v.Code,
-		Name:          v.Name,
-		Description:   v.Description,
-		ImageURL:      image(v.ImageURL),
-		SortOrder:     v.SortOrder,
-		IsEnabled:     v.IsEnabled,
-		PveEnabled:    v.PveEnabled,
-		RankedEnabled: v.RankedEnabled,
-		BidCurrency:   v.BidCurrency,
-		EntryCost:     v.EntryCost,
-		Requirements:  v.Requirements,
-		Warehouse:     v.Warehouse,
-		Auction:       v.Auction,
-		Bots:          v.Bots,
-		Pve:           v.Pve,
-		Consumables:   v.Consumables,
-	}
-}
-
-func shopItemPack(it *shop.Item, image func(string) string) shopadmin.ShopItemRequest {
-	return shopadmin.ShopItemRequest{
-		Code:          it.Code,
-		Name:          it.Name,
-		Description:   it.Description,
-		ImageURL:      image(it.ImageURL),
-		Tab:           it.Tab,
-		SortOrder:     it.SortOrder,
-		IsEnabled:     it.IsEnabled,
-		Goods:         it.Goods,
-		Price:         it.Price,
-		OriginalPrice: it.OriginalPrice,
-		Requirements:  it.Requirements,
-		Limits:        it.Limits,
-		Stock:         it.Stock,
-		StartsAt:      utcMinute(it.StartsAt),
-		EndsAt:        utcMinute(it.EndsAt),
-	}
-}
-
-func leaderboardPack(b *leaderboard.Board) leaderboardadmin.LeaderboardRequest {
-	return leaderboardadmin.LeaderboardRequest{
-		Code:        b.Code,
-		Name:        b.Name,
-		Description: b.Description,
-		Metric:      b.Metric,
-		Scope:       b.Scope,
-		Period:      b.Period,
-		Size:        b.Size,
-		MinMatches:  b.MinMatches,
-		SortOrder:   b.SortOrder,
-		IsEnabled:   b.IsEnabled,
-	}
-}
-
-// liveLootEntries 掉落池中的条目, 不含已删除物品的条目; 这些条目不参与抽取, 也不导出, 否则导入时找不到物品
-func liveLootEntries(tx *gorm.DB) *gorm.DB {
-	return tx.Where("item_id = 0 OR item_id IN (?)", tx.Session(&gorm.Session{NewDB: true}).Model(&item.Item{}).Select("id"))
 }
 
 // packExporter 导出时收集引用到的上传图片
@@ -411,103 +234,15 @@ func doExportPack(ctx context.Context, req *ExportPackRequest) ([]byte, map[stri
 	counts := map[string]int{}
 	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, section := range sections {
-			var (
-				value any
-				count int
-			)
-			switch section {
-			case PackCurrencies:
-				var rows []wallet.Currency
-				if err := tx.Order("sort_order, code").Find(&rows).Error; err != nil {
-					return err
-				}
-				list := make([]packCurrency, len(rows))
-				for i := range rows {
-					list[i] = currencyPack(&rows[i])
-				}
-				value, count = list, len(list)
-			case PackQualities:
-				var rows []item.Quality
-				if err := tx.Order("level").Find(&rows).Error; err != nil {
-					return err
-				}
-				list := make([]itemadmin.CreateQualityRequest, len(rows))
-				for i := range rows {
-					list[i] = qualityPack(&rows[i])
-				}
-				value, count = list, len(list)
-			case PackItems:
-				var rows []item.Item
-				if err := tx.Order("id").Find(&rows).Error; err != nil {
-					return err
-				}
-				list := make([]packItem, len(rows))
-				for i := range rows {
-					list[i] = itemPack(&rows[i], ex.image)
-				}
-				value, count = list, len(list)
-			case PackLootPools:
-				var (
-					rows    []loot.Pool
-					entries []loot.Entry
-				)
-				if err := tx.Order("id").Find(&rows).Error; err != nil {
-					return err
-				}
-				if err := liveLootEntries(tx).Order("pool_id, id").Find(&entries).Error; err != nil {
-					return err
-				}
-				byPool := map[uint64][]loot.Entry{}
-				for _, entry := range entries {
-					byPool[entry.PoolID] = append(byPool[entry.PoolID], entry)
-				}
-				list := make([]packLootPool, len(rows))
-				for i := range rows {
-					list[i] = lootPoolPack(&rows[i], byPool[rows[i].ID])
-				}
-				value, count = list, len(list)
-			case PackVenues:
-				var rows []venue.Venue
-				if err := tx.Order("sort_order, id").Find(&rows).Error; err != nil {
-					return err
-				}
-				list := make([]venueadmin.VenueRequest, len(rows))
-				for i := range rows {
-					list[i] = venuePack(&rows[i], ex.image)
-				}
-				value, count = list, len(list)
-			case PackShopItems:
-				var rows []shop.Item
-				if err := tx.Order("sort_order, id").Find(&rows).Error; err != nil {
-					return err
-				}
-				list := make([]shopadmin.ShopItemRequest, len(rows))
-				for i := range rows {
-					list[i] = shopItemPack(&rows[i], ex.image)
-				}
-				value, count = list, len(list)
-			case PackLeaderboards:
-				var rows []leaderboard.Board
-				if err := tx.Order("sort_order, id").Find(&rows).Error; err != nil {
-					return err
-				}
-				list := make([]leaderboardadmin.LeaderboardRequest, len(rows))
-				for i := range rows {
-					list[i] = leaderboardPack(&rows[i])
-				}
-				value, count = list, len(list)
-			case PackSettings:
-				values, err := settings.ExportValues(ctx)
-				if err != nil {
-					return err
-				}
-				value, count = values, len(values)
+			value, count, err := sectionOf(section).Export(ctx, tx, ex.image)
+			if err != nil {
+				return err
 			}
 			if ex.err != nil {
 				return ex.err
 			}
 			if count > maxPackEntries {
-				return packErrorf(PackTooMany, packSectionLabels[section], maxPackEntries)
+				return packErrorf(PackTooMany, sectionLabel(section), maxPackEntries)
 			}
 			files[section], counts[section] = value, count
 		}
@@ -663,39 +398,22 @@ func readPack(data []byte) (*pack, error) {
 			return nil, err
 		}
 	}
-	targets := p.sectionTargets()
+	p.contents = make(map[string]Content, len(p.manifest.Sections))
 	for _, section := range p.manifest.Sections {
-		target := targets[section]
-		if err := decodePackJSON(raws[section], target); err != nil {
+		content, err := sectionOf(section).Decode(raws[section])
+		if err != nil {
 			return nil, packErrorf(PackFileInvalid, section+".json")
 		}
-		if reflect.ValueOf(target).Elem().Len() > maxPackEntries {
-			return nil, packErrorf(PackTooMany, packSectionLabels[section], maxPackEntries)
+		if content.Len() > maxPackEntries {
+			return nil, packErrorf(PackTooMany, sectionLabel(section), maxPackEntries)
 		}
-	}
-	for i := range p.shopItems {
-		p.shopItems[i].StartsAt = utcMinute(p.shopItems[i].StartsAt)
-		p.shopItems[i].EndsAt = utcMinute(p.shopItems[i].EndsAt)
+		p.contents[section] = content
 	}
 	return p, nil
 }
 
-// packEntry 包中的一项配置
-type packEntry struct {
-	section string
-	key     string // 见 PackEntryResult.Key
-	name    string
-	taken   string // 写入时撞上唯一约束的原因
-	// rename 改名导入, 包中引用它的配置一起改为新代码; 只有可以改名的配置种类有
-	rename func(code string)
-	// compare 与已有配置比较, 返回 PackStatus 开头的常量, 冲突时带上原因
-	compare func(tx *gorm.DB) (status, reason string, err error)
-	// apply 写入这一项, exists 为是否覆盖已有配置; 返回校验错误时由调用方回滚到保存点并标记为冲突
-	apply func(tx *gorm.DB, exists bool) error
-}
-
-// packRun 一次预览或导入
-type packRun struct {
+// Run 一次预览或导入
+type Run struct {
 	ctx        context.Context
 	pack       *pack
 	operatorID uint64
@@ -710,7 +428,7 @@ type packImageRef struct {
 }
 
 // imageData 读取包中的图片
-func (r *packRun) imageData(url string) ([]byte, error) {
+func (r *Run) imageData(url string) ([]byte, error) {
 	f := r.pack.images[url]
 	if f == nil {
 		return nil, packErrorf(PackImageMissing, url)
@@ -721,7 +439,7 @@ func (r *packRun) imageData(url string) ([]byte, error) {
 // resolveImage 返回包中的图片导入后的地址, 不保存; 不是包中的图片时原样返回
 //
 // 本站已有内容相同的这张图片时直接复用(如导出后再导入), 否则按保存的规则检查并算出重新编码后的地址, 再次导入时与已保存的相同。
-func (r *packRun) resolveImage(purpose, url string) (*packImageRef, error) {
+func (r *Run) resolveImage(purpose, url string) (*packImageRef, error) {
 	key, ok := strings.CutPrefix(url, packImageDir)
 	if !ok {
 		return &packImageRef{url: url, ready: true}, nil
@@ -748,8 +466,17 @@ func (r *packRun) resolveImage(purpose, url string) (*packImageRef, error) {
 	return ref, nil
 }
 
-// image 返回包中的图片导入后的地址, 导入时保存本站还没有的图片, 预览时只检查
-func (r *packRun) image(purpose, url string) (string, error) {
+// Context 请求的上下文
+func (r *Run) Context() context.Context { return r.ctx }
+
+// OperatorID 导入的管理员
+func (r *Run) OperatorID() uint64 { return r.operatorID }
+
+// DryRun 是否为预览, 预览在回滚的事务中进行, 不保存图片
+func (r *Run) DryRun() bool { return r.dryRun }
+
+// Image 返回包中的图片导入后的地址, 导入时保存本站还没有的图片, 预览时只检查; 在 Entry.Apply 中使用
+func (r *Run) Image(purpose, url string) (string, error) {
 	ref, err := r.resolveImage(purpose, url)
 	if err != nil {
 		return "", err
@@ -769,8 +496,8 @@ func (r *packRun) image(purpose, url string) (string, error) {
 	return ref.url, nil
 }
 
-// compareImage 把包中的图片换成导入后的地址, 与已有配置的地址比较; 图片不符合要求时返回冲突的原因
-func (r *packRun) compareImage(purpose string, url *string) (string, error) {
+// CompareImage 把包中的图片换成导入后的地址, 与已有配置的地址比较; 图片不符合要求时返回冲突的原因。在 Entry.Compare 中使用
+func (r *Run) CompareImage(purpose string, url *string) (string, error) {
 	ref, err := r.resolveImage(purpose, *url)
 	if err != nil {
 		if packFailure(err) {
@@ -782,11 +509,11 @@ func (r *packRun) compareImage(purpose string, url *string) (string, error) {
 	return "", nil
 }
 
-// sameImage 已有配置的图片地址原样比较
-func sameImage(url string) string { return url }
+// SameImage 已有配置的图片地址原样比较, 用作已有配置转为包中格式时的 image 参数
+func SameImage(url string) string { return url }
 
-// packStatus 与已有配置比较: 没有时为新增, 内容相同时为相同, 否则为覆盖; 内容按 JSON 比较, 不受字段顺序影响
-func packStatus(found bool, current, next any) string {
+// CompareStatus 与已有配置比较: 没有时为新增, 内容相同时为相同, 否则为覆盖; 内容按 JSON 比较, 不受字段顺序影响
+func CompareStatus(found bool, current, next any) string {
 	if !found {
 		return PackStatusNew
 	}
@@ -806,8 +533,8 @@ func packStatus(found bool, current, next any) string {
 	return PackStatusChanged
 }
 
-// validatePackFields 按保存时的请求参数规则校验, 不符合时返回第一个字段的错误
-func validatePackFields(obj any) error {
+// ValidateFields 按保存时的请求参数规则校验, 不符合时返回第一个字段的错误
+func ValidateFields(obj any) error {
 	err := binding.Validator.ValidateStruct(obj)
 	var fieldErrs validator.ValidationErrors
 	if errors.As(err, &fieldErrs) && len(fieldErrs) > 0 {
@@ -840,18 +567,23 @@ var packPlainError = reflect.TypeOf(errors.New(""))
 func packFailure(err error) bool {
 	var (
 		packInvalid      *PackError
-		venueInvalid     *venue.InvalidError
-		shopInvalid      *shop.InvalidError
 		conditionInvalid *condition.InvalidError
 		uploadInvalid    *upload.InvalidError
 	)
-	return db.IsUniqueViolation(err) || reflect.TypeOf(err) == packPlainError ||
-		errors.As(err, &packInvalid) || errors.As(err, &venueInvalid) || errors.As(err, &shopInvalid) ||
-		errors.As(err, &conditionInvalid) || errors.As(err, &uploadInvalid)
+	if db.IsUniqueViolation(err) || reflect.TypeOf(err) == packPlainError ||
+		errors.As(err, &packInvalid) || errors.As(err, &conditionInvalid) || errors.As(err, &uploadInvalid) {
+		return true
+	}
+	for _, section := range sectionList() {
+		if section.Invalid != nil && section.Invalid(err) {
+			return true
+		}
+	}
+	return false
 }
 
-// renameScope 统计范围中的地图代码改名, 如 venue:dock 和 venue:dock:pve 中的 dock
-func renameScope(scope, old, next string) string {
+// RenameScope 统计范围中的地图代码改名, 如 venue:dock 和 venue:dock:pve 中的 dock
+func RenameScope(scope, old, next string) string {
 	prefix := "venue:" + old
 	if scope == prefix {
 		return "venue:" + next
@@ -862,8 +594,8 @@ func renameScope(scope, old, next string) string {
 	return scope
 }
 
-// renameConditionScopes 条件参数中统计范围的地图代码改名
-func renameConditionScopes(conditions []condition.Condition, old, next string) {
+// RenameConditionScopes 条件参数中统计范围的地图代码改名
+func RenameConditionScopes(conditions []condition.Condition, old, next string) {
 	for i := range conditions {
 		var params map[string]json.RawMessage
 		if json.Unmarshal(conditions[i].Params, &params) != nil {
@@ -873,7 +605,7 @@ func renameConditionScopes(conditions []condition.Condition, old, next string) {
 		if raw, ok := params["scope"]; !ok || json.Unmarshal(raw, &scope) != nil {
 			continue
 		}
-		renamed := renameScope(scope, old, next)
+		renamed := RenameScope(scope, old, next)
 		if renamed == scope {
 			continue
 		}
@@ -885,444 +617,24 @@ func renameConditionScopes(conditions []condition.Condition, old, next string) {
 }
 
 // entries 按依赖顺序列出包中的每一项, 同一种配置的代码重复时返回 PackKeyDuplicate
-func (r *packRun) entries() ([]*packEntry, error) {
-	p := r.pack
-	var entries []*packEntry
-	for i := range p.currencies {
-		entries = append(entries, r.currencyEntry(&p.currencies[i]))
-	}
-	for i := range p.qualities {
-		entries = append(entries, r.qualityEntry(&p.qualities[i]))
-	}
-	for i := range p.items {
-		entries = append(entries, r.itemEntry(&p.items[i]))
-	}
-	for i := range p.lootPools {
-		entries = append(entries, r.lootPoolEntry(&p.lootPools[i]))
-	}
-	for i := range p.venues {
-		entries = append(entries, r.venueEntry(&p.venues[i]))
-	}
-	for i := range p.shopItems {
-		entries = append(entries, r.shopItemEntry(&p.shopItems[i]))
-	}
-	for i := range p.leaderboards {
-		entries = append(entries, r.leaderboardEntry(&p.leaderboards[i]))
-	}
-	keys := make([]string, 0, len(p.settings))
-	for key := range p.settings {
-		keys = append(keys, key)
-	}
-	slices.Sort(keys)
-	for _, key := range keys {
-		entries = append(entries, r.settingsEntry(key, p.settings[key]))
+func (r *Run) entries() ([]*Entry, error) {
+	var entries []*Entry
+	for _, section := range r.pack.manifest.Sections {
+		for _, e := range r.pack.contents[section].Entries(r) {
+			e.section = section
+			entries = append(entries, e)
+		}
 	}
 
 	seen := map[string]struct{}{}
 	for _, e := range entries {
-		id := e.section + ":" + e.key
+		id := e.section + ":" + e.Key
 		if _, ok := seen[id]; ok {
-			return nil, packErrorf(PackKeyDuplicate, packSectionLabels[e.section], e.key)
+			return nil, packErrorf(PackKeyDuplicate, sectionLabel(e.section), e.Key)
 		}
 		seen[id] = struct{}{}
 	}
 	return entries, nil
-}
-
-func (r *packRun) currencyEntry(req *packCurrency) *packEntry {
-	var current wallet.Currency
-	return &packEntry{
-		section: PackCurrencies,
-		key:     req.Code,
-		name:    req.Name,
-		taken:   wallet.CurrencyTaken,
-		compare: func(tx *gorm.DB) (string, string, error) {
-			if err := tx.Where("code = ?", req.Code).Limit(1).Find(&current).Error; err != nil {
-				return "", "", err
-			}
-			found := current.Code != ""
-			return packStatus(found, currencyPack(&current), req), "", nil
-		},
-		apply: func(tx *gorm.DB, exists bool) error {
-			if err := validatePackFields(req); err != nil {
-				return err
-			}
-			if !exists {
-				target := &wallet.Currency{Code: req.Code}
-				walletadmin.ApplyCurrency(target, &req.CurrencyRequest)
-				if err := wallet.ValidateCurrency(target); err != nil {
-					return err
-				}
-				return tx.Create(target).Error
-			}
-			if err := lockCurrency(tx, &current, req.Code); err != nil {
-				return err
-			}
-			old := current
-			walletadmin.ApplyCurrency(&current, &req.CurrencyRequest)
-			if err := walletadmin.CheckCurrencyChange(tx, &old, &current); err != nil {
-				return err
-			}
-			return tx.Save(&current).Error
-		},
-	}
-}
-
-func (r *packRun) qualityEntry(req *itemadmin.CreateQualityRequest) *packEntry {
-	var current item.Quality
-	return &packEntry{
-		section: PackQualities,
-		key:     strconv.Itoa(int(req.Level)),
-		name:    req.Name,
-		taken:   item.QualityTaken,
-		compare: func(tx *gorm.DB) (string, string, error) {
-			if err := tx.Where("level = ?", req.Level).Limit(1).Find(&current).Error; err != nil {
-				return "", "", err
-			}
-			found := current.Level != 0
-			if found && current.Code != req.Code {
-				return PackStatusConflict, fmt.Sprintf(PackQualityCodeDiffers, current.Level, current.Code), nil
-			}
-			return packStatus(found, qualityPack(&current), req), "", nil
-		},
-		apply: func(tx *gorm.DB, exists bool) error {
-			if err := validatePackFields(req); err != nil {
-				return err
-			}
-			if !exists {
-				target := &item.Quality{Level: req.Level, Code: req.Code}
-				if err := itemadmin.ApplyQuality(target, &req.QualityRequest); err != nil {
-					return err
-				}
-				return tx.Create(target).Error
-			}
-			if err := itemadmin.LockQuality(tx, &current, req.Level); err != nil {
-				return err
-			}
-			if err := itemadmin.ApplyQuality(&current, &req.QualityRequest); err != nil {
-				return err
-			}
-			return tx.Save(&current).Error
-		},
-	}
-}
-
-func (r *packRun) itemEntry(req *packItem) *packEntry {
-	var current item.Item
-	return &packEntry{
-		section: PackItems,
-		key:     strconv.FormatUint(req.ID, 10),
-		name:    req.Name,
-		taken:   item.ItemNameTaken,
-		compare: func(tx *gorm.DB) (string, string, error) {
-			if err := tx.Unscoped().Where("id = ?", req.ID).Limit(1).Find(&current).Error; err != nil {
-				return "", "", err
-			}
-			found := current.ID != 0
-			if found && current.DeletedAt.Valid {
-				return PackStatusConflict, PackItemDeleted, nil
-			}
-			next := *req
-			reason, err := r.compareImage(upload.PurposeItem, &next.ImageURL)
-			if err != nil {
-				return "", "", err
-			}
-			if reason != "" {
-				return PackStatusConflict, reason, nil
-			}
-			return packStatus(found, itemPack(&current, sameImage), &next), "", nil
-		},
-		apply: func(tx *gorm.DB, exists bool) error {
-			next := req.ItemRequest
-			var err error
-			if next.ImageURL, err = r.image(upload.PurposeItem, next.ImageURL); err != nil {
-				return err
-			}
-			if err := validatePackFields(&packItem{ID: req.ID, ItemRequest: next}); err != nil {
-				return err
-			}
-			if !exists {
-				target := &item.Item{ID: req.ID}
-				if err := itemadmin.ApplyItem(tx, target, &next); err != nil {
-					return err
-				}
-				if !r.dryRun {
-					// 沿用包中的 ID, 先把序列推到这个 ID 之后, 之后新建的物品不会撞上
-					if err := tx.Exec("SELECT setval(pg_get_serial_sequence('items', 'id'), GREATEST(?, nextval(pg_get_serial_sequence('items', 'id'))))", req.ID).Error; err != nil {
-						return err
-					}
-				}
-				return tx.Create(target).Error
-			}
-			if err := itemadmin.LockItem(tx, &current, req.ID); err != nil {
-				return err
-			}
-			if err := itemadmin.ApplyItem(tx, &current, &next); err != nil {
-				return err
-			}
-			return tx.Save(&current).Error
-		},
-	}
-}
-
-func (r *packRun) lootPoolEntry(req *packLootPool) *packEntry {
-	var current loot.Pool
-	return &packEntry{
-		section: PackLootPools,
-		key:     req.Code,
-		name:    req.Name,
-		taken:   loot.PoolCodeTaken,
-		rename: func(code string) {
-			old := req.Code
-			req.Code = code
-			for i := range r.pack.venues {
-				for j := range r.pack.venues[i].Warehouse.Slots {
-					if slot := &r.pack.venues[i].Warehouse.Slots[j]; slot.Pool == old {
-						slot.Pool = code
-					}
-				}
-			}
-		},
-		compare: func(tx *gorm.DB) (string, string, error) {
-			if err := tx.Where("code = ?", req.Code).Limit(1).Find(&current).Error; err != nil {
-				return "", "", err
-			}
-			if current.ID == 0 {
-				return PackStatusNew, "", nil
-			}
-			var entries []loot.Entry
-			if err := liveLootEntries(tx).Where("pool_id = ?", current.ID).Order("id").Find(&entries).Error; err != nil {
-				return "", "", err
-			}
-			return packStatus(true, lootPoolPack(&current, entries), req), "", nil
-		},
-		apply: func(tx *gorm.DB, exists bool) error {
-			if err := validatePackFields(req); err != nil {
-				return err
-			}
-			target := &loot.Pool{}
-			if exists {
-				if err := lootadmin.LockLootPool(tx, &current, current.ID); err != nil {
-					return err
-				}
-				target = &current
-			}
-			if err := lootadmin.ApplyLootPool(target, &req.LootPoolRequest); err != nil {
-				return err
-			}
-			if err := tx.Save(target).Error; err != nil {
-				return err
-			}
-			entries, err := lootadmin.BuildLootEntries(target.ID, req.Entries)
-			if err != nil {
-				return err
-			}
-			if err := lootadmin.CheckLootTargets(tx, entries); err != nil {
-				return err
-			}
-			if err := tx.Where("pool_id = ?", target.ID).Delete(&loot.Entry{}).Error; err != nil {
-				return err
-			}
-			if len(entries) == 0 {
-				return nil
-			}
-			return tx.Create(&entries).Error
-		},
-	}
-}
-
-func (r *packRun) venueEntry(req *venueadmin.VenueRequest) *packEntry {
-	var current venue.Venue
-	return &packEntry{
-		section: PackVenues,
-		key:     req.Code,
-		name:    req.Name,
-		taken:   venue.CodeTaken,
-		rename: func(code string) {
-			old := req.Code
-			req.Code = code
-			for i := range r.pack.venues {
-				renameConditionScopes(r.pack.venues[i].Requirements, old, code)
-			}
-			for i := range r.pack.shopItems {
-				renameConditionScopes(r.pack.shopItems[i].Requirements, old, code)
-			}
-			for i := range r.pack.leaderboards {
-				r.pack.leaderboards[i].Scope = renameScope(r.pack.leaderboards[i].Scope, old, code)
-			}
-		},
-		compare: func(tx *gorm.DB) (string, string, error) {
-			if err := tx.Unscoped().Where("code = ?", req.Code).Limit(1).Find(&current).Error; err != nil {
-				return "", "", err
-			}
-			found := current.ID != 0
-			if found && current.DeletedAt.Valid {
-				return PackStatusConflict, fmt.Sprintf(PackCodeDeleted, packSectionLabels[PackVenues]), nil
-			}
-			next := *req
-			reason, err := r.compareImage(upload.PurposeVenue, &next.ImageURL)
-			if err != nil {
-				return "", "", err
-			}
-			if reason != "" {
-				return PackStatusConflict, reason, nil
-			}
-			return packStatus(found, venuePack(&current, sameImage), &next), "", nil
-		},
-		apply: func(tx *gorm.DB, exists bool) error {
-			next := *req
-			var err error
-			if next.ImageURL, err = r.image(upload.PurposeVenue, next.ImageURL); err != nil {
-				return err
-			}
-			if err := validatePackFields(&next); err != nil {
-				return err
-			}
-			target := &venue.Venue{}
-			if exists {
-				if err := venueadmin.LockVenue(tx, &current, current.ID); err != nil {
-					return err
-				}
-				target = &current
-			}
-			venueadmin.ApplyVenue(target, &next)
-			if err := venue.Validate(tx, target); err != nil {
-				return err
-			}
-			return tx.Save(target).Error
-		},
-	}
-}
-
-func (r *packRun) shopItemEntry(req *shopadmin.ShopItemRequest) *packEntry {
-	var current shop.Item
-	return &packEntry{
-		section: PackShopItems,
-		key:     req.Code,
-		name:    req.Name,
-		taken:   shop.CodeTaken,
-		rename:  func(code string) { req.Code = code },
-		compare: func(tx *gorm.DB) (string, string, error) {
-			if err := tx.Unscoped().Where("code = ?", req.Code).Limit(1).Find(&current).Error; err != nil {
-				return "", "", err
-			}
-			found := current.ID != 0
-			if found && current.DeletedAt.Valid {
-				return PackStatusConflict, fmt.Sprintf(PackCodeDeleted, packSectionLabels[PackShopItems]), nil
-			}
-			next := *req
-			if found {
-				next.Stock = current.Stock
-			}
-			reason, err := r.compareImage(upload.PurposeShop, &next.ImageURL)
-			if err != nil {
-				return "", "", err
-			}
-			if reason != "" {
-				return PackStatusConflict, reason, nil
-			}
-			return packStatus(found, shopItemPack(&current, sameImage), &next), "", nil
-		},
-		apply: func(tx *gorm.DB, exists bool) error {
-			next := *req
-			var err error
-			if next.ImageURL, err = r.image(upload.PurposeShop, next.ImageURL); err != nil {
-				return err
-			}
-			if err := validatePackFields(&next); err != nil {
-				return err
-			}
-			target := &shop.Item{}
-			if exists {
-				if err := shopadmin.LockShopItem(tx, &current, current.ID); err != nil {
-					return err
-				}
-				// 剩余库存随玩家购买变化, 不随配置覆盖
-				target, next.Stock = &current, current.Stock
-			}
-			shopadmin.ApplyShopItem(target, &next)
-			if err := shop.Validate(tx, target); err != nil {
-				return err
-			}
-			return tx.Save(target).Error
-		},
-	}
-}
-
-func (r *packRun) leaderboardEntry(req *leaderboardadmin.LeaderboardRequest) *packEntry {
-	var current leaderboard.Board
-	return &packEntry{
-		section: PackLeaderboards,
-		key:     req.Code,
-		name:    req.Name,
-		taken:   leaderboard.CodeTaken,
-		rename:  func(code string) { req.Code = code },
-		compare: func(tx *gorm.DB) (string, string, error) {
-			if err := tx.Where("code = ?", req.Code).Limit(1).Find(&current).Error; err != nil {
-				return "", "", err
-			}
-			found := current.ID != 0
-			return packStatus(found, leaderboardPack(&current), req), "", nil
-		},
-		apply: func(tx *gorm.DB, exists bool) error {
-			if err := validatePackFields(req); err != nil {
-				return err
-			}
-			target := &leaderboard.Board{}
-			if exists {
-				if err := leaderboardadmin.LockLeaderboard(tx, &current, current.ID); err != nil {
-					return err
-				}
-				target = &current
-			}
-			if err := leaderboardadmin.ApplyLeaderboard(tx, target, req); err != nil {
-				return err
-			}
-			return tx.Save(target).Error
-		},
-	}
-}
-
-// settingsEntry 设置组没有新增, 先在保存点中试着导入一次, 按修改的字段判断是否相同
-func (r *packRun) settingsEntry(key string, raw json.RawMessage) *packEntry {
-	label, _ := settings.ImportLabel(key)
-	importGroup := func(tx *gorm.DB) (map[string]interface{}, error) {
-		changes, failure, err := settings.Import(r.ctx, tx, r.operatorID, key, raw)
-		if failure != nil {
-			return nil, failure
-		}
-		return changes, err
-	}
-	return &packEntry{
-		section: PackSettings,
-		key:     key,
-		name:    label,
-		compare: func(tx *gorm.DB) (string, string, error) {
-			if err := tx.SavePoint(packSavePoint).Error; err != nil {
-				return "", "", err
-			}
-			changes, err := importGroup(tx)
-			if err := tx.RollbackTo(packSavePoint).Error; err != nil {
-				return "", "", err
-			}
-			if err := releasePackSavePoint(tx); err != nil {
-				return "", "", err
-			}
-			switch {
-			case err != nil && packFailure(err):
-				return PackStatusConflict, err.Error(), nil
-			case err != nil:
-				return "", "", err
-			case len(changes) == 0:
-				return PackStatusSame, "", nil
-			}
-			return PackStatusChanged, "", nil
-		},
-		apply: func(tx *gorm.DB, _ bool) error {
-			_, err := importGroup(tx)
-			return err
-		},
-	}
 }
 
 // releasePackSavePoint 释放保存点, 一个事务中保存点过多时会拖慢数据库
@@ -1330,24 +642,13 @@ func releasePackSavePoint(tx *gorm.DB) error {
 	return tx.Exec("RELEASE SAVEPOINT " + packSavePoint).Error
 }
 
-// lockCurrency 锁定货币, 防止并发修改互相覆盖
-func lockCurrency(tx *gorm.DB, target *wallet.Currency, code string) error {
-	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), code); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(wallet.CurrencyNotFound)
-		}
-		return err
-	}
-	return nil
-}
-
-// chooseActions 按提交的处理方式改名, 返回每一项的处理方式和改名后的代码; 没有对应项的处理方式忽略
-func chooseActions(entries []*packEntry, actions []PackAction) (map[*packEntry]PackAction, error) {
-	byID := map[string]*packEntry{}
+// chooseActions 按提交的处理方式改名, 包中引用它的配置一起改为新代码; 返回每一项的处理方式, 没有对应项的处理方式忽略
+func (r *Run) chooseActions(entries []*Entry, actions []PackAction) (map[*Entry]PackAction, error) {
+	byID := map[string]*Entry{}
 	for _, e := range entries {
-		byID[e.section+":"+e.key] = e
+		byID[e.section+":"+e.Key] = e
 	}
-	chosen := map[*packEntry]PackAction{}
+	chosen := map[*Entry]PackAction{}
 	for _, action := range actions {
 		switch action.Action {
 		case PackActionOverwrite, PackActionSkip, PackActionRename:
@@ -1362,25 +663,30 @@ func chooseActions(entries []*packEntry, actions []PackAction) (map[*packEntry]P
 	// 新代码不能与同种配置在包中的代码或其他新代码相同, 这样改名时引用不会串到别的配置上
 	codes := map[string]struct{}{}
 	for _, e := range entries {
-		codes[e.section+":"+e.key] = struct{}{}
+		codes[e.section+":"+e.Key] = struct{}{}
 	}
 	for _, e := range entries {
 		action, ok := chosen[e]
 		if !ok || action.Action != PackActionRename {
 			continue
 		}
-		if e.rename == nil || !slices.Contains(packRenamable, e.section) {
-			return nil, packErrorf(PackRenameNotAllowed, packSectionLabels[e.section])
+		if e.Rename == nil || !sectionOf(e.section).Renamable {
+			return nil, packErrorf(PackRenameNotAllowed, sectionLabel(e.section))
 		}
 		id := e.section + ":" + action.Code
 		if _, taken := codes[id]; taken || action.Code == "" {
-			return nil, packErrorf(PackRenameInvalid, packSectionLabels[e.section], e.key)
+			return nil, packErrorf(PackRenameInvalid, sectionLabel(e.section), e.Key)
 		}
 		codes[id] = struct{}{}
 	}
 	for _, e := range entries {
-		if action, ok := chosen[e]; ok && action.Action == PackActionRename {
-			e.rename(action.Code)
+		action, ok := chosen[e]
+		if !ok || action.Action != PackActionRename {
+			continue
+		}
+		e.Rename(action.Code)
+		for _, section := range r.pack.manifest.Sections {
+			r.pack.contents[section].Renamed(e.section, e.Key, action.Code)
 		}
 	}
 	return chosen, nil
@@ -1389,7 +695,7 @@ func chooseActions(entries []*packEntry, actions []PackAction) (map[*packEntry]P
 // run 在调用方的事务中按依赖顺序处理每一项: 跳过、与已有配置相同或冲突的项不写入, 其余在保存点中写入, 校验失败时回滚到保存点并标记为冲突
 //
 // 返回的错误为包或处理方式不符合要求(可以直接展示)或数据库错误。
-func (r *packRun) run(tx *gorm.DB, actions []PackAction) ([]PackEntryResult, error) {
+func (r *Run) run(tx *gorm.DB, actions []PackAction) ([]PackEntryResult, error) {
 	if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", packLockKey).Error; err != nil {
 		return nil, err
 	}
@@ -1397,7 +703,7 @@ func (r *packRun) run(tx *gorm.DB, actions []PackAction) ([]PackEntryResult, err
 	if err != nil {
 		return nil, err
 	}
-	chosen, err := chooseActions(entries, actions)
+	chosen, err := r.chooseActions(entries, actions)
 	if err != nil {
 		return nil, err
 	}
@@ -1408,22 +714,22 @@ func (r *packRun) run(tx *gorm.DB, actions []PackAction) ([]PackEntryResult, err
 		if action.Action == "" {
 			action.Action = PackActionOverwrite
 		}
-		result := PackEntryResult{Section: e.section, Key: e.key, Name: e.name, Action: action.Action}
+		result := PackEntryResult{Section: e.section, Key: e.Key, Name: e.Name, Action: action.Action}
 		if action.Action == PackActionRename {
 			result.Code = action.Code
 		}
-		if result.Status, result.Reason, err = e.compare(tx); err != nil {
+		if result.Status, result.Reason, err = e.Compare(tx); err != nil {
 			return nil, err
 		}
 		// 改名是为了与已有配置并存, 新代码已被使用时不覆盖
 		if action.Action == PackActionRename && (result.Status == PackStatusSame || result.Status == PackStatusChanged) {
-			result.Status, result.Reason = PackStatusConflict, fmt.Sprintf(PackCodeTaken, action.Code, packSectionLabels[e.section])
+			result.Status, result.Reason = PackStatusConflict, fmt.Sprintf(PackCodeTaken, action.Code, sectionLabel(e.section))
 		}
 		if action.Action != PackActionSkip && (result.Status == PackStatusNew || result.Status == PackStatusChanged) {
 			if err := tx.SavePoint(packSavePoint).Error; err != nil {
 				return nil, err
 			}
-			if err := e.apply(tx, result.Status == PackStatusChanged); err != nil {
+			if err := e.Apply(tx, result.Status == PackStatusChanged); err != nil {
 				if !packFailure(err) {
 					return nil, err
 				}
@@ -1431,8 +737,8 @@ func (r *packRun) run(tx *gorm.DB, actions []PackAction) ([]PackEntryResult, err
 					return nil, err
 				}
 				result.Status, result.Reason = PackStatusConflict, err.Error()
-				if db.IsUniqueViolation(err) && e.taken != "" {
-					result.Reason = e.taken
+				if db.IsUniqueViolation(err) && e.Taken != "" {
+					result.Reason = e.Taken
 				}
 			}
 			if err := releasePackSavePoint(tx); err != nil {
@@ -1450,7 +756,7 @@ func doPreviewPack(ctx context.Context, operatorID uint64, data []byte, actions 
 	if err != nil {
 		return nil, err
 	}
-	r := &packRun{ctx: ctx, pack: p, operatorID: operatorID, dryRun: true, images: map[string]*packImageRef{}}
+	r := &Run{ctx: ctx, pack: p, operatorID: operatorID, dryRun: true, images: map[string]*packImageRef{}}
 	var results []PackEntryResult
 	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
@@ -1473,7 +779,7 @@ func doImportPack(ctx context.Context, operatorID uint64, data []byte, actions [
 	if err != nil {
 		return nil, nil, err
 	}
-	r := &packRun{ctx: ctx, pack: p, operatorID: operatorID, images: map[string]*packImageRef{}}
+	r := &Run{ctx: ctx, pack: p, operatorID: operatorID, images: map[string]*packImageRef{}}
 	var (
 		record  *Import
 		results []PackEntryResult

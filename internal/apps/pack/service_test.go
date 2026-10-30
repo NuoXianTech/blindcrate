@@ -37,6 +37,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard/leaderboardadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot/lootadmin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/shop/shopadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue/venueadmin"
 )
@@ -59,6 +60,39 @@ func buildPack(t *testing.T, files map[string]string) []byte {
 		t.Fatal(err)
 	}
 	return buf.Bytes()
+}
+
+// contentOf 把配置按包中的格式编码后用注册的 Decode 解析
+func contentOf[T any](t *testing.T, section string, items ...T) Content {
+	t.Helper()
+	data, err := json.Marshal(items)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := sectionOf(section).Decode(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+// testPack 由各种配置的内容组成配置包
+func testPack(t *testing.T, contents map[string]Content) *pack {
+	t.Helper()
+	sections := make([]string, 0, len(contents))
+	for section := range contents {
+		sections = append(sections, section)
+	}
+	ordered, err := orderPackSections(sections)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &pack{manifest: PackManifest{Sections: ordered}, contents: contents}
+}
+
+// itemsOf 一种配置解析后的条目
+func itemsOf[T any](p *pack, section string) []T {
+	return p.contents[section].(*ListContent[T]).Items
 }
 
 func manifestJSON(version int, sections ...string) string {
@@ -84,8 +118,8 @@ func TestReadPack(t *testing.T) {
 	if want := []string{PackCurrencies, PackLeaderboards}; !reflect.DeepEqual(p.manifest.Sections, want) {
 		t.Errorf("sections = %v, want %v", p.manifest.Sections, want)
 	}
-	if len(p.currencies) != 1 || p.currencies[0].Code != "chip" || len(p.items) != 0 {
-		t.Errorf("currencies = %+v, items = %+v", p.currencies, p.items)
+	if currencies := itemsOf[packCurrency](p, PackCurrencies); len(currencies) != 1 || currencies[0].Code != "chip" || p.contents[PackItems] != nil {
+		t.Errorf("currencies = %+v, contents = %v", currencies, p.contents)
 	}
 	if p.images["images/item/ab/abcd.png"] == nil || len(p.digest) != 64 {
 		t.Errorf("images = %v, digest = %q", p.images, p.digest)
@@ -106,7 +140,7 @@ func TestReadPackInvalid(t *testing.T) {
 		{"unknown field", map[string]string{packManifest: manifestJSON(1, PackItems), "items.json": `[{"id":1,"price":3}]`}, fmt.Sprintf(PackFileInvalid, "items.json")},
 		{"bad image path", map[string]string{packManifest: manifestJSON(1, PackSettings), "settings.json": `{}`, "images/../a.png": "x"}, fmt.Sprintf(PackFileInvalid, "images/../a.png")},
 		{"too many", map[string]string{packManifest: manifestJSON(1, PackLeaderboards), "leaderboards.json": "[" + strings.Repeat("{},", maxPackEntries) + "{}]"},
-			fmt.Sprintf(PackTooMany, packSectionLabels[PackLeaderboards], maxPackEntries)},
+			fmt.Sprintf(PackTooMany, sectionLabel(PackLeaderboards), maxPackEntries)},
 	}
 	for _, c := range cases {
 		_, err := readPack(buildPack(t, c.files))
@@ -153,46 +187,47 @@ func TestRenameScope(t *testing.T) {
 		{"mode:ranked", "mode:ranked"},
 		{"all", "all"},
 	} {
-		if got := renameScope(c.scope, "dock", "pier"); got != c.want {
-			t.Errorf("renameScope(%q) = %q, want %q", c.scope, got, c.want)
+		if got := RenameScope(c.scope, "dock", "pier"); got != c.want {
+			t.Errorf("RenameScope(%q) = %q, want %q", c.scope, got, c.want)
 		}
 	}
 }
 
-func TestPackStatus(t *testing.T) {
+func TestCompareStatus(t *testing.T) {
 	a := leaderboardadmin.LeaderboardRequest{Code: "wins", Name: "胜场"}
 	b := a
-	if got := packStatus(false, a, b); got != PackStatusNew {
+	if got := CompareStatus(false, a, b); got != PackStatusNew {
 		t.Errorf("not found: %s", got)
 	}
-	if got := packStatus(true, a, &b); got != PackStatusSame {
+	if got := CompareStatus(true, a, &b); got != PackStatusSame {
 		t.Errorf("same: %s", got)
 	}
 	b.Size = 50
-	if got := packStatus(true, a, b); got != PackStatusChanged {
+	if got := CompareStatus(true, a, b); got != PackStatusChanged {
 		t.Errorf("changed: %s", got)
 	}
 	// 条件参数中的字段顺序不影响比较
 	x := venueadmin.VenueRequest{Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"metric":"wins","scope":"all"}`)}}}
 	y := venueadmin.VenueRequest{Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"scope": "all", "metric": "wins"}`)}}}
-	if got := packStatus(true, x, y); got != PackStatusSame {
+	if got := CompareStatus(true, x, y); got != PackStatusSame {
 		t.Errorf("params order: %s", got)
 	}
 }
 
 func TestChooseActions(t *testing.T) {
-	newPack := func() (*packRun, []*packEntry) {
-		p := &pack{
-			currencies: []packCurrency{{Code: "chip"}},
-			lootPools:  []packLootPool{{LootPoolRequest: lootadmin.LootPoolRequest{Code: "crate"}}, {LootPoolRequest: lootadmin.LootPoolRequest{Code: "box"}}},
-			venues: []venueadmin.VenueRequest{{
+	newPack := func() (*Run, []*Entry) {
+		p := testPack(t, map[string]Content{
+			PackCurrencies: contentOf(t, PackCurrencies, packCurrency{Code: "chip"}),
+			PackLootPools:  contentOf(t, PackLootPools, packLootPool{LootPoolRequest: lootadmin.LootPoolRequest{Code: "crate"}}, packLootPool{LootPoolRequest: lootadmin.LootPoolRequest{Code: "box"}}),
+			PackVenues: contentOf(t, PackVenues, venueadmin.VenueRequest{
 				Code:         "dock",
 				Warehouse:    venue.WarehouseRule{Slots: []venue.Slot{{Pool: "crate"}, {Pool: "box"}}},
 				Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"metric":"wins","scope":"venue:dock:pve"}`)}},
-			}},
-			leaderboards: []leaderboardadmin.LeaderboardRequest{{Code: "wins", Scope: "venue:dock"}},
-		}
-		r := &packRun{pack: p}
+			}),
+			PackShopItems:    contentOf(t, PackShopItems, shopadmin.ShopItemRequest{Code: "pass", Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"metric":"wins","scope":"venue:dock"}`)}}}),
+			PackLeaderboards: contentOf(t, PackLeaderboards, leaderboardadmin.LeaderboardRequest{Code: "wins", Scope: "venue:dock"}),
+		})
+		r := &Run{pack: p}
 		entries, err := r.entries()
 		if err != nil {
 			t.Fatal(err)
@@ -201,7 +236,7 @@ func TestChooseActions(t *testing.T) {
 	}
 
 	r, entries := newPack()
-	chosen, err := chooseActions(entries, []PackAction{
+	chosen, err := r.chooseActions(entries, []PackAction{
 		{Section: PackLootPools, Key: "crate", Action: PackActionRename, Code: "crate_2"},
 		{Section: PackVenues, Key: "dock", Action: PackActionRename, Code: "pier"},
 		{Section: PackCurrencies, Key: "chip", Action: PackActionSkip},
@@ -213,15 +248,18 @@ func TestChooseActions(t *testing.T) {
 	if len(chosen) != 3 {
 		t.Errorf("chosen = %d, want 3", len(chosen))
 	}
-	v := r.pack.venues[0]
+	v := itemsOf[venueadmin.VenueRequest](r.pack, PackVenues)[0]
 	if v.Code != "pier" || v.Warehouse.Slots[0].Pool != "crate_2" || v.Warehouse.Slots[1].Pool != "box" {
 		t.Errorf("venue = %+v", v)
 	}
 	if !strings.Contains(string(v.Requirements[0].Params), `"venue:pier:pve"`) {
 		t.Errorf("requirement params = %s", v.Requirements[0].Params)
 	}
-	if r.pack.leaderboards[0].Scope != "venue:pier" {
-		t.Errorf("leaderboard scope = %s", r.pack.leaderboards[0].Scope)
+	if board := itemsOf[leaderboardadmin.LeaderboardRequest](r.pack, PackLeaderboards)[0]; board.Scope != "venue:pier" {
+		t.Errorf("leaderboard scope = %s", board.Scope)
+	}
+	if item := itemsOf[shopadmin.ShopItemRequest](r.pack, PackShopItems)[0]; !strings.Contains(string(item.Requirements[0].Params), `"venue:pier"`) {
+		t.Errorf("shop item params = %s", item.Requirements[0].Params)
 	}
 
 	for _, c := range []struct {
@@ -230,20 +268,20 @@ func TestChooseActions(t *testing.T) {
 		want   string
 	}{
 		{"bad action", PackAction{Section: PackCurrencies, Key: "chip", Action: "merge"}, PackActionInvalid},
-		{"not renamable", PackAction{Section: PackCurrencies, Key: "chip", Action: PackActionRename, Code: "gold"}, fmt.Sprintf(PackRenameNotAllowed, packSectionLabels[PackCurrencies])},
-		{"code in pack", PackAction{Section: PackLootPools, Key: "crate", Action: PackActionRename, Code: "box"}, fmt.Sprintf(PackRenameInvalid, packSectionLabels[PackLootPools], "crate")},
-		{"empty code", PackAction{Section: PackLootPools, Key: "crate", Action: PackActionRename}, fmt.Sprintf(PackRenameInvalid, packSectionLabels[PackLootPools], "crate")},
+		{"not renamable", PackAction{Section: PackCurrencies, Key: "chip", Action: PackActionRename, Code: "gold"}, fmt.Sprintf(PackRenameNotAllowed, sectionLabel(PackCurrencies))},
+		{"code in pack", PackAction{Section: PackLootPools, Key: "crate", Action: PackActionRename, Code: "box"}, fmt.Sprintf(PackRenameInvalid, sectionLabel(PackLootPools), "crate")},
+		{"empty code", PackAction{Section: PackLootPools, Key: "crate", Action: PackActionRename}, fmt.Sprintf(PackRenameInvalid, sectionLabel(PackLootPools), "crate")},
 	} {
-		_, entries := newPack()
-		if _, err := chooseActions(entries, []PackAction{c.action}); err == nil || err.Error() != c.want {
+		r, entries := newPack()
+		if _, err := r.chooseActions(entries, []PackAction{c.action}); err == nil || err.Error() != c.want {
 			t.Errorf("%s: err = %v, want %q", c.name, err, c.want)
 		}
 	}
 }
 
 func TestPackEntriesDuplicate(t *testing.T) {
-	r := &packRun{pack: &pack{venues: []venueadmin.VenueRequest{{Code: "dock"}, {Code: "dock"}}}}
-	if _, err := r.entries(); err == nil || err.Error() != fmt.Sprintf(PackKeyDuplicate, packSectionLabels[PackVenues], "dock") {
+	r := &Run{pack: testPack(t, map[string]Content{PackVenues: contentOf(t, PackVenues, venueadmin.VenueRequest{Code: "dock"}, venueadmin.VenueRequest{Code: "dock"})})}
+	if _, err := r.entries(); err == nil || err.Error() != fmt.Sprintf(PackKeyDuplicate, sectionLabel(PackVenues), "dock") {
 		t.Errorf("err = %v", err)
 	}
 }
@@ -254,5 +292,30 @@ func TestPackFailure(t *testing.T) {
 	}
 	if packFailure(fmt.Errorf("query: %w", errors.New("conn reset"))) {
 		t.Error("wrapped errors should abort")
+	}
+}
+
+func TestSections(t *testing.T) {
+	var codes []string
+	for _, s := range Sections() {
+		codes = append(codes, s.Code)
+	}
+	want := []string{PackCurrencies, PackQualities, PackItems, PackLootPools, PackVenues, PackShopItems, PackLeaderboards, PackSettings}
+	if !reflect.DeepEqual(codes, want) {
+		t.Errorf("sections = %v, want %v", codes, want)
+	}
+	for _, s := range []Section{
+		{Code: PackItems, Label: "物品", Export: sectionOf(PackItems).Export, Decode: sectionOf(PackItems).Decode},
+		{Code: "Bad-Code", Label: "x", Export: sectionOf(PackItems).Export, Decode: sectionOf(PackItems).Decode},
+		{Code: "missions"},
+	} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("RegisterSection(%q) should panic", s.Code)
+				}
+			}()
+			RegisterSection(s)
+		}()
 	}
 }

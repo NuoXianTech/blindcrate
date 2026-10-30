@@ -861,8 +861,18 @@ export interface ListShopOrdersData {
   orders: AdminShopOrder[];
 }
 
-/** 配置包中的配置种类, 也是包中的文件名; 按依赖排列, 导入时按这个顺序写入 */
-export type PackSection = 'currencies' | 'qualities' | 'items' | 'loot_pools' | 'venues' | 'shop_items' | 'leaderboards' | 'settings';
+/** 配置包中的配置种类代码, 也是包中的文件名; 由后端各模块注册, 列表见 PackSectionInfo */
+export type PackSection = string;
+
+/** 一种配置, 对应后端 pack.SectionView; 列表按依赖排列, 导入时按这个顺序写入 */
+export interface PackSectionInfo {
+  code: PackSection;
+  label: string;
+  /** 导出时的说明 */
+  hint: string;
+  /** 是否可以改名导入 */
+  renamable: boolean;
+}
 
 /** 一项配置与已有配置的比较结果: 新增、覆盖、相同、冲突 */
 export type PackStatus = 'new' | 'changed' | 'same' | 'conflict';

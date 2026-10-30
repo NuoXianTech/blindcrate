@@ -66,6 +66,7 @@ import type {
   PackAction,
   PackImport,
   PackPreview,
+  PackSectionInfo,
   ListSettingRevisionsData,
   ListSettingRevisionsParams,
   ListSettingsData,
@@ -378,6 +379,11 @@ export class AdminService extends BaseService {
   /** 用已保存的邮件设置发送测试邮件 */
   static testMail(to: string) {
     return this.post<null>('/settings/mail/test', {to});
+  }
+
+  /** 全部配置种类, 按依赖排列 */
+  static listPackSections() {
+    return this.get<PackSectionInfo[]>('/packs/sections');
   }
 
   /** 导出配置包, 返回 zip 文件和下载时的文件名 */

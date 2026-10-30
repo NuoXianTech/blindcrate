@@ -4,7 +4,8 @@ import {Badge} from '@/components/ui/badge';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {TableEmpty} from '@/components/common/layout';
 import type {PackEntryResult} from '@/lib/services/admin';
-import {ACTION_LABELS, SECTION_LABELS, STATUS_LABELS, entryID} from './constants';
+import {ACTION_LABELS, STATUS_LABELS, entryID} from './constants';
+import {sectionLabel, usePackSections} from './use-pack-sections';
 
 /**
  * 配置包中每一项的比较结果; 传入 renderAction 时最后一列为处理方式的选择, 否则显示已选的处理方式
@@ -14,6 +15,7 @@ export function PackEntriesTable({entries, renderAction, empty = '没有需要�
   renderAction?: (e: PackEntryResult) => React.ReactNode;
   empty?: string;
 }) {
+  const {sections} = usePackSections();
   return (
     <div className="rounded-xl border bg-card">
       <Table>
@@ -32,7 +34,7 @@ export function PackEntriesTable({entries, renderAction, empty = '没有需要�
               const status = STATUS_LABELS[e.status];
               return (
                 <TableRow key={entryID(e)}>
-                  <TableCell className="text-muted-foreground">{SECTION_LABELS[e.section] ?? e.section}</TableCell>
+                  <TableCell className="text-muted-foreground">{sectionLabel(sections, e.section)}</TableCell>
                   <TableCell className="font-mono">{e.section === 'items' ? `#${e.key}` : e.key}</TableCell>
                   <TableCell>{e.name}</TableCell>
                   <TableCell>
