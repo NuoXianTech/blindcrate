@@ -520,6 +520,14 @@ definitions:
       error_msg:
         type: string
     type: object
+  audit.Action:
+    properties:
+      code:
+        type: string
+      label:
+        description: 后台日志中展示的名称, 如 "新建物品"
+        type: string
+    type: object
   auditadmin.AuditLogItem:
     properties:
       action:
@@ -545,6 +553,13 @@ definitions:
         type: string
       user_agent:
         type: string
+    type: object
+  auditadmin.ListAuditActionsResponseData:
+    properties:
+      actions:
+        items:
+          $ref: '#/definitions/audit.Action'
+        type: array
     type: object
   auditadmin.ListAuditLogsResponseData:
     properties:
@@ -826,6 +841,13 @@ definitions:
       data: {}
       error_msg:
         type: string
+    type: object
+  inventory.ListBizTypesResponseData:
+    properties:
+      biz_types:
+        items:
+          $ref: '#/definitions/ledger.BizType'
+        type: array
     type: object
   inventory.ListItemsResponseData:
     properties:
@@ -1671,6 +1693,14 @@ definitions:
     properties:
       data: {}
       error_msg:
+        type: string
+    type: object
+  ledger.BizType:
+    properties:
+      code:
+        type: string
+      label:
+        description: 流水中展示的名称, 如 "商城购买"
         type: string
     type: object
   loot.EntryDetail:
@@ -3720,6 +3750,13 @@ definitions:
           $ref: '#/definitions/wallet.BalanceItem'
         type: array
     type: object
+  wallet.ListBizTypesResponseData:
+    properties:
+      biz_types:
+        items:
+          $ref: '#/definitions/ledger.BizType'
+        type: array
+    type: object
   wallet.ListTransactionsResponseData:
     properties:
       total:
@@ -4044,6 +4081,32 @@ paths:
           schema:
             $ref: '#/definitions/auditadmin.Response'
       summary: 获取操作日志列表
+      tags:
+      - admin
+  /api/v1/admin/audit-logs/actions:
+    get:
+      description: 用于展示日志和筛选, 按登记顺序
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/auditadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/auditadmin.ListAuditActionsResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auditadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auditadmin.Response'
+      summary: 获取操作日志的操作类型和名称
       tags:
       - admin
   /api/v1/admin/conditions/types:
@@ -7976,6 +8039,32 @@ paths:
       summary: 存活检查
       tags:
       - health
+  /api/v1/inventory/biz-types:
+    get:
+      description: 用于展示流水和筛选, 按登记顺序
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/inventory.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/inventory.ListBizTypesResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/inventory.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/inventory.Response'
+      summary: 获取背包流水的业务类型和名称
+      tags:
+      - inventory
   /api/v1/inventory/items:
     get:
       description: 只返回数量大于 0 的物品, 已删除的物品按占位物品返回
@@ -9013,6 +9102,32 @@ paths:
           schema:
             $ref: '#/definitions/wallet.Response'
       summary: 获取当前用户的各货币余额
+      tags:
+      - wallet
+  /api/v1/wallet/biz-types:
+    get:
+      description: 用于展示流水和筛选, 按登记顺序
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wallet.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wallet.ListBizTypesResponseData'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wallet.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wallet.Response'
+      summary: 获取余额流水的业务类型和名称
       tags:
       - wallet
   /api/v1/wallet/transactions:

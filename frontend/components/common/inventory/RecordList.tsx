@@ -11,7 +11,7 @@ import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout'
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {InventoryTransaction} from '@/lib/services/inventory';
-import {INVENTORY_BIZ_LABELS} from '@/lib/biz';
+import {useLabels} from '@/hooks/use-labels';
 import {formatDateTime} from '@/lib/utils';
 import {RECORD_PAGE_SIZE, type ItemFilter} from './constants';
 
@@ -19,6 +19,7 @@ import {RECORD_PAGE_SIZE, type ItemFilter} from './constants';
  * 背包记录, 可只看某个物品
  */
 export function RecordList({itemFilter, onClearFilter}: { itemFilter: ItemFilter | null; onClearFilter: () => void }) {
+  const bizLabels = useLabels('inventoryBiz');
   const {user} = useAuth();
   const [current, setCurrent] = useState(1);
   const [data, setData] = useState<{ total: number; transactions: InventoryTransaction[] } | null>(null);
@@ -89,7 +90,7 @@ export function RecordList({itemFilter, onClearFilter}: { itemFilter: ItemFilter
                     {t.quantity > 0 ? `+${t.quantity}` : t.quantity}
                   </TableCell>
                   <TableCell className="text-right font-mono text-muted-foreground tabular-nums">{t.quantity_after}</TableCell>
-                  <TableCell>{INVENTORY_BIZ_LABELS[t.biz_type] ?? t.biz_type}</TableCell>
+                  <TableCell>{bizLabels[t.biz_type] ?? t.biz_type}</TableCell>
                   <TableCell className="max-w-64 truncate text-muted-foreground" title={t.remark || undefined}>
                     {t.remark || '-'}
                   </TableCell>

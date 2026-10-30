@@ -9,7 +9,7 @@ import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout'
 import services from '@/lib/services';
 import type {AdminInventoryTransaction} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
-import {INVENTORY_BIZ_LABELS} from '@/lib/biz';
+import {useLabels} from '@/hooks/use-labels';
 import {formatDateTime} from '@/lib/utils';
 import {Actor, BizTypeSelect, IDFilterForm} from './TransactionFilters';
 import {ALL, PAGE_SIZE, type IDFilters} from './constants';
@@ -18,6 +18,7 @@ import {ALL, PAGE_SIZE, type IDFilters} from './constants';
  * 全部用户的背包流水, 可按用户、操作人、物品和类型筛选
  */
 export function InventoryTransactions({initialUserID}: { initialUserID?: number }) {
+  const bizLabels = useLabels('inventoryBiz');
   const isAdmin = !!useAuth().user?.is_admin;
   const [ids, setIDs] = useState<IDFilters>({user_id: initialUserID});
   const [bizType, setBizType] = useState(ALL);
@@ -66,7 +67,7 @@ export function InventoryTransactions({initialUserID}: { initialUserID?: number 
         />
         <BizTypeSelect
           value={bizType}
-          labels={INVENTORY_BIZ_LABELS}
+          labels={bizLabels}
           onChange={(value) => {
             setCurrent(1);
             setBizType(value);
@@ -110,7 +111,7 @@ export function InventoryTransactions({initialUserID}: { initialUserID?: number 
                     {t.quantity > 0 ? `+${t.quantity}` : t.quantity}
                   </TableCell>
                   <TableCell className="text-right font-mono text-muted-foreground tabular-nums">{t.quantity_after}</TableCell>
-                  <TableCell>{INVENTORY_BIZ_LABELS[t.biz_type] ?? t.biz_type}</TableCell>
+                  <TableCell>{bizLabels[t.biz_type] ?? t.biz_type}</TableCell>
                   <TableCell>
                     <Actor id={t.operator_id} username={t.operator_username} system />
                   </TableCell>

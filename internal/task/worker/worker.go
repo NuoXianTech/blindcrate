@@ -28,11 +28,6 @@ import (
 	"context"
 	"time"
 
-	_ "github.com/NuoXianTech/blindcrate/internal/apps/auction" // 注册暗拍玩法, 阶段超时时调用
-	"github.com/NuoXianTech/blindcrate/internal/apps/match"
-	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
-	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
-	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/NuoXianTech/blindcrate/internal/task"
@@ -64,12 +59,10 @@ func StartWorker() error {
 	// 注册任务处理器
 	mux := asynq.NewServeMux()
 	mux.Use(taskLoggingMiddleware)
-	mux.HandleFunc(task.TypeMatchPhaseTimeout, match.HandlePhaseTimeout)
-	mux.HandleFunc(task.TypeMatchBotFill, match.HandleBotFill)
-	mux.HandleFunc(task.TypeMatchSweep, match.HandleSweep)
-	mux.HandleFunc(task.TypeStatsCleanup, stats.HandleCleanup)
-	mux.HandleFunc(task.TypeSeasonSettle, ranked.HandleSeasonSettle)
-	mux.HandleFunc(task.TypeUploadCleanup, upload.HandleCleanup)
+	// 处理函数由各模块登记, 见 task.Register; 入口需要导入 apps/all, 否则模块的 init 不会执行
+	for _, job := range task.Jobs() {
+		mux.HandleFunc(job.Type, job.Handler)
+	}
 
 	// 启动服务
 	return asynqServer.Run(mux)

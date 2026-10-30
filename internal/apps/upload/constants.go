@@ -26,7 +26,9 @@
 //
 //   - 上传: 按内容识别格式, 只接受 png、jpeg、webp, 按用途缩小尺寸后重新编码(去掉 EXIF 等元数据), 见 Save
 //   - 存储: 文件按内容的 sha256 命名, 同一用途的相同图片只存一份, 业务表只保存返回的地址, 见 storage
-//   - 清理: 上传后超过保留天数仍没有被引用的图片定时删除, 引用的位置见 references, 见 HandleCleanup
+//   - 清理: 上传后超过保留天数仍没有被引用的图片定时删除, 见 HandleCleanup
+//
+// 新模块需要图片时用 RegisterPurpose 登记用途, 并用 RegisterReference 登记保存图片地址的字段, 否则图片会被清理。
 package upload
 
 // 图片的用途, 决定上传权限和缩小后的最大边长
@@ -44,6 +46,7 @@ type purposeSpec struct {
 	maxSide   int  // 缩小后的最大边长(像素), 保持宽高比
 }
 
+// purposes 已登记的用途, 只在启动前写入, 见 RegisterPurpose
 var purposes = map[string]purposeSpec{
 	PurposeAvatar: {square: true, maxSide: 256},
 	PurposeItem:   {adminOnly: true, maxSide: 512},

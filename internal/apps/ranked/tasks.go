@@ -33,11 +33,18 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
+	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/task"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 )
+
+func init() {
+	// 发放赛季奖励, 可以重复执行, 失败时重试几次; 未配置时不发放
+	task.Register(task.Job{Type: task.TypeSeasonSettle, Handler: HandleSeasonSettle, Cron: config.Config.Schedule.SeasonSettle, Periodic: true, Queue: task.QueueLow, MaxRetry: 3})
+}
 
 // HandleSeasonSettle 给已结束的赛季发放赛季奖励, 发完后写入 settled_at
 //

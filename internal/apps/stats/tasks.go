@@ -29,11 +29,18 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/task"
 	"github.com/NuoXianTech/blindcrate/internal/task/schedule"
 	"github.com/hibiken/asynq"
 )
+
+func init() {
+	// 清理过期的按天统计, 可以重复执行, 失败时重试几次; 未配置时不清理
+	task.Register(task.Job{Type: task.TypeStatsCleanup, Handler: HandleCleanup, Cron: config.Config.Schedule.StatsCleanup, Periodic: true, Queue: task.QueueLow, MaxRetry: 3})
+}
 
 // HandleCleanup 清理保留天数之前的按天统计, 累计统计不受影响; 保留天数见 settings.StatsSettings
 //

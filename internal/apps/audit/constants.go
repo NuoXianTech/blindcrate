@@ -103,3 +103,6 @@ const (
 	ActionPackExport            = "admin.pack_export"
 	ActionPackImport            = "admin.pack_import"
 )
+
+// maxActionLength 操作类型的最大长度, 与 audit_logs.action 一致
+const maxActionLength = 64

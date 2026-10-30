@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -84,4 +85,22 @@ func ListAuditLogs(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListAuditLogsResponseData{Total: total, Logs: logs}})
+}
+
+// ListAuditActionsResponseData 操作类型和名称
+type ListAuditActionsResponseData struct {
+	Actions []audit.Action `json:"actions"`
+}
+
+// ListAuditActions
+// @Tags admin
+// @Summary 获取操作日志的操作类型和名称
+// @Description 用于展示日志和筛选, 按登记顺序
+// @Produce json
+// @Success 200 {object} Response{data=ListAuditActionsResponseData}
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Router /api/v1/admin/audit-logs/actions [get]
+func ListAuditActions(c *gin.Context) {
+	c.JSON(http.StatusOK, Response{Data: ListAuditActionsResponseData{Actions: audit.Actions()}})
 }

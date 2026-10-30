@@ -38,7 +38,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth/authadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition/conditionadmin"
-	_ "github.com/NuoXianTech/blindcrate/internal/apps/economy" // 注册时发放新手资金
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory/inventoryadmin"
@@ -170,6 +169,7 @@ func Serve() {
 			{
 				walletRouter.GET("/balances", wallet.ListBalances)
 				walletRouter.GET("/transactions", wallet.ListTransactions)
+				walletRouter.GET("/biz-types", wallet.ListBizTypes)
 			}
 
 			// Inventory
@@ -178,6 +178,7 @@ func Serve() {
 			{
 				inventoryRouter.GET("/items", inventory.ListItems)
 				inventoryRouter.GET("/transactions", inventory.ListTransactions)
+				inventoryRouter.GET("/biz-types", inventory.ListBizTypes)
 				inventoryRouter.POST("/sell", inventory.SellItems)
 				inventoryRouter.GET("/sell-orders", inventory.ListSellOrders)
 			}
@@ -418,6 +419,7 @@ func Serve() {
 
 				// Audit Log
 				adminRouter.GET("/audit-logs", auditadmin.ListAuditLogs)
+				adminRouter.GET("/audit-logs/actions", auditadmin.ListAuditActions)
 			}
 		}
 	}

@@ -1,5 +1,5 @@
 import type {AuctionAdminView} from '../auction';
-import {BaseService, apiClient} from '../core';
+import {BaseService, apiClient, type CodeLabel} from '../core';
 import type {InventoryTransaction, ListUserItemsData, ListUserItemsParams} from '../inventory';
 import type {ListTiersData, Tier} from '../ranked';
 import type {Season} from '../season';
@@ -120,6 +120,11 @@ export class AdminService extends BaseService {
 
   static listAuditLogs(params: ListAuditLogsParams) {
     return this.get<ListAuditLogsData>('/audit-logs', {params});
+  }
+
+  /** 操作日志的操作类型和名称, 按后端登记的顺序 */
+  static listAuditActions() {
+    return this.get<{ actions: CodeLabel[] }>('/audit-logs/actions');
   }
 
   static listCurrencies() {

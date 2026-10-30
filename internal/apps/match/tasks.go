@@ -32,6 +32,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/task"
@@ -39,6 +40,13 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 )
+
+func init() {
+	task.Register(task.Job{Type: task.TypeMatchPhaseTimeout, Handler: HandlePhaseTimeout})
+	task.Register(task.Job{Type: task.TypeMatchBotFill, Handler: HandleBotFill})
+	// 巡检到期未推进的对局和排队, 失败时等下一次巡检, 不重试
+	task.Register(task.Job{Type: task.TypeMatchSweep, Handler: HandleSweep, Cron: config.Config.Schedule.MatchSweep, Periodic: true, Required: true})
+}
 
 // phaseTimeoutPayload 阶段超时任务的参数
 type phaseTimeoutPayload struct {

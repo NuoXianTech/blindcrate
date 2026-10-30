@@ -14,12 +14,14 @@ import services from '@/lib/services';
 import type {AuditLog, AuditScope} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
 import {formatDateTime} from '@/lib/utils';
-import {ACTION_LABELS, ALL, PAGE_SIZE, SCOPE_LABELS} from './constants';
+import {useLabels} from '@/hooks/use-labels';
+import {ALL, PAGE_SIZE, SCOPE_LABELS} from './constants';
 
 /**
  * 操作日志: 按来源、操作和操作人筛选
  */
 export function AuditLogsMain() {
+  const actionLabels = useLabels('auditActions');
   const isAdmin = !!useAuth().user?.is_admin;
   const [scope, setScope] = useState<string>(ALL);
   const [action, setAction] = useState<string>(ALL);
@@ -112,7 +114,7 @@ export function AuditLogsMain() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>全部操作</SelectItem>
-            {Object.entries(ACTION_LABELS).map(([value, label]) => (
+            {Object.entries(actionLabels).map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
               </SelectItem>
@@ -154,7 +156,7 @@ export function AuditLogsMain() {
                     <div className="flex items-center gap-2">
                       <Badge variant={log.scope === 'admin' ? 'default' : 'secondary'}>{SCOPE_LABELS[log.scope]}</Badge>
                       <span className={log.action === 'auth.login_failed' ? 'text-destructive' : undefined}>
-                        {ACTION_LABELS[log.action] ?? log.action}
+                        {actionLabels[log.action] ?? log.action}
                       </span>
                     </div>
                   </TableCell>
