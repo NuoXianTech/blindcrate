@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS checkins;
+DROP TABLE IF EXISTS checkin_days;
 DROP TABLE IF EXISTS mission_claims;
 DROP TABLE IF EXISTS missions;
 DROP TABLE IF EXISTS mail_broadcasts;

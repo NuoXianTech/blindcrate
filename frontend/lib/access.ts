@@ -31,6 +31,7 @@ export const ROUTES = {
   adminShopOrders: '/admin/shop-orders',
   adminMails: '/admin/mails',
   adminMissions: '/admin/missions',
+  adminCheckin: '/admin/checkin',
   adminMatches: '/admin/matches',
   adminSuspects: '/admin/suspects',
   adminSettings: '/admin/settings',

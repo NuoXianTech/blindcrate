@@ -10,8 +10,9 @@ import services from '@/lib/services';
 
 /**
  * 大厅标题旁的任务入口: 有奖励待领取时显示数量并高亮, 点击进入任务页
+ * version 变化时重新拉取, 如签到后可能完成了签到任务
  */
-export function MissionsBadge() {
+export function MissionsBadge({version = 0}: { version?: number }) {
   const {user} = useAuth();
   const [claimable, setClaimable] = useState(0);
 
@@ -22,7 +23,7 @@ export function MissionsBadge() {
         .catch(() => {
           // 只是提示信息, 失败时只显示入口
         });
-  }, [user]);
+  }, [user, version]);
 
   const tone = claimable ? 'border-primary text-primary' : 'text-muted-foreground';
   return (

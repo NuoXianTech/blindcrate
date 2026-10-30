@@ -1,6 +1,7 @@
 import {
   ArrowDownUp,
   Backpack,
+  CalendarCheck,
   CalendarRange,
   ChartColumn,
   ClipboardList,
@@ -99,6 +100,7 @@ export const ADMIN_NAV: NavGroup[] = [
     entries: [
       {title: '游戏邮件', icon: Mails, href: ROUTES.adminMails},
       {title: '任务管理', icon: ClipboardList, href: ROUTES.adminMissions},
+      {title: '签到管理', icon: CalendarCheck, href: ROUTES.adminCheckin},
     ],
   },
   {
