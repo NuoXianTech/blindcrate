@@ -8,6 +8,7 @@ export const ROUTES = {
   gameHome: '/home',
   wallet: '/wallet',
   inventory: '/inventory',
+  codex: '/codex',
   shop: '/shop',
   mail: '/mail',
   missions: '/missions',
@@ -32,6 +33,7 @@ export const ROUTES = {
   adminMails: '/admin/mails',
   adminMissions: '/admin/missions',
   adminCheckin: '/admin/checkin',
+  adminCodex: '/admin/codex',
   adminMatches: '/admin/matches',
   adminSuspects: '/admin/suspects',
   adminSettings: '/admin/settings',
@@ -41,7 +43,7 @@ export const ROUTES = {
 } as const;
 
 /** 需要登录的路径前缀 */
-const AUTH_PREFIXES = ['/home', '/wallet', '/inventory', '/shop', '/mail', '/missions', '/leaderboard', '/stats', '/match', '/matches', '/admin'];
+const AUTH_PREFIXES = ['/home', '/wallet', '/inventory', '/codex', '/shop', '/mail', '/missions', '/leaderboard', '/stats', '/match', '/matches', '/admin'];
 /** 需要管理员的路径前缀 */
 const ADMIN_PREFIXES = ['/admin'];
 

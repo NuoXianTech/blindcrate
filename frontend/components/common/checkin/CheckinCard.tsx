@@ -8,13 +8,13 @@ import {Button} from '@/components/ui/button';
 import {Skeleton} from '@/components/ui/skeleton';
 import {useAuth} from '@/components/common/auth';
 import {ItemImage} from '@/components/common/item';
+import {RewardResultDialog} from '@/components/common/reward';
 import {CurrencyIcon} from '@/components/common/wallet';
 import services from '@/lib/services';
 import type {CheckinDay, CheckinResult, CheckinStatus} from '@/lib/services/checkin';
 import {toErrorMessage} from '@/lib/services/core';
 import type {RewardLine} from '@/lib/services/reward';
 import {formatAmount} from '@/lib/utils';
-import {CheckinResultDialog} from './CheckinResultDialog';
 
 /** 一行奖励的文字, 用于悬停提示 */
 function lineText(line: RewardLine) {
@@ -171,7 +171,12 @@ export function CheckinCard({onCheckedIn}: {
         })}
       </div>
 
-      <CheckinResultDialog result={result} onClose={() => setResult(null)} />
+      <RewardResultDialog
+        lines={result?.received ?? null}
+        title="签到成功"
+        description={result && `已连续签到 ${result.streak} 天, 领取了第 ${result.day} 天的奖励`}
+        onClose={() => setResult(null)}
+      />
     </section>
   );
 }

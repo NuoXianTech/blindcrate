@@ -17,13 +17,13 @@ import {
 import {Button} from '@/components/ui/button';
 import {useAuth} from '@/components/common/auth';
 import {Pagination} from '@/components/common/layout';
+import {RewardResultDialog} from '@/components/common/reward';
 import {afterJitter, refreshMailCounts, useMailCounts} from '@/hooks/use-mail-counts';
 import {useSubmit} from '@/hooks/use-submit';
 import {useWsEvent} from '@/hooks/use-ws';
 import services from '@/lib/services';
 import {ApiError, toErrorMessage} from '@/lib/services/core';
 import {MAILBOX_MESSAGES, type ClaimMailsResult, type ListMailsData, type Mail} from '@/lib/services/mailbox';
-import {ClaimResultDialog} from './ClaimResultDialog';
 import {MailDetail} from './MailDetail';
 import {MailList} from './MailList';
 import {MAIL_PAGE_SIZE} from './constants';
@@ -176,7 +176,17 @@ export function MailMain() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <ClaimResultDialog result={result} onClose={() => setResult(null)} />
+      {/* 一键领取时说明领取和跳过的封数 */}
+      <RewardResultDialog
+        lines={result?.received ?? null}
+        description={
+          <>
+            {result && result.claimed > 1 ? `领取了 ${result.claimed} 封邮件的附件` : '附件已放进背包和钱包'}
+            {result?.skipped ? `, ${result.skipped} 封暂时无法领取, 请稍后再试` : ''}
+          </>
+        }
+        onClose={() => setResult(null)}
+      />
     </div>
   );
 }

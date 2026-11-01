@@ -1,6 +1,7 @@
 import {
   ArrowDownUp,
   Backpack,
+  BookOpen,
   CalendarCheck,
   CalendarRange,
   ChartColumn,
@@ -59,6 +60,7 @@ export const PLAYER_NAV: NavEntry[] = [
   {title: '任务', icon: ClipboardList, href: ROUTES.missions},
   {title: '战绩', icon: History, href: ROUTES.matches},
   {title: '背包', icon: Backpack, href: ROUTES.inventory},
+  {title: '图鉴', icon: BookOpen, href: ROUTES.codex},
   {title: '商城', icon: Store, href: ROUTES.shop},
   {title: '钱包', icon: Wallet, href: ROUTES.wallet},
   {title: '邮件', icon: Mail, href: ROUTES.mail, badge: 'mail'},
@@ -101,6 +103,7 @@ export const ADMIN_NAV: NavGroup[] = [
       {title: '游戏邮件', icon: Mails, href: ROUTES.adminMails},
       {title: '任务管理', icon: ClipboardList, href: ROUTES.adminMissions},
       {title: '签到管理', icon: CalendarCheck, href: ROUTES.adminCheckin},
+      {title: '图鉴管理', icon: BookOpen, href: ROUTES.adminCodex},
     ],
   },
   {

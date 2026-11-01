@@ -7,10 +7,10 @@ import {Badge} from '@/components/ui/badge';
 import {Skeleton} from '@/components/ui/skeleton';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {useAuth} from '@/components/common/auth';
+import {RewardResultDialog} from '@/components/common/reward';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {ClaimMissionResult, Mission, MissionsData} from '@/lib/services/mission';
-import {ClaimResultDialog} from './ClaimResultDialog';
 import {MissionCard} from './MissionCard';
 import {ResetCountdown} from './ResetCountdown';
 import {claimableCount, missionRank} from './constants';
@@ -127,7 +127,7 @@ export function MissionsMain() {
         </Tabs>
       )}
 
-      <ClaimResultDialog result={result} onClose={() => setResult(null)} />
+      <RewardResultDialog lines={result?.received ?? null} onClose={() => setResult(null)} />
     </div>
   );
 }

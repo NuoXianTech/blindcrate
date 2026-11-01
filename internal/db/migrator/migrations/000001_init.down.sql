@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS codex_claims;
+DROP TABLE IF EXISTS codex_sets;
 DROP TABLE IF EXISTS checkins;
 DROP TABLE IF EXISTS checkin_days;
 DROP TABLE IF EXISTS mission_claims;
