@@ -758,3 +758,31 @@ CREATE TABLE IF NOT EXISTS checkins
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (user_id, period)
 );
+
+-- 图鉴的收集组, 集齐 item_ids 中全部启用的藏品后可以领取奖励; 玩家收集过的藏品直接读 inventory_items
+CREATE TABLE IF NOT EXISTS codex_sets
+(
+    id          BIGSERIAL PRIMARY KEY,
+    code        VARCHAR(32)  NOT NULL,              -- 自然键, 创建后不能修改
+    name        VARCHAR(64)  NOT NULL,
+    description VARCHAR(255) NOT NULL DEFAULT '',
+    item_ids    JSONB        NOT NULL DEFAULT '[]', -- 组内的藏品 ID, 去重后从小到大排列
+    reward      JSONB        NOT NULL DEFAULT '{}', -- 奖励 reward.Bundle, 数量为正数
+    sort_order  INTEGER      NOT NULL DEFAULT 0,    -- 从小到大排列
+    is_enabled  BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    deleted_at  TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_codex_sets_code ON codex_sets (code);
+CREATE INDEX IF NOT EXISTS idx_codex_sets_deleted_at ON codex_sets (deleted_at);
+
+-- 收集组的领取记录, 同一收集组同一用户只有一行
+CREATE TABLE IF NOT EXISTS codex_claims
+(
+    set_id     BIGINT      NOT NULL,
+    user_id    BIGINT      NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (set_id, user_id)
+);

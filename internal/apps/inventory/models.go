@@ -31,6 +31,7 @@ import (
 // UserItem 用户持有的某种物品, 首次获得时创建, 数量扣到 0 也保留
 //
 // 物品被删除后这一行保留, 按占位物品展示, 见 item.Resolve。
+// 图鉴按这张表判断玩家收集过哪些藏品, created_at 为第一次获得的时间, 不要删除这里的行。
 type UserItem struct {
 	UserID    uint64    `gorm:"primaryKey;autoIncrement:false" json:"user_id"`
 	ItemID    uint64    `gorm:"primaryKey;autoIncrement:false;index:idx_inventory_items_item_id,where:quantity > 0" json:"item_id"`

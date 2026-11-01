@@ -2,6 +2,7 @@ import {AdminService} from './admin';
 import {AuctionService} from './auction';
 import {AuthService} from './auth';
 import {CheckinAdminService, CheckinService} from './checkin';
+import {CodexAdminService, CodexService} from './codex';
 import {InventoryService} from './inventory';
 import {LeaderboardService} from './leaderboard';
 import {MailboxAdminService, MailboxService} from './mailbox';
@@ -62,6 +63,8 @@ const services = {
   mission: MissionService,
   /** 每日签到 */
   checkin: CheckinService,
+  /** 图鉴 */
+  codex: CodexService,
   /** 图片上传 */
   upload: UploadService,
   /** 仓库暗拍 */
@@ -74,6 +77,8 @@ const services = {
   missionAdmin: MissionAdminService,
   /** 后台: 签到 */
   checkinAdmin: CheckinAdminService,
+  /** 后台: 图鉴 */
+  codexAdmin: CodexAdminService,
 };
 
 export default services;

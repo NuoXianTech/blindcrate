@@ -39,6 +39,8 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth/authadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/checkin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/checkin/checkinadmin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/codex"
+	"github.com/NuoXianTech/blindcrate/internal/apps/codex/codexadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition/conditionadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
@@ -283,6 +285,14 @@ func Serve() {
 				checkinRouter.POST("", ratelimit.ByUser("checkin", ratelimit.PerMinute(30)), checkin.DoCheckin)
 			}
 
+			// Codex
+			codexRouter := apiV1Router.Group("/codex")
+			codexRouter.Use(auth.LoginRequired())
+			{
+				codexRouter.GET("", codex.GetCodex)
+				codexRouter.POST("/sets/:code/claim", ratelimit.ByUser("codex:claim", ratelimit.PerMinute(60)), codex.ClaimCodexSet)
+			}
+
 			// Upload
 			apiV1Router.POST("/uploads", auth.LoginRequired(), ratelimit.ByUser("upload", ratelimit.PerHour(60)), upload.CreateUpload)
 
@@ -452,6 +462,15 @@ func Serve() {
 				{
 					checkinAdminRouter.GET("/days", checkinadmin.ListCheckinDays)
 					checkinAdminRouter.PUT("/days", checkinadmin.UpdateCheckinDays)
+				}
+
+				// Codex
+				codexAdminRouter := adminRouter.Group("/codex/sets")
+				{
+					codexAdminRouter.GET("", codexadmin.ListCodexSets)
+					codexAdminRouter.POST("", codexadmin.CreateCodexSet)
+					codexAdminRouter.PUT("/:id", codexadmin.UpdateCodexSet)
+					codexAdminRouter.DELETE("/:id", codexadmin.DeleteCodexSet)
 				}
 
 				// Inventory

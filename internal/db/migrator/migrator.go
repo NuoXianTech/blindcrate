@@ -34,6 +34,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/checkin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/codex"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
@@ -151,6 +152,8 @@ func runAutoMigrate() {
 		&mission.ClaimRecord{},
 		&checkin.Day{},
 		&checkin.Record{},
+		&codex.Set{},
+		&codex.ClaimRecord{},
 	); err != nil {
 		log.Fatalf("[PostgreSQL] auto migrate failed: %v\n", err)
 	}

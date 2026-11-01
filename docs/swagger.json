@@ -352,6 +352,302 @@
                 }
             }
         },
+        "/api/v1/admin/codex/sets": {
+            "get": {
+                "description": "按排序值和 ID 排列, 不含已删除的收集组",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取收集组列表",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "name": "is_enabled",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 64,
+                        "type": "string",
+                        "description": "按代码或名称搜索, 不区分大小写",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/codexadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/codexadmin.ListSetsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "新建收集组",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.SetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/codexadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/codex.Set"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/codex/sets/{id}": {
+            "put": {
+                "description": "需提交全部字段, 代码不能修改; 修改物品后, 已领取的不受影响",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "修改收集组",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "set id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.SetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/codexadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/codex.Set"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "软删除, 代码不能再被新收集组使用; 已领取的奖励不收回",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "删除收集组",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "set id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/codexadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/conditions/types": {
             "get": {
                 "description": "包含每种条件的参数表单描述, 用于条件编辑器; input 为 currency、item、scope 的字段需要用选择器填写",
@@ -7500,6 +7796,127 @@
                 }
             }
         },
+        "/api/v1/codex": {
+            "get": {
+                "description": "全部启用的藏品, 按品质从高到低排列, 带是否已收集和第一次获得的时间; 以及启用的收集组的进度和领取情况",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "codex"
+                ],
+                "summary": "获取图鉴",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/codex.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/codex.CodexData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/codex.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/codex.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/codex.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/codex/sets/{code}/claim": {
+            "post": {
+                "description": "集齐组内全部启用的藏品后领取, 每个收集组只能领取一次; 已下架的物品按回收价折成货币发放。奖励暂时无法发放时返回 403",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "codex"
+                ],
+                "summary": "领取收集组奖励",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "set code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/codex.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/codex.ClaimResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/codex.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/codex.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/codex.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/codex.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/codex.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/health": {
             "get": {
                 "produces": [
@@ -11190,6 +11607,240 @@
                     "items": {
                         "$ref": "#/definitions/checkinadmin.DayRequest"
                     }
+                }
+            }
+        },
+        "codex.ClaimResult": {
+            "type": "object",
+            "properties": {
+                "received": {
+                    "description": "实际得到的货币和物品, 已下架的物品按回收价折成了货币",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                }
+            }
+        },
+        "codex.CodexData": {
+            "type": "object",
+            "properties": {
+                "claimable": {
+                    "description": "可以领取的收集组数",
+                    "type": "integer"
+                },
+                "collected": {
+                    "description": "已收集的藏品数",
+                    "type": "integer"
+                },
+                "items": {
+                    "description": "全部启用的藏品, 按品质从高到低、ID 排列",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/codex.EntryView"
+                    }
+                },
+                "sets": {
+                    "description": "启用的收集组, 按排序值和 ID 排列; 组内没有启用的藏品时不返回",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/codex.SetView"
+                    }
+                }
+            }
+        },
+        "codex.EntryView": {
+            "type": "object",
+            "properties": {
+                "collected": {
+                    "type": "boolean"
+                },
+                "description": {
+                    "description": "收集后才返回",
+                    "type": "string"
+                },
+                "first_at": {
+                    "description": "第一次获得的时间, 没有收集时为空",
+                    "type": "string"
+                },
+                "image_url": {
+                    "description": "没有收集时也返回, 由前端显示为剪影",
+                    "type": "string"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "quality": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "description": "背包中现有的数量, 卖出或用掉后为 0",
+                    "type": "integer"
+                }
+            }
+        },
+        "codex.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "codex.Set": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "自然键, 创建后不能修改",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_enabled": {
+                    "description": "停用后玩家看不到, 也不能领取",
+                    "type": "boolean"
+                },
+                "item_ids": {
+                    "description": "组内的藏品, 去重后从小到大排列",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reward": {
+                    "description": "数量为正数, 不能为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "sort_order": {
+                    "description": "从小到大排列",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "codex.SetView": {
+            "type": "object",
+            "properties": {
+                "claimable": {
+                    "description": "已集齐且未领取",
+                    "type": "boolean"
+                },
+                "claimed": {
+                    "type": "boolean"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "collected": {
+                    "description": "其中已收集的数量",
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "item_ids": {
+                    "description": "组内启用的藏品, 按图鉴中的顺序排列",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reward": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                }
+            }
+        },
+        "codexadmin.ListSetsResponseData": {
+            "type": "object",
+            "properties": {
+                "sets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/codex.Set"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "codexadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "codexadmin.SetRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "name"
+            ],
+            "properties": {
+                "code": {
+                    "description": "小写字母、数字和下划线, 创建后不能修改",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "item_ids": {
+                    "description": "未删除的藏品, 1-200 种, 重复的只算一次",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "reward": {
+                    "description": "数量为正数, 不能为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "sort_order": {
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": -1000000
                 }
             }
         },
