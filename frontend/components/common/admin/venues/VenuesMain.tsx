@@ -13,14 +13,15 @@ import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout'
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import services from '@/lib/services';
 import type {AdminVenue, ConditionType, ItemEffect, ListVenuesData, LootPoolListItem} from '@/lib/services/admin';
+import type {BotPersona} from '@/lib/services/bot';
 import {toErrorMessage} from '@/lib/services/core';
 import {DeleteVenueDialog} from './DeleteVenueDialog';
 import {VenueDialog, type VenueOptions} from './VenueDialog';
 import {VenueRow} from './VenueRow';
 import {PAGE_SIZE, STATUS_FILTERS, toRequest, type StatusFilter} from './constants';
 
-/** 档位可选的掉落池数量上限, 与列表接口的分页上限一致 */
-const POOL_LIMIT = 100;
+/** 档位可选的掉落池和可选的人机风格的数量上限, 与列表接口的分页上限一致 */
+const OPTION_LIMIT = 100;
 
 /**
  * 地图管理: 搜索和状态筛选, 新建、编辑、启停、删除, 编辑时可以模拟仓库
@@ -39,6 +40,7 @@ export function VenuesMain() {
   const [pools, setPools] = useState<LootPoolListItem[] | null>(null);
   const [types, setTypes] = useState<ConditionType[] | null>(null);
   const [effects, setEffects] = useState<ItemEffect[] | null>(null);
+  const [personas, setPersonas] = useState<BotPersona[] | null>(null);
 
   // null: 关闭; "new": 新建; 地图: 编辑
   const [editing, setEditing] = useState<AdminVenue | 'new' | null>(null);
@@ -69,18 +71,20 @@ export function VenuesMain() {
     void load();
   }, [load]);
 
-  // 掉落池、条件类型和使用效果只在编辑时用到, 挂载时拉取一次
+  // 掉落池、条件类型、使用效果和人机风格只在编辑时用到, 挂载时拉取一次
   useEffect(() => {
     if (!isAdmin) return;
     Promise.all([
-      services.admin.listLootPools({current: 1, size: POOL_LIMIT}),
+      services.admin.listLootPools({current: 1, size: OPTION_LIMIT}),
       services.admin.listConditionTypes(),
       services.admin.listItemEffects(),
+      services.botAdmin.listPersonas({current: 1, size: OPTION_LIMIT}),
     ])
-        .then(([poolData, typeData, effectData]) => {
+        .then(([poolData, typeData, effectData, personaData]) => {
           setPools(poolData.pools);
           setTypes(typeData.types);
           setEffects(effectData.effects);
+          setPersonas(personaData.personas);
         })
         .catch((err) => toast.error(toErrorMessage(err)));
   }, [isAdmin]);
@@ -94,9 +98,10 @@ export function VenuesMain() {
       types: types ?? [],
       scopes: scopeOptions(venues ?? []),
       effects: effects ?? [],
-      loaded: catalog.loaded && pools !== null && types !== null && effects !== null,
+      personas: personas ?? [],
+      loaded: catalog.loaded && pools !== null && types !== null && effects !== null && personas !== null,
     };
-  }, [catalog.items, catalog.currencies, catalog.loaded, pools, types, effects, venues]);
+  }, [catalog.items, catalog.currencies, catalog.loaded, pools, types, effects, personas, venues]);
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

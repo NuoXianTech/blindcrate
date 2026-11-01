@@ -115,7 +115,7 @@ function ShopItemForm({target, options, onClose, onSaved}: Omit<ShopItemDialogPr
   const [goods, setGoods] = useState(() => toBundleDrafts(source?.goods ?? {}, currencies));
   const [price, setPrice] = useState(() => toBundleDrafts(source?.price ?? {}, currencies));
   const [originalPrice, setOriginalPrice] = useState(() => toBundleDrafts(source?.original_price ?? {}, currencies));
-  const [requirements, setRequirements] = useState(() => toConditionDrafts(source?.requirements ?? []));
+  const [requirements, setRequirements] = useState(() => toConditionDrafts(source?.requirements ?? [], types));
   const [limitTotal, setLimitTotal] = useState(String(source?.limits.total ?? 0));
   const [limitDaily, setLimitDaily] = useState(String(source?.limits.daily ?? 0));
   const [limitSeason, setLimitSeason] = useState(String(source?.limits.season ?? 0));

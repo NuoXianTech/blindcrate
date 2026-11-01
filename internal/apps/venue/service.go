@@ -26,6 +26,7 @@ package venue
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -35,6 +36,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
@@ -103,6 +105,9 @@ func Validate(tx *gorm.DB, v *Venue) error {
 		return err
 	}
 	if err := validateRules(v); err != nil {
+		return err
+	}
+	if err := validateBots(tx, v); err != nil {
 		return err
 	}
 	if err := validateConsumables(tx, v); err != nil {
@@ -194,7 +199,7 @@ func validateRules(v *Venue) error {
 	}{
 		{"仓库规则", &v.Warehouse},
 		{"拍卖参数", &v.Auction},
-		{"人机参数", &v.Bots},
+		{"人机风格", &v.Bots},
 		{"人机模式", &v.Pve},
 		{"道具规则", &v.Consumables},
 	}
@@ -220,14 +225,53 @@ func validateRules(v *Venue) error {
 	if len(v.Auction.QuickWin) != int(v.Auction.Rounds)-1 {
 		return invalid(QuickWinInvalid, v.Auction.Rounds-1)
 	}
-	var weights int32
-	for _, weight := range v.Bots.LevelWeights {
-		weights += weight
+	return nil
+}
+
+// validateBots 开放的模式至少配置一种人机风格, 风格不能重复且需存在; 校验后没有配置的模式写为空列表
+func validateBots(tx *gorm.DB, v *Venue) error {
+	modes := []struct {
+		mode    string
+		enabled bool
+		weights *[]bot.Weight
+	}{
+		{ModePve, v.PveEnabled, &v.Bots.Pve},
+		{ModeRanked, v.RankedEnabled, &v.Bots.Ranked},
 	}
-	if weights == 0 {
-		return invalid(BotWeightsInvalid)
+	for _, m := range modes {
+		if *m.weights == nil {
+			*m.weights = []bot.Weight{}
+		}
+		if m.enabled && len(*m.weights) == 0 {
+			return invalid(BotsEmpty, ModeName(m.mode))
+		}
+		reason, err := bot.CheckWeights(tx, *m.weights)
+		if err != nil {
+			return err
+		}
+		if reason != "" {
+			return invalid(BotsInvalid, ModeName(m.mode), reason)
+		}
 	}
 	return nil
+}
+
+// UsingPersona 返回一张引用了这个人机风格的未删除地图的代码, 没有时返回空字符串, 删除风格前调用
+func UsingPersona(tx *gorm.DB, persona string) (string, error) {
+	var codes []string
+	err := tx.Model(&Venue{}).
+		Where("bots @> ?::jsonb OR bots @> ?::jsonb", personaFilter(ModePve, persona), personaFilter(ModeRanked, persona)).
+		Order("id").Limit(1).Pluck("code", &codes).Error
+	if err != nil || len(codes) == 0 {
+		return "", err
+	}
+	return codes[0], nil
+}
+
+// personaFilter 按模式匹配引用了风格的人机配置, 用于 jsonb 的 @> 查询
+func personaFilter(mode, persona string) string {
+	raw, _ := json.Marshal(map[string][]map[string]string{mode: {{"persona": persona}}})
+	return string(raw)
 }
 
 // validateConsumables 可用道具需为未删除且效果属于对局场景的物品; 校验后去掉重复的 ID

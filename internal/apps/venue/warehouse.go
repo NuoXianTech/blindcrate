@@ -251,3 +251,44 @@ func (g *Generator) Simulate(runs int, valueFactor int32) ValueStats {
 	stats.MeanPieces = int32(pieces / len(values))
 	return stats
 }
+
+// PieceOdds 按公示概率算出每种藏品在一个仓库中的期望件数和平均回收价, 品质和尺寸相同的合在一起, 按品质、宽、高排列
+//
+// 只用玩家在地图详情中能看到的档位和掉落池概率, 以及物品的品质、尺寸和回收价; 不考虑摆不下时的重抽。valueFactor 同 Generate。
+func (g *Generator) PieceOdds(valueFactor int32) []PieceOdds {
+	type key struct{ quality, width, height int16 }
+	type sum struct{ count, value float64 }
+	sums := map[key]*sum{}
+	for _, sp := range g.slots {
+		var total int64
+		for _, weight := range sp.weights {
+			total += weight
+		}
+		times := float64(sp.slot.Chance) / BasisPoints * float64(sp.slot.Min+sp.slot.Max) / 2 * float64(valueFactor) / BasisPoints
+		for i, entry := range sp.entries {
+			target := g.items[entry.ItemID]
+			count := times * float64(sp.weights[i]) / float64(total) * float64(entry.MinQuantity+entry.MaxQuantity) / 2
+			if count <= 0 {
+				continue
+			}
+			k := key{target.Quality, target.Width, target.Height}
+			s, ok := sums[k]
+			if !ok {
+				s = &sum{}
+				sums[k] = s
+			}
+			s.count += count
+			if target.SellCurrency == g.currency {
+				s.value += count * float64(target.SellPrice)
+			}
+		}
+	}
+	odds := make([]PieceOdds, 0, len(sums))
+	for k, s := range sums {
+		odds = append(odds, PieceOdds{Quality: k.quality, Width: k.width, Height: k.height, Count: s.count, Price: s.value / s.count})
+	}
+	slices.SortFunc(odds, func(a, b PieceOdds) int {
+		return cmp.Or(cmp.Compare(a.Quality, b.Quality), cmp.Compare(a.Width, b.Width), cmp.Compare(a.Height, b.Height))
+	})
+	return odds
+}

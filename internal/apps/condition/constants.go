@@ -45,3 +45,6 @@ const (
 
 // maxConditions 一个条件列表最多的条件数
 const maxConditions = 16
+
+// unitBasisPoints 参数的单位: 基点, 见 FieldsOf
+const unitBasisPoints = "bp"

@@ -1,6 +1,7 @@
 import {AdminService} from './admin';
 import {AuctionService} from './auction';
 import {AuthService} from './auth';
+import {BotAdminService} from './bot';
 import {CheckinAdminService, CheckinService} from './checkin';
 import {CodexAdminService, CodexService} from './codex';
 import {InventoryService} from './inventory';
@@ -79,6 +80,8 @@ const services = {
   checkinAdmin: CheckinAdminService,
   /** 后台: 图鉴 */
   codexAdmin: CodexAdminService,
+  /** 后台: 人机昵称和风格 */
+  botAdmin: BotAdminService,
 };
 
 export default services;

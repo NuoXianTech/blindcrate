@@ -175,47 +175,18 @@ func feedbackFor(round int32, seat int16, bids map[int16]int64) Feedback {
 	return feedback
 }
 
-// pickBotLevel 按权重随机选出人机等级, 权重依次为低、中、高, 不全为 0
-func pickBotLevel(weights []int32, randN func(int64) int64) int16 {
-	var total int64
-	for _, weight := range weights {
-		total += int64(weight)
-	}
-	n := randN(total)
-	for i, weight := range weights {
-		if n < int64(weight) {
-			return int16(i + 1)
-		}
-		n -= int64(weight)
-	}
-	return int16(len(weights))
-}
-
-// botEstimate 人机的估值 = 仓库价值 × (1 ± 误差), 误差在等级对应的范围内均匀随机
-func botEstimate(rule *venue.BotRule, level int16, value int64, randN func(int64) int64) int64 {
-	spread := int64(rule.EstimateErrors[level-1])
-	offset := randN(2*spread+1) - spread
-	return max(value*(venue.BasisPoints+offset)/venue.BasisPoints, 0)
-}
-
-// botBid 人机第 round 轮之后的出价, 不低于之前的出价 previous; 出价上限低于起拍价时不出价, 返回 previous
+// botBidAt 人机的出价时间, 只用于并列时比较先后: 在从 start 开始、时长为 length 的一轮内均匀随机, 时间还没到时取 now; length 为 0 时为 now
 //
-// 前 BluffRounds 轮有 BluffChance 的概率按估值 × 诈唬系数出价, 否则按估值 × 本轮系数 × (1 ± 浮动);
-// 都不超过估值 × 上限系数和带入资金, 不低于起拍价。
-func botBid(rule *venue.BotRule, auction *venue.AuctionRule, round int32, estimate, previous, carry int64, randN func(int64) int64) int64 {
-	limit := min(estimate*int64(rule.MaxFactor)/venue.BasisPoints, carry)
-	if limit < auction.StartPrice {
-		return previous
+// 真人都提交后本轮提前结束, 不能只在 start 到 now 之间随机, 否则人机总排在最后提交的真人前面。
+// 这样真人和人机的时间同分布, 真人越早出价越可能排在人机前面。
+func botBidAt(start time.Time, length time.Duration, now time.Time, randN func(int64) int64) time.Time {
+	if length <= 0 {
+		return now
 	}
-	var bid int64
-	if round <= rule.BluffRounds && randN(venue.BasisPoints) < int64(rule.BluffChance) {
-		bid = estimate * int64(rule.BluffFactor) / venue.BasisPoints
-	} else {
-		factor := int64(rule.RoundFactors[min(int(round), len(rule.RoundFactors))-1])
-		jitter := int64(rule.Jitter)
-		bid = estimate * factor / venue.BasisPoints * (venue.BasisPoints + randN(2*jitter+1) - jitter) / venue.BasisPoints
+	if at := start.Add(time.Duration(randN(int64(length) + 1))); at.Before(now) {
+		return at
 	}
-	return max(min(max(bid, auction.StartPrice), limit), previous)
+	return now
 }
 
 // scanOrders 开箱时的扫描顺序, 按位置从上到下、从左到右, 返回每件藏品的顺序, 从 1 开始

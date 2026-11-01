@@ -28,6 +28,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"gorm.io/gorm"
@@ -51,7 +52,7 @@ type Venue struct {
 	Requirements  []condition.Condition `gorm:"type:jsonb;serializer:json;not null;default:'[]'" json:"requirements"` // 入场条件, 需要全部满足
 	Warehouse     WarehouseRule         `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"warehouse"`    // 仓库生成规则
 	Auction       AuctionRule           `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"auction"`      // 拍卖参数
-	Bots          BotRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"bots"`         // 人机参数
+	Bots          BotRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"bots"`         // 人机风格, 按模式配置出场的风格和权重
 	Pve           PveRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"pve"`          // 人机模式防刷参数
 	Consumables   ConsumableRule        `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"consumables"`  // 对局中使用道具的规则
 	Simulation    Simulation            `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"simulation"`   // 保存时的模拟结果, 掉落池或物品改动后需要重新保存才会更新
@@ -122,16 +123,21 @@ type AuctionRule struct {
 	MaxExtraRounds int32   `json:"max_extra_rounds" label:"加轮上限" binding:"min=0,max=5"`              // 最后一轮最高价并列时加轮, 之后按先出价的人成交
 }
 
-// BotRule 人机参数, 系数都是基点
+// BotRule 人机风格: 每个模式出场的风格和权重, 开局时每个人机按权重随机选一种; 开放的模式至少配置一种
 type BotRule struct {
-	LevelWeights   []int32 `json:"level_weights" label:"人机等级权重" binding:"len=3,dive,min=0,max=100"`            // 低、中、高三个等级的权重
-	EstimateErrors []int32 `json:"estimate_errors" label:"估值误差" binding:"len=3,dive,min=0,max=9000"`           // 低、中、高三个等级的估值误差, 估值 = 仓库价值 × (1 ± 误差)
-	RoundFactors   []int32 `json:"round_factors" label:"每轮出价系数" binding:"min=1,max=12,dive,min=100,max=10000"` // 每轮出价 = 估值 × 系数, 轮数更多时沿用最后一个
-	Jitter         int32   `json:"jitter" label:"出价浮动" binding:"min=0,max=5000"`                               // 出价在 ± 浮动内随机
-	MaxFactor      int32   `json:"max_factor" label:"出价上限系数" binding:"min=100,max=10000"`                      // 出价不超过估值 × 上限系数
-	BluffChance    int32   `json:"bluff_chance" label:"诈唬概率" binding:"min=0,max=10000"`
-	BluffRounds    int32   `json:"bluff_rounds" label:"诈唬轮数" binding:"min=0,max=10"`      // 只在前几轮诈唬
-	BluffFactor    int32   `json:"bluff_factor" label:"诈唬系数" binding:"min=100,max=10000"` // 诈唬时按估值 × 诈唬系数出价
+	Pve    []bot.Weight `json:"pve" label:"人机模式" binding:"max=10,dive"`
+	Ranked []bot.Weight `json:"ranked" label:"排位模式" binding:"max=10,dive"`
+}
+
+// Weights 这个模式出场的风格和权重
+func (r *BotRule) Weights(mode string) []bot.Weight {
+	switch mode {
+	case ModePve:
+		return r.Pve
+	case ModeRanked:
+		return r.Ranked
+	}
+	return nil
 }
 
 // PveRule 人机模式的防刷参数
@@ -198,6 +204,15 @@ type Piece struct {
 	Y            int16  `json:"y"`
 	SellCurrency string `json:"sell_currency"`
 	SellPrice    int64  `json:"sell_price"` // 生成时的回收价
+}
+
+// PieceOdds 按公示概率算出的一种藏品(品质和尺寸相同的合在一起)在一个仓库中的期望件数和平均回收价, 用于人机估值
+type PieceOdds struct {
+	Quality int16   `json:"quality"`
+	Width   int16   `json:"width"`
+	Height  int16   `json:"height"`
+	Count   float64 `json:"count"` // 期望件数, 不考虑摆不下时的重抽
+	Price   float64 `json:"price"` // 平均回收价, 出价货币; 回收货币不同的按 0 计
 }
 
 // Warehouse 生成的仓库

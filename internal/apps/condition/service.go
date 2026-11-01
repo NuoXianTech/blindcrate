@@ -115,7 +115,9 @@ func Register[P any](conditionType, label, description string, check func(tx *go
 
 // FieldsOf 根据参数结构体的 tag 生成表单描述, 道具效果等同样按参数结构体生成表单的模块也使用它
 //
-// name 只用于出错时的提示; P 不是结构体或有不支持的字段类型时 panic, 需要在启动前调用。
+// 除 json、label、help、input 外, 字符串可以用 options 列出可选值("值:名称,值:名称"), 显示为下拉框;
+// 整数可以用 unit:"bp" 表示基点, 后台按百分比输入。
+// name 只用于出错时的提示; P 不是结构体或有不支持的字段类型、tag 时 panic, 需要在启动前调用。
 func FieldsOf[P any](name string) []Field {
 	typ := reflect.TypeFor[P]()
 	if typ.Kind() != reflect.Struct {
@@ -124,16 +126,22 @@ func FieldsOf[P any](name string) []Field {
 	fields := []Field{}
 	for i := range typ.NumField() {
 		sf := typ.Field(i)
+		fieldName := name + "." + sf.Name
 		f := Field{
-			Key:   strings.Split(sf.Tag.Get("json"), ",")[0],
-			Label: sf.Tag.Get("label"),
-			Help:  sf.Tag.Get("help"),
-			Input: sf.Tag.Get("input"),
+			Key:     strings.Split(sf.Tag.Get("json"), ",")[0],
+			Label:   sf.Tag.Get("label"),
+			Help:    sf.Tag.Get("help"),
+			Input:   sf.Tag.Get("input"),
+			Options: settings.ParseOptions(fieldName, sf.Tag.Get("options")),
+			Unit:    sf.Tag.Get("unit"),
 		}
 		switch sf.Type.Kind() {
 		case reflect.String:
 			f.Type = "string"
-			if f.Input == "" {
+			switch {
+			case len(f.Options) > 0:
+				f.Input = "select"
+			case f.Input == "":
 				f.Input = "text"
 			}
 		case reflect.Bool:
@@ -144,7 +152,13 @@ func FieldsOf[P any](name string) []Field {
 				f.Input = "number"
 			}
 		default:
-			panic(fmt.Sprintf("condition: %s.%s: unsupported type %s", name, sf.Name, sf.Type))
+			panic(fmt.Sprintf("condition: %s: unsupported type %s", fieldName, sf.Type))
+		}
+		switch {
+		case len(f.Options) > 0 && f.Type != "string":
+			panic(fmt.Sprintf("condition: %s: only strings can have options", fieldName))
+		case f.Unit != "" && (f.Unit != unitBasisPoints || f.Type != "int"):
+			panic(fmt.Sprintf("condition: %s: unsupported unit %q", fieldName, f.Unit))
 		}
 		fields = append(fields, f)
 	}

@@ -28,6 +28,7 @@
 //   - 实现 Mode, 在玩法包的 init 中调用 Register, API 和 worker 进程都需要导入该包; 同一种玩法的不同场次注册为不同的代码
 //   - 场次存在数据库中(如每张地图一种玩法)时, 改为调用 RegisterProvider 按代码前缀提供玩法, 后台增删场次不需要重启
 //   - 排队凑满 MaxHumans 个真人时立即开局, 不够 PlayerCount 的座位由人机补齐; 只要求 MinHumans 个真人的玩法, 等满 BotFillAfter 后由人机补齐
+//   - 人机的昵称从 bot 模块的昵称库中随机选取; 人机怎么行动由玩法决定, 一般在 Start 中用 bot.Assign 选出风格, 每轮用 bot.Decide 决策
 //   - 防串通: 同一 IP(可以在排位设置中关闭)、同一设备的账号不排进同一局; 最近几局一起打过的人优先不排到一起, 等满 BotFillAfter 后放宽
 //   - 对局由匹配创建, 先为每个真人调用 Mode.Admit 检查门槛和扣入场费, 再调用 Mode.Start 进入第一个阶段; 阶段到期时 worker 调用 Mode.OnTimeout
 //   - 玩家操作(如出价)在玩法自己的 ws 处理函数中通过 Advance 写入, 需要提前结束阶段时返回下一个阶段
@@ -53,13 +54,6 @@ const (
 	MessageMatchmakingFailed   = "match:matchmaking_failed"   // 创建对局失败, 已移出队列, data 为 MatchmakingFailedMessage
 	MessageMatchmakingRejected = "match:matchmaking_rejected" // 开局时不满足玩法的条件, 已移出队列, data 为 MatchmakingRejectedMessage
 	MessageQueueUpdated        = "match:queue_updated"        // 队列中的人数变化, 推送给仍在队列中的人, data 为 QueueUpdatedMessage
-)
-
-// 人机等级, 等级越高利用的信息越多, 具体含义由玩法决定
-const (
-	BotLevelLow    int16 = 1
-	BotLevelMedium int16 = 2
-	BotLevelHigh   int16 = 3
 )
 
 const (
@@ -90,11 +84,3 @@ const (
 	// deviceCookieAge 设备标识的有效期, 秒
 	deviceCookieAge = 365 * 24 * 60 * 60
 )
-
-// botNames 人机的昵称, 每局随机选取且不重复
-var botNames = []string{
-	"橘子汽水", "晚风", "不吃香菜", "摸鱼达人", "小熊软糖", "夜猫子",
-	"一只咸鱼", "清风徐来", "芝士就是力量", "拾光者", "奶茶续命", "长安",
-	"今天也要加油", "星河", "柠檬不萌", "南城", "白开水", "鹿鸣",
-	"慢半拍", "云朵", "抹茶控", "北岛", "早睡早起", "小满",
-}

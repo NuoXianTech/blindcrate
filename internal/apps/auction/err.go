@@ -43,4 +43,6 @@ const (
 	UseLimitReached  = "本局最多使用 %d 个道具"
 	UseRepeated      = "本轮已经用过这个道具"
 	UseQuantityShort = "道具数量不足"
+
+	BotFactorsInvalid = "出价系数需满足首轮系数 ≤ 末轮系数 ≤ 上限系数"
 )

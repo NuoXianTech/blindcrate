@@ -37,6 +37,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit/auditadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth/authadmin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/bot/botadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/checkin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/checkin/checkinadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/codex"
@@ -367,6 +368,20 @@ func Serve() {
 					venueAdminRouter.POST("/simulate", ratelimit.ByUser("admin:venue_simulate", ratelimit.PerMinute(30)), venueadmin.SimulateVenue)
 					venueAdminRouter.PUT("/:id", venueadmin.UpdateVenue)
 					venueAdminRouter.DELETE("/:id", venueadmin.DeleteVenue)
+				}
+
+				// Bot
+				botAdminRouter := adminRouter.Group("/bot")
+				{
+					botAdminRouter.GET("/names", botadmin.ListBotNames)
+					botAdminRouter.POST("/names", botadmin.CreateBotNames)
+					botAdminRouter.PUT("/names/:id", botadmin.UpdateBotName)
+					botAdminRouter.DELETE("/names/:id", botadmin.DeleteBotName)
+					botAdminRouter.GET("/personas", botadmin.ListBotPersonas)
+					botAdminRouter.POST("/personas", botadmin.CreateBotPersona)
+					botAdminRouter.PUT("/personas/:id", botadmin.UpdateBotPersona)
+					botAdminRouter.DELETE("/personas/:id", botadmin.DeleteBotPersona)
+					botAdminRouter.GET("/strategies", botadmin.ListBotStrategies)
 				}
 
 				// Condition

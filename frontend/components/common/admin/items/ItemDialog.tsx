@@ -82,7 +82,9 @@ function ItemForm({item, currencies, categories, effects, onClose, onSaved}: Omi
   const [height, setHeight] = useState(String(item?.height ?? 1));
   const [enabled, setEnabled] = useState(item?.is_enabled ?? true);
   const [effectCode, setEffectCode] = useState(item?.effect || NO_EFFECT);
-  const [effectParams, setEffectParams] = useState<ParamsDraft>(() => toParamsDraft(item?.effect_params));
+  const [effectParams, setEffectParams] = useState<ParamsDraft>(
+      () => toParamsDraft(effects.find((e) => e.code === item?.effect)?.fields ?? [], item?.effect_params),
+  );
   // 藏品不能配置使用效果, 切换到藏品时提交空效果
   const usable = category !== COLLECTIBLE;
   const effect = usable ? effects.find((e) => e.code === effectCode) : undefined;

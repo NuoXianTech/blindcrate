@@ -45,7 +45,8 @@ const (
 	FailureRateTooHigh = "仓库摆放失败率为 %.2f%%, 不能超过 1%%, 请加大格子或减少件数"
 	MaxCarryInvalid    = "带入资金上限不能低于起拍价"
 	QuickWinInvalid    = "速胜倍率需要 %d 个, 即轮数减 1"
-	BotWeightsInvalid  = "人机等级的权重不能全为 0"
+	BotsEmpty          = "%s模式至少配置一种人机风格"
+	BotsInvalid        = "%s模式: %s"
 	ConsumableNotFound = "可用道具中的物品 %d 不存在"
 	ConsumableUnusable = "可用道具中的 %s 不能在对局中使用"
 )

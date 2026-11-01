@@ -1,146 +1,44 @@
 'use client';
 
-import {Plus, X} from 'lucide-react';
+import {Plus, Trash2} from 'lucide-react';
+import {nanoid} from 'nanoid';
 import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import type {Currency} from '@/lib/services/admin';
+import type {BotPersona} from '@/lib/services/bot';
 import {FieldGroup, InputField, SwitchField} from './Fields';
-import {BOT_LEVELS, MAX_ROUND_FACTORS} from './constants';
-import type {FormTabProps} from './form';
+import {MAX_BOT_PERSONAS} from './constants';
+import type {FormTabProps, WeightDraft} from './form';
+
+/** 出场风格的列宽, 表头和每行共用 */
+const WEIGHT_COLUMNS = 'grid grid-cols-[1fr_5rem_4rem_2.25rem] items-center gap-2';
 
 /**
- * 人机: 人机的等级和出价参数, 人机模式的防刷参数
+ * 人机: 每个模式出场的人机风格和权重, 人机模式的防刷参数
  */
-export function BotTab({form, onChange, disabled, currency}: FormTabProps & { currency?: Currency }) {
-  const setAt = (list: string[], i: number, value: string) => list.map((x, j) => (j === i ? value : x));
-
+export function BotTab({form, onChange, disabled, currency, personas}: FormTabProps & {
+  currency?: Currency;
+  personas: BotPersona[];
+}) {
   return (
     <div className="flex flex-col gap-6">
-      <FieldGroup title="等级" help="每个人机按权重随机一个等级, 估值 = 仓库价值 × (1 ± 误差), 误差越小越难对付">
-        <div className="grid grid-cols-3 gap-3">
-          {BOT_LEVELS.map((level, i) => (
-            <div key={level} className="flex flex-col gap-2 rounded-lg border p-3">
-              <span className="text-sm font-medium">{level}级</span>
-              <InputField
-                id={`venue-bot-weight-${i}`}
-                label="权重"
-                help="0-100"
-                inputMode="numeric"
-                value={form.levelWeights[i] ?? ''}
-                onChange={(x) => onChange({levelWeights: setAt(form.levelWeights, i, x)})}
-                disabled={disabled}
-              />
-              <InputField
-                id={`venue-bot-error-${i}`}
-                label="估值误差"
-                help="0-90%"
-                suffix="%"
-                inputMode="decimal"
-                value={form.estimateErrors[i] ?? ''}
-                onChange={(x) => onChange({estimateErrors: setAt(form.estimateErrors, i, x)})}
-                disabled={disabled}
-              />
-            </div>
-          ))}
-        </div>
-      </FieldGroup>
-
-      <FieldGroup title="出价" help="每轮出价 = 估值 × 本轮系数 × (1 ± 浮动), 不超过估值 × 出价上限; 轮数多于系数个数时沿用最后一个">
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-          {form.roundFactors.map((value, i) => (
-            <div key={i} className="flex items-end gap-1">
-              <InputField
-                id={`venue-round-factor-${i}`}
-                label={`第 ${i + 1} 轮系数`}
-                suffix="%"
-                inputMode="decimal"
-                value={value}
-                onChange={(x) => onChange({roundFactors: setAt(form.roundFactors, i, x)})}
-                disabled={disabled}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                title="删除"
-                aria-label="删除"
-                className="shrink-0 hover:text-destructive"
-                onClick={() => onChange({roundFactors: form.roundFactors.filter((_, j) => j !== i)})}
-                disabled={disabled || form.roundFactors.length <= 1}
-              >
-                <X />
-              </Button>
-            </div>
-          ))}
-        </div>
-        <div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onChange({roundFactors: [...form.roundFactors, form.roundFactors.at(-1) ?? '80']})}
-            disabled={disabled || form.roundFactors.length >= MAX_ROUND_FACTORS}
-          >
-            <Plus />
-            添加一轮
-          </Button>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <InputField
-            id="venue-bot-jitter"
-            label="出价浮动"
-            help="0-50%"
-            suffix="%"
-            inputMode="decimal"
-            value={form.jitter}
-            onChange={(jitter) => onChange({jitter})}
-            disabled={disabled}
-          />
-          <InputField
-            id="venue-bot-max-factor"
-            label="出价上限"
-            help="估值的 1-100%"
-            suffix="%"
-            inputMode="decimal"
-            value={form.maxFactor}
-            onChange={(maxFactor) => onChange({maxFactor})}
-            disabled={disabled}
-          />
-        </div>
-      </FieldGroup>
-
-      <FieldGroup title="诈唬" help="前几轮有一定概率按估值 × 诈唬系数出价, 用来干扰玩家判断">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <InputField
-            id="venue-bluff-chance"
-            label="诈唬概率"
-            help="0-100%"
-            suffix="%"
-            inputMode="decimal"
-            value={form.bluffChance}
-            onChange={(bluffChance) => onChange({bluffChance})}
-            disabled={disabled}
-          />
-          <InputField
-            id="venue-bluff-rounds"
-            label="诈唬轮数"
-            help="只在前几轮诈唬, 0-10"
-            inputMode="numeric"
-            value={form.bluffRounds}
-            onChange={(bluffRounds) => onChange({bluffRounds})}
-            disabled={disabled}
-          />
-          <InputField
-            id="venue-bluff-factor"
-            label="诈唬系数"
-            help="估值的 1-100%"
-            suffix="%"
-            inputMode="decimal"
-            value={form.bluffFactor}
-            onChange={(bluffFactor) => onChange({bluffFactor})}
-            disabled={disabled}
-          />
-        </div>
-      </FieldGroup>
+      <WeightList
+        mode="人机"
+        enabled={form.pveEnabled}
+        drafts={form.botsPve}
+        personas={personas}
+        onChange={(botsPve) => onChange({botsPve})}
+        disabled={disabled}
+      />
+      <WeightList
+        mode="排位"
+        enabled={form.rankedEnabled}
+        drafts={form.botsRanked}
+        personas={personas}
+        onChange={(botsRanked) => onChange({botsRanked})}
+        disabled={disabled}
+      />
 
       <FieldGroup title="人机模式" help="防止玩家反复打人机刷收益; 全局的人机每日收益上限另外生效">
         <SwitchField
@@ -174,6 +72,145 @@ export function BotTab({form, onChange, disabled, currency}: FormTabProps & { cu
           />
         </div>
       </FieldGroup>
+    </div>
+  );
+}
+
+/** 输入框里的权重, 格式不对或超出范围时按 0 计算出场概率 */
+function weightOf(text: string): number {
+  const weight = Number(text.trim());
+  return Number.isInteger(weight) && weight >= 1 && weight <= 100 ? weight : 0;
+}
+
+/**
+ * 一个模式的出场风格列表的Props接口
+ */
+interface WeightListProps {
+  /** 模式名称, 如人机 */
+  mode: string;
+  /** 开放的模式至少配置一种风格 */
+  enabled: boolean;
+  drafts: WeightDraft[];
+  personas: BotPersona[];
+  onChange: (drafts: WeightDraft[]) => void;
+  disabled: boolean;
+}
+
+/**
+ * 一个模式出场的人机风格, 开局时每个人机按权重随机选一种
+ */
+function WeightList({mode, enabled, drafts, personas, onChange, disabled}: WeightListProps) {
+  const update = (key: string, patch: Partial<WeightDraft>) =>
+    onChange(drafts.map((d) => (d.key === key ? {...d, ...patch} : d)));
+  const weights = drafts.map((d) => weightOf(d.weight));
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  // 新加的一行默认选第一个还没用到的风格
+  const unused = personas.find((p) => !drafts.some((d) => d.persona === p.code));
+
+  return (
+    <FieldGroup
+      title={`${mode}模式`}
+      help={
+        enabled ?
+          `开局时每个人机按权重随机选一种风格, 权重 1-100; 最多 ${MAX_BOT_PERSONAS} 种` :
+          '这个模式没有开放, 开放后按这里的配置出场'
+      }
+    >
+      <div className="flex flex-col gap-2">
+        {drafts.length > 0 && (
+          <div className={`${WEIGHT_COLUMNS} px-1 text-xs text-muted-foreground`}>
+            <span>风格</span>
+            <span>权重</span>
+            <span className="text-right">出场概率</span>
+            <span />
+          </div>
+        )}
+        {drafts.map((d, i) => (
+          <WeightRow
+            key={d.key}
+            draft={d}
+            share={total > 0 ? weights[i] / total : 0}
+            personas={personas}
+            onChange={(patch) => update(d.key, patch)}
+            onRemove={() => onChange(drafts.filter((x) => x.key !== d.key))}
+            disabled={disabled}
+          />
+        ))}
+        {drafts.length === 0 && (
+          <p className="py-2 text-sm text-muted-foreground">{enabled ? '至少需要一种风格' : '没有配置风格'}</p>
+        )}
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onChange([...drafts, {key: nanoid(), persona: unused?.code ?? '', weight: '10'}])}
+            disabled={disabled || drafts.length >= MAX_BOT_PERSONAS}
+          >
+            <Plus />
+            添加风格
+          </Button>
+        </div>
+      </div>
+    </FieldGroup>
+  );
+}
+
+/**
+ * 出场风格行的Props接口
+ */
+interface WeightRowProps {
+  draft: WeightDraft;
+  /** 按当前权重算出的出场概率, 0-1 */
+  share: number;
+  personas: BotPersona[];
+  onChange: (patch: Partial<WeightDraft>) => void;
+  onRemove: () => void;
+  disabled: boolean;
+}
+
+/**
+ * 一种出场的风格: 风格、权重和出场概率
+ */
+function WeightRow({draft, share, personas, onChange, onRemove, disabled}: WeightRowProps) {
+  const known = personas.some((p) => p.code === draft.persona);
+  return (
+    <div className={WEIGHT_COLUMNS}>
+      <Select value={draft.persona} onValueChange={(persona) => onChange({persona})} disabled={disabled}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="选择风格" />
+        </SelectTrigger>
+        <SelectContent>
+          {draft.persona && !known && <SelectItem value={draft.persona}>不存在的风格 {draft.persona}</SelectItem>}
+          {personas.map((p) => (
+            <SelectItem key={p.id} value={p.code}>
+              {p.name}
+              <span className="font-mono text-xs text-muted-foreground">{p.code}</span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Input
+        inputMode="numeric"
+        aria-label="权重"
+        className="font-mono tabular-nums"
+        value={draft.weight}
+        onChange={(e) => onChange({weight: e.target.value})}
+        disabled={disabled}
+      />
+      <span className="text-right font-mono text-sm tabular-nums text-muted-foreground">{Math.round(share * 100)}%</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        title="删除风格"
+        aria-label="删除风格"
+        className="hover:text-destructive"
+        onClick={onRemove}
+        disabled={disabled}
+      >
+        <Trash2 />
+      </Button>
     </div>
   );
 }

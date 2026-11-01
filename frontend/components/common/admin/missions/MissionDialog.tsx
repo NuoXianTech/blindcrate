@@ -120,7 +120,7 @@ function MissionForm({target, options, onClose, onSaved}: Omit<MissionDialogProp
   const [sortOrder, setSortOrder] = useState(String(source?.sort_order ?? 0));
   const [isEnabled, setIsEnabled] = useState(source?.is_enabled ?? true);
   const [reward, setReward] = useState(() => toBundleDrafts(source?.reward ?? {}, currencies));
-  const [requirements, setRequirements] = useState(() => toConditionDrafts(source?.requirements ?? []));
+  const [requirements, setRequirements] = useState(() => toConditionDrafts(source?.requirements ?? [], types));
 
   const currency = metricCurrency(metric, currencies);
   const unknownMetric = metric && !metrics.some((m) => m.key === metric);
