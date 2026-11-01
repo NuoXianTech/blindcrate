@@ -320,11 +320,10 @@ CREATE TABLE IF NOT EXISTS match_players
     match_id   BIGINT      NOT NULL,
     seat       SMALLINT    NOT NULL,             -- 座位号, 从 1 开始
     user_id    BIGINT      NOT NULL DEFAULT 0,   -- 人机为 0
-    bot_name   VARCHAR(32) NOT NULL DEFAULT '',
-    bot_level  SMALLINT    NOT NULL DEFAULT 0,   -- 人机等级, 真人为 0
+    bot_name   VARCHAR(32) NOT NULL DEFAULT '',  -- 人机的昵称, 真人为空
     rank       SMALLINT    NOT NULL DEFAULT 0,   -- 结束时的名次, 0 表示没有名次
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_match_players_bot CHECK ((user_id = 0) = (bot_level > 0))
+    CONSTRAINT chk_match_players_bot CHECK ((user_id = 0) = (bot_name <> ''))
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_match_players_match_id_seat ON match_players (match_id, seat);
@@ -449,7 +448,7 @@ CREATE TABLE IF NOT EXISTS venues
     requirements   JSONB         NOT NULL DEFAULT '[]',   -- 入场条件 []condition.Condition
     warehouse      JSONB         NOT NULL DEFAULT '{}',   -- 仓库生成规则
     auction        JSONB         NOT NULL DEFAULT '{}',   -- 拍卖参数
-    bots           JSONB         NOT NULL DEFAULT '{}',   -- 人机参数
+    bots           JSONB         NOT NULL DEFAULT '{}',   -- 每个模式出场的人机风格和权重
     pve            JSONB         NOT NULL DEFAULT '{}',   -- 人机模式防刷参数
     consumables    JSONB         NOT NULL DEFAULT '{}',   -- 对局中使用道具的规则
     simulation     JSONB         NOT NULL DEFAULT '{}',   -- 保存时的模拟结果
@@ -486,14 +485,16 @@ CREATE TABLE IF NOT EXISTS auction_players
     match_id     BIGINT      NOT NULL,
     seat         SMALLINT    NOT NULL DEFAULT 0,
     user_id      BIGINT      NOT NULL DEFAULT 0,     -- 人机为 0
+    persona      JSONB       NOT NULL DEFAULT '{}',  -- 人机的风格, 开局时快照, 真人为空
+    seed         BIGINT      NOT NULL DEFAULT 0,     -- 人机在这一局的随机种子, 真人为 0
     is_practice  BOOLEAN     NOT NULL DEFAULT FALSE, -- 练习局, 不扣入场代价、不冻结资金、不发藏品、不写统计
     entry_cost   JSONB       NOT NULL DEFAULT '{}',  -- 实际扣除的入场代价
     carry        BIGINT      NOT NULL DEFAULT 0,     -- 带入资金, 出价的上限
     frozen       BIGINT      NOT NULL DEFAULT 0,     -- 冻结的带入资金
-    estimate     BIGINT      NOT NULL DEFAULT 0,     -- 人机对仓库价值的估值
+    estimate     BIGINT      NOT NULL DEFAULT 0,     -- 人机按公开信息的最新估值, 真人为 0
     bid          BIGINT      NOT NULL DEFAULT 0,     -- 当前出价
     bid_at       TIMESTAMPTZ,                        -- 当前出价的提交时间
-    feedback     JSONB       NOT NULL DEFAULT '[]',  -- 每轮结束后的反馈
+    feedback     JSONB       NOT NULL DEFAULT '[]',  -- 每轮结束后的反馈, 人机也有, 用于决策
     profit       BIGINT      NOT NULL DEFAULT 0,     -- 结算后的盈亏
     rating_delta INTEGER     NOT NULL DEFAULT 0,     -- 本局段位分的变化, 只有排位成交时有
     rating       INTEGER     NOT NULL DEFAULT 0,     -- 结算后的段位分, 只有排位成交时有
@@ -786,3 +787,68 @@ CREATE TABLE IF NOT EXISTS codex_claims
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (set_id, user_id)
 );
+
+-- 人机的昵称库, 开局时从启用的昵称中随机选取; 删除为物理删除, 已开局的对局中保存的是昵称本身
+CREATE TABLE IF NOT EXISTS bot_names
+(
+    id         BIGSERIAL PRIMARY KEY,
+    name       VARCHAR(32) NOT NULL,
+    is_enabled BOOLEAN     NOT NULL DEFAULT FALSE, -- 停用后开局时不再选取
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_bot_names_name ON bot_names (name);
+
+INSERT INTO bot_names (name, is_enabled)
+VALUES ('橘子汽水', TRUE),
+       ('晚风', TRUE),
+       ('不吃香菜', TRUE),
+       ('摸鱼达人', TRUE),
+       ('小熊软糖', TRUE),
+       ('夜猫子', TRUE),
+       ('一只咸鱼', TRUE),
+       ('清风徐来', TRUE),
+       ('芝士就是力量', TRUE),
+       ('拾光者', TRUE),
+       ('奶茶续命', TRUE),
+       ('长安', TRUE),
+       ('今天也要加油', TRUE),
+       ('星河', TRUE),
+       ('柠檬不萌', TRUE),
+       ('南城', TRUE),
+       ('白开水', TRUE),
+       ('鹿鸣', TRUE),
+       ('慢半拍', TRUE),
+       ('云朵', TRUE),
+       ('抹茶控', TRUE),
+       ('北岛', TRUE),
+       ('早睡早起', TRUE),
+       ('小满', TRUE)
+ON CONFLICT (name) DO NOTHING;
+
+-- 人机风格: 一种决策策略和它的参数, 地图按模式配置出场的风格和权重; 软删除, 代码在已删除的风格中也唯一
+CREATE TABLE IF NOT EXISTS bot_personas
+(
+    id          BIGSERIAL PRIMARY KEY,
+    code        VARCHAR(32)  NOT NULL,              -- 自然键, 地图按它引用, 创建后不能修改
+    name        VARCHAR(32)  NOT NULL,
+    description VARCHAR(255) NOT NULL DEFAULT '',
+    strategy    VARCHAR(32)  NOT NULL,              -- 决策策略的代码, 由玩法模块注册
+    params      JSONB        NOT NULL DEFAULT '{}', -- 策略参数, 缺少的参数取策略的默认值
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    deleted_at  TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_bot_personas_code ON bot_personas (code);
+CREATE INDEX IF NOT EXISTS idx_bot_personas_deleted_at ON bot_personas (deleted_at);
+
+INSERT INTO bot_personas (code, name, description, strategy, params)
+VALUES ('steady', '稳健', '按尺寸和品质估值, 逐轮加价, 不轻易追高', 'auction_basic',
+        '{"perception": "size", "bias": 1000, "open_factor": 4200, "close_factor": 7800, "max_factor": 8800, "jitter": 300, "jump_chance": 0, "jump_factor": 9000, "chase": 1500, "guard": true}'),
+       ('aggressive', '激进', '只看已公开的品质估值, 出价高, 偶尔首轮抢拍', 'auction_basic',
+        '{"perception": "quality", "bias": 2000, "open_factor": 5000, "close_factor": 8800, "max_factor": 9800, "jitter": 800, "jump_chance": 1200, "jump_factor": 9000, "chase": 2500, "guard": true}'),
+       ('novice', '新手', '只看已公开的品质估值, 估值偏差大, 不防速胜', 'auction_basic',
+        '{"perception": "quality", "bias": 3500, "open_factor": 4000, "close_factor": 7400, "max_factor": 8400, "jitter": 1000, "jump_chance": 500, "jump_factor": 7500, "chase": 1000, "guard": false}')
+ON CONFLICT (code) DO NOTHING;

@@ -1,3 +1,4 @@
+import type {BotSnapshot} from '../bot';
 import type {Grid} from '../venue';
 
 /** 暗拍阶段, 与后端 internal/apps/auction/constants.go 对应 */
@@ -239,6 +240,8 @@ export interface AuctionPlayer {
   seat: number;
   /** 人机为 0 */
   user_id: number;
+  /** 人机的风格, 开局时的快照; 真人为空对象 */
+  persona: BotSnapshot;
   is_practice: boolean;
   /** 实际扣除的入场代价, 练习局和人机为空 */
   entry_cost: Bundle;
@@ -246,7 +249,7 @@ export interface AuctionPlayer {
   carry: number;
   /** 冻结的带入资金, 练习局和人机为 0 */
   frozen: number;
-  /** 人机对仓库价值的估值, 真人为 0 */
+  /** 人机按公开信息的最新估值, 真人为 0 */
   estimate: number;
   /** 当前出价, 0 表示还没出过价 */
   bid: number;

@@ -58,8 +58,6 @@ type Mode interface {
 	MaxHumans() int
 	// BotFillAfter 排队不够 MaxHumans 人时, 至少有 MinHumans 人且最早加入的人等满这个时间后用人机补齐, 0 表示立即补齐
 	BotFillAfter() time.Duration
-	// BotLevel 开局时为每个人机座位调用一次, 返回该人机的等级, BotLevelLow 到 BotLevelHigh
-	BotLevel() int16
 	// Admit 开局前为每个真人调用, 用于检查门槛和扣入场费, 在创建对局的事务中, 此时还没有座位
 	//
 	// 返回 Reject 的错误时该玩家不参加这一局, 其写入被撤销, 推送 MessageMatchmakingRejected 并移出队列;

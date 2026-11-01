@@ -21,6 +21,7 @@ import type {
   LootPoolListItem,
   Simulation,
 } from '@/lib/services/admin';
+import type {BotPersona} from '@/lib/services/bot';
 import {AuctionTab} from './AuctionTab';
 import {BasicTab} from './BasicTab';
 import {BotTab} from './BotTab';
@@ -41,6 +42,8 @@ export interface VenueOptions {
   scopes: ScopeOption[];
   /** 物品的使用效果, 用于筛选能在对局中使用的道具 */
   effects: ItemEffect[];
+  /** 人机风格, 每个模式从中选择出场的风格 */
+  personas: BotPersona[];
   loaded: boolean;
 }
 
@@ -90,12 +93,14 @@ export function VenueDialog({venue, options, onClose, onSaved}: VenueDialogProps
  * 地图表单, venue 为 null 时新建
  */
 function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 'venue'> & { venue: AdminVenue | null }) {
-  const {items, currencies, pools, types, scopes, effects} = options;
+  const {items, currencies, pools, types, scopes, effects, personas} = options;
   const save = useSubmit();
   const simulate = useSubmit();
   const pending = save.pending || simulate.pending;
   const {economy} = useSite();
-  const [form, setForm] = useState<VenueForm>(() => toVenueForm(venue ? toRequest(venue) : null, currencies, economy.base_currency));
+  const [form, setForm] = useState<VenueForm>(() =>
+    toVenueForm(venue ? toRequest(venue) : null, {currencies, types, personas, baseCurrency: economy.base_currency}),
+  );
   const [tab, setTab] = useState('basic');
   const [simulation, setSimulation] = useState<Simulation | null>(venue?.simulation ?? null);
   // 模拟结果之后表单是否有改动
@@ -154,7 +159,7 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
             <AuctionTab {...tabProps} currency={currency} />
           </TabsContent>
           <TabsContent value="bots">
-            <BotTab {...tabProps} currency={currency} />
+            <BotTab {...tabProps} currency={currency} personas={personas} />
           </TabsContent>
           <TabsContent value="consumables">
             <ConsumableTab {...tabProps} items={items} effects={effects} />

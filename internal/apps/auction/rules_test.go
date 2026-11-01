@@ -128,36 +128,25 @@ func TestFeedbackFor(t *testing.T) {
 	}
 }
 
-func TestPickBotLevel(t *testing.T) {
-	weights := []int32{0, 3, 1}
-	for n, want := range map[int64]int16{0: 2, 2: 2, 3: 3} {
-		if got := pickBotLevel(weights, func(int64) int64 { return n }); got != want {
-			t.Errorf("n=%d: got level %d, want %d", n, got, want)
+func TestBotBidAt(t *testing.T) {
+	const length = 20 * time.Second
+	fixed := func(v int64) func(int64) int64 { return func(int64) int64 { return v } }
+	cases := []struct {
+		name   string
+		length time.Duration
+		now    time.Time
+		roll   int64
+		want   time.Time
+	}{
+		{"no human to compare", 0, at(5), 0, at(5)},
+		{"round timed out", length, at(20), int64(7 * time.Second), at(7)},
+		{"round ended early", length, at(5), int64(3 * time.Second), at(3)},
+		{"not reached yet", length, at(5), int64(9 * time.Second), at(5)},
+	}
+	for _, c := range cases {
+		if got := botBidAt(at(0), c.length, c.now, fixed(c.roll)); !got.Equal(c.want) {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
 		}
-	}
-}
-
-func TestBotBid(t *testing.T) {
-	bots := venue.BotRule{RoundFactors: []int32{5000, 8000}, Jitter: 0, MaxFactor: 9000, BluffChance: 10000, BluffRounds: 1, BluffFactor: 2000}
-	zero := func(int64) int64 { return 0 }
-
-	if got := botBid(&bots, &testRule, 1, 1000, 0, 10000, zero); got != 200 {
-		t.Errorf("bluff round: got %d, want 200", got)
-	}
-	if got := botBid(&bots, &testRule, 2, 1000, 0, 10000, zero); got != 800 {
-		t.Errorf("round 2: got %d, want 800", got)
-	}
-	if got := botBid(&bots, &testRule, 3, 1000, 0, 10000, zero); got != 800 {
-		t.Errorf("round 3 should reuse the last factor: got %d, want 800", got)
-	}
-	if got := botBid(&bots, &testRule, 2, 1000, 0, 600, zero); got != 600 {
-		t.Errorf("capped by carry: got %d, want 600", got)
-	}
-	if got := botBid(&bots, &testRule, 2, 1000, 850, 10000, zero); got != 850 {
-		t.Errorf("never below previous: got %d, want 850", got)
-	}
-	if got := botBid(&bots, &testRule, 2, 100, 0, 10000, zero); got != 0 {
-		t.Errorf("limit below start price should pass: got %d, want 0", got)
 	}
 }
 

@@ -244,6 +244,653 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/bot/names": {
+            "get": {
+                "description": "按 ID 倒序排列",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取人机昵称列表",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "name": "is_enabled",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 64,
+                        "type": "string",
+                        "description": "按昵称搜索, 不区分大小写",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/botadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/botadmin.ListNamesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "已存在的昵称和本次重复的昵称跳过, 在结果的 skipped 中返回",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "批量新建人机昵称",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.CreateNamesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/botadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/botadmin.CreateNamesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/bot/names/{id}": {
+            "put": {
+                "description": "已开局的对局中保存的是昵称本身, 不受影响",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "修改人机昵称",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "name id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.NameRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/botadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/bot.Name"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "物理删除, 已开局的对局中保存的是昵称本身, 不受影响",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "删除人机昵称",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "name id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/bot/personas": {
+            "get": {
+                "description": "按 ID 排列, 不含已删除的风格",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取人机风格列表",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 64,
+                        "type": "string",
+                        "description": "按代码或名称搜索, 不区分大小写",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/botadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/botadmin.ListPersonasResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "新建人机风格",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.PersonaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/botadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/bot.Persona"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/bot/personas/{id}": {
+            "put": {
+                "description": "需提交全部字段, 代码不能修改; 进行中的对局使用开局时的快照, 不受影响",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "修改人机风格",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "persona id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.PersonaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/botadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/bot.Persona"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "软删除, 代码不能再被新风格使用; 被地图引用时不能删除",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "删除人机风格",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "persona id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/bot/strategies": {
+            "get": {
+                "description": "由玩法模块注册, 按注册顺序; fields 为参数的表单描述, defaults 为新建风格时的默认参数",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取人机决策策略",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/botadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/bot.StrategyView"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/checkin/days": {
             "get": {
                 "produces": [
@@ -10696,11 +11343,11 @@ const docTemplate = `{
                     ]
                 },
                 "estimate": {
-                    "description": "人机对仓库价值的估值, 真人为 0",
+                    "description": "人机按公开信息的最新估值, 真人为 0",
                     "type": "integer"
                 },
                 "feedback": {
-                    "description": "每轮结束后的反馈, 只给真人",
+                    "description": "每轮结束后的反馈, 人机也有, 用于决策",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auction.Feedback"
@@ -10719,6 +11366,14 @@ const docTemplate = `{
                 },
                 "match_id": {
                     "type": "integer"
+                },
+                "persona": {
+                    "description": "人机的风格, 开局时快照, 真人为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/bot.Snapshot"
+                        }
+                    ]
                 },
                 "profit": {
                     "description": "结算后的盈亏, 出价货币; 练习局按正式局计算",
@@ -11469,6 +12124,241 @@ const docTemplate = `{
                 }
             }
         },
+        "bot.Name": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_enabled": {
+                    "description": "停用后开局时不再选取",
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "bot.Persona": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "自然键, 地图按它引用, 创建后不能修改",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "params": {
+                    "description": "策略参数, 按策略的参数结构体校验并重新编码",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "strategy": {
+                    "description": "决策策略的代码, 见 RegisterStrategy",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "bot.Snapshot": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "strategy": {
+                    "type": "string"
+                }
+            }
+        },
+        "bot.StrategyView": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "defaults": {
+                    "description": "新建风格时的默认参数",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "description": {
+                    "type": "string"
+                },
+                "fields": {
+                    "description": "参数的表单描述, 与条件类型相同",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Field"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "bot.Weight": {
+            "type": "object",
+            "required": [
+                "persona"
+            ],
+            "properties": {
+                "persona": {
+                    "description": "风格代码",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "weight": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 1
+                }
+            }
+        },
+        "botadmin.CreateNamesRequest": {
+            "type": "object",
+            "properties": {
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "names": {
+                    "description": "1-200 个, 去掉首尾空白后为 1-32 个字符; 已存在的和重复的跳过",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "botadmin.CreateNamesResponseData": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/bot.Name"
+                    }
+                },
+                "skipped": {
+                    "description": "已存在或重复而跳过的昵称",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "botadmin.ListNamesResponseData": {
+            "type": "object",
+            "properties": {
+                "names": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/bot.Name"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "botadmin.ListPersonasResponseData": {
+            "type": "object",
+            "properties": {
+                "personas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/bot.Persona"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "botadmin.NameRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "去掉首尾空白后为 1-32 个字符",
+                    "type": "string",
+                    "maxLength": 64
+                }
+            }
+        },
+        "botadmin.PersonaRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "name",
+                "strategy"
+            ],
+            "properties": {
+                "code": {
+                    "description": "小写字母、数字和下划线, 创建后不能修改",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "params": {
+                    "description": "策略参数, 缺少的参数取默认值",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "strategy": {
+                    "description": "决策策略的代码, 见 GET /admin/bot/strategies",
+                    "type": "string",
+                    "maxLength": 32
+                }
+            }
+        },
+        "botadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
         "checkin.CheckinResult": {
             "type": "object",
             "properties": {
@@ -11873,7 +12763,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "input": {
-                    "description": "text / switch / number, 或选择器 currency / item / quality / scope / metric",
+                    "description": "text / select / switch / number, 或选择器 currency / item / quality / scope / metric",
                     "type": "string"
                 },
                 "key": {
@@ -11883,7 +12773,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "options": {
-                    "description": "选择器 metric 的可选值",
+                    "description": "下拉框 select 和选择器 metric 的可选值",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/condition.Option"
@@ -11891,6 +12781,10 @@ const docTemplate = `{
                 },
                 "type": {
                     "description": "string / bool / int",
+                    "type": "string"
+                },
+                "unit": {
+                    "description": "整数的单位, 只有 bp(基点)",
                     "type": "string"
                 }
             }
@@ -14140,12 +15034,8 @@ const docTemplate = `{
                 "avatar_url": {
                     "type": "string"
                 },
-                "bot_level": {
-                    "description": "人机等级, 真人为 0",
-                    "type": "integer"
-                },
                 "bot_name": {
-                    "description": "人机的昵称",
+                    "description": "人机的昵称, 真人为空",
                     "type": "string"
                 },
                 "created_at": {
@@ -16247,56 +17137,18 @@ const docTemplate = `{
         "venue.BotRule": {
             "type": "object",
             "properties": {
-                "bluff_chance": {
-                    "type": "integer",
-                    "maximum": 10000,
-                    "minimum": 0
-                },
-                "bluff_factor": {
-                    "description": "诈唬时按估值 × 诈唬系数出价",
-                    "type": "integer",
-                    "maximum": 10000,
-                    "minimum": 100
-                },
-                "bluff_rounds": {
-                    "description": "只在前几轮诈唬",
-                    "type": "integer",
-                    "maximum": 10,
-                    "minimum": 0
-                },
-                "estimate_errors": {
-                    "description": "低、中、高三个等级的估值误差, 估值 = 仓库价值 × (1 ± 误差)",
+                "pve": {
                     "type": "array",
+                    "maxItems": 10,
                     "items": {
-                        "type": "integer"
+                        "$ref": "#/definitions/bot.Weight"
                     }
                 },
-                "jitter": {
-                    "description": "出价在 ± 浮动内随机",
-                    "type": "integer",
-                    "maximum": 5000,
-                    "minimum": 0
-                },
-                "level_weights": {
-                    "description": "低、中、高三个等级的权重",
+                "ranked": {
                     "type": "array",
+                    "maxItems": 10,
                     "items": {
-                        "type": "integer"
-                    }
-                },
-                "max_factor": {
-                    "description": "出价不超过估值 × 上限系数",
-                    "type": "integer",
-                    "maximum": 10000,
-                    "minimum": 100
-                },
-                "round_factors": {
-                    "description": "每轮出价 = 估值 × 系数, 轮数更多时沿用最后一个",
-                    "type": "array",
-                    "maxItems": 12,
-                    "minItems": 1,
-                    "items": {
-                        "type": "integer"
+                        "$ref": "#/definitions/bot.Weight"
                     }
                 }
             }
@@ -16600,7 +17452,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "bots": {
-                    "description": "人机参数",
+                    "description": "人机风格, 按模式配置出场的风格和权重",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.BotRule"

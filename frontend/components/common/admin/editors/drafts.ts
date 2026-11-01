@@ -8,6 +8,8 @@ import {amountInput, parseAmount} from '@/lib/utils';
 const MAX_ITEM_QUANTITY = 1_000_000;
 /** 货币的金额上限, 最小单位 */
 const MAX_CURRENCY_AMOUNT = 1_000_000_000_000;
+/** 基点按百分比输入, 保留 2 位小数 */
+export const PERCENT_DECIMALS = 2;
 
 /** 编辑中的一行货币或物品, 数量保留输入框里的原文 */
 export interface BundleDraft {
@@ -79,10 +81,19 @@ export function newParamsDraft(fields: ConditionField[], currencies: Currency[])
   return params;
 }
 
-/** 已保存的参数转为输入框里的原文 */
-export function toParamsDraft(params: Record<string, string | number | boolean> | undefined): ParamsDraft {
+/** 基点或倍数转为输入框的原文, 去掉多余的 0 */
+export function ratioInput(value: number, decimals: number): string {
+  return String(value / 10 ** decimals);
+}
+
+/** 已保存的参数转为输入框里的原文, 基点参数转为百分比 */
+export function toParamsDraft(fields: ConditionField[], params: Record<string, string | number | boolean> | undefined): ParamsDraft {
   return Object.fromEntries(
-      Object.entries(params ?? {}).map(([key, value]) => [key, typeof value === 'boolean' ? value : String(value)]),
+      Object.entries(params ?? {}).map(([key, value]) => {
+        if (typeof value === 'boolean') return [key, value];
+        const percent = typeof value === 'number' && fields.some((f) => f.key === key && f.unit === 'bp');
+        return [key, percent ? ratioInput(value, PERCENT_DECIMALS) : String(value)];
+      }),
   );
 }
 
@@ -98,8 +109,9 @@ export function fromParamsDraft(fields: ConditionField[], draft: ParamsDraft, ro
     const text = typeof value === 'string' ? value.trim() : '';
     if (field.type === 'int') {
       check((field.input === 'item' || field.input === 'quality') && !text ? `${row}: 请选择${field.label}` : null);
-      const number = parseAmount(text);
-      check(number === null ? `${row}: ${field.label}需为整数` : null);
+      const percent = field.unit === 'bp';
+      const number = parseAmount(text, percent ? PERCENT_DECIMALS : 0);
+      check(number === null ? `${row}: ${field.label}${percent ? `需为百分比, 最多 ${PERCENT_DECIMALS} 位小数` : '需为整数'}` : null);
       params[field.key] = number ?? 0;
     } else {
       check(!text ? `${row}: 请填写${field.label}` : null);
@@ -114,8 +126,13 @@ export function newConditionDraft(type: ConditionType, currencies: Currency[]): 
   return {key: nanoid(), type: type.type, params: newParamsDraft(type.fields, currencies)};
 }
 
-export function toConditionDrafts(conditions: Condition[]): ConditionDraft[] {
-  return conditions.map((c) => ({key: nanoid(), type: c.type, params: toParamsDraft(c.params)}));
+/** 已保存的条件转为编辑中的条件, 按条件类型的字段转换参数 */
+export function toConditionDrafts(conditions: Condition[], types: ConditionType[]): ConditionDraft[] {
+  return conditions.map((c) => ({
+    key: nanoid(),
+    type: c.type,
+    params: toParamsDraft(types.find((t) => t.type === c.type)?.fields ?? [], c.params),
+  }));
 }
 
 /** 转为请求中的条件, 按条件类型的字段转换参数; 未知类型的参数原样提交, 由后端校验 */

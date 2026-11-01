@@ -23,13 +23,12 @@ export const CODE_PATTERN = /^[a-z0-9_]{1,24}$/;
 export const MAX_ENTRY_COST_LINES = 8;
 export const MAX_REQUIREMENTS = 16;
 export const MAX_SLOTS = 8;
-export const MAX_ROUND_FACTORS = 12;
+/** 每个模式出场的人机风格数量上限 */
+export const MAX_BOT_PERSONAS = 10;
 export const MAX_USES = 10;
 export const MAX_ALLOWED_ITEMS = 50;
 /** 对局中使用的效果场景, 与后端 effect.SceneMatch 对应 */
 export const SCENE_MATCH = 'match';
-/** 人机的三个等级 */
-export const BOT_LEVELS = ['低', '中', '高'];
 
 /** 地图转为修改接口的请求体, 修改接口需要提交全部字段 */
 export function toRequest(venue: AdminVenue): VenueRequest {

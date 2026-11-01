@@ -2,6 +2,7 @@ import {
   ArrowDownUp,
   Backpack,
   BookOpen,
+  Bot,
   CalendarCheck,
   CalendarRange,
   ChartColumn,
@@ -78,6 +79,7 @@ export const ADMIN_NAV: NavGroup[] = [
       {title: '货币管理', icon: Coins, href: ROUTES.adminCurrencies},
       {title: '掉落池', icon: Dices, href: ROUTES.adminLootPools},
       {title: '地图管理', icon: Warehouse, href: ROUTES.adminVenues},
+      {title: '人机管理', icon: Bot, href: ROUTES.adminBots},
     ],
   },
   {

@@ -210,10 +210,10 @@ definitions:
         - $ref: '#/definitions/reward.Bundle'
         description: 实际扣除的入场代价, 练习局和人机为空
       estimate:
-        description: 人机对仓库价值的估值, 真人为 0
+        description: 人机按公开信息的最新估值, 真人为 0
         type: integer
       feedback:
-        description: 每轮结束后的反馈, 只给真人
+        description: 每轮结束后的反馈, 人机也有, 用于决策
         items:
           $ref: '#/definitions/auction.Feedback'
         type: array
@@ -227,6 +227,10 @@ definitions:
         type: boolean
       match_id:
         type: integer
+      persona:
+        allOf:
+        - $ref: '#/definitions/bot.Snapshot'
+        description: 人机的风格, 开局时快照, 真人为空
       profit:
         description: 结算后的盈亏, 出价货币; 练习局按正式局计算
         type: integer
@@ -729,6 +733,168 @@ definitions:
         description: 不传表示不修改
         type: string
     type: object
+  bot.Name:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_enabled:
+        description: 停用后开局时不再选取
+        type: boolean
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  bot.Persona:
+    properties:
+      code:
+        description: 自然键, 地图按它引用, 创建后不能修改
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      params:
+        additionalProperties: {}
+        description: 策略参数, 按策略的参数结构体校验并重新编码
+        type: object
+      strategy:
+        description: 决策策略的代码, 见 RegisterStrategy
+        type: string
+      updated_at:
+        type: string
+    type: object
+  bot.Snapshot:
+    properties:
+      code:
+        type: string
+      name:
+        type: string
+      params:
+        additionalProperties: {}
+        type: object
+      strategy:
+        type: string
+    type: object
+  bot.StrategyView:
+    properties:
+      code:
+        type: string
+      defaults:
+        additionalProperties: {}
+        description: 新建风格时的默认参数
+        type: object
+      description:
+        type: string
+      fields:
+        description: 参数的表单描述, 与条件类型相同
+        items:
+          $ref: '#/definitions/condition.Field'
+        type: array
+      label:
+        type: string
+    type: object
+  bot.Weight:
+    properties:
+      persona:
+        description: 风格代码
+        maxLength: 32
+        type: string
+      weight:
+        maximum: 100
+        minimum: 1
+        type: integer
+    required:
+    - persona
+    type: object
+  botadmin.CreateNamesRequest:
+    properties:
+      is_enabled:
+        type: boolean
+      names:
+        description: 1-200 个, 去掉首尾空白后为 1-32 个字符; 已存在的和重复的跳过
+        items:
+          type: string
+        type: array
+    type: object
+  botadmin.CreateNamesResponseData:
+    properties:
+      created:
+        items:
+          $ref: '#/definitions/bot.Name'
+        type: array
+      skipped:
+        description: 已存在或重复而跳过的昵称
+        items:
+          type: string
+        type: array
+    type: object
+  botadmin.ListNamesResponseData:
+    properties:
+      names:
+        items:
+          $ref: '#/definitions/bot.Name'
+        type: array
+      total:
+        type: integer
+    type: object
+  botadmin.ListPersonasResponseData:
+    properties:
+      personas:
+        items:
+          $ref: '#/definitions/bot.Persona'
+        type: array
+      total:
+        type: integer
+    type: object
+  botadmin.NameRequest:
+    properties:
+      is_enabled:
+        type: boolean
+      name:
+        description: 去掉首尾空白后为 1-32 个字符
+        maxLength: 64
+        type: string
+    required:
+    - name
+    type: object
+  botadmin.PersonaRequest:
+    properties:
+      code:
+        description: 小写字母、数字和下划线, 创建后不能修改
+        maxLength: 32
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 64
+        type: string
+      params:
+        additionalProperties: {}
+        description: 策略参数, 缺少的参数取默认值
+        type: object
+      strategy:
+        description: 决策策略的代码, 见 GET /admin/bot/strategies
+        maxLength: 32
+        type: string
+    required:
+    - code
+    - name
+    - strategy
+    type: object
+  botadmin.Response:
+    properties:
+      data: {}
+      error_msg:
+        type: string
+    type: object
   checkin.CheckinResult:
     properties:
       day:
@@ -1001,20 +1167,23 @@ definitions:
       help:
         type: string
       input:
-        description: text / switch / number, 或选择器 currency / item / quality / scope
-          / metric
+        description: text / select / switch / number, 或选择器 currency / item / quality
+          / scope / metric
         type: string
       key:
         type: string
       label:
         type: string
       options:
-        description: 选择器 metric 的可选值
+        description: 下拉框 select 和选择器 metric 的可选值
         items:
           $ref: '#/definitions/condition.Option'
         type: array
       type:
         description: string / bool / int
+        type: string
+      unit:
+        description: 整数的单位, 只有 bp(基点)
         type: string
     type: object
   condition.Option:
@@ -2582,11 +2751,8 @@ definitions:
     properties:
       avatar_url:
         type: string
-      bot_level:
-        description: 人机等级, 真人为 0
-        type: integer
       bot_name:
-        description: 人机的昵称
+        description: 人机的昵称, 真人为空
         type: string
       created_at:
         type: string
@@ -4014,46 +4180,15 @@ definitions:
     type: object
   venue.BotRule:
     properties:
-      bluff_chance:
-        maximum: 10000
-        minimum: 0
-        type: integer
-      bluff_factor:
-        description: 诈唬时按估值 × 诈唬系数出价
-        maximum: 10000
-        minimum: 100
-        type: integer
-      bluff_rounds:
-        description: 只在前几轮诈唬
-        maximum: 10
-        minimum: 0
-        type: integer
-      estimate_errors:
-        description: 低、中、高三个等级的估值误差, 估值 = 仓库价值 × (1 ± 误差)
+      pve:
         items:
-          type: integer
+          $ref: '#/definitions/bot.Weight'
+        maxItems: 10
         type: array
-      jitter:
-        description: 出价在 ± 浮动内随机
-        maximum: 5000
-        minimum: 0
-        type: integer
-      level_weights:
-        description: 低、中、高三个等级的权重
+      ranked:
         items:
-          type: integer
-        type: array
-      max_factor:
-        description: 出价不超过估值 × 上限系数
-        maximum: 10000
-        minimum: 100
-        type: integer
-      round_factors:
-        description: 每轮出价 = 估值 × 系数, 轮数更多时沿用最后一个
-        items:
-          type: integer
-        maxItems: 12
-        minItems: 1
+          $ref: '#/definitions/bot.Weight'
+        maxItems: 10
         type: array
     type: object
   venue.ConsumableLimit:
@@ -4263,7 +4398,7 @@ definitions:
       bots:
         allOf:
         - $ref: '#/definitions/venue.BotRule'
-        description: 人机参数
+        description: 人机风格, 按模式配置出场的风格和权重
       code:
         description: 拼进玩法代码和统计范围, 创建后不能修改
         type: string
@@ -4879,6 +5014,414 @@ paths:
           schema:
             $ref: '#/definitions/auditadmin.Response'
       summary: 获取操作日志的操作类型和名称
+      tags:
+      - admin
+  /api/v1/admin/bot/names:
+    get:
+      description: 按 ID 倒序排列
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - in: query
+        name: is_enabled
+        type: boolean
+      - description: 按昵称搜索, 不区分大小写
+        in: query
+        maxLength: 64
+        name: keyword
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/botadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/botadmin.ListNamesResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+      summary: 获取人机昵称列表
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: 已存在的昵称和本次重复的昵称跳过, 在结果的 skipped 中返回
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/botadmin.CreateNamesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/botadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/botadmin.CreateNamesResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+      summary: 批量新建人机昵称
+      tags:
+      - admin
+  /api/v1/admin/bot/names/{id}:
+    delete:
+      description: 物理删除, 已开局的对局中保存的是昵称本身, 不受影响
+      parameters:
+      - description: name id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+      summary: 删除人机昵称
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: 已开局的对局中保存的是昵称本身, 不受影响
+      parameters:
+      - description: name id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/botadmin.NameRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/botadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/bot.Name'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+      summary: 修改人机昵称
+      tags:
+      - admin
+  /api/v1/admin/bot/personas:
+    get:
+      description: 按 ID 排列, 不含已删除的风格
+      parameters:
+      - in: query
+        minimum: 1
+        name: current
+        type: integer
+      - description: 按代码或名称搜索, 不区分大小写
+        in: query
+        maxLength: 64
+        name: keyword
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/botadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/botadmin.ListPersonasResponseData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+      summary: 获取人机风格列表
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/botadmin.PersonaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/botadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/bot.Persona'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+      summary: 新建人机风格
+      tags:
+      - admin
+  /api/v1/admin/bot/personas/{id}:
+    delete:
+      description: 软删除, 代码不能再被新风格使用; 被地图引用时不能删除
+      parameters:
+      - description: persona id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+      summary: 删除人机风格
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: 需提交全部字段, 代码不能修改; 进行中的对局使用开局时的快照, 不受影响
+      parameters:
+      - description: persona id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/botadmin.PersonaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/botadmin.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/bot.Persona'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+      summary: 修改人机风格
+      tags:
+      - admin
+  /api/v1/admin/bot/strategies:
+    get:
+      description: 由玩法模块注册, 按注册顺序; fields 为参数的表单描述, defaults 为新建风格时的默认参数
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/botadmin.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/bot.StrategyView'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/botadmin.Response'
+      summary: 获取人机决策策略
       tags:
       - admin
   /api/v1/admin/checkin/days:

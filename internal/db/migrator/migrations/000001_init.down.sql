@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS bot_personas;
+DROP TABLE IF EXISTS bot_names;
 DROP TABLE IF EXISTS codex_claims;
 DROP TABLE IF EXISTS codex_sets;
 DROP TABLE IF EXISTS checkins;

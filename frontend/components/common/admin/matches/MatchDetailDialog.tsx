@@ -232,7 +232,9 @@ function SeatRow({player: p, auction: a, settled, winner, decimals}: {
         <span className="flex items-center gap-1.5">
           {p.nickname}
           {p.is_bot ? (
-            <Badge variant="secondary">人机 Lv{p.bot_level}</Badge>
+            <Badge variant="secondary" title={a?.persona.code}>
+              {a?.persona.name ? `人机 · ${a.persona.name}` : '人机'}
+            </Badge>
           ) : (
             <span className="text-xs text-muted-foreground">#{p.user_id}</span>
           )}

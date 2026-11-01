@@ -28,13 +28,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/rand/v2"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
@@ -633,7 +633,7 @@ func createMatch(ctx context.Context, mode Mode, queued []queuedUser) (*formResu
 		for i, user := range admitted {
 			humans[i] = user.UserID
 		}
-		players, err := seatPlayers(m.ID, humans, mode)
+		players, err := seatPlayers(tx, m.ID, humans, mode)
 		if err != nil {
 			return err
 		}
@@ -666,22 +666,21 @@ func createMatch(ctx context.Context, mode Mode, queued []queuedUser) (*formResu
 	return result, nil
 }
 
-// seatPlayers 随机分配座位, 真人之外的座位由随机昵称的人机补齐, 人机等级由玩法决定, 按座位号排序
-func seatPlayers(matchID uint64, humans []uint64, mode Mode) ([]Player, error) {
+// seatPlayers 随机分配座位, 真人之外的座位由人机补齐, 昵称从昵称库中随机选取, 按座位号排序
+func seatPlayers(tx *gorm.DB, matchID uint64, humans []uint64, mode Mode) ([]Player, error) {
 	count := mode.PlayerCount()
+	names, err := bot.PickNames(tx, count-len(humans))
+	if err != nil {
+		return nil, err
+	}
 	seats := rand.Perm(count)
-	names := rand.Perm(len(botNames))
 	players := make([]Player, count)
 	for i := range count {
 		player := Player{MatchID: matchID, Seat: int16(seats[i] + 1)}
 		if i < len(humans) {
 			player.UserID = humans[i]
 		} else {
-			player.BotName = botNames[names[(i-len(humans))%len(names)]]
-			player.BotLevel = mode.BotLevel()
-			if player.BotLevel < BotLevelLow || player.BotLevel > BotLevelHigh {
-				return nil, fmt.Errorf("match: invalid bot level %d of mode %s", player.BotLevel, mode.Code())
-			}
+			player.BotName = names[i-len(humans)]
 		}
 		players[player.Seat-1] = player
 	}

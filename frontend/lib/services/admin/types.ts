@@ -439,10 +439,12 @@ export interface ConditionField {
   label: string;
   help: string;
   type: 'string' | 'bool' | 'int';
-  /** text / switch / number, 或选择器 currency / item / quality / scope / metric */
-  input: 'text' | 'switch' | 'number' | 'currency' | 'item' | 'quality' | 'scope' | 'metric';
-  /** 选择器 metric 的可选值 */
+  /** text / select / switch / number, 或选择器 currency / item / quality / scope / metric */
+  input: 'text' | 'select' | 'switch' | 'number' | 'currency' | 'item' | 'quality' | 'scope' | 'metric';
+  /** 下拉框 select 和选择器 metric 的可选值 */
   options?: ConditionOption[];
+  /** 整数的单位, bp 为基点, 按百分比输入 */
+  unit?: 'bp';
 }
 
 /** 条件参数选择器的一个可选值 */
@@ -478,20 +480,19 @@ export interface WarehouseRule {
   max_rerolls: number;
 }
 
-/** 人机参数, 系数都是基点, 对应后端 venue.BotRule */
+/** 地图上一种出场的人机风格和它的权重, 对应后端 bot.Weight */
+export interface BotWeight {
+  /** 风格代码 */
+  persona: string;
+  /** 1-100 */
+  weight: number;
+}
+
+/** 每个模式出场的人机风格, 开局时每个人机按权重随机选一种, 对应后端 venue.BotRule */
 export interface BotRule {
-  /** 低、中、高三个等级的权重 */
-  level_weights: number[];
-  /** 低、中、高三个等级的估值误差 */
-  estimate_errors: number[];
-  /** 每轮出价 = 估值 × 系数, 轮数更多时沿用最后一个 */
-  round_factors: number[];
-  jitter: number;
-  max_factor: number;
-  bluff_chance: number;
-  /** 只在前几轮诈唬 */
-  bluff_rounds: number;
-  bluff_factor: number;
+  /** 开放的模式至少配置一种, 最多 10 种, 不能重复 */
+  pve: BotWeight[];
+  ranked: BotWeight[];
 }
 
 /** 一种模式中使用道具的次数限制, 对应后端 venue.ConsumableLimit */
@@ -654,8 +655,8 @@ export interface AdminMatchPlayer {
   seat: number;
   /** 人机为 0 */
   user_id: number;
+  /** 人机的昵称, 真人为空 */
   bot_name: string;
-  bot_level: number;
   /** 结束时的名次, 0 表示没有名次 */
   rank: number;
   created_at: string;

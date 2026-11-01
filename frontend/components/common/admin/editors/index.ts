@@ -9,6 +9,8 @@ export {
   fromParamsDraft,
   newConditionDraft,
   newParamsDraft,
+  PERCENT_DECIMALS,
+  ratioInput,
   toBundleDrafts,
   toConditionDrafts,
   toParamsDraft,

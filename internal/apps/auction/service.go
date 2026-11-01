@@ -35,6 +35,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
@@ -58,6 +59,7 @@ func init() {
 	ws.Handle(MessageBid, handleBid)
 	ws.Handle(MessageUse, handleUse)
 	registerEffects()
+	registerStrategies()
 }
 
 // provider 按地图提供一种模式的玩法
@@ -156,11 +158,6 @@ func (vm *venueMode) BotFillAfter() time.Duration {
 		return 0
 	}
 	return rankedBotFillAfter
-}
-
-// BotLevel 按地图配置的权重随机选出人机等级
-func (vm *venueMode) BotLevel() int16 {
-	return pickBotLevel(vm.venue.Bots.LevelWeights, rand.Int64N)
 }
 
 // CheckJoin 加入队列前检查排位没有因挂机禁赛, 地图和模式已开放、满足入场条件; 入场代价和带入资金在准入时检查
@@ -283,9 +280,9 @@ func (vm *venueMode) practice(tx *gorm.DB, userID uint64) (bool, error) {
 	return false, nil
 }
 
-// Start 快照地图配置, 生成仓库并随机公开顺序, 按位置排出扫描顺序并快照扫描时长, 为人机生成估值, 进入第 1 轮出价
+// Start 快照地图配置和藏品分布, 生成仓库并随机公开顺序, 按位置排出扫描顺序并快照扫描时长, 按地图配置的权重为人机选出风格, 进入第 1 轮出价
 //
-// 人机模式按地图的仓库价值系数缩放抽取次数; 掉落池已不可用或摆不下时开局失败。
+// 人机模式按地图的仓库价值系数缩放抽取次数; 掉落池已不可用或摆不下、人机风格已不可用时开局失败。
 func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) (*match.Phase, error) {
 	v := vm.venue
 	valueFactor := int32(venue.BasisPoints)
@@ -311,8 +308,8 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 			EntryCost:   v.EntryCost,
 			Grid:        v.Warehouse.Grid,
 			Auction:     v.Auction,
-			Bots:        v.Bots,
 			Consumables: v.Consumables,
+			Odds:        generator.PieceOdds(valueFactor),
 		},
 		Value:      warehouse.Value,
 		PieceCount: int32(len(warehouse.Pieces)),
@@ -360,6 +357,16 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 		return nil, err
 	}
 
+	botCount := 0
+	for _, player := range players {
+		if player.IsBot() {
+			botCount++
+		}
+	}
+	personas, err := bot.Assign(tx, v.Bots.Weights(vm.kind), botCount)
+	if err != nil {
+		return nil, fmt.Errorf("auction: assign bot personas of venue %s failed: %w", v.Code, err)
+	}
 	var bots []Player
 	for _, player := range players {
 		if !player.IsBot() {
@@ -371,8 +378,9 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 		bots = append(bots, Player{
 			MatchID:  m.ID,
 			Seat:     player.Seat,
+			Persona:  personas[len(bots)],
+			Seed:     rand.Int64(),
 			Carry:    v.Auction.MaxCarry,
-			Estimate: botEstimate(&v.Bots, player.BotLevel, warehouse.Value, rand.Int64N),
 			Feedback: []Feedback{},
 		})
 	}
@@ -514,7 +522,67 @@ func (st *state) placeBid(tx *gorm.DB, p *Player, amount int64, at time.Time) er
 	return tx.Model(p).Select("bid", "bid_at").Updates(p).Error
 }
 
-// resolveRound 人机出价后判定本轮: 成交或流拍时结算并进入开箱, 否则给真人反馈并进入下一轮
+// botBids 本轮可以出价的人机按风格决策并出价, 同时更新估值
+//
+// 人机看到的与真人在这一轮出价时相同, 见 Observation; 决策出错时记录日志并视为不加价, 不影响对局。
+// waited 为本轮是否等待过真人出价: 是时出价时间见 botBidAt; 否则没有真人可比, 为现在。
+func (st *state) botBids(tx *gorm.DB, waited bool) error {
+	m, a := st.match, &st.auction
+	rule := &a.Venue.Auction
+	now := time.Now()
+	var start time.Time
+	var length time.Duration
+	if waited && m.PhaseEndsAt != nil {
+		length = time.Duration(rule.RoundSeconds) * time.Second
+		start = m.PhaseEndsAt.Add(-length)
+	}
+	var prints []Footprint
+	for i := range st.players {
+		p := &st.players[i]
+		if p.UserID != 0 || !a.CanBid(p.Seat) {
+			continue
+		}
+		if prints == nil {
+			items, err := loadItems(tx, m.ID)
+			if err != nil {
+				return err
+			}
+			prints, _ = footprints(items, min(m.Round, a.PieceCount))
+		}
+		obs := Observation{
+			Round:      m.Round,
+			Rules:      *rule,
+			Grid:       a.Venue.Grid,
+			Footprints: prints,
+			Odds:       a.Venue.Odds,
+			Carry:      p.Carry,
+			Bid:        p.Bid,
+			Feedback:   p.Feedback,
+			Seed:       p.Seed,
+		}
+		var amount int64
+		decision, err := bot.Decide[Observation, Decision](&p.Persona, obs, rand.New(rand.NewPCG(uint64(p.Seed), uint64(m.Round))))
+		if err != nil {
+			logger.ErrorF(tx.Statement.Context, "[Auction] bot of seat %d in match %d failed to decide: %v", p.Seat, m.ID, err)
+		} else {
+			if amount = min(decision.Bid, p.Carry); amount < rule.StartPrice || amount <= p.Bid {
+				amount = 0
+			}
+			if decision.Estimate != p.Estimate {
+				p.Estimate = decision.Estimate
+				if err := tx.Model(p).Select("estimate").Updates(p).Error; err != nil {
+					return err
+				}
+			}
+		}
+		if err := st.placeBid(tx, p, amount, botBidAt(start, length, now, rand.Int64N)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// resolveRound 人机出价后判定本轮: 成交或流拍时结算并进入开箱, 否则给每个人反馈并进入下一轮
 //
 // 开箱阶段的时长为全部藏品的扫描时长之和加上停留时长; 进入开箱时已结算, 对局随即释放, 玩家可以离开去排下一局。
 //
@@ -523,21 +591,10 @@ func (st *state) resolveRound(tx *gorm.DB) (*match.Phase, error) {
 	a := &st.auction
 	rule := &a.Venue.Auction
 	match.AfterCommit(tx, func(ctx context.Context) { pushViews(ctx, st.match.ID) })
-	for {
+	for waited := true; ; waited = false {
 		round := st.match.Round
-		now := time.Now()
-		for i := range st.players {
-			p := &st.players[i]
-			if p.UserID != 0 || !a.CanBid(p.Seat) {
-				continue
-			}
-			var amount int64
-			if bid := botBid(&a.Venue.Bots, rule, round, p.Estimate, p.Bid, p.Carry, rand.Int64N); bid > p.Bid {
-				amount = bid
-			}
-			if err := st.placeBid(tx, p, amount, now); err != nil {
-				return nil, err
-			}
+		if err := st.botBids(tx, waited); err != nil {
+			return nil, err
 		}
 
 		result := judge(rule, round, a.ExtraRounds, st.bidders())
@@ -558,9 +615,6 @@ func (st *state) resolveRound(tx *gorm.DB) (*match.Phase, error) {
 		}
 		for i := range st.players {
 			p := &st.players[i]
-			if p.UserID == 0 {
-				continue
-			}
 			p.Feedback = append(p.Feedback, feedbackFor(round, p.Seat, bids))
 			if err := tx.Model(p).Select("feedback").Updates(p).Error; err != nil {
 				return nil, err
@@ -1336,8 +1390,6 @@ func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
 			AllowedItems:   a.Venue.Consumables.Allowed,
 		},
 		PieceCount: a.PieceCount,
-		Footprints: make([]Footprint, len(items)),
-		Revealed:   []RevealedPiece{},
 		Contenders: a.Contenders,
 	}
 
@@ -1345,14 +1397,7 @@ func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
 	if a.Outcome != "" {
 		revealed = a.PieceCount
 	}
-	for i, it := range items {
-		view.Footprints[i] = Footprint{ScanOrder: it.ScanOrder, X: it.X, Y: it.Y, Width: it.Width, Height: it.Height}
-		if it.RevealOrder <= revealed {
-			view.Footprints[i].Quality = it.Quality
-			view.Revealed = append(view.Revealed, RevealedPiece{Order: it.RevealOrder, Quality: it.Quality})
-		}
-	}
-	slices.SortFunc(view.Revealed, func(a, b RevealedPiece) int { return cmp.Compare(a.Order, b.Order) })
+	view.Footprints, view.Revealed = footprints(items, revealed)
 	if a.Outcome == "" {
 		return view
 	}
@@ -1387,6 +1432,21 @@ func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
 	}
 	view.Result = result
 	return view
+}
+
+// footprints 藏品占的格子, 与 items 的顺序相同; 公开顺序不超过 revealed 的带品质, 另按公开顺序列出
+func footprints(items []WarehouseItem, revealed int32) ([]Footprint, []RevealedPiece) {
+	prints := make([]Footprint, len(items))
+	pieces := []RevealedPiece{}
+	for i, it := range items {
+		prints[i] = Footprint{ScanOrder: it.ScanOrder, X: it.X, Y: it.Y, Width: it.Width, Height: it.Height}
+		if it.RevealOrder <= revealed {
+			prints[i].Quality = it.Quality
+			pieces = append(pieces, RevealedPiece{Order: it.RevealOrder, Quality: it.Quality})
+		}
+	}
+	slices.SortFunc(pieces, func(a, b RevealedPiece) int { return cmp.Compare(a.Order, b.Order) })
+	return prints, pieces
 }
 
 // useCounts 座位 seat 用过的各种道具的个数, 按第一次使用的顺序

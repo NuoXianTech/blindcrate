@@ -25,7 +25,7 @@ export interface ParamFieldProps {
 }
 
 /**
- * 一个参数: 按字段的 input 选择输入控件, 条件和物品的使用效果共用
+ * 一个参数: 按字段的 input 选择输入控件, 基点参数按百分比输入; 条件、物品的使用效果和人机风格共用
  */
 export function ParamField({id, field, value, onChange, items, currencies, scopeListID, disabled}: ParamFieldProps) {
   const {qualities} = useQualities();
@@ -44,7 +44,24 @@ export function ParamField({id, field, value, onChange, items, currencies, scope
   }
 
   let control: React.ReactNode;
-  if (field.input === 'metric') {
+  if (field.input === 'select') {
+    const options = field.options ?? [];
+    control = (
+      <Select value={text} onValueChange={onChange} disabled={disabled}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue placeholder={`选择${field.label}`} />
+        </SelectTrigger>
+        <SelectContent>
+          {text && !options.some((o) => o.value === text) && <SelectItem value={text}>未知选项 {text}</SelectItem>}
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  } else if (field.input === 'metric') {
     const options = field.options ?? [];
     control = (
       <Select value={text} onValueChange={onChange} disabled={disabled}>
@@ -106,6 +123,20 @@ export function ParamField({id, field, value, onChange, items, currencies, scope
         placeholder={itemID !== null && !item ? `已删除的物品 #${itemID}` : '选择物品'}
         disabled={disabled}
       />
+    );
+  } else if (field.unit === 'bp') {
+    control = (
+      <div className="relative">
+        <Input
+          id={id}
+          inputMode="decimal"
+          className="pr-8 font-mono"
+          value={text}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+        />
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">%</span>
+      </div>
     );
   } else {
     control = (

@@ -207,7 +207,7 @@ func newGroup[T any](def Group[T]) *group {
 			Label:   sf.Tag.Get("label"),
 			Help:    sf.Tag.Get("help"),
 			Input:   sf.Tag.Get("input"),
-			Options: parseOptions(name, sf.Tag.Get("options")),
+			Options: ParseOptions(name, sf.Tag.Get("options")),
 			Ref:     sf.Tag.Get("ref"),
 			Unit:    sf.Tag.Get("unit"),
 			Secret:  sf.Tag.Get("secret") == "true",
@@ -254,8 +254,8 @@ func isInt(kind reflect.Kind) bool {
 	return kind == reflect.Int || kind == reflect.Int32 || kind == reflect.Int64
 }
 
-// parseOptions 解析 options tag, 格式为 "值:名称,值:名称"
-func parseOptions(name, tag string) []Option {
+// ParseOptions 解析 options tag, 格式为 "值:名称,值:名称"; name 只用于出错时的提示, 格式不对时 panic, 需要在启动前调用
+func ParseOptions(name, tag string) []Option {
 	if tag == "" {
 		return nil
 	}

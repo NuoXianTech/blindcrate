@@ -3,28 +3,28 @@ import {
   decimalsOf,
   fromBundleDrafts,
   fromConditionDrafts,
+  PERCENT_DECIMALS,
+  ratioInput,
   toBundleDrafts,
   toConditionDrafts,
   type BundleDraft,
   type ConditionDraft,
 } from '@/components/common/admin/editors';
 import {check} from '@/hooks/use-submit';
-import type {ConditionType, Currency, VenueRequest} from '@/lib/services/admin';
+import type {BotWeight, ConditionType, Currency, VenueRequest} from '@/lib/services/admin';
+import type {BotPersona} from '@/lib/services/bot';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {checkImageURL} from '@/lib/validation';
 import {
-  BOT_LEVELS,
   CODE_PATTERN,
   MAX_ALLOWED_ITEMS,
+  MAX_BOT_PERSONAS,
   MAX_ENTRY_COST_LINES,
   MAX_REQUIREMENTS,
-  MAX_ROUND_FACTORS,
   MAX_SLOTS,
   MAX_USES,
 } from './constants';
 
-/** 基点按百分比输入, 保留 2 位小数 */
-const PERCENT = 2;
 /** 基点按倍数输入, 保留 4 位小数 */
 const MULTIPLE = 4;
 /** 金额上限, 最小单位 */
@@ -37,6 +37,13 @@ export interface SlotDraft {
   min: string;
   max: string;
   chance: string;
+}
+
+/** 编辑中的一种出场的人机风格 */
+export interface WeightDraft {
+  key: string;
+  persona: string;
+  weight: string;
 }
 
 /**
@@ -67,14 +74,9 @@ export interface VenueForm {
   /** 长度保持为轮数减 1 */
   quickWin: string[];
   maxExtraRounds: string;
-  levelWeights: string[];
-  estimateErrors: string[];
-  roundFactors: string[];
-  jitter: string;
-  maxFactor: string;
-  bluffChance: string;
-  bluffRounds: string;
-  bluffFactor: string;
+  /** 每个模式出场的人机风格和权重 */
+  botsPve: WeightDraft[];
+  botsRanked: WeightDraft[];
   practiceOnly: boolean;
   dailyProfitCap: string;
   valueFactor: string;
@@ -85,7 +87,7 @@ export interface VenueForm {
   allowedItems: number[];
 }
 
-/** 新建地图时的默认配置, 与老城区仓库的种子数据相近; 出价货币见 toVenueForm */
+/** 新建地图时的默认配置, 与老城区仓库的种子数据相近; 出价货币和人机风格见 toVenueForm */
 const DEFAULT_REQUEST: VenueRequest = {
   code: '',
   name: '',
@@ -108,33 +110,40 @@ const DEFAULT_REQUEST: VenueRequest = {
     quick_win: [20000, 15000],
     max_extra_rounds: 2,
   },
+  // 种子数据中的三种风格
   bots: {
-    level_weights: [40, 40, 20],
-    estimate_errors: [4000, 2000, 800],
-    round_factors: [4000, 6000, 8500],
-    jitter: 1000,
-    max_factor: 9500,
-    bluff_chance: 500,
-    bluff_rounds: 1,
-    bluff_factor: 9000,
+    pve: [{persona: 'novice', weight: 50}, {persona: 'steady', weight: 30}, {persona: 'aggressive', weight: 20}],
+    ranked: [{persona: 'steady', weight: 50}, {persona: 'aggressive', weight: 30}, {persona: 'novice', weight: 20}],
   },
   pve: {practice_only: false, daily_profit_cap: 0, value_factor: 8000},
   consumables: {pve: {max_per_match: 0}, ranked: {max_per_match: 0}, allowed: []},
 };
 
-/** 基点或倍数转为输入框的原文, 去掉多余的 0 */
-function ratioInput(value: number, decimals: number): string {
-  return String(value / 10 ** decimals);
+/** 出场的人机风格转为表单 */
+function toWeightDrafts(weights: BotWeight[]): WeightDraft[] {
+  return weights.map((w) => ({key: nanoid(), persona: w.persona, weight: String(w.weight)}));
+}
+
+/** 表单换算用到的选项, 由列表页拉取一次 */
+export interface VenueFormOptions {
+  currencies: Currency[];
+  /** 条件类型, 提供条件参数的表单描述 */
+  types: ConditionType[];
+  personas: BotPersona[];
+  baseCurrency: string;
 }
 
 /**
  * 地图转为表单, venue 为空时新建
- * 新建时出价货币为基础货币, 基础货币不存在时换成第一个货币, 金额按它的小数位换算
+ * 新建时出价货币为基础货币, 基础货币不存在时换成第一个货币, 金额按它的小数位换算;
+ * 人机风格只保留默认配置中仍然存在的风格
  */
-export function toVenueForm(venue: VenueRequest | null, currencies: Currency[], baseCurrency: string): VenueForm {
+export function toVenueForm(venue: VenueRequest | null, {currencies, types, personas, baseCurrency}: VenueFormOptions): VenueForm {
+  const exists = (w: BotWeight) => personas.some((p) => p.code === w.persona);
   const v = venue ?? {
     ...DEFAULT_REQUEST,
     bid_currency: currencies.some((c) => c.code === baseCurrency) ? baseCurrency : currencies[0]?.code ?? '',
+    bots: {pve: DEFAULT_REQUEST.bots.pve.filter(exists), ranked: DEFAULT_REQUEST.bots.ranked.filter(exists)},
   };
   const decimals = decimalsOf(currencies, v.bid_currency);
   return {
@@ -148,7 +157,7 @@ export function toVenueForm(venue: VenueRequest | null, currencies: Currency[], 
     rankedEnabled: v.ranked_enabled,
     bidCurrency: v.bid_currency,
     entryCost: toBundleDrafts(v.entry_cost, currencies),
-    requirements: toConditionDrafts(v.requirements ?? []),
+    requirements: toConditionDrafts(v.requirements ?? [], types),
     gridWidth: String(v.warehouse.grid.width),
     gridHeight: String(v.warehouse.grid.height),
     slots: v.warehouse.slots.map((s) => ({
@@ -156,7 +165,7 @@ export function toVenueForm(venue: VenueRequest | null, currencies: Currency[], 
       pool: s.pool,
       min: String(s.min),
       max: String(s.max),
-      chance: ratioInput(s.chance, PERCENT),
+      chance: ratioInput(s.chance, PERCENT_DECIMALS),
     })),
     maxRerolls: String(v.warehouse.max_rerolls),
     startPrice: amountInput(v.auction.start_price, decimals),
@@ -166,17 +175,11 @@ export function toVenueForm(venue: VenueRequest | null, currencies: Currency[], 
     revealSeconds: String(v.auction.reveal_seconds),
     quickWin: resizeQuickWin(v.auction.quick_win.map((x) => ratioInput(x, MULTIPLE)), v.auction.rounds),
     maxExtraRounds: String(v.auction.max_extra_rounds),
-    levelWeights: v.bots.level_weights.map(String),
-    estimateErrors: v.bots.estimate_errors.map((x) => ratioInput(x, PERCENT)),
-    roundFactors: v.bots.round_factors.map((x) => ratioInput(x, PERCENT)),
-    jitter: ratioInput(v.bots.jitter, PERCENT),
-    maxFactor: ratioInput(v.bots.max_factor, PERCENT),
-    bluffChance: ratioInput(v.bots.bluff_chance, PERCENT),
-    bluffRounds: String(v.bots.bluff_rounds),
-    bluffFactor: ratioInput(v.bots.bluff_factor, PERCENT),
+    botsPve: toWeightDrafts(v.bots.pve ?? []),
+    botsRanked: toWeightDrafts(v.bots.ranked ?? []),
     practiceOnly: v.pve.practice_only,
     dailyProfitCap: amountInput(v.pve.daily_profit_cap, decimals),
-    valueFactor: ratioInput(v.pve.value_factor, PERCENT),
+    valueFactor: ratioInput(v.pve.value_factor, PERCENT_DECIMALS),
     usesPve: String(v.consumables?.pve.max_per_match ?? 0),
     usesRanked: String(v.consumables?.ranked.max_per_match ?? 0),
     allowedItems: v.consumables?.allowed ?? [],
@@ -211,7 +214,19 @@ function readNumber(text: string, {label, min, max, decimals = 0, unit = ''}: Nu
 }
 
 const percent = (text: string, label: string, min: number, max: number) =>
-  readNumber(text, {label, min, max, decimals: PERCENT, unit: '%'});
+  readNumber(text, {label, min, max, decimals: PERCENT_DECIMALS, unit: '%'});
+
+/** 一个模式出场的人机风格转为请求体, 开放的模式至少配置一种, 风格不能重复 */
+function fromWeightDrafts(drafts: WeightDraft[], mode: string, enabled: boolean): BotWeight[] {
+  check(enabled && drafts.length === 0 ? `${mode}模式至少配置一种人机风格` : null);
+  check(drafts.length > MAX_BOT_PERSONAS ? `${mode}模式最多 ${MAX_BOT_PERSONAS} 种人机风格` : null);
+  return drafts.map((d, i) => {
+    const row = `${mode}模式第 ${i + 1} 种风格`;
+    check(!d.persona ? `${row}: 请选择风格` : null);
+    check(drafts.findIndex((x) => x.persona === d.persona) < i ? `${row}: 风格重复` : null);
+    return {persona: d.persona, weight: readNumber(d.weight, {label: `${row}: 权重`, min: 1, max: 100})};
+  });
+}
 
 /**
  * 表单转为新建、修改或模拟接口的请求体, 校验不通过时中断提交
@@ -232,10 +247,6 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
   check(form.entryCost.length > MAX_ENTRY_COST_LINES ? `入场代价最多 ${MAX_ENTRY_COST_LINES} 项` : null);
   check(form.requirements.length > MAX_REQUIREMENTS ? `入场条件最多 ${MAX_REQUIREMENTS} 个` : null);
   check(form.slots.length === 0 || form.slots.length > MAX_SLOTS ? `档位需为 1-${MAX_SLOTS} 个` : null);
-  check(form.roundFactors.length === 0 || form.roundFactors.length > MAX_ROUND_FACTORS ?
-    `每轮出价系数需为 1-${MAX_ROUND_FACTORS} 个` :
-    null);
-
   check(form.allowedItems.length > MAX_ALLOWED_ITEMS ? `允许的道具最多 ${MAX_ALLOWED_ITEMS} 个` : null);
 
   const rounds = readNumber(form.rounds, {label: '轮数', min: 1, max: 10});
@@ -278,14 +289,8 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
       max_extra_rounds: readNumber(form.maxExtraRounds, {label: '加轮上限', min: 0, max: 5}),
     },
     bots: {
-      level_weights: form.levelWeights.map((x, i) => readNumber(x, {label: `${BOT_LEVELS[i]}级人机的权重`, min: 0, max: 100})),
-      estimate_errors: form.estimateErrors.map((x, i) => percent(x, `${BOT_LEVELS[i]}级人机的估值误差`, 0, 9000)),
-      round_factors: form.roundFactors.map((x, i) => percent(x, `第 ${i + 1} 轮出价系数`, 100, 10000)),
-      jitter: percent(form.jitter, '出价浮动', 0, 5000),
-      max_factor: percent(form.maxFactor, '出价上限系数', 100, 10000),
-      bluff_chance: percent(form.bluffChance, '诈唬概率', 0, 10000),
-      bluff_rounds: readNumber(form.bluffRounds, {label: '诈唬轮数', min: 0, max: 10}),
-      bluff_factor: percent(form.bluffFactor, '诈唬系数', 100, 10000),
+      pve: fromWeightDrafts(form.botsPve, '人机', form.pveEnabled),
+      ranked: fromWeightDrafts(form.botsRanked, '排位', form.rankedEnabled),
     },
     pve: {
       practice_only: form.practiceOnly,

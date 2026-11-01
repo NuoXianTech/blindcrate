@@ -24,7 +24,11 @@
 
 package condition
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+)
 
 // Condition 一个条件, 存进各模块的 JSONB 配置
 type Condition struct {
@@ -47,15 +51,13 @@ type Field struct {
 	Label   string   `json:"label"`
 	Help    string   `json:"help"`
 	Type    string   `json:"type"`              // string / bool / int
-	Input   string   `json:"input"`             // text / switch / number, 或选择器 currency / item / quality / scope / metric
-	Options []Option `json:"options,omitempty"` // 选择器 metric 的可选值
+	Input   string   `json:"input"`             // text / select / switch / number, 或选择器 currency / item / quality / scope / metric
+	Options []Option `json:"options,omitempty"` // 下拉框 select 和选择器 metric 的可选值
+	Unit    string   `json:"unit,omitempty"`    // 整数的单位, 只有 bp(基点)
 }
 
-// Option 选择器的一个可选值
-type Option struct {
-	Value string `json:"value"`
-	Label string `json:"label"`
-}
+// Option 选择器的一个可选值, 与设置项的可选值相同
+type Option = settings.Option
 
 // TypeView 后台看到的条件类型
 type TypeView struct {

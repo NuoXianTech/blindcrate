@@ -33,6 +33,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item/itemadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
@@ -203,13 +204,21 @@ func init() {
 	})
 }
 
-// venueRenamed 地图引用的掉落池改名, 以及条件中统计范围的地图代码改名
+// venueRenamed 地图引用的掉落池和人机风格改名, 以及条件中统计范围的地图代码改名
 func venueRenamed(req *venueadmin.VenueRequest, section, old, next string) {
 	switch section {
 	case PackLootPools:
 		for i := range req.Warehouse.Slots {
 			if slot := &req.Warehouse.Slots[i]; slot.Pool == old {
 				slot.Pool = next
+			}
+		}
+	case bot.PackPersonas:
+		for _, weights := range [][]bot.Weight{req.Bots.Pve, req.Bots.Ranked} {
+			for i := range weights {
+				if weights[i].Persona == old {
+					weights[i].Persona = next
+				}
 			}
 		}
 	case PackVenues:

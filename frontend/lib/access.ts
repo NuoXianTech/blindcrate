@@ -25,6 +25,7 @@ export const ROUTES = {
   adminCurrencies: '/admin/currencies',
   adminLootPools: '/admin/loot-pools',
   adminVenues: '/admin/venues',
+  adminBots: '/admin/bots',
   adminLeaderboards: '/admin/leaderboards',
   adminSeasons: '/admin/seasons',
   adminTiers: '/admin/tiers',
