@@ -28,6 +28,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand/v2"
 	"slices"
 	"strconv"
@@ -587,7 +588,14 @@ func createMatch(ctx context.Context, mode Mode, queued []queuedUser) (*formResu
 		for i, user := range queued {
 			userIDs[i] = user.UserID
 		}
-		// 加入队列时检查过, 这里兜底: 刚被组进一局还没提交时, 同一个人可能又加入了队列
+		// 加入队列时检查过, 这里兜底: 刚被组进一局还没提交时, 同一个人可能又加入了队列(如连点开始匹配)。
+		// 按用户 ID 顺序加锁到事务结束, 同一个人的组局排队进行, 后一个事务能看到前一个已提交的对局
+		slices.Sort(userIDs)
+		for _, userID := range userIDs {
+			if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", fmt.Sprintf("blindcrate:match_user:%d", userID)).Error; err != nil {
+				return err
+			}
+		}
 		var busy []uint64
 		if err := tx.Model(&Player{}).
 			Joins("JOIN matches ON matches.id = match_players.match_id").
