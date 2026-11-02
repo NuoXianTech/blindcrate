@@ -34,7 +34,8 @@ export function DeleteQualityDialog({quality, onClose, onSaved}: {
     if (!quality) return;
     await services.admin.deleteQuality(quality.level);
     toast.success(`已删除 ${quality.name}`);
-    await refreshQualities();
+    // 已经删除, 刷新缓存失败不算删除失败, 缓存过一会儿也会自动更新
+    await refreshQualities().catch(() => undefined);
     router.refresh();
     onSaved();
     onClose();

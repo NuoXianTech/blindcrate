@@ -1,6 +1,6 @@
 'use client';
 
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {X} from 'lucide-react';
 import {nanoid} from 'nanoid';
 import {toast} from 'sonner';
@@ -13,6 +13,7 @@ import {useQualities, useSite} from '@/components/common/site';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
+import {ApiError} from '@/lib/services/core';
 import type {SellOrder} from '@/lib/services/inventory';
 import type {BalanceItem} from '@/lib/services/wallet';
 import {formatAmount, parseAmount} from '@/lib/utils';
@@ -68,11 +69,23 @@ function quantityOf(line: DraftLine): number | null {
 function SellForm({initial, currencies, onClose, onSold}: Omit<SellDialogProps, 'lines'> & { initial: SellLine[] }) {
   const {economy} = useSite();
   const {qualityOf} = useQualities();
-  const feeRate = economy.sell_fee_rate;
+  // 页面上的公开设置有缓存, 管理员改过费率后可能是旧的; 打开时读取最新的费率, 按旧费率提交会被拒绝
+  const [feeRate, setFeeRate] = useState(economy.sell_fee_rate);
+  const loadFeeRate = () => services.settings.getPublic().then((settings) => {
+    if (settings.economy) setFeeRate(settings.economy.sell_fee_rate);
+  });
   const {pending, submit} = useSubmit();
   const [lines, setLines] = useState<DraftLine[]>(() => initial.map((l) => ({item: l.item, text: String(l.quantity)})));
   // 幂等键在出售内容变化时重新生成, 内容不变的重复提交(如超时后重试)只成交一次
   const [idempotencyKey, setIdempotencyKey] = useState(() => nanoid());
+
+  useEffect(() => {
+    services.settings.getPublic()
+        .then((settings) => settings.economy && setFeeRate(settings.economy.sell_fee_rate))
+        .catch(() => {
+          // 读取失败时先按页面上的费率展示, 不一致时提交会被拒绝并重新读取
+        });
+  }, []);
 
   const updateLines = (next: DraftLine[]) => {
     setLines(next);
@@ -104,6 +117,10 @@ function SellForm({initial, currencies, onClose, onSold}: Omit<SellDialogProps, 
       })),
       idempotency_key: idempotencyKey,
       fee_rate: feeRate,
+    }).catch(async (err: unknown) => {
+      // 费率等已变动: 换成最新的费率, 确认框随即展示新的手续费, 再点一次即可
+      if (err instanceof ApiError && err.status === 409) await loadFeeRate().catch(() => undefined);
+      throw err;
     });
     const income = order.incomes
         .map((i) => `${formatAmount(i.amount - i.fee, currencyOf(i.currency)?.decimals ?? 0)} ${currencyOf(i.currency)?.name ?? i.currency}`)

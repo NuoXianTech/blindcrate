@@ -103,8 +103,8 @@ function QualityForm({quality, nextLevel, onClose, onSaved}: Omit<QualityDialogP
       await services.admin.createQuality(created);
       toast.success(`已新建 ${body.name}`);
     }
-    // 刷新服务端缓存的品质, 全站的名称和颜色随即更新
-    await refreshQualities();
+    // 刷新服务端缓存的品质, 全站的名称和颜色随即更新; 刷新失败不算保存失败, 缓存过一会儿也会自动更新
+    await refreshQualities().catch(() => undefined);
     router.refresh();
     onSaved();
     onClose();

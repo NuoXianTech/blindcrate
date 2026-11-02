@@ -48,7 +48,8 @@ export function SettingGroupCard({group, onSaved}: { group: SettingGroup; onSave
     reset(updated);
     onSaved(updated);
     if (updated.version !== group.version && group.fields.some((f) => f.public)) {
-      await refreshPublicSettings();
+      // 设置已经保存, 刷新缓存失败(如页面在发布新版本前打开, 找不到服务端函数)不算保存失败, 缓存过一分钟也会自动更新
+      await refreshPublicSettings().catch(() => undefined);
       router.refresh();
     }
   };
