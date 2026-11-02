@@ -40,7 +40,6 @@ export interface ListUsersData {
 }
 
 export interface UpdateUserRequest {
-  username?: string;
   nickname?: string;
   avatar_url?: string;
 }

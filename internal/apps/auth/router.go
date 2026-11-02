@@ -441,7 +441,7 @@ func UpdateUserInfo(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: UnAuthorized})
 		return
 	}
-	updated, err := UpdateUserProfile(ctx, user.ID, nil, req.Nickname, req.AvatarURL)
+	updated, err := UpdateUserProfile(ctx, user.ID, req.Nickname, req.AvatarURL)
 	if err != nil {
 		switch err.Error() {
 		case NicknameInvalid, AvatarURLInvalid:
@@ -452,7 +452,7 @@ func UpdateUserInfo(c *gin.Context) {
 		}
 		return
 	}
-	audit.Record(c, updated.ID, audit.ScopeUser, audit.ActionUpdateProfile, audit.TargetUser, updated.ID, ProfileChanges(nil, req.Nickname, req.AvatarURL))
+	audit.Record(c, updated.ID, audit.ScopeUser, audit.ActionUpdateProfile, audit.TargetUser, updated.ID, ProfileChanges(req.Nickname, req.AvatarURL))
 	logger.InfoF(ctx, "[UpdateUserInfo] %d %s", updated.ID, updated.Username)
 	c.JSON(
 		http.StatusOK,

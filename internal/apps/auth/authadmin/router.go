@@ -86,9 +86,8 @@ func ListUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, Response{Data: ListUsersResponseData{Total: total, Users: users}})
 }
 
-// UpdateUserRequest 修改用户资料请求体
+// UpdateUserRequest 修改用户资料请求体, 用户名注册后不能修改
 type UpdateUserRequest struct {
-	Username  *string `json:"username"`   // 不传表示不修改
 	Nickname  *string `json:"nickname"`   // 不传表示不修改
 	AvatarURL *string `json:"avatar_url"` // 不传表示不修改, 传空字符串表示清除头像
 }
@@ -105,7 +104,6 @@ type UpdateUserRequest struct {
 // @Failure 401 {object} Response
 // @Failure 403 {object} Response
 // @Failure 404 {object} Response
-// @Failure 409 {object} Response
 // @Failure 500 {object} Response
 // @Router /api/v1/admin/users/{id} [patch]
 func UpdateUser(c *gin.Context) {
@@ -121,22 +119,20 @@ func UpdateUser(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
-	updated, err := auth.UpdateUserProfile(ctx, userID, req.Username, req.Nickname, req.AvatarURL)
+	updated, err := auth.UpdateUserProfile(ctx, userID, req.Nickname, req.AvatarURL)
 	if err != nil {
 		switch err.Error() {
-		case auth.UsernameInvalid, auth.NicknameInvalid, auth.AvatarURLInvalid:
+		case auth.NicknameInvalid, auth.AvatarURLInvalid:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
 		case auth.UserNotFound:
 			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case auth.UsernameTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
 		default:
 			logger.ErrorF(ctx, "[UpdateUser] update failed: %v", err)
 			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		}
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionUserUpdate, audit.TargetUser, updated.ID, auth.ProfileChanges(req.Username, req.Nickname, req.AvatarURL))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionUserUpdate, audit.TargetUser, updated.ID, auth.ProfileChanges(req.Nickname, req.AvatarURL))
 	logger.InfoF(ctx, "[UpdateUser] %d updated %d %s", operator.ID, updated.ID, updated.Username)
 	c.JSON(
 		http.StatusOK,

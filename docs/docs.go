@@ -6675,12 +6675,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/authadmin.Response"
                         }
                     },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/authadmin.Response"
-                        }
-                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -12115,10 +12109,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "nickname": {
-                    "description": "不传表示不修改",
-                    "type": "string"
-                },
-                "username": {
                     "description": "不传表示不修改",
                     "type": "string"
                 }
