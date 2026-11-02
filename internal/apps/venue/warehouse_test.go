@@ -26,6 +26,7 @@ package venue
 
 import (
 	"math"
+	"math/rand/v2"
 	"testing"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
@@ -82,5 +83,43 @@ func TestPieceOdds(t *testing.T) {
 				t.Errorf("value factor %d: odds %d got %+v, want %+v", c.valueFactor, i, o, want)
 			}
 		}
+	}
+}
+
+func TestSwing(t *testing.T) {
+	g := &Generator{
+		currency: "chip",
+		rule: WarehouseRule{
+			Grid: Grid{Width: 10, Height: 10},
+			// 平均系数 (5000 + 15000 × 3) ÷ 4 = 12500
+			Swings: []Swing{{Factor: 5000, Weight: 1}, {Factor: 15000, Weight: 3}},
+		},
+		slots: []slotPool{
+			{slot: Slot{Min: 4, Max: 4, Chance: BasisPoints}, entries: []loot.EntryDetail{entry(1, 1, 1, 1)}, weights: []int64{1}},
+		},
+		items: map[uint64]*item.Item{1: {ID: 1, Quality: 1, Width: 1, Height: 1, SellCurrency: "chip", SellPrice: 10}},
+	}
+	// 公示概率按平均系数计算件数
+	if odds := g.PieceOdds(BasisPoints); len(odds) != 1 || math.Abs(odds[0].Count-5) > 1e-9 {
+		t.Fatalf("PieceOdds got %+v, want count 5", odds)
+	}
+
+	// 抽中 5000 时 2 件, 抽中 15000 时 6 件, 重抽时不换档
+	counts := map[int]int{}
+	for range 400 {
+		w, err := g.withRand(rand.Int64N).Generate(BasisPoints)
+		if err != nil {
+			t.Fatal(err)
+		}
+		counts[len(w.Pieces)]++
+	}
+	if len(counts) != 2 || counts[2] == 0 || counts[6] == 0 || counts[6] < counts[2] {
+		t.Errorf("piece counts got %v, want only 2 and 6 with 6 about 3 times as often", counts)
+	}
+
+	// 没有配置时不缩放
+	g.rule.Swings = nil
+	if w, err := g.withRand(rand.Int64N).Generate(BasisPoints); err != nil || len(w.Pieces) != 4 {
+		t.Errorf("without swings got %v pieces, err %v, want 4", w, err)
 	}
 }

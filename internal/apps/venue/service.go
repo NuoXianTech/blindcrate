@@ -209,6 +209,10 @@ func validateRules(v *Venue) error {
 		}
 	}
 
+	// 旧数据和没有提交时为 null, 统一写为空列表
+	if v.Warehouse.Swings == nil {
+		v.Warehouse.Swings = []Swing{}
+	}
 	var maxTimes int32
 	for i, slot := range v.Warehouse.Slots {
 		if slot.Min > slot.Max {

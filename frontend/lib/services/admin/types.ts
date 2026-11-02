@@ -471,10 +471,19 @@ export interface WarehouseSlot {
   chance: number;
 }
 
+/** 仓库的一档数量波动, 对应后端 venue.Swing */
+export interface WarehouseSwing {
+  /** 抽中这一档时按它缩放各档位的抽取次数, 基点 */
+  factor: number;
+  weight: number;
+}
+
 /** 仓库生成规则, 对应后端 venue.WarehouseRule */
 export interface WarehouseRule {
   grid: Grid;
   slots: WarehouseSlot[];
+  /** 每局按权重抽一档, 为空表示不波动; 旧数据可能为 null */
+  swings?: WarehouseSwing[] | null;
   /** 摆不下时重抽, 超过后开局失败 */
   max_rerolls: number;
 }

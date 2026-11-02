@@ -105,11 +105,21 @@ type Slot struct {
 	Chance int32  `json:"chance" label:"出现概率" binding:"min=1,max=10000"` // 这一档出现的概率, 基点, 10000 表示一定出现
 }
 
+// Swing 仓库的一档数量波动
+type Swing struct {
+	Factor int32 `json:"factor" label:"数量系数" binding:"min=2000,max=20000"` // 基点, 抽中这一档时按它缩放各档位的抽取次数
+	Weight int32 `json:"weight" label:"权重" binding:"min=1,max=10000"`
+}
+
 // WarehouseRule 仓库生成规则: 各档位抽取的物品合在一起, 按面积从大到小摆进格子, 摆不下时整仓重抽
+//
+// 配置了数量波动时, 每局先按权重抽一档, 按它的系数缩放各档位的抽取次数; 藏品的多少在出价时可以从格子看出来,
+// 看得懂格子的人能在大仓库多出价、小仓库少出价, 只出固定价格的人多半拍到小仓库。
 type WarehouseRule struct {
-	Grid       Grid   `json:"grid" label:"仓库格子"`
-	Slots      []Slot `json:"slots" label:"档位" binding:"min=1,max=8,dive"`
-	MaxRerolls int32  `json:"max_rerolls" label:"重抽次数上限" binding:"min=0,max=50"` // 超过后开局失败
+	Grid       Grid    `json:"grid" label:"仓库格子"`
+	Slots      []Slot  `json:"slots" label:"档位" binding:"min=1,max=8,dive"`
+	Swings     []Swing `json:"swings" label:"数量波动" binding:"max=8,dive"` // 为空表示不波动
+	MaxRerolls int32   `json:"max_rerolls" label:"重抽次数上限" binding:"min=0,max=50"` // 超过后开局失败
 }
 
 // AuctionRule 拍卖参数, 金额按出价货币的最小单位
