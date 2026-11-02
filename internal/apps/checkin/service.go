@@ -269,6 +269,10 @@ func Checkin(ctx context.Context, userID uint64) (*CheckinResult, error) {
 		if err != nil {
 			return err
 		}
+		// 奖励全是已下架且没有回收价的物品时什么也发不出, 不记签到, 奖励改好后还可以签
+		if bundle.IsEmpty() {
+			return &RejectedError{Reason: RewardUnavailable}
+		}
 		if result, replayed, err = reward.Apply(tx, &reward.ApplyRequest{
 			UserID:         userID,
 			Bundle:         bundle,
