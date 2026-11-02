@@ -407,6 +407,10 @@ func Claim(ctx context.Context, userID uint64, code string) (*ClaimResult, error
 		if err != nil {
 			return err
 		}
+		// 奖励全是已下架且没有回收价的物品时什么也发不出, 不记领取, 奖励改好后还可以领
+		if bundle.IsEmpty() {
+			return errors.New(RewardUnavailable)
+		}
 		if result, replayed, err = reward.Apply(tx, &reward.ApplyRequest{
 			UserID:         userID,
 			Bundle:         bundle,

@@ -488,6 +488,10 @@ func claim(ctx context.Context, userID, mailID uint64) (reward.Bundle, error) {
 		if err != nil {
 			return err
 		}
+		// 附件全是已下架且没有回收价的物品时什么也发不出, 不记领取, 附件中的物品重新上架后还可以领
+		if bundle.IsEmpty() {
+			return errors.New(AttachmentUnavailable)
+		}
 		bizID := strconv.FormatUint(m.ID, 10)
 		if result, replayed, err = reward.Apply(tx, &reward.ApplyRequest{
 			UserID:         userID,
