@@ -351,7 +351,7 @@ func scale(b reward.Bundle, quantity int64) reward.Bundle {
 	return scaled
 }
 
-// Refund 管理员退款: 退还价格并收回商品, 恢复库存, 返回退款后的订单; 不恢复限购数量
+// Refund 管理员退款: 退还价格并收回商品, 恢复库存和购买时所在周期的限购数量, 返回退款后的订单
 //
 // 价格中已下架或已删除的物品按回收价折成货币退还; 用户的货币或物品不足以收回商品时返回 RefundInsufficient。
 func Refund(ctx context.Context, operatorID, orderID uint64) (*Order, error) {
@@ -398,6 +398,10 @@ func Refund(ctx context.Context, operatorID, orderID uint64) (*Order, error) {
 		order.RefundedAt = &now
 		order.RefundedBy = operatorID
 		if err := tx.Save(&order).Error; err != nil {
+			return err
+		}
+		// 按购买时间减去这一单的份数, 退还的是下单当天、当周和当时赛季的限购
+		if err := stats.Add(tx, order.UserID, []string{stats.ScopeAll}, order.CreatedAt, stats.Values{Metric(order.ItemCode): -order.Quantity}); err != nil {
 			return err
 		}
 		// 商品可能已删除, 用原生 SQL 绕过软删除
