@@ -330,11 +330,8 @@ func doVerifyEmail(ctx context.Context, userID uint64, rawEmail, code string) er
 }
 
 // ProfileChanges 资料修改的操作日志内容, 只记录本次传入的字段
-func ProfileChanges(username, nickname, avatarURL *string) map[string]interface{} {
+func ProfileChanges(nickname, avatarURL *string) map[string]interface{} {
 	changes := map[string]interface{}{}
-	if username != nil {
-		changes["username"] = *username
-	}
 	if nickname != nil {
 		changes["nickname"] = *nickname
 	}
@@ -344,15 +341,9 @@ func ProfileChanges(username, nickname, avatarURL *string) map[string]interface{
 	return changes
 }
 
-// UpdateUserProfile 更新用户资料, 字段为 nil 表示不修改; username 仅管理员可改
-func UpdateUserProfile(ctx context.Context, userID uint64, username, nickname, avatarURL *string) (*User, error) {
+// UpdateUserProfile 更新用户资料, 字段为 nil 表示不修改; 用户名注册后不能修改, 管理员也不能
+func UpdateUserProfile(ctx context.Context, userID uint64, nickname, avatarURL *string) (*User, error) {
 	values := map[string]interface{}{}
-	if username != nil {
-		if err := validateUsername(*username); err != nil {
-			return nil, err
-		}
-		values["username"] = *username
-	}
 	if nickname != nil {
 		*nickname = strings.TrimSpace(*nickname)
 		if err := validateNickname(*nickname); err != nil {
@@ -379,13 +370,7 @@ func UpdateUserProfile(ctx context.Context, userID uint64, username, nickname, a
 		if len(values) == 0 {
 			return nil
 		}
-		if err := tx.Model(&user).Updates(values).Error; err != nil {
-			if db.IsUniqueViolation(err) {
-				return errors.New(UsernameTaken)
-			}
-			return err
-		}
-		return nil
+		return tx.Model(&user).Updates(values).Error
 	})
 	if err != nil {
 		return nil, err

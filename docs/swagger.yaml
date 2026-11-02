@@ -729,9 +729,6 @@ definitions:
       nickname:
         description: 不传表示不修改
         type: string
-      username:
-        description: 不传表示不修改
-        type: string
     type: object
   bot.Name:
     properties:
@@ -9048,10 +9045,6 @@ paths:
             $ref: '#/definitions/authadmin.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/authadmin.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/authadmin.Response'
         "500":
