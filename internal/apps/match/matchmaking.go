@@ -81,7 +81,7 @@ return 0
 // popScript 按加入顺序挑出可以同局的人: 凑满 ARGV[1] 人时取出; 凑不满时, 最早加入的人等到补位时间后至少有 ARGV[2] 人也取出, 由人机补齐
 //
 // 同一 IP 或同一设备的人不同局; 最近一起打过的人优先不同局, 最早加入的人等到补位时间(不补位的玩法为立即)后放宽:
-// 放宽后能凑满时取凑满的一批, 否则依次尝试不放宽、放宽时挑出的人。没有来源的人不受限制, 来源见 queueOrigin。
+// 放宽后能凑满时取凑满的一批, 否则取不放宽、放宽时挑出的人中人多的一批。没有来源的人不受限制, 来源见 queueOrigin。
 //
 // KEYS[1] 队列, KEYS[2] 用户所在的队列, KEYS[3] 来源; ARGV[1] 每局最多的真人数, ARGV[2] 开局至少需要的真人数,
 // ARGV[3] 加入时间不晚于它的人可以补位, 为空表示不补位, ARGV[4] 玩法。
@@ -170,11 +170,13 @@ end
 if ARGV[3] == '' then
 	return {}
 end
-if #strict >= least then
-	return take(strict)
+-- 取人多的一批, 一样多时取不放宽的; 只取不放宽的一批会把和别人最近打过的人留在队列里, 剩下的人可能凑不够开局
+local best = strict
+if #relaxed > #strict then
+	best = relaxed
 end
-if #relaxed >= least then
-	return take(relaxed)
+if #best >= least then
+	return take(best)
 end
 return {}
 `)
