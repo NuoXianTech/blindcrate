@@ -11,6 +11,7 @@ import {MatchService} from './match';
 import {MissionAdminService, MissionService} from './mission';
 import {RankedService} from './ranked';
 import {SeasonService} from './season';
+import {SettingsService} from './settings';
 import {ShopService} from './shop';
 import {StatsService} from './stats';
 import {UploadService} from './upload';
@@ -66,6 +67,8 @@ const services = {
   checkin: CheckinService,
   /** 图鉴 */
   codex: CodexService,
+  /** 公开设置 */
+  settings: SettingsService,
   /** 图片上传 */
   upload: UploadService,
   /** 仓库暗拍 */
