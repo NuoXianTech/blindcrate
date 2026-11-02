@@ -97,9 +97,11 @@ func NewGenerator(tx *gorm.DB, rule WarehouseRule, bidCurrency string) (*Generat
 // Generate 抽取藏品并摆进格子, 摆不下时整仓重抽, 超过重抽次数上限时返回 WarehouseNotFit
 //
 // valueFactor 为基点, 按它缩放各档位的抽取次数, 小数部分按概率进位; 10000 表示不缩放。
+// 配置了数量波动时先抽一档, 再乘上它的系数, 重抽时不换档。
 func (g *Generator) Generate(valueFactor int32) (*Warehouse, error) {
+	factor := int32(int64(valueFactor) * g.swing() / BasisPoints)
 	for range g.rule.MaxRerolls + 1 {
-		pieces := g.draw(valueFactor)
+		pieces := g.draw(factor)
 		if place(g.rule.Grid, pieces) {
 			warehouse := &Warehouse{Pieces: pieces}
 			for _, piece := range pieces {
@@ -151,6 +153,31 @@ func (g *Generator) draw(valueFactor int32) []Piece {
 		}
 	}
 	return pieces
+}
+
+// swing 按权重抽一档数量波动, 返回它的系数; 没有配置时为 BasisPoints
+func (g *Generator) swing() int64 {
+	if len(g.rule.Swings) == 0 {
+		return BasisPoints
+	}
+	weights := make([]int64, len(g.rule.Swings))
+	for i, s := range g.rule.Swings {
+		weights[i] = int64(s.Weight)
+	}
+	return int64(g.rule.Swings[g.pick(weights)].Factor)
+}
+
+// meanSwing 数量波动的平均系数, 基点; 没有配置时为 BasisPoints
+func (g *Generator) meanSwing() float64 {
+	var total, weighted float64
+	for _, s := range g.rule.Swings {
+		total += float64(s.Weight)
+		weighted += float64(s.Weight) * float64(s.Factor)
+	}
+	if total == 0 {
+		return BasisPoints
+	}
+	return weighted / total
 }
 
 // pick 按权重随机选出一个下标, 权重都大于 0
@@ -216,10 +243,16 @@ func place(grid Grid, pieces []Piece) bool {
 	return true
 }
 
+// withRand 换用 randN 抽取的副本, 不影响 g
+func (g *Generator) withRand(randN func(n int64) int64) *Generator {
+	clone := *g
+	clone.randN = randN
+	return &clone
+}
+
 // Simulate 用 math/rand 快速生成 runs 个仓库, 统计摆放失败率和价值分布, 不影响 g 之后的生成
 func (g *Generator) Simulate(runs int, valueFactor int32) ValueStats {
-	fast := *g
-	fast.randN = rand.Int64N
+	fast := g.withRand(rand.Int64N)
 	values := make([]int64, 0, runs)
 	var (
 		failures int
@@ -254,7 +287,8 @@ func (g *Generator) Simulate(runs int, valueFactor int32) ValueStats {
 
 // PieceOdds 按公示概率算出每种藏品在一个仓库中的期望件数和平均回收价, 品质和尺寸相同的合在一起, 按品质、宽、高排列
 //
-// 只用玩家在地图详情中能看到的档位和掉落池概率, 以及物品的品质、尺寸和回收价; 不考虑摆不下时的重抽。valueFactor 同 Generate。
+// 只用玩家在地图详情中能看到的档位和掉落池概率, 以及物品的品质、尺寸和回收价; 不考虑摆不下时的重抽。
+// valueFactor 同 Generate, 数量波动按平均系数计算。
 func (g *Generator) PieceOdds(valueFactor int32) []PieceOdds {
 	type key struct{ quality, width, height int16 }
 	type sum struct{ count, value float64 }
@@ -264,7 +298,7 @@ func (g *Generator) PieceOdds(valueFactor int32) []PieceOdds {
 		for _, weight := range sp.weights {
 			total += weight
 		}
-		times := float64(sp.slot.Chance) / BasisPoints * float64(sp.slot.Min+sp.slot.Max) / 2 * float64(valueFactor) / BasisPoints
+		times := float64(sp.slot.Chance) / BasisPoints * float64(sp.slot.Min+sp.slot.Max) / 2 * float64(valueFactor) / BasisPoints * g.meanSwing() / BasisPoints
 		for i, entry := range sp.entries {
 			target := g.items[entry.ItemID]
 			count := times * float64(sp.weights[i]) / float64(total) * float64(entry.MinQuantity+entry.MaxQuantity) / 2

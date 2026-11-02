@@ -23,6 +23,7 @@ export const CODE_PATTERN = /^[a-z0-9_]{1,24}$/;
 export const MAX_ENTRY_COST_LINES = 8;
 export const MAX_REQUIREMENTS = 16;
 export const MAX_SLOTS = 8;
+export const MAX_SWINGS = 8;
 /** 每个模式出场的人机风格数量上限 */
 export const MAX_BOT_PERSONAS = 10;
 export const MAX_USES = 10;

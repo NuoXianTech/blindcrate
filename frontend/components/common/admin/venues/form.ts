@@ -22,6 +22,7 @@ import {
   MAX_ENTRY_COST_LINES,
   MAX_REQUIREMENTS,
   MAX_SLOTS,
+  MAX_SWINGS,
   MAX_USES,
 } from './constants';
 
@@ -37,6 +38,13 @@ export interface SlotDraft {
   min: string;
   max: string;
   chance: string;
+}
+
+/** 编辑中的一档数量波动, 系数按百分比输入 */
+export interface SwingDraft {
+  key: string;
+  factor: string;
+  weight: string;
 }
 
 /** 编辑中的一种出场的人机风格 */
@@ -65,6 +73,7 @@ export interface VenueForm {
   gridWidth: string;
   gridHeight: string;
   slots: SlotDraft[];
+  swings: SwingDraft[];
   maxRerolls: string;
   startPrice: string;
   maxCarry: string;
@@ -100,7 +109,7 @@ const DEFAULT_REQUEST: VenueRequest = {
   bid_currency: '',
   entry_cost: {},
   requirements: [],
-  warehouse: {grid: {width: 6, height: 5}, slots: [{pool: '', min: 4, max: 8, chance: 10000}], max_rerolls: 10},
+  warehouse: {grid: {width: 6, height: 5}, slots: [{pool: '', min: 4, max: 8, chance: 10000}], swings: [], max_rerolls: 10},
   auction: {
     start_price: 100,
     max_carry: 5000,
@@ -166,6 +175,11 @@ export function toVenueForm(venue: VenueRequest | null, {currencies, types, pers
       min: String(s.min),
       max: String(s.max),
       chance: ratioInput(s.chance, PERCENT_DECIMALS),
+    })),
+    swings: (v.warehouse.swings ?? []).map((s) => ({
+      key: nanoid(),
+      factor: ratioInput(s.factor, PERCENT_DECIMALS),
+      weight: String(s.weight),
     })),
     maxRerolls: String(v.warehouse.max_rerolls),
     startPrice: amountInput(v.auction.start_price, decimals),
@@ -247,6 +261,7 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
   check(form.entryCost.length > MAX_ENTRY_COST_LINES ? `入场代价最多 ${MAX_ENTRY_COST_LINES} 项` : null);
   check(form.requirements.length > MAX_REQUIREMENTS ? `入场条件最多 ${MAX_REQUIREMENTS} 个` : null);
   check(form.slots.length === 0 || form.slots.length > MAX_SLOTS ? `档位需为 1-${MAX_SLOTS} 个` : null);
+  check(form.swings.length > MAX_SWINGS ? `数量波动最多 ${MAX_SWINGS} 档` : null);
   check(form.allowedItems.length > MAX_ALLOWED_ITEMS ? `允许的道具最多 ${MAX_ALLOWED_ITEMS} 个` : null);
 
   const rounds = readNumber(form.rounds, {label: '轮数', min: 1, max: 10});
@@ -274,6 +289,13 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
         const max = readNumber(s.max, {label: `${row}: 最多次数`, min: 0, max: 100});
         check(max < min ? `${row}: 最多次数不能少于最少次数` : null);
         return {pool: s.pool, min, max, chance: percent(s.chance, `${row}: 出现概率`, 1, 10000)};
+      }),
+      swings: form.swings.map((s, i) => {
+        const row = `第 ${i + 1} 档波动`;
+        return {
+          factor: percent(s.factor, `${row}: 数量系数`, 2000, 20000),
+          weight: readNumber(s.weight, {label: `${row}: 权重`, min: 1, max: 10000}),
+        };
       }),
       max_rerolls: readNumber(form.maxRerolls, {label: '重抽次数上限', min: 0, max: 50}),
     },

@@ -4355,6 +4355,18 @@ definitions:
     required:
     - pool
     type: object
+  venue.Swing:
+    properties:
+      factor:
+        description: 基点, 抽中这一档时按它缩放各档位的抽取次数
+        maximum: 20000
+        minimum: 2000
+        type: integer
+      weight:
+        maximum: 10000
+        minimum: 1
+        type: integer
+    type: object
   venue.ValueRange:
     properties:
       p10:
@@ -4543,6 +4555,12 @@ definitions:
           $ref: '#/definitions/venue.Slot'
         maxItems: 8
         minItems: 1
+        type: array
+      swings:
+        description: 为空表示不波动
+        items:
+          $ref: '#/definitions/venue.Swing'
+        maxItems: 8
         type: array
     type: object
   venueadmin.ListVenuesResponseData:

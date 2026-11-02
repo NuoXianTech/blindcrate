@@ -7,11 +7,13 @@ import {Input} from '@/components/ui/input';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import type {LootPoolListItem} from '@/lib/services/admin';
 import {FieldGroup, InputField} from './Fields';
-import {MAX_SLOTS} from './constants';
-import type {FormTabProps, SlotDraft} from './form';
+import {MAX_SLOTS, MAX_SWINGS} from './constants';
+import type {FormTabProps, SlotDraft, SwingDraft} from './form';
 
 /** 档位的列宽, 表头和每行共用 */
 const SLOT_COLUMNS = 'grid grid-cols-[1fr_4.5rem_4.5rem_6rem_2.25rem] items-center gap-2';
+/** 数量波动的列宽 */
+const SWING_COLUMNS = 'grid grid-cols-[8rem_6rem_2.25rem] items-center gap-2';
 
 /**
  * 仓库: 格子大小、档位和重抽次数
@@ -19,6 +21,8 @@ const SLOT_COLUMNS = 'grid grid-cols-[1fr_4.5rem_4.5rem_6rem_2.25rem] items-cent
 export function WarehouseTab({form, onChange, disabled, pools}: FormTabProps & { pools: LootPoolListItem[] }) {
   const updateSlot = (key: string, patch: Partial<SlotDraft>) =>
     onChange({slots: form.slots.map((s) => (s.key === key ? {...s, ...patch} : s))});
+  const updateSwing = (key: string, patch: Partial<SwingDraft>) =>
+    onChange({swings: form.swings.map((s) => (s.key === key ? {...s, ...patch} : s))});
   const width = Number(form.gridWidth);
   const height = Number(form.gridHeight);
 
@@ -95,6 +99,88 @@ export function WarehouseTab({form, onChange, disabled, pools}: FormTabProps & {
           </div>
         </div>
       </FieldGroup>
+
+      <FieldGroup
+        title="数量波动"
+        help={`每局按权重抽一档, 按数量系数缩放各档位的抽取次数, 让每局的藏品有多有少; 多少能从格子看出来, 只出固定价格的人多半拍到小仓库。不配置时不波动, 最多 ${MAX_SWINGS} 档`}
+      >
+        <div className="flex flex-col gap-2">
+          {form.swings.length > 0 && (
+            <div className={`${SWING_COLUMNS} px-1 text-xs text-muted-foreground`}>
+              <span>数量系数</span>
+              <span>权重</span>
+              <span />
+            </div>
+          )}
+          {form.swings.map((s) => (
+            <SwingRow
+              key={s.key}
+              swing={s}
+              onChange={(patch) => updateSwing(s.key, patch)}
+              onRemove={() => onChange({swings: form.swings.filter((x) => x.key !== s.key)})}
+              disabled={disabled}
+            />
+          ))}
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onChange({swings: [...form.swings, {key: nanoid(), factor: '100', weight: '1'}]})}
+              disabled={disabled || form.swings.length >= MAX_SWINGS}
+            >
+              <Plus />
+              添加一档
+            </Button>
+          </div>
+        </div>
+      </FieldGroup>
+    </div>
+  );
+}
+
+/**
+ * 一档数量波动: 数量系数和权重
+ */
+function SwingRow({swing, onChange, onRemove, disabled}: {
+  swing: SwingDraft;
+  onChange: (patch: Partial<SwingDraft>) => void;
+  onRemove: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className={SWING_COLUMNS}>
+      <div className="relative">
+        <Input
+          inputMode="decimal"
+          aria-label="数量系数"
+          className="pr-7 font-mono tabular-nums"
+          value={swing.factor}
+          onChange={(e) => onChange({factor: e.target.value})}
+          disabled={disabled}
+        />
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">%</span>
+      </div>
+      <Input
+        inputMode="numeric"
+        aria-label="权重"
+        className="font-mono tabular-nums"
+        value={swing.weight}
+        onChange={(e) => onChange({weight: e.target.value})}
+        disabled={disabled}
+      />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        title="删除这一档"
+        aria-label="删除这一档"
+        className="hover:text-destructive"
+        onClick={onRemove}
+        disabled={disabled}
+      >
+        <Trash2 />
+      </Button>
     </div>
   );
 }

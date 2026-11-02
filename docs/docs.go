@@ -17384,6 +17384,22 @@ const docTemplate = `{
                 }
             }
         },
+        "venue.Swing": {
+            "type": "object",
+            "properties": {
+                "factor": {
+                    "description": "基点, 抽中这一档时按它缩放各档位的抽取次数",
+                    "type": "integer",
+                    "maximum": 20000,
+                    "minimum": 2000
+                },
+                "weight": {
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 1
+                }
+            }
+        },
         "venue.ValueRange": {
             "type": "object",
             "properties": {
@@ -17678,6 +17694,14 @@ const docTemplate = `{
                     "minItems": 1,
                     "items": {
                         "$ref": "#/definitions/venue.Slot"
+                    }
+                },
+                "swings": {
+                    "description": "为空表示不波动",
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                        "$ref": "#/definitions/venue.Swing"
                     }
                 }
             }
