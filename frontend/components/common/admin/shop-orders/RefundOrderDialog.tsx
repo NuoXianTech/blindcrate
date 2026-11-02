@@ -45,7 +45,7 @@ export function RefundOrderDialog({order, price, goods, onClose, onSaved}: {
             退款订单 #{order?.id} {order?.name} ×{order?.quantity}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            退还 {price || '0'}, 收回 {goods}; 价格中已下架的物品按回收价折成货币退还。用户的货币或物品不足以收回时不能退款。恢复库存, 不恢复限购数量; 无法撤销。
+            退还 {price || '0'}, 收回 {goods}; 价格中已下架的物品按回收价折成货币退还。用户的货币或物品不足以收回时不能退款。恢复库存和限购数量; 无法撤销。
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

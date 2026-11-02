@@ -300,7 +300,7 @@ func ListShopOrders(c *gin.Context) {
 // RefundShopOrder
 // @Tags admin
 // @Summary 订单退款
-// @Description 退还价格并收回商品, 恢复库存, 不恢复限购数量; 价格中已下架的物品按回收价折成货币退还, 用户的货币或物品不足以收回商品时返回 409
+// @Description 退还价格并收回商品, 恢复库存和购买时所在周期的限购数量; 价格中已下架的物品按回收价折成货币退还, 用户的货币或物品不足以收回商品时返回 409
 // @Produce json
 // @Param id path int true "order id"
 // @Success 200 {object} Response{data=shop.Order}
