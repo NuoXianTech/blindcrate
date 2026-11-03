@@ -146,384 +146,11 @@ func Serve() {
 			apiGroup.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 		}
 
-		// API V1
+		// API V1, 按是否需要登录、是否需要管理员分为三段
 		apiV1Router := apiGroup.Group("/v1")
-		{
-			// Health
-			apiV1Router.GET("/health", health.Health)
-			apiV1Router.GET("/ready", health.Ready)
-
-			// Auth
-			apiV1Router.POST("/auth/login", ratelimit.ByIP("auth:login", ratelimit.PerMinute(10)), auth.Login)
-			apiV1Router.POST("/auth/register", ratelimit.ByIP("auth:register", ratelimit.PerHour(10)), auth.Register)
-			apiV1Router.POST("/auth/logout", auth.Logout)
-			apiV1Router.GET("/auth/user-info", auth.LoginRequired(), auth.UserInfo)
-			apiV1Router.PATCH("/auth/user-info", auth.LoginRequired(), auth.UpdateUserInfo)
-			apiV1Router.PUT("/auth/password", auth.LoginRequired(), ratelimit.ByUser("auth:change_password", ratelimit.PerHour(10)), auth.ChangePassword)
-			apiV1Router.POST("/auth/email/code", auth.LoginRequired(), ratelimit.ByUser("auth:send_email_code", ratelimit.PerHour(10)), auth.SendEmailCode)
-			apiV1Router.POST("/auth/email/verify", auth.LoginRequired(), auth.VerifyEmail)
-
-			// Settings
-			apiV1Router.GET("/settings/public", settings.PublicSettings)
-
-			// Item
-			apiV1Router.GET("/qualities", item.ListQualities)
-
-			// WebSocket
-			apiV1Router.GET("/ws", auth.LoginRequired(), ws.Connect)
-
-			// Wallet
-			walletRouter := apiV1Router.Group("/wallet")
-			walletRouter.Use(auth.LoginRequired())
-			{
-				walletRouter.GET("/balances", wallet.ListBalances)
-				walletRouter.GET("/transactions", wallet.ListTransactions)
-				walletRouter.GET("/biz-types", wallet.ListBizTypes)
-			}
-
-			// Inventory
-			inventoryRouter := apiV1Router.Group("/inventory")
-			inventoryRouter.Use(auth.LoginRequired())
-			{
-				inventoryRouter.GET("/items", inventory.ListItems)
-				inventoryRouter.GET("/transactions", inventory.ListTransactions)
-				inventoryRouter.GET("/biz-types", inventory.ListBizTypes)
-				inventoryRouter.POST("/sell", inventory.SellItems)
-				inventoryRouter.GET("/sell-orders", inventory.ListSellOrders)
-			}
-
-			// Loot
-			apiV1Router.GET("/loot-pools/:code/odds", auth.LoginRequired(), loot.GetPoolOdds)
-
-			// Venue
-			venueRouter := apiV1Router.Group("/venues")
-			venueRouter.Use(auth.LoginRequired())
-			{
-				venueRouter.GET("", venue.ListVenues)
-				venueRouter.GET("/:code", venue.GetVenue)
-			}
-
-			// Match
-			matchmakingRouter := apiV1Router.Group("/matchmaking")
-			matchmakingRouter.Use(auth.LoginRequired())
-			{
-				matchmakingRouter.GET("", match.GetMatchmaking)
-				matchmakingRouter.POST("", ratelimit.ByUser("match:join", ratelimit.PerMinute(30)), match.JoinMatchmaking)
-				matchmakingRouter.DELETE("", match.LeaveMatchmaking)
-			}
-			matchRouter := apiV1Router.Group("/matches")
-			matchRouter.Use(auth.LoginRequired())
-			{
-				matchRouter.GET("", match.ListMatches)
-				matchRouter.GET("/current", match.GetCurrentMatch)
-				matchRouter.GET("/:id", match.GetMatch)
-			}
-
-			// Auction
-			auctionRouter := apiV1Router.Group("/auctions")
-			auctionRouter.Use(auth.LoginRequired())
-			{
-				auctionRouter.GET("/:match_id", auction.GetAuction)
-				auctionRouter.GET("/:match_id/items", auction.ListUsableItems)
-			}
-
-			// Leaderboard
-			leaderboardRouter := apiV1Router.Group("/leaderboards")
-			leaderboardRouter.Use(auth.LoginRequired())
-			{
-				leaderboardRouter.GET("", leaderboard.ListBoards)
-				leaderboardRouter.GET("/:code", leaderboard.GetBoard)
-			}
-
-			// Stats
-			apiV1Router.GET("/stats", auth.LoginRequired(), stats.GetStats)
-
-			// Season
-			apiV1Router.GET("/seasons/current", auth.LoginRequired(), season.GetCurrent)
-
-			// Ranked
-			rankedRouter := apiV1Router.Group("/ranked")
-			rankedRouter.Use(auth.LoginRequired())
-			{
-				rankedRouter.GET("/rating", ranked.GetRating)
-				rankedRouter.GET("/tiers", ranked.ListTiers)
-			}
-
-			shopRouter := apiV1Router.Group("/shop")
-			shopRouter.Use(auth.LoginRequired())
-			{
-				shopRouter.GET("/items", shop.ListItems)
-				shopRouter.GET("/orders", shop.ListOrders)
-				shopRouter.POST("/orders", ratelimit.ByUser("shop:buy", ratelimit.PerMinute(60)), shop.CreateOrder)
-			}
-
-			// Mailbox
-			mailRouter := apiV1Router.Group("/mails")
-			mailRouter.Use(auth.LoginRequired())
-			{
-				mailRouter.GET("", mailbox.ListMails)
-				mailRouter.GET("/counts", mailbox.GetCounts)
-				mailRouter.POST("/read-all", mailbox.ReadAllMails)
-				mailRouter.POST("/claim-all", ratelimit.ByUser("mail:claim", ratelimit.PerMinute(60)), mailbox.ClaimAllMails)
-				mailRouter.POST("/:id/read", mailbox.ReadMail)
-				mailRouter.POST("/:id/claim", ratelimit.ByUser("mail:claim", ratelimit.PerMinute(60)), mailbox.ClaimMail)
-				mailRouter.DELETE("/:id", mailbox.DeleteMail)
-			}
-
-			// Mission
-			missionRouter := apiV1Router.Group("/missions")
-			missionRouter.Use(auth.LoginRequired())
-			{
-				missionRouter.GET("", mission.ListMissions)
-				missionRouter.POST("/:code/claim", ratelimit.ByUser("mission:claim", ratelimit.PerMinute(60)), mission.ClaimMission)
-			}
-
-			// Checkin
-			checkinRouter := apiV1Router.Group("/checkin")
-			checkinRouter.Use(auth.LoginRequired())
-			{
-				checkinRouter.GET("", checkin.GetCheckin)
-				checkinRouter.POST("", ratelimit.ByUser("checkin", ratelimit.PerMinute(30)), checkin.DoCheckin)
-			}
-
-			// Codex
-			codexRouter := apiV1Router.Group("/codex")
-			codexRouter.Use(auth.LoginRequired())
-			{
-				codexRouter.GET("", codex.GetCodex)
-				codexRouter.POST("/sets/:code/claim", ratelimit.ByUser("codex:claim", ratelimit.PerMinute(60)), codex.ClaimCodexSet)
-			}
-
-			// Upload
-			apiV1Router.POST("/uploads", auth.LoginRequired(), ratelimit.ByUser("upload", ratelimit.PerHour(60)), upload.CreateUpload)
-
-			// Admin
-			adminRouter := apiV1Router.Group("/admin")
-			adminRouter.Use(auth.LoginRequired(), admin.LoginAdminRequired())
-			{
-				// User
-				userAdminRouter := adminRouter.Group("/users")
-				{
-					userAdminRouter.GET("", authadmin.ListUsers)
-					userAdminRouter.PATCH("/:id", authadmin.UpdateUser)
-					userAdminRouter.PUT("/:id/ban", authadmin.BanUser)
-					userAdminRouter.DELETE("/:id/ban", authadmin.UnbanUser)
-					userAdminRouter.PUT("/:id/disabled", authadmin.SetUserDisabled)
-					userAdminRouter.PUT("/:id/password", authadmin.SetUserPassword)
-					userAdminRouter.GET("/:id/wallet/balances", walletadmin.ListUserBalances)
-					userAdminRouter.POST("/:id/wallet/adjust", walletadmin.AdjustUserBalance)
-					userAdminRouter.GET("/:id/inventory/items", inventoryadmin.ListUserInventory)
-					userAdminRouter.POST("/:id/inventory/adjust", inventoryadmin.AdjustUserInventory)
-				}
-
-				// Currency
-				currencyAdminRouter := adminRouter.Group("/currencies")
-				{
-					currencyAdminRouter.GET("", walletadmin.ListCurrencies)
-					currencyAdminRouter.POST("", walletadmin.CreateCurrency)
-					currencyAdminRouter.PUT("/:code", walletadmin.UpdateCurrency)
-				}
-
-				// Wallet
-				walletAdminRouter := adminRouter.Group("/wallet")
-				{
-					walletAdminRouter.GET("/transactions", walletadmin.ListWalletTransactions)
-				}
-
-				// Item
-				itemAdminRouter := adminRouter.Group("/items")
-				{
-					itemAdminRouter.GET("", itemadmin.ListItems)
-					itemAdminRouter.GET("/categories", itemadmin.ListItemCategories)
-					itemAdminRouter.GET("/effects", itemadmin.ListItemEffects)
-					itemAdminRouter.POST("", itemadmin.CreateItem)
-					itemAdminRouter.PUT("/:id", itemadmin.UpdateItem)
-					itemAdminRouter.DELETE("/:id", itemadmin.DeleteItem)
-				}
-
-				// Quality
-				qualityAdminRouter := adminRouter.Group("/qualities")
-				{
-					qualityAdminRouter.GET("", itemadmin.ListQualities)
-					qualityAdminRouter.POST("", itemadmin.CreateQuality)
-					qualityAdminRouter.PUT("/:level", itemadmin.UpdateQuality)
-					qualityAdminRouter.DELETE("/:level", itemadmin.DeleteQuality)
-				}
-
-				// Loot
-				lootPoolAdminRouter := adminRouter.Group("/loot-pools")
-				{
-					lootPoolAdminRouter.GET("", lootadmin.ListLootPools)
-					lootPoolAdminRouter.POST("", lootadmin.CreateLootPool)
-					lootPoolAdminRouter.PUT("/:id", lootadmin.UpdateLootPool)
-					lootPoolAdminRouter.DELETE("/:id", lootadmin.DeleteLootPool)
-					lootPoolAdminRouter.GET("/:id/entries", lootadmin.ListLootPoolEntries)
-					lootPoolAdminRouter.PUT("/:id/entries", lootadmin.ReplaceLootPoolEntries)
-				}
-
-				// Venue
-				venueAdminRouter := adminRouter.Group("/venues")
-				{
-					venueAdminRouter.GET("", venueadmin.ListVenues)
-					venueAdminRouter.POST("", venueadmin.CreateVenue)
-					venueAdminRouter.POST("/simulate", ratelimit.ByUser("admin:venue_simulate", ratelimit.PerMinute(30)), venueadmin.SimulateVenue)
-					venueAdminRouter.PUT("/:id", venueadmin.UpdateVenue)
-					venueAdminRouter.DELETE("/:id", venueadmin.DeleteVenue)
-				}
-
-				// Bot
-				botAdminRouter := adminRouter.Group("/bot")
-				{
-					botAdminRouter.GET("/names", botadmin.ListBotNames)
-					botAdminRouter.POST("/names", botadmin.CreateBotNames)
-					botAdminRouter.PUT("/names/:id", botadmin.UpdateBotName)
-					botAdminRouter.DELETE("/names/:id", botadmin.DeleteBotName)
-					botAdminRouter.GET("/personas", botadmin.ListBotPersonas)
-					botAdminRouter.POST("/personas", botadmin.CreateBotPersona)
-					botAdminRouter.PUT("/personas/:id", botadmin.UpdateBotPersona)
-					botAdminRouter.DELETE("/personas/:id", botadmin.DeleteBotPersona)
-					botAdminRouter.GET("/strategies", botadmin.ListBotStrategies)
-				}
-
-				// Condition
-				conditionAdminRouter := adminRouter.Group("/conditions")
-				{
-					conditionAdminRouter.GET("/types", conditionadmin.ListConditionTypes)
-				}
-
-				// Match
-				matchAdminRouter := adminRouter.Group("/matches")
-				{
-					matchAdminRouter.GET("", matchadmin.ListMatches)
-					matchAdminRouter.POST("/:id/cancel", matchadmin.CancelMatch)
-				}
-
-				// Auction
-				auctionAdminRouter := adminRouter.Group("/auctions")
-				{
-					auctionAdminRouter.GET("/:match_id", auctionadmin.GetAuction)
-				}
-
-				// Leaderboard
-				leaderboardAdminRouter := adminRouter.Group("/leaderboards")
-				{
-					leaderboardAdminRouter.GET("", leaderboardadmin.ListLeaderboards)
-					leaderboardAdminRouter.GET("/metrics", leaderboardadmin.ListLeaderboardMetrics)
-					leaderboardAdminRouter.POST("", leaderboardadmin.CreateLeaderboard)
-					leaderboardAdminRouter.PUT("/:id", leaderboardadmin.UpdateLeaderboard)
-					leaderboardAdminRouter.DELETE("/:id", leaderboardadmin.DeleteLeaderboard)
-				}
-
-				// Season
-				seasonAdminRouter := adminRouter.Group("/seasons")
-				{
-					seasonAdminRouter.GET("", seasonadmin.ListSeasons)
-					seasonAdminRouter.POST("", seasonadmin.CreateSeason)
-					seasonAdminRouter.PUT("/:id", seasonadmin.UpdateSeason)
-					seasonAdminRouter.DELETE("/:id", seasonadmin.DeleteSeason)
-					seasonAdminRouter.POST("/:id/end", seasonadmin.EndSeason)
-				}
-
-				// Ranked
-				rankedTierAdminRouter := adminRouter.Group("/ranked/tiers")
-				{
-					rankedTierAdminRouter.GET("", rankedadmin.ListRankedTiers)
-					rankedTierAdminRouter.POST("", rankedadmin.CreateRankedTier)
-					rankedTierAdminRouter.PUT("/:id", rankedadmin.UpdateRankedTier)
-					rankedTierAdminRouter.DELETE("/:id", rankedadmin.DeleteRankedTier)
-				}
-				rankedSuspectAdminRouter := adminRouter.Group("/ranked/suspects")
-				{
-					rankedSuspectAdminRouter.GET("", rankedadmin.ListRankedSuspects)
-					rankedSuspectAdminRouter.POST("/review", rankedadmin.ReviewRankedSuspect)
-				}
-
-				// Shop
-				shopAdminRouter := adminRouter.Group("/shop")
-				{
-					shopAdminRouter.GET("/items", shopadmin.ListShopItems)
-					shopAdminRouter.POST("/items", shopadmin.CreateShopItem)
-					shopAdminRouter.PUT("/items/:id", shopadmin.UpdateShopItem)
-					shopAdminRouter.DELETE("/items/:id", shopadmin.DeleteShopItem)
-					shopAdminRouter.GET("/orders", shopadmin.ListShopOrders)
-					shopAdminRouter.POST("/orders/:id/refund", shopadmin.RefundShopOrder)
-				}
-
-				// Mailbox
-				mailAdminRouter := adminRouter.Group("/mails")
-				{
-					mailAdminRouter.GET("", mailboxadmin.ListMails)
-					mailAdminRouter.GET("/sources", mailboxadmin.ListMailSources)
-					mailAdminRouter.POST("", mailboxadmin.SendMails)
-				}
-				mailBroadcastAdminRouter := adminRouter.Group("/mail-broadcasts")
-				{
-					mailBroadcastAdminRouter.GET("", mailboxadmin.ListMailBroadcasts)
-					mailBroadcastAdminRouter.POST("", mailboxadmin.CreateMailBroadcast)
-					mailBroadcastAdminRouter.POST("/:id/revoke", mailboxadmin.RevokeMailBroadcast)
-				}
-
-				// Mission
-				missionAdminRouter := adminRouter.Group("/missions")
-				{
-					missionAdminRouter.GET("", missionadmin.ListMissions)
-					missionAdminRouter.GET("/options", missionadmin.ListMissionOptions)
-					missionAdminRouter.POST("", missionadmin.CreateMission)
-					missionAdminRouter.PUT("/:id", missionadmin.UpdateMission)
-					missionAdminRouter.DELETE("/:id", missionadmin.DeleteMission)
-				}
-
-				// Checkin
-				checkinAdminRouter := adminRouter.Group("/checkin")
-				{
-					checkinAdminRouter.GET("/days", checkinadmin.ListCheckinDays)
-					checkinAdminRouter.PUT("/days", checkinadmin.UpdateCheckinDays)
-				}
-
-				// Codex
-				codexAdminRouter := adminRouter.Group("/codex/sets")
-				{
-					codexAdminRouter.GET("", codexadmin.ListCodexSets)
-					codexAdminRouter.POST("", codexadmin.CreateCodexSet)
-					codexAdminRouter.PUT("/:id", codexadmin.UpdateCodexSet)
-					codexAdminRouter.DELETE("/:id", codexadmin.DeleteCodexSet)
-				}
-
-				// Inventory
-				inventoryAdminRouter := adminRouter.Group("/inventory")
-				{
-					inventoryAdminRouter.GET("/transactions", inventoryadmin.ListInventoryTransactions)
-				}
-
-				// Settings
-				settingsAdminRouter := adminRouter.Group("/settings")
-				{
-					settingsAdminRouter.GET("", settingsadmin.ListSettings)
-					settingsAdminRouter.GET("/:key", settingsadmin.GetSetting)
-					settingsAdminRouter.PUT("/:key", settingsadmin.UpdateSetting)
-					settingsAdminRouter.GET("/:key/revisions", settingsadmin.ListSettingRevisions)
-					settingsAdminRouter.GET("/:key/revisions/:version", settingsadmin.GetSettingRevision)
-					settingsAdminRouter.POST("/:key/rollback", settingsadmin.RollbackSetting)
-					settingsAdminRouter.POST("/:key/reset", settingsadmin.ResetSetting)
-					settingsAdminRouter.POST("/mail/test", ratelimit.ByUser("admin:mail_test", ratelimit.PerMinute(5)), settingsadmin.TestMail)
-				}
-
-				// Pack
-				packAdminRouter := adminRouter.Group("/packs")
-				{
-					packAdminRouter.GET("/sections", pack.ListPackSections)
-					packAdminRouter.POST("/export", ratelimit.ByUser("admin:pack_export", ratelimit.PerMinute(10)), pack.ExportPack)
-					packAdminRouter.POST("/preview", ratelimit.ByUser("admin:pack_import", ratelimit.PerMinute(20)), pack.PreviewPack)
-					packAdminRouter.POST("/import", ratelimit.ByUser("admin:pack_import", ratelimit.PerMinute(20)), pack.ImportPack)
-					packAdminRouter.GET("/imports", pack.ListPackImports)
-					packAdminRouter.GET("/imports/:id", pack.GetPackImport)
-				}
-
-				// Audit Log
-				adminRouter.GET("/audit-logs", auditadmin.ListAuditLogs)
-				adminRouter.GET("/audit-logs/actions", auditadmin.ListAuditActions)
-			}
-		}
+		publicRoutes(apiV1Router)
+		userRoutes(apiV1Router.Group("", auth.LoginRequired()))
+		adminRoutes(apiV1Router.Group("/admin", auth.LoginRequired(), admin.LoginAdminRequired()))
 	}
 
 	// WebSocket 推送
@@ -535,4 +162,373 @@ func Serve() {
 	if err := r.Run(config.Config.App.Addr); err != nil {
 		log.Fatalf("[API] serve api failed: %v\n", err)
 	}
+}
+
+// publicRoutes 不需要登录的接口
+func publicRoutes(r *gin.RouterGroup) {
+	// Health
+	r.GET("/health", health.Health)
+	r.GET("/ready", health.Ready)
+
+	// Auth
+	r.POST("/auth/login", ratelimit.ByIP("auth:login", ratelimit.PerMinute(10)), auth.Login)
+	r.POST("/auth/register", ratelimit.ByIP("auth:register", ratelimit.PerHour(10)), auth.Register)
+	r.POST("/auth/logout", auth.Logout)
+
+	// Settings
+	r.GET("/settings/public", settings.PublicSettings)
+
+	// Item
+	r.GET("/qualities", item.ListQualities)
+}
+
+// userRoutes 需要登录的接口, 登录校验已在外层加上
+func userRoutes(r *gin.RouterGroup) {
+	// Auth
+	r.GET("/auth/user-info", auth.UserInfo)
+	r.PATCH("/auth/user-info", auth.UpdateUserInfo)
+	r.PUT("/auth/password", ratelimit.ByUser("auth:change_password", ratelimit.PerHour(10)), auth.ChangePassword)
+	r.POST("/auth/email/code", ratelimit.ByUser("auth:send_email_code", ratelimit.PerHour(10)), auth.SendEmailCode)
+	r.POST("/auth/email/verify", auth.VerifyEmail)
+
+	// WebSocket
+	r.GET("/ws", ws.Connect)
+
+	// Wallet
+	walletRouter := r.Group("/wallet")
+	{
+		walletRouter.GET("/balances", wallet.ListBalances)
+		walletRouter.GET("/transactions", wallet.ListTransactions)
+		walletRouter.GET("/biz-types", wallet.ListBizTypes)
+	}
+
+	// Inventory
+	inventoryRouter := r.Group("/inventory")
+	{
+		inventoryRouter.GET("/items", inventory.ListItems)
+		inventoryRouter.GET("/transactions", inventory.ListTransactions)
+		inventoryRouter.GET("/biz-types", inventory.ListBizTypes)
+		inventoryRouter.POST("/sell", inventory.SellItems)
+		inventoryRouter.GET("/sell-orders", inventory.ListSellOrders)
+	}
+
+	// Loot
+	r.GET("/loot-pools/:code/odds", loot.GetPoolOdds)
+
+	// Venue
+	venueRouter := r.Group("/venues")
+	{
+		venueRouter.GET("", venue.ListVenues)
+		venueRouter.GET("/:code", venue.GetVenue)
+	}
+
+	// Match
+	matchmakingRouter := r.Group("/matchmaking")
+	{
+		matchmakingRouter.GET("", match.GetMatchmaking)
+		matchmakingRouter.POST("", ratelimit.ByUser("match:join", ratelimit.PerMinute(30)), match.JoinMatchmaking)
+		matchmakingRouter.DELETE("", match.LeaveMatchmaking)
+	}
+	matchRouter := r.Group("/matches")
+	{
+		matchRouter.GET("", match.ListMatches)
+		matchRouter.GET("/current", match.GetCurrentMatch)
+		matchRouter.GET("/:id", match.GetMatch)
+	}
+
+	// Auction
+	auctionRouter := r.Group("/auctions")
+	{
+		auctionRouter.GET("/:match_id", auction.GetAuction)
+		auctionRouter.GET("/:match_id/items", auction.ListUsableItems)
+	}
+
+	// Leaderboard
+	leaderboardRouter := r.Group("/leaderboards")
+	{
+		leaderboardRouter.GET("", leaderboard.ListBoards)
+		leaderboardRouter.GET("/:code", leaderboard.GetBoard)
+	}
+
+	// Stats
+	r.GET("/stats", stats.GetStats)
+
+	// Season
+	r.GET("/seasons/current", season.GetCurrent)
+
+	// Ranked
+	rankedRouter := r.Group("/ranked")
+	{
+		rankedRouter.GET("/rating", ranked.GetRating)
+		rankedRouter.GET("/tiers", ranked.ListTiers)
+	}
+
+	// Shop
+	shopRouter := r.Group("/shop")
+	{
+		shopRouter.GET("/items", shop.ListItems)
+		shopRouter.GET("/orders", shop.ListOrders)
+		shopRouter.POST("/orders", ratelimit.ByUser("shop:buy", ratelimit.PerMinute(60)), shop.CreateOrder)
+	}
+
+	// Mailbox
+	mailRouter := r.Group("/mails")
+	{
+		mailRouter.GET("", mailbox.ListMails)
+		mailRouter.GET("/counts", mailbox.GetCounts)
+		mailRouter.POST("/read-all", mailbox.ReadAllMails)
+		mailRouter.POST("/claim-all", ratelimit.ByUser("mail:claim", ratelimit.PerMinute(60)), mailbox.ClaimAllMails)
+		mailRouter.POST("/:id/read", mailbox.ReadMail)
+		mailRouter.POST("/:id/claim", ratelimit.ByUser("mail:claim", ratelimit.PerMinute(60)), mailbox.ClaimMail)
+		mailRouter.DELETE("/:id", mailbox.DeleteMail)
+	}
+
+	// Mission
+	missionRouter := r.Group("/missions")
+	{
+		missionRouter.GET("", mission.ListMissions)
+		missionRouter.POST("/:code/claim", ratelimit.ByUser("mission:claim", ratelimit.PerMinute(60)), mission.ClaimMission)
+	}
+
+	// Checkin
+	checkinRouter := r.Group("/checkin")
+	{
+		checkinRouter.GET("", checkin.GetCheckin)
+		checkinRouter.POST("", ratelimit.ByUser("checkin", ratelimit.PerMinute(30)), checkin.DoCheckin)
+	}
+
+	// Codex
+	codexRouter := r.Group("/codex")
+	{
+		codexRouter.GET("", codex.GetCodex)
+		codexRouter.POST("/sets/:code/claim", ratelimit.ByUser("codex:claim", ratelimit.PerMinute(60)), codex.ClaimCodexSet)
+	}
+
+	// Upload
+	r.POST("/uploads", ratelimit.ByUser("upload", ratelimit.PerHour(60)), upload.CreateUpload)
+}
+
+// adminRoutes 管理后台的接口, 登录和管理员校验已在外层加上
+func adminRoutes(r *gin.RouterGroup) {
+	// User
+	userAdminRouter := r.Group("/users")
+	{
+		userAdminRouter.GET("", authadmin.ListUsers)
+		userAdminRouter.PATCH("/:id", authadmin.UpdateUser)
+		userAdminRouter.PUT("/:id/ban", authadmin.BanUser)
+		userAdminRouter.DELETE("/:id/ban", authadmin.UnbanUser)
+		userAdminRouter.PUT("/:id/disabled", authadmin.SetUserDisabled)
+		userAdminRouter.PUT("/:id/password", authadmin.SetUserPassword)
+		userAdminRouter.GET("/:id/wallet/balances", walletadmin.ListUserBalances)
+		userAdminRouter.POST("/:id/wallet/adjust", walletadmin.AdjustUserBalance)
+		userAdminRouter.GET("/:id/inventory/items", inventoryadmin.ListUserInventory)
+		userAdminRouter.POST("/:id/inventory/adjust", inventoryadmin.AdjustUserInventory)
+	}
+
+	// Currency
+	currencyAdminRouter := r.Group("/currencies")
+	{
+		currencyAdminRouter.GET("", walletadmin.ListCurrencies)
+		currencyAdminRouter.POST("", walletadmin.CreateCurrency)
+		currencyAdminRouter.PUT("/:code", walletadmin.UpdateCurrency)
+	}
+
+	// Wallet
+	walletAdminRouter := r.Group("/wallet")
+	{
+		walletAdminRouter.GET("/transactions", walletadmin.ListWalletTransactions)
+	}
+
+	// Item
+	itemAdminRouter := r.Group("/items")
+	{
+		itemAdminRouter.GET("", itemadmin.ListItems)
+		itemAdminRouter.GET("/categories", itemadmin.ListItemCategories)
+		itemAdminRouter.GET("/effects", itemadmin.ListItemEffects)
+		itemAdminRouter.POST("", itemadmin.CreateItem)
+		itemAdminRouter.PUT("/:id", itemadmin.UpdateItem)
+		itemAdminRouter.DELETE("/:id", itemadmin.DeleteItem)
+	}
+
+	// Quality
+	qualityAdminRouter := r.Group("/qualities")
+	{
+		qualityAdminRouter.GET("", itemadmin.ListQualities)
+		qualityAdminRouter.POST("", itemadmin.CreateQuality)
+		qualityAdminRouter.PUT("/:level", itemadmin.UpdateQuality)
+		qualityAdminRouter.DELETE("/:level", itemadmin.DeleteQuality)
+	}
+
+	// Loot
+	lootPoolAdminRouter := r.Group("/loot-pools")
+	{
+		lootPoolAdminRouter.GET("", lootadmin.ListLootPools)
+		lootPoolAdminRouter.POST("", lootadmin.CreateLootPool)
+		lootPoolAdminRouter.PUT("/:id", lootadmin.UpdateLootPool)
+		lootPoolAdminRouter.DELETE("/:id", lootadmin.DeleteLootPool)
+		lootPoolAdminRouter.GET("/:id/entries", lootadmin.ListLootPoolEntries)
+		lootPoolAdminRouter.PUT("/:id/entries", lootadmin.ReplaceLootPoolEntries)
+	}
+
+	// Venue
+	venueAdminRouter := r.Group("/venues")
+	{
+		venueAdminRouter.GET("", venueadmin.ListVenues)
+		venueAdminRouter.POST("", venueadmin.CreateVenue)
+		venueAdminRouter.POST("/simulate", ratelimit.ByUser("admin:venue_simulate", ratelimit.PerMinute(30)), venueadmin.SimulateVenue)
+		venueAdminRouter.PUT("/:id", venueadmin.UpdateVenue)
+		venueAdminRouter.DELETE("/:id", venueadmin.DeleteVenue)
+	}
+
+	// Bot
+	botAdminRouter := r.Group("/bot")
+	{
+		botAdminRouter.GET("/names", botadmin.ListBotNames)
+		botAdminRouter.POST("/names", botadmin.CreateBotNames)
+		botAdminRouter.PUT("/names/:id", botadmin.UpdateBotName)
+		botAdminRouter.DELETE("/names/:id", botadmin.DeleteBotName)
+		botAdminRouter.GET("/personas", botadmin.ListBotPersonas)
+		botAdminRouter.POST("/personas", botadmin.CreateBotPersona)
+		botAdminRouter.PUT("/personas/:id", botadmin.UpdateBotPersona)
+		botAdminRouter.DELETE("/personas/:id", botadmin.DeleteBotPersona)
+		botAdminRouter.GET("/strategies", botadmin.ListBotStrategies)
+	}
+
+	// Condition
+	conditionAdminRouter := r.Group("/conditions")
+	{
+		conditionAdminRouter.GET("/types", conditionadmin.ListConditionTypes)
+	}
+
+	// Match
+	matchAdminRouter := r.Group("/matches")
+	{
+		matchAdminRouter.GET("", matchadmin.ListMatches)
+		matchAdminRouter.POST("/:id/cancel", matchadmin.CancelMatch)
+	}
+
+	// Auction
+	auctionAdminRouter := r.Group("/auctions")
+	{
+		auctionAdminRouter.GET("/:match_id", auctionadmin.GetAuction)
+	}
+
+	// Leaderboard
+	leaderboardAdminRouter := r.Group("/leaderboards")
+	{
+		leaderboardAdminRouter.GET("", leaderboardadmin.ListLeaderboards)
+		leaderboardAdminRouter.GET("/metrics", leaderboardadmin.ListLeaderboardMetrics)
+		leaderboardAdminRouter.POST("", leaderboardadmin.CreateLeaderboard)
+		leaderboardAdminRouter.PUT("/:id", leaderboardadmin.UpdateLeaderboard)
+		leaderboardAdminRouter.DELETE("/:id", leaderboardadmin.DeleteLeaderboard)
+	}
+
+	// Season
+	seasonAdminRouter := r.Group("/seasons")
+	{
+		seasonAdminRouter.GET("", seasonadmin.ListSeasons)
+		seasonAdminRouter.POST("", seasonadmin.CreateSeason)
+		seasonAdminRouter.PUT("/:id", seasonadmin.UpdateSeason)
+		seasonAdminRouter.DELETE("/:id", seasonadmin.DeleteSeason)
+		seasonAdminRouter.POST("/:id/end", seasonadmin.EndSeason)
+	}
+
+	// Ranked
+	rankedTierAdminRouter := r.Group("/ranked/tiers")
+	{
+		rankedTierAdminRouter.GET("", rankedadmin.ListRankedTiers)
+		rankedTierAdminRouter.POST("", rankedadmin.CreateRankedTier)
+		rankedTierAdminRouter.PUT("/:id", rankedadmin.UpdateRankedTier)
+		rankedTierAdminRouter.DELETE("/:id", rankedadmin.DeleteRankedTier)
+	}
+	rankedSuspectAdminRouter := r.Group("/ranked/suspects")
+	{
+		rankedSuspectAdminRouter.GET("", rankedadmin.ListRankedSuspects)
+		rankedSuspectAdminRouter.POST("/review", rankedadmin.ReviewRankedSuspect)
+	}
+
+	// Shop
+	shopAdminRouter := r.Group("/shop")
+	{
+		shopAdminRouter.GET("/items", shopadmin.ListShopItems)
+		shopAdminRouter.POST("/items", shopadmin.CreateShopItem)
+		shopAdminRouter.PUT("/items/:id", shopadmin.UpdateShopItem)
+		shopAdminRouter.DELETE("/items/:id", shopadmin.DeleteShopItem)
+		shopAdminRouter.GET("/orders", shopadmin.ListShopOrders)
+		shopAdminRouter.POST("/orders/:id/refund", shopadmin.RefundShopOrder)
+	}
+
+	// Mailbox
+	mailAdminRouter := r.Group("/mails")
+	{
+		mailAdminRouter.GET("", mailboxadmin.ListMails)
+		mailAdminRouter.GET("/sources", mailboxadmin.ListMailSources)
+		mailAdminRouter.POST("", mailboxadmin.SendMails)
+	}
+	mailBroadcastAdminRouter := r.Group("/mail-broadcasts")
+	{
+		mailBroadcastAdminRouter.GET("", mailboxadmin.ListMailBroadcasts)
+		mailBroadcastAdminRouter.POST("", mailboxadmin.CreateMailBroadcast)
+		mailBroadcastAdminRouter.POST("/:id/revoke", mailboxadmin.RevokeMailBroadcast)
+	}
+
+	// Mission
+	missionAdminRouter := r.Group("/missions")
+	{
+		missionAdminRouter.GET("", missionadmin.ListMissions)
+		missionAdminRouter.GET("/options", missionadmin.ListMissionOptions)
+		missionAdminRouter.POST("", missionadmin.CreateMission)
+		missionAdminRouter.PUT("/:id", missionadmin.UpdateMission)
+		missionAdminRouter.DELETE("/:id", missionadmin.DeleteMission)
+	}
+
+	// Checkin
+	checkinAdminRouter := r.Group("/checkin")
+	{
+		checkinAdminRouter.GET("/days", checkinadmin.ListCheckinDays)
+		checkinAdminRouter.PUT("/days", checkinadmin.UpdateCheckinDays)
+	}
+
+	// Codex
+	codexAdminRouter := r.Group("/codex/sets")
+	{
+		codexAdminRouter.GET("", codexadmin.ListCodexSets)
+		codexAdminRouter.POST("", codexadmin.CreateCodexSet)
+		codexAdminRouter.PUT("/:id", codexadmin.UpdateCodexSet)
+		codexAdminRouter.DELETE("/:id", codexadmin.DeleteCodexSet)
+	}
+
+	// Inventory
+	inventoryAdminRouter := r.Group("/inventory")
+	{
+		inventoryAdminRouter.GET("/transactions", inventoryadmin.ListInventoryTransactions)
+	}
+
+	// Settings
+	settingsAdminRouter := r.Group("/settings")
+	{
+		settingsAdminRouter.GET("", settingsadmin.ListSettings)
+		settingsAdminRouter.GET("/:key", settingsadmin.GetSetting)
+		settingsAdminRouter.PUT("/:key", settingsadmin.UpdateSetting)
+		settingsAdminRouter.GET("/:key/revisions", settingsadmin.ListSettingRevisions)
+		settingsAdminRouter.GET("/:key/revisions/:version", settingsadmin.GetSettingRevision)
+		settingsAdminRouter.POST("/:key/rollback", settingsadmin.RollbackSetting)
+		settingsAdminRouter.POST("/:key/reset", settingsadmin.ResetSetting)
+		settingsAdminRouter.POST("/mail/test", ratelimit.ByUser("admin:mail_test", ratelimit.PerMinute(5)), settingsadmin.TestMail)
+	}
+
+	// Pack
+	packAdminRouter := r.Group("/packs")
+	{
+		packAdminRouter.GET("/sections", pack.ListPackSections)
+		packAdminRouter.POST("/export", ratelimit.ByUser("admin:pack_export", ratelimit.PerMinute(10)), pack.ExportPack)
+		packAdminRouter.POST("/preview", ratelimit.ByUser("admin:pack_import", ratelimit.PerMinute(20)), pack.PreviewPack)
+		packAdminRouter.POST("/import", ratelimit.ByUser("admin:pack_import", ratelimit.PerMinute(20)), pack.ImportPack)
+		packAdminRouter.GET("/imports", pack.ListPackImports)
+		packAdminRouter.GET("/imports/:id", pack.GetPackImport)
+	}
+
+	// Audit Log
+	r.GET("/audit-logs", auditadmin.ListAuditLogs)
+	r.GET("/audit-logs/actions", auditadmin.ListAuditActions)
 }
