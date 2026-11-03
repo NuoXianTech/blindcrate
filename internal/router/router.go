@@ -309,6 +309,7 @@ func Serve() {
 					userAdminRouter.PUT("/:id/ban", authadmin.BanUser)
 					userAdminRouter.DELETE("/:id/ban", authadmin.UnbanUser)
 					userAdminRouter.PUT("/:id/disabled", authadmin.SetUserDisabled)
+					userAdminRouter.PUT("/:id/password", authadmin.SetUserPassword)
 					userAdminRouter.GET("/:id/wallet/balances", walletadmin.ListUserBalances)
 					userAdminRouter.POST("/:id/wallet/adjust", walletadmin.AdjustUserBalance)
 					userAdminRouter.GET("/:id/inventory/items", inventoryadmin.ListUserInventory)

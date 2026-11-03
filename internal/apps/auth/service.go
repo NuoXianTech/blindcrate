@@ -177,14 +177,26 @@ func doChangePassword(ctx context.Context, user *User, oldPassword, newPassword 
 			return errors.New(WrongPassword)
 		}
 	}
-	if err := validatePassword(newPassword); err != nil {
+	return UpdateUserPassword(ctx, user.ID, newPassword)
+}
+
+// UpdateUserPassword 校验并设置用户的新密码, 不核对原密码, 需要核对时由调用方先核对
+func UpdateUserPassword(ctx context.Context, userID uint64, password string) error {
+	if err := validatePassword(password); err != nil {
 		return err
 	}
-	hash, err := HashPassword(newPassword)
+	hash, err := HashPassword(password)
 	if err != nil {
 		return err
 	}
-	return db.DB(ctx).Model(user).Update("password_hash", hash).Error
+	tx := db.DB(ctx).Model(&User{}).Where("id = ?", userID).Update("password_hash", hash)
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if tx.RowsAffected == 0 {
+		return errors.New(UserNotFound)
+	}
+	return nil
 }
 
 // trackSession 记录用户的 session ID, 集合有效期与 session 一致

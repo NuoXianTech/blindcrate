@@ -53,6 +53,7 @@ func init() {
 		{Code: ActionUserUnban, Label: "解除封禁"},
 		{Code: ActionUserDisable, Label: "停用用户"},
 		{Code: ActionUserEnable, Label: "启用用户"},
+		{Code: ActionUserPasswordUpdate, Label: "修改用户密码"},
 		{Code: ActionWalletAdjust, Label: "调整余额"},
 		{Code: ActionItemCreate, Label: "新建物品"},
 		{Code: ActionItemUpdate, Label: "修改物品"},

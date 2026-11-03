@@ -272,14 +272,14 @@ func ListUserBalances(c *gin.Context) {
 type AdjustUserBalanceRequest struct {
 	Currency       string `json:"currency" binding:"required,max=32"`
 	Amount         int64  `json:"amount" binding:"required"`                            // 正数加款, 负数扣款, 扣款后余额不能为负
-	Remark         string `json:"remark" binding:"required"`                            // 调账原因, 用户可在流水中看到
+	Remark         string `json:"remark"`                                               // 调账原因, 可以为空, 用户可在流水中看到
 	IdempotencyKey string `json:"idempotency_key" binding:"required,max=64,printascii"` // 每次打开调账表单生成一个, 重复提交只生效一次
 }
 
 // AdjustUserBalance
 // @Tags admin
 // @Summary 给用户调账
-// @Description 写入一条 admin_adjust 流水, 不能给自己调账; 重复提交返回原流水
+// @Description 写入一条 admin_adjust 流水, 也可以给自己调账; 重复提交返回原流水
 // @Accept json
 // @Produce json
 // @Param id path int true "user id"
@@ -308,7 +308,7 @@ func AdjustUserBalance(c *gin.Context) {
 	txn, replayed, err := doAdjustUserBalance(ctx, operator.ID, userID, &req)
 	if err != nil {
 		switch err.Error() {
-		case admin.CannotOperateSelf, admin.RemarkInvalid, wallet.AmountInvalid, wallet.CurrencyNotFound, wallet.CurrencyDisabled, wallet.InsufficientBalance:
+		case admin.RemarkInvalid, wallet.AmountInvalid, wallet.CurrencyNotFound, wallet.CurrencyDisabled, wallet.InsufficientBalance:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
 		case auth.UserNotFound:
 			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})

@@ -103,3 +103,13 @@ func doUnbanUser(ctx context.Context, operatorID, userID uint64) error {
 func doSetUserDisabled(ctx context.Context, operatorID, userID uint64, disabled bool) error {
 	return updateOtherUser(ctx, operatorID, userID, map[string]interface{}{"is_disabled": disabled})
 }
+
+// doSetUserPassword 不核对原密码设置其他用户的密码
+//
+// 修改自己的密码要走 auth.ChangePassword 核对原密码, 防止登录状态被盗用后管理员账号被直接改掉密码。
+func doSetUserPassword(ctx context.Context, operatorID, userID uint64, password string) error {
+	if operatorID == userID {
+		return errors.New(admin.CannotOperateSelf)
+	}
+	return auth.UpdateUserPassword(ctx, userID, password)
+}

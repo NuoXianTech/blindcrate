@@ -63,6 +63,7 @@ const (
 	ActionUserUnban             = "admin.user_unban"
 	ActionUserDisable           = "admin.user_disable"
 	ActionUserEnable            = "admin.user_enable"
+	ActionUserPasswordUpdate    = "admin.user_password_update"
 	ActionWalletAdjust          = "admin.wallet_adjust"
 	ActionItemCreate            = "admin.item_create"
 	ActionItemUpdate            = "admin.item_update"

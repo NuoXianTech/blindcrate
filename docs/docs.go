@@ -6884,7 +6884,7 @@ const docTemplate = `{
         },
         "/api/v1/admin/users/{id}/inventory/adjust": {
             "post": {
-                "description": "写入一条 admin_adjust 流水, 不能给自己调整; 重复提交返回原流水",
+                "description": "写入一条 admin_adjust 流水, 也可以给自己调整; 重复提交返回原流水",
                 "consumes": [
                     "application/json"
                 ],
@@ -7061,9 +7061,80 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/users/{id}/password": {
+            "put": {
+                "description": "不需要原密码, 修改后其所有设备下线; 不能修改自己的, 修改自己的密码请使用 /api/v1/auth/password",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "修改其他用户的密码",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "user id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authadmin.SetUserPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authadmin.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/authadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/authadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/authadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/users/{id}/wallet/adjust": {
             "post": {
-                "description": "写入一条 admin_adjust 流水, 不能给自己调账; 重复提交返回原流水",
+                "description": "写入一条 admin_adjust 流水, 也可以给自己调账; 重复提交返回原流水",
                 "consumes": [
                     "application/json"
                 ],
@@ -12101,6 +12172,18 @@ const docTemplate = `{
                 }
             }
         },
+        "authadmin.SetUserPasswordRequest": {
+            "type": "object",
+            "required": [
+                "password"
+            ],
+            "properties": {
+                "password": {
+                    "description": "8-72 字节",
+                    "type": "string"
+                }
+            }
+        },
         "authadmin.UpdateUserRequest": {
             "type": "object",
             "properties": {
@@ -13236,8 +13319,7 @@ const docTemplate = `{
             "required": [
                 "idempotency_key",
                 "item_id",
-                "quantity",
-                "remark"
+                "quantity"
             ],
             "properties": {
                 "idempotency_key": {
@@ -13253,7 +13335,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "remark": {
-                    "description": "调整原因, 用户可在流水中看到",
+                    "description": "调整原因, 可以为空, 用户可在流水中看到",
                     "type": "string"
                 }
             }
@@ -17988,8 +18070,7 @@ const docTemplate = `{
             "required": [
                 "amount",
                 "currency",
-                "idempotency_key",
-                "remark"
+                "idempotency_key"
             ],
             "properties": {
                 "amount": {
@@ -18006,7 +18087,7 @@ const docTemplate = `{
                     "maxLength": 64
                 },
                 "remark": {
-                    "description": "调账原因, 用户可在流水中看到",
+                    "description": "调账原因, 可以为空, 用户可在流水中看到",
                     "type": "string"
                 }
             }

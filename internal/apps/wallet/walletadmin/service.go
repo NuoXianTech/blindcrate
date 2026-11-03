@@ -115,13 +115,10 @@ func queryUserBalances(ctx context.Context, userID uint64) ([]wallet.BalanceItem
 	return wallet.QueryBalances(ctx, userID, true)
 }
 
-// doAdjustUserBalance 管理员给其他用户调账, 不允许给自己调账
+// doAdjustUserBalance 管理员给用户调账, 也可以给自己调账
 //
 // 幂等键由前端在每次打开调账表单时生成, 防止重复点击导致重复入账。
 func doAdjustUserBalance(ctx context.Context, operatorID, userID uint64, req *AdjustUserBalanceRequest) (*wallet.Transaction, bool, error) {
-	if operatorID == userID {
-		return nil, false, errors.New(admin.CannotOperateSelf)
-	}
 	remark, err := admin.NormalizeRemark(req.Remark)
 	if err != nil {
 		return nil, false, err

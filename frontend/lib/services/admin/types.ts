@@ -303,7 +303,7 @@ export interface AdjustBalanceRequest {
   currency: string;
   /** 最小单位, 正数加款, 负数扣款, 扣款后余额不能为负 */
   amount: number;
-  /** 调账原因, 用户可在流水中看到 */
+  /** 调账原因, 可以为空, 用户可在流水中看到 */
   remark: string;
   /** 每次打开表单生成一个, 重复提交只生效一次 */
   idempotency_key: string;
