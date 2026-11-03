@@ -28,5 +28,5 @@ package admin
 const (
 	Forbidden         = "无权限"
 	CannotOperateSelf = "不能对自己执行该操作"
-	RemarkInvalid     = "备注需为 1-255 个字符"
+	RemarkInvalid     = "备注最多 255 个字符"
 )

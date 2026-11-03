@@ -17,12 +17,13 @@ import {BanUserDialog} from './BanUserDialog';
 import {DisableUserDialog} from './DisableUserDialog';
 import {EditUserDialog} from './EditUserDialog';
 import {UserInventoryDialog} from './UserInventoryDialog';
+import {UserPasswordDialog} from './UserPasswordDialog';
 import {UserRow} from './UserRow';
 import {UserWalletDialog} from './UserWalletDialog';
 import {PAGE_SIZE, STATUS_FILTERS, statusParams, type StatusFilter} from './constants';
 
 /**
- * 用户管理: 搜索、状态筛选, 编辑资料、封禁、停用, 调整钱包和背包
+ * 用户管理: 搜索、状态筛选, 编辑资料、修改密码、封禁、停用, 调整钱包和背包
  * 可从可疑名单带 ?keyword= 跳转过来
  */
 export function UsersMain() {
@@ -37,6 +38,7 @@ export function UsersMain() {
   const [loading, setLoading] = useState(true);
 
   const [editing, setEditing] = useState<AdminUser | null>(null);
+  const [password, setPassword] = useState<AdminUser | null>(null);
   const [banning, setBanning] = useState<AdminUser | null>(null);
   const [disabling, setDisabling] = useState<AdminUser | null>(null);
   const [wallet, setWallet] = useState<AdminUser | null>(null);
@@ -135,6 +137,7 @@ export function UsersMain() {
                   user={u}
                   self={u.id === me?.id}
                   onEdit={() => setEditing(u)}
+                  onPassword={() => setPassword(u)}
                   onWallet={() => setWallet(u)}
                   onInventory={() => setInventory(u)}
                   onBan={() => setBanning(u)}
@@ -153,6 +156,7 @@ export function UsersMain() {
       <Pagination current={current} size={PAGE_SIZE} total={data?.total ?? 0} onChange={setCurrent} />
 
       <EditUserDialog user={editing} onClose={() => setEditing(null)} onSaved={load} />
+      <UserPasswordDialog user={password} onClose={() => setPassword(null)} />
       <BanUserDialog user={banning} onClose={() => setBanning(null)} onSaved={load} />
       <DisableUserDialog user={disabling} onClose={() => setDisabling(null)} onSaved={load} />
       <UserWalletDialog user={wallet} onClose={() => setWallet(null)} />

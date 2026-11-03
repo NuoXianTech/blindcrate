@@ -1,4 +1,4 @@
-import {Backpack, Ban, Pencil, Power, ShieldCheck, Wallet} from 'lucide-react';
+import {Backpack, Ban, KeyRound, Pencil, Power, ShieldCheck, Wallet} from 'lucide-react';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {TableCell, TableRow} from '@/components/ui/table';
@@ -15,6 +15,7 @@ interface UserRowProps {
   /** 是否是当前登录的管理员自己 */
   self: boolean;
   onEdit: () => void;
+  onPassword: () => void;
   onWallet: () => void;
   onInventory: () => void;
   onBan: () => void;
@@ -26,7 +27,7 @@ interface UserRowProps {
 /**
  * 用户列表的一行: 资料、状态和操作按钮
  */
-export function UserRow({user: u, self, onEdit, onWallet, onInventory, onBan, onUnban, onDisable, onEnable}: UserRowProps) {
+export function UserRow({user: u, self, onEdit, onPassword, onWallet, onInventory, onBan, onUnban, onDisable, onEnable}: UserRowProps) {
   const banned = isBanned(u);
   return (
     <TableRow>
@@ -67,15 +68,18 @@ export function UserRow({user: u, self, onEdit, onWallet, onInventory, onBan, on
           <Button variant="ghost" size="icon" title="编辑资料" aria-label="编辑资料" onClick={onEdit}>
             <Pencil />
           </Button>
-          {/* 后端不允许管理员封禁、停用自己, 也不能给自己调整钱包和背包 */}
+          <Button variant="ghost" size="icon" title="修改密码" aria-label="修改密码" onClick={onPassword}>
+            <KeyRound />
+          </Button>
+          <Button variant="ghost" size="icon" title="钱包" aria-label="钱包" onClick={onWallet}>
+            <Wallet />
+          </Button>
+          <Button variant="ghost" size="icon" title="背包" aria-label="背包" onClick={onInventory}>
+            <Backpack />
+          </Button>
+          {/* 后端不允许管理员封禁、停用自己 */}
           {!self && (
             <>
-              <Button variant="ghost" size="icon" title="钱包" aria-label="钱包" onClick={onWallet}>
-                <Wallet />
-              </Button>
-              <Button variant="ghost" size="icon" title="背包" aria-label="背包" onClick={onInventory}>
-                <Backpack />
-              </Button>
               <Button
                 variant="ghost"
                 size="icon"

@@ -30,10 +30,10 @@ import (
 	"unicode/utf8"
 )
 
-// NormalizeRemark 去除首尾空白并校验调整备注, 用户可在流水中看到
+// NormalizeRemark 去除首尾空白并校验调整备注, 可以为空, 用户可在流水中看到
 func NormalizeRemark(remark string) (string, error) {
 	remark = strings.TrimSpace(remark)
-	if n := utf8.RuneCountInString(remark); n < 1 || n > 255 || strings.ContainsRune(remark, 0) {
+	if utf8.RuneCountInString(remark) > 255 || strings.ContainsRune(remark, 0) {
 		return "", errors.New(RemarkInvalid)
 	}
 	return remark, nil

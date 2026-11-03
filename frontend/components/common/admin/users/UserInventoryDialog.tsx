@@ -98,7 +98,6 @@ function InventoryPanel({user}: { user: AdminUser }) {
     check(itemID !== null ? null : '请选择物品');
     check(parsed !== null && parsed > 0 && parsed <= MAX_QUANTITY ? null : `数量需为 1-${MAX_QUANTITY} 的整数`);
     check(after !== null && after < 0 ? '扣除后数量不能为负' : null);
-    check(remark.trim() ? null : '请填写备注');
     await services.admin.adjustUserInventory(user.id, {
       item_id: itemID!,
       quantity: delta!,
@@ -186,7 +185,7 @@ function InventoryPanel({user}: { user: AdminUser }) {
           <Input
             id="adjust-item-remark"
             maxLength={255}
-            placeholder="调整原因, 用户可以看到"
+            placeholder="选填, 调整原因, 用户可以看到"
             value={remark}
             onChange={(e) => setRemark(e.target.value)}
             disabled={pending}

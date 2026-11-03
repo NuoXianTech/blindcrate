@@ -310,3 +310,57 @@ func SetUserDisabled(c *gin.Context) {
 	logger.InfoF(ctx, "[SetUserDisabled] %d set %d disabled=%t", operator.ID, userID, *req.Disabled)
 	c.JSON(http.StatusOK, Response{})
 }
+
+// SetUserPasswordRequest 修改用户密码请求体
+type SetUserPasswordRequest struct {
+	Password string `json:"password" binding:"required"` // 8-72 字节
+}
+
+// SetUserPassword
+// @Tags admin
+// @Summary 修改其他用户的密码
+// @Description 不需要原密码, 修改后其所有设备下线; 不能修改自己的, 修改自己的密码请使用 /api/v1/auth/password
+// @Accept json
+// @Produce json
+// @Param id path int true "user id"
+// @Param request body SetUserPasswordRequest true "request body"
+// @Success 200 {object} Response
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 404 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/users/{id}/password [put]
+func SetUserPassword(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req SetUserPasswordRequest
+	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || c.ShouldBindJSON(&req) != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	if err := doSetUserPassword(ctx, operator.ID, userID, req.Password); err != nil {
+		switch err.Error() {
+		case admin.CannotOperateSelf, auth.PasswordInvalid:
+			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
+		case auth.UserNotFound:
+			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
+		default:
+			logger.ErrorF(ctx, "[SetUserPassword] set failed: %v", err)
+			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		}
+		return
+	}
+	// 所有设备下线, 长连接在下次心跳时断开
+	if err := auth.RevokeUserSessions(ctx, userID, ""); err != nil {
+		logger.ErrorF(ctx, "[SetUserPassword] revoke sessions failed: %v", err)
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionUserPasswordUpdate, audit.TargetUser, userID, nil)
+	logger.InfoF(ctx, "[SetUserPassword] %d set password of %d", operator.ID, userID)
+	c.JSON(http.StatusOK, Response{})
+}

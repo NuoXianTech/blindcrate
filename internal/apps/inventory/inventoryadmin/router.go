@@ -88,14 +88,14 @@ func ListUserInventory(c *gin.Context) {
 type AdjustUserInventoryRequest struct {
 	ItemID         uint64 `json:"item_id" binding:"required"`
 	Quantity       int64  `json:"quantity" binding:"required"`                          // 正数发放, 负数扣除, 扣除后数量不能为负
-	Remark         string `json:"remark" binding:"required"`                            // 调整原因, 用户可在流水中看到
+	Remark         string `json:"remark"`                                               // 调整原因, 可以为空, 用户可在流水中看到
 	IdempotencyKey string `json:"idempotency_key" binding:"required,max=64,printascii"` // 每次打开表单生成一个, 重复提交只生效一次
 }
 
 // AdjustUserInventory
 // @Tags admin
 // @Summary 给用户发放或扣除物品
-// @Description 写入一条 admin_adjust 流水, 不能给自己调整; 重复提交返回原流水
+// @Description 写入一条 admin_adjust 流水, 也可以给自己调整; 重复提交返回原流水
 // @Accept json
 // @Produce json
 // @Param id path int true "user id"
@@ -124,7 +124,7 @@ func AdjustUserInventory(c *gin.Context) {
 	txn, replayed, err := doAdjustUserInventory(ctx, operator.ID, userID, &req)
 	if err != nil {
 		switch err.Error() {
-		case admin.CannotOperateSelf, admin.RemarkInvalid, inventory.QuantityInvalid, item.ItemNotFound, item.ItemDisabled, inventory.InsufficientQuantity:
+		case admin.RemarkInvalid, inventory.QuantityInvalid, item.ItemNotFound, item.ItemDisabled, inventory.InsufficientQuantity:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
 		case auth.UserNotFound:
 			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})

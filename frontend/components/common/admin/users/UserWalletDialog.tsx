@@ -76,7 +76,6 @@ function WalletPanel({user}: { user: AdminUser }) {
     check(selected ? null : '请选择货币');
     check(parsed !== null && parsed > 0 && parsed <= MAX_AMOUNT ? null : '金额格式不正确');
     check(after !== null && after < 0 ? '扣款后余额不能为负' : null);
-    check(remark.trim() ? null : '请填写备注');
     await services.admin.adjustUserBalance(user.id, {
       currency,
       amount: delta!,
@@ -163,7 +162,7 @@ function WalletPanel({user}: { user: AdminUser }) {
           <Input
             id="adjust-remark"
             maxLength={255}
-            placeholder="调整原因, 用户可以看到"
+            placeholder="选填, 调整原因, 用户可以看到"
             value={remark}
             onChange={(e) => setRemark(e.target.value)}
             disabled={pending}

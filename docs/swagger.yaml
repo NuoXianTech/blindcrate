@@ -721,6 +721,14 @@ definitions:
     required:
     - disabled
     type: object
+  authadmin.SetUserPasswordRequest:
+    properties:
+      password:
+        description: 8-72 字节
+        type: string
+    required:
+    - password
+    type: object
   authadmin.UpdateUserRequest:
     properties:
       avatar_url:
@@ -1503,13 +1511,12 @@ definitions:
         description: 正数发放, 负数扣除, 扣除后数量不能为负
         type: integer
       remark:
-        description: 调整原因, 用户可在流水中看到
+        description: 调整原因, 可以为空, 用户可在流水中看到
         type: string
     required:
     - idempotency_key
     - item_id
     - quantity
-    - remark
     type: object
   inventoryadmin.InventoryTransactionItem:
     properties:
@@ -4759,13 +4766,12 @@ definitions:
         maxLength: 64
         type: string
       remark:
-        description: 调账原因, 用户可在流水中看到
+        description: 调账原因, 可以为空, 用户可在流水中看到
         type: string
     required:
     - amount
     - currency
     - idempotency_key
-    - remark
     type: object
   walletadmin.CreateCurrencyRequest:
     properties:
@@ -9207,7 +9213,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 写入一条 admin_adjust 流水, 不能给自己调整; 重复提交返回原流水
+      description: 写入一条 admin_adjust 流水, 也可以给自己调整; 重复提交返回原流水
       parameters:
       - description: user id
         in: path
@@ -9316,11 +9322,58 @@ paths:
       summary: 获取指定用户背包中的物品
       tags:
       - admin
+  /api/v1/admin/users/{id}/password:
+    put:
+      consumes:
+      - application/json
+      description: 不需要原密码, 修改后其所有设备下线; 不能修改自己的, 修改自己的密码请使用 /api/v1/auth/password
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/authadmin.SetUserPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authadmin.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authadmin.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authadmin.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/authadmin.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/authadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/authadmin.Response'
+      summary: 修改其他用户的密码
+      tags:
+      - admin
   /api/v1/admin/users/{id}/wallet/adjust:
     post:
       consumes:
       - application/json
-      description: 写入一条 admin_adjust 流水, 不能给自己调账; 重复提交返回原流水
+      description: 写入一条 admin_adjust 流水, 也可以给自己调账; 重复提交返回原流水
       parameters:
       - description: user id
         in: path

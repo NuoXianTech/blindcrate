@@ -119,6 +119,11 @@ export class AdminService extends BaseService {
     return this.put<null>(`/users/${id}/disabled`, {disabled});
   }
 
+  /** 修改其他用户的密码, 不需要原密码, 并让其所有设备下线; 自己的密码用 auth.changePassword 修改 */
+  static setUserPassword(id: number, password: string) {
+    return this.put<null>(`/users/${id}/password`, {password});
+  }
+
   static listAuditLogs(params: ListAuditLogsParams) {
     return this.get<ListAuditLogsData>('/audit-logs', {params});
   }

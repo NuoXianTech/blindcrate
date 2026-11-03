@@ -49,13 +49,10 @@ func queryUserInventory(ctx context.Context, userID uint64, req *inventory.ListI
 	return inventory.QueryUserItems(ctx, userID, req)
 }
 
-// doAdjustUserInventory 管理员给其他用户发放或扣除物品, 不允许给自己调整
+// doAdjustUserInventory 管理员给用户发放或扣除物品, 也可以给自己调整
 //
 // 幂等键由前端在每次打开表单时生成, 防止重复点击导致重复发放。
 func doAdjustUserInventory(ctx context.Context, operatorID, userID uint64, req *AdjustUserInventoryRequest) (*inventory.Transaction, bool, error) {
-	if operatorID == userID {
-		return nil, false, errors.New(admin.CannotOperateSelf)
-	}
 	remark, err := admin.NormalizeRemark(req.Remark)
 	if err != nil {
 		return nil, false, err
