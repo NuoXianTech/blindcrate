@@ -153,6 +153,11 @@ function DerivedRule({derived, currency, stale}: { derived: AuctionRule | null; 
         value: derived.finale ? '开启' : '关闭',
         help: '开启时最后一轮公开品质的是仓库里最贵的一件, 否则公开顺序全部随机',
       },
+      {
+        label: '情报价格',
+        value: derived.intel_price > 0 ? amount(derived.intel_price) : '不卖',
+        help: '向主持人买一次情报的价格, 从可用余额扣除; 每局次数见主持人页',
+      },
     ] :
     [];
 

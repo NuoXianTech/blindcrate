@@ -40,17 +40,17 @@ func TestCalibrate(t *testing.T) {
 		{
 			"spread out values pay 3%",
 			ValueStats{Mean: 10000, P90: 20000, CV: 8900},
-			AuctionRule{EntryFee: 300, StartPrice: 400, MaxCarry: 30000, BotCarry: 12000, SpeedFloor: 7500, PoolRate: 7500, RebateRate: 4000, RebateCap: 300},
+			AuctionRule{EntryFee: 300, StartPrice: 400, MaxCarry: 30000, BotCarry: 12000, SpeedFloor: 7500, PoolRate: 7500, RebateRate: 4000, RebateCap: 300, IntelPrice: 50},
 		},
 		{
 			"flat values pay 2% and carry twice the mean",
 			ValueStats{Mean: 10000, P90: 12000, CV: 4000},
-			AuctionRule{EntryFee: 200, StartPrice: 400, MaxCarry: 20000, BotCarry: 12000, SpeedFloor: 7500, PoolRate: 7500, RebateRate: 4000, RebateCap: 200},
+			AuctionRule{EntryFee: 200, StartPrice: 400, MaxCarry: 20000, BotCarry: 12000, SpeedFloor: 7500, PoolRate: 7500, RebateRate: 4000, RebateCap: 200, IntelPrice: 50},
 		},
 		{
 			"tiny warehouses still start at 1",
 			ValueStats{Mean: 10, P90: 10, CV: 0},
-			AuctionRule{EntryFee: 0, StartPrice: 1, MaxCarry: 20, BotCarry: 12, SpeedFloor: 7, PoolRate: 7500, RebateRate: 4000, RebateCap: 0},
+			AuctionRule{EntryFee: 0, StartPrice: 1, MaxCarry: 20, BotCarry: 12, SpeedFloor: 7, PoolRate: 7500, RebateRate: 4000, RebateCap: 0, IntelPrice: 1},
 		},
 	}
 	for _, c := range cases {
@@ -59,7 +59,7 @@ func TestCalibrate(t *testing.T) {
 		c.want.Rounds, c.want.QuickWin = rule.Rounds, rule.QuickWin
 		if !slices.Equal(rule.QuickWin, []int32{23000, 18975, 18630, 17825}) || rule.EntryFee != c.want.EntryFee || rule.StartPrice != c.want.StartPrice ||
 			rule.MaxCarry != c.want.MaxCarry || rule.BotCarry != c.want.BotCarry || rule.SpeedFloor != c.want.SpeedFloor || rule.LeadDiscount != 0 ||
-			rule.PoolRate != c.want.PoolRate || rule.RebateRate != c.want.RebateRate || rule.RebateCap != c.want.RebateCap || !rule.Finale {
+			rule.PoolRate != c.want.PoolRate || rule.RebateRate != c.want.RebateRate || rule.RebateCap != c.want.RebateCap || rule.IntelPrice != c.want.IntelPrice || !rule.Finale {
 			t.Errorf("%s: got %+v, want %+v", c.name, rule, c.want)
 		}
 	}
@@ -130,10 +130,10 @@ func TestBalanceJudge(t *testing.T) {
 
 func TestCalibrateSwitches(t *testing.T) {
 	b := settings.Balance.Default()
-	b.SpeedFloorEnabled, b.PoolEnabled, b.FinaleEnabled = false, false, false
+	b.SpeedFloorEnabled, b.PoolEnabled, b.FinaleEnabled, b.IntelRate = false, false, false, 0
 	var rule AuctionRule
 	rule.Calibrate(ValueStats{Mean: 10000, P90: 20000, CV: 8900}, b)
-	if rule.SpeedFloor != 0 || rule.PoolRate != 0 || rule.RebateRate != 0 || rule.RebateCap != 0 || rule.Finale || rule.EntryFee != 300 {
+	if rule.SpeedFloor != 0 || rule.PoolRate != 0 || rule.RebateRate != 0 || rule.RebateCap != 0 || rule.Finale || rule.IntelPrice != 0 || rule.EntryFee != 300 {
 		t.Errorf("switches off: %+v", rule)
 	}
 }

@@ -11,6 +11,15 @@ definitions:
         items:
           $ref: '#/definitions/auction.Footprint'
         type: array
+      host:
+        allOf:
+        - $ref: '#/definitions/auction.HostView'
+        description: 主持人, 没有主持人提示时为空
+      intel_seats:
+        description: 买过情报的座位, 按座位号; 只公开次数, 不公开内容
+        items:
+          $ref: '#/definitions/auction.SeatIntel'
+        type: array
       match_id:
         type: integer
       mode:
@@ -61,6 +70,15 @@ definitions:
         description: 全部藏品占的格子, 按扫描顺序
         items:
           $ref: '#/definitions/auction.Footprint'
+        type: array
+      host:
+        allOf:
+        - $ref: '#/definitions/auction.HostView'
+        description: 主持人, 没有主持人提示时为空
+      intel_seats:
+        description: 买过情报的座位, 按座位号; 只公开次数, 不公开内容
+        items:
+          $ref: '#/definitions/auction.SeatIntel'
         type: array
       match_id:
         type: integer
@@ -119,6 +137,58 @@ definitions:
       x:
         type: integer
       "y":
+        type: integer
+    type: object
+  auction.HintView:
+    properties:
+      above:
+        type: boolean
+      count:
+        type: integer
+      kind:
+        description: 见 constants.go 的 HostHint
+        type: string
+      quality:
+        type: integer
+      round:
+        type: integer
+      scan_order:
+        type: integer
+      truthful:
+        description: 是否属实, 开箱后才公开
+        type: boolean
+    type: object
+  auction.HostView:
+    properties:
+      hints:
+        description: 按轮次
+        items:
+          $ref: '#/definitions/auction.HintView'
+        type: array
+      hype:
+        type: integer
+      hypes:
+        description: 热度的每次变动, 按时间
+        items:
+          $ref: '#/definitions/auction.HypeEvent'
+        type: array
+      persona:
+        description: 见 venue.HostSteady 等
+        type: string
+    type: object
+  auction.HypeEvent:
+    properties:
+      created_at:
+        type: string
+      delta:
+        type: integer
+      hype:
+        description: 变动后的热度
+        type: integer
+      raises:
+        type: integer
+      round:
+        description: 开局时为 0, 之后为结束的轮次
         type: integer
     type: object
   auction.Intel:
@@ -314,6 +384,16 @@ definitions:
       quality:
         type: integer
     type: object
+  auction.SeatIntel:
+    properties:
+      count:
+        type: integer
+      round:
+        description: 最近一次买的轮次
+        type: integer
+      seat:
+        type: integer
+    type: object
   auction.SeatResult:
     properties:
       bid:
@@ -350,6 +430,12 @@ definitions:
         items:
           $ref: '#/definitions/auction.Feedback'
         type: array
+      intel_bought:
+        description: 本轮是否已买过情报
+        type: boolean
+      intel_left:
+        description: 本局还能买几次情报, 练习局为 0; 本轮买过时仍计入, 见 IntelBought
+        type: integer
       is_practice:
         type: boolean
       seat:
@@ -447,6 +533,9 @@ definitions:
     type: object
   auction.Use:
     properties:
+      cost:
+        description: 向主持人买情报时付的出价货币, 用道具时为 0
+        type: integer
       created_at:
         type: string
       effect:
@@ -519,6 +608,12 @@ definitions:
         type: boolean
       grid:
         $ref: '#/definitions/venue.Grid'
+      intel_limit:
+        description: 每人每局最多买几次情报, 每轮最多一次
+        type: integer
+      intel_price:
+        description: 向主持人买一次情报的价格, 0 表示不卖情报
+        type: integer
       lead_discount:
         description: 领先折让, 基点
         type: integer
@@ -4190,6 +4285,9 @@ definitions:
       finale:
         description: '压轴揭示: 最后一轮公开品质的是仓库里最贵的一件'
         type: boolean
+      intel_price:
+        description: 向主持人买一次情报的价格, 从可用余额扣除; 0 表示不卖情报
+        type: integer
       lead_discount:
         description: '领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 不低于起拍价'
         type: integer
@@ -4343,6 +4441,37 @@ definitions:
         minimum: 1
         type: integer
     type: object
+  venue.HostRule:
+    properties:
+      enabled:
+        description: 关闭时没有提示和热度, 情报商店仍按 IntelLimit 开放
+        type: boolean
+      high_quality:
+        description: 提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; 也是"高品质件数"提示统计的最低品质
+        minimum: 0
+        type: integer
+      intel_limit:
+        description: 每人每局最多买几次情报, 每轮最多一次, 0 表示不卖情报
+        maximum: 10
+        minimum: 0
+        type: integer
+      intel_precision:
+        description: 后几轮的情报为仓库价值的区间, 宽度为价值 × 误差 × 2, 基点
+        maximum: 5000
+        minimum: 0
+        type: integer
+      lie_rate:
+        description: 基点, 提示说错的概率, 按性格和热度调整, 不超过 25%
+        maximum: 2500
+        minimum: 0
+        type: integer
+      personas:
+        description: 为空表示全部性格
+        items:
+          type: string
+        maxItems: 3
+        type: array
+    type: object
   venue.ListVenuesResponseData:
     properties:
       venues:
@@ -4481,6 +4610,15 @@ definitions:
       humans:
         description: 真人数, 其余为人机
         type: integer
+      hype_cold:
+        description: 同上, 冷清(不高于 30)的比例
+        type: integer
+      hype_end:
+        description: 结束时热度的平均值, 0-100
+        type: integer
+      hype_hot:
+        description: 每轮结束后热度火热(不低于 70)的比例, 加轮和成交的那一轮不算
+        type: integer
       loser_ev:
         description: 真人没成交时的平均盈亏, 含奖池分红
         type: integer
@@ -4583,6 +4721,10 @@ definitions:
         allOf:
         - $ref: '#/definitions/reward.Bundle'
         description: 入场代价, 数量为正数, 开局时扣除
+      host:
+        allOf:
+        - $ref: '#/definitions/venue.HostRule'
+        description: 主持人的提示和情报
       id:
         type: integer
       image_url:
@@ -4639,6 +4781,10 @@ definitions:
         type: array
       grid:
         $ref: '#/definitions/venue.Grid'
+      host:
+        allOf:
+        - $ref: '#/definitions/venue.HostRule'
+        description: 主持人的提示和情报
       image_url:
         type: string
       name:
@@ -4683,6 +4829,10 @@ definitions:
         type: array
       grid:
         $ref: '#/definitions/venue.Grid'
+      host:
+        allOf:
+        - $ref: '#/definitions/venue.HostRule'
+        description: 主持人的提示和情报
       image_url:
         type: string
       name:
@@ -4801,6 +4951,10 @@ definitions:
         allOf:
         - $ref: '#/definitions/reward.Bundle'
         description: 数量为正数, 开局时扣除
+      host:
+        allOf:
+        - $ref: '#/definitions/venue.HostRule'
+        description: 主持人的提示和情报
       image_url:
         maxLength: 1024
         type: string

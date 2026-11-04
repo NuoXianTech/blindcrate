@@ -44,5 +44,11 @@ const (
 	UseRepeated      = "本轮已经用过这个道具"
 	UseQuantityShort = "道具数量不足"
 
+	IntelPractice     = "练习局不能买情报"
+	IntelDisabled     = "这张地图不卖情报"
+	IntelLimitReached = "本局最多买 %d 次情报"
+	IntelRepeated     = "本轮已经买过情报"
+	IntelBalanceShort = "可用余额不足 %d, 带入资金不能用来买情报"
+
 	BotFactorsInvalid = "出价系数需满足首轮系数 ≤ 末轮系数 ≤ 上限系数"
 )

@@ -205,6 +205,7 @@ func ApplyVenue(target *venue.Venue, req *VenueRequest) {
 	target.Bots = req.Bots
 	target.Pve = req.Pve
 	target.Consumables = req.Consumables
+	target.Host = req.Host
 }
 
 // venueFields 地图可修改的字段, 用于操作日志
@@ -226,6 +227,7 @@ func venueFields(target *venue.Venue) map[string]interface{} {
 		"bots":           target.Bots,
 		"pve":            target.Pve,
 		"consumables":    target.Consumables,
+		"host":           target.Host,
 	}
 }
 

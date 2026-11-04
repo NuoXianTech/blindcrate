@@ -50,12 +50,27 @@ function FogCell({quality, children}: { quality?: number; children?: React.React
   );
 }
 
+/** 藏品的编号(扫描顺序), 情报和主持人的提示按它指认藏品 */
+function OrderLabel({order}: { order: number }) {
+  return (
+    <span className="absolute bottom-0.5 left-1 font-mono text-[10px] leading-none text-muted-foreground/70 tabular-nums">
+      {order}
+    </span>
+  );
+}
+
 /**
  * 出价时的一件藏品: 公开的品质所有人都看得到; 道具看到的品质和名称只有自己看得到, 带眼睛标记
  */
-function FootprintCell({quality, intel}: { quality: number; intel?: PieceIntel }) {
+function FootprintCell({order, quality, intel}: { order: number; quality: number; intel?: PieceIntel }) {
   const {qualityOf} = useQualities();
-  if (!intel) return <FogCell quality={quality} />;
+  if (!intel) {
+    return (
+      <FogCell quality={quality}>
+        <OrderLabel order={order} />
+      </FogCell>
+    );
+  }
   const q = qualityOf(intel.quality);
   return (
     <div title={`仅自己可见: ${intel.name ? `${intel.name} · ` : ''}${q.name}`} className="size-full">
@@ -64,6 +79,7 @@ function FootprintCell({quality, intel}: { quality: number; intel?: PieceIntel }
           <Eye className="size-3.5 text-muted-foreground" aria-label="仅自己可见" />
           {intel.name && <span className={cn('line-clamp-2 text-[10px] leading-tight', q.text)}>{intel.name}</span>}
         </span>
+        <OrderLabel order={order} />
       </FogCell>
     </div>
   );
@@ -187,7 +203,7 @@ export function Warehouse({view, decimals, finished, intel}: {
           }) :
           view.footprints.map((f) => (
             <div key={f.scan_order} className="absolute p-0.5" style={cellStyle(f, grid)}>
-              <FootprintCell quality={f.quality} intel={intel?.get(f.scan_order)} />
+              <FootprintCell order={f.scan_order} quality={f.quality} intel={intel?.get(f.scan_order)} />
             </div>
           ))}
       </div>

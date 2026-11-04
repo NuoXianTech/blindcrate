@@ -46,7 +46,19 @@ const (
 	maxFailureRate = 100
 	// maxEntryCostLines 入场代价最多的行数
 	maxEntryCostLines = 8
+	// minIntelPrecision 估价情报的最小误差, 基点; 更准的区间几乎等于直接告诉价值
+	minIntelPrecision = 500
 )
+
+// 主持人的性格, 决定提示说错时往哪边错
+const (
+	HostSteady  = "steady"  // 稳重: 撒谎率减半, 说错时随机偏高或偏低
+	HostShowman = "showman" // 煽动: 说错时只往高了说, 热度高时撒谎率 × 1.5
+	HostSly     = "sly"     // 狡黠: 说错时只往低了说, 热度低时撒谎率 × 1.5
+)
+
+// HostPersonas 全部性格, 按展示顺序
+var HostPersonas = []string{HostSteady, HostShowman, HostSly}
 
 // BasisPoints 基点的分母, 10000 表示 100%
 const BasisPoints = 10000

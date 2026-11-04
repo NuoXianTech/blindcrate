@@ -451,6 +451,7 @@ CREATE TABLE IF NOT EXISTS venues
     bots           JSONB         NOT NULL DEFAULT '{}',   -- 每个模式出场的人机风格和权重
     pve            JSONB         NOT NULL DEFAULT '{}',   -- 人机模式防刷参数
     consumables    JSONB         NOT NULL DEFAULT '{}',   -- 对局中使用道具的规则
+    host           JSONB         NOT NULL DEFAULT '{}',   -- 主持人的提示和情报
     simulation     JSONB         NOT NULL DEFAULT '{}',   -- 保存时的模拟结果
     created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
@@ -475,6 +476,8 @@ CREATE TABLE IF NOT EXISTS auction_matches
     price        BIGINT      NOT NULL DEFAULT 0,    -- 成交价
     pool         BIGINT      NOT NULL DEFAULT 0,    -- 奖池, 分给出过价的真人输家, 没有人可分时销毁
     rebate       BIGINT      NOT NULL DEFAULT 0,    -- 奖池中来自成交者超付的部分
+    host         VARCHAR(16) NOT NULL DEFAULT '',   -- 主持人的性格, 没有主持人提示时为空
+    hype         INTEGER     NOT NULL DEFAULT 0,    -- 当前热度, 0-100, 变动见 auction_hype_events
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     settled_at   TIMESTAMPTZ                        -- 结算或取消的时间
@@ -554,10 +557,42 @@ CREATE TABLE IF NOT EXISTS auction_uses
     effect     VARCHAR(32) NOT NULL,              -- 使用时的效果代码
     params     JSONB       NOT NULL DEFAULT '{}', -- 使用时的效果参数
     result     JSONB       NOT NULL DEFAULT '{}', -- 得到的情报, 只给使用者看
+    cost       BIGINT      NOT NULL DEFAULT 0,    -- 向主持人买情报(item_id 为 0)时付的出价货币
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_uses_match_id_seat_item_id_round ON auction_uses (match_id, seat, item_id, round);
+
+-- 暗拍中主持人每轮开始时公开的提示, 只追加; 是否说错在开箱后公开
+CREATE TABLE IF NOT EXISTS auction_hints
+(
+    id         BIGSERIAL PRIMARY KEY,
+    match_id   BIGINT      NOT NULL,
+    round      INTEGER     NOT NULL,
+    kind       VARCHAR(16) NOT NULL,              -- 提示的类型, 见代码中的 Hint
+    quality    SMALLINT    NOT NULL DEFAULT 0,    -- 提示中的品质
+    count      INTEGER     NOT NULL DEFAULT 0,    -- 提示中的件数
+    scan_order INTEGER     NOT NULL DEFAULT 0,    -- 提示针对的藏品的扫描顺序
+    above      BOOLEAN     NOT NULL DEFAULT FALSE, -- 仓库价值是否高于期望
+    truthful   BOOLEAN     NOT NULL,              -- 提示是否属实
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_hints_match_id_round ON auction_hints (match_id, round);
+
+-- 暗拍热度的每次变动, 只追加
+CREATE TABLE IF NOT EXISTS auction_hype_events
+(
+    id         BIGSERIAL PRIMARY KEY,
+    match_id   BIGINT      NOT NULL,
+    round      INTEGER     NOT NULL,           -- 开局时为 0, 之后为结束的轮次
+    raises     INTEGER     NOT NULL DEFAULT 0, -- 这一轮加价的人数
+    delta      INTEGER     NOT NULL,
+    hype       INTEGER     NOT NULL,           -- 变动后的热度
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_auction_hype_events_match_id ON auction_hype_events (match_id);
 
 CREATE TABLE IF NOT EXISTS auction_suspect_reviews
 (

@@ -6,7 +6,7 @@ import type {LeaderboardPeriod} from '../leaderboard';
 import type {Tier} from '../ranked';
 import type {Season, SeasonStatus} from '../season';
 import type {ShopOrderStatus} from '../shop';
-import type {AuctionRule, Grid} from '../venue';
+import type {AuctionRule, Grid, HostRule} from '../venue';
 import type {WalletTransaction} from '../wallet';
 
 /** 管理端看到的完整用户, 对应后端 auth.User */
@@ -572,6 +572,12 @@ export interface SquadStats {
   loser_ev: number;
   /** 每局发给真人输家的奖池合计的平均值 */
   share: number;
+  /** 每轮结束后热度火热(不低于 70)的比例, 基点; 加轮和成交的那一轮不算 */
+  hype_hot: number;
+  /** 同上, 冷清(不高于 30)的比例 */
+  hype_cold: number;
+  /** 结束时热度的平均值, 0-100 */
+  hype_end: number;
 }
 
 /** 验算闸门, 对应后端 venue 的 Check */
@@ -661,6 +667,8 @@ export interface AdminVenue {
   pve: PveRule;
   /** 对局中使用道具的规则 */
   consumables: ConsumableRule;
+  /** 主持人的提示和情报 */
+  host: HostRule;
   /** 保存时的模拟结果 */
   simulation: Simulation;
   created_at: string;

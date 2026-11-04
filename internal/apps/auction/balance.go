@@ -166,6 +166,10 @@ type matchSim struct {
 	eligible []int16 // 可以分奖池的座位, 按名次排好
 	bidCV    float64 // 出过价的人的出价变异系数 ÷ √3(4 个人时的上限), 不到两人出过价时为 0
 	appraise int64   // 人机最后的估值之和
+	hype     int32   // 结束时的热度, 见 hypeDelta
+	hypes    int32   // 热度变动的次数, 即没有成交就结束的轮数
+	hot      int32   // 其中变动后火热(不低于 hypeHot)的次数
+	cold     int32   // 其中变动后冷清(不高于 hypeCold)的次数
 }
 
 // balance 对局验算, 见 venue.Balancer: 4 个真人的参考阵容; 开放了排位时加上 2 个真人和 2 个人机, 开放了人机模式时加上 1 个真人和 3 个人机
@@ -284,8 +288,12 @@ func (sq *squad) play(v *venue.Venue, warehouse *venue.Warehouse, odds []venue.P
 		extra      int32
 		result     verdict
 		round      int32
+		raises     []int64
+		expected   = expectedValue(odds)
+		m          = matchSim{value: warehouse.Value, hype: hypeStart}
 	)
 	for round = 1; ; round++ {
+		raises = raises[:0]
 		// 出价的观察是这一轮的格子, 只在两轮之间改
 		for i := range pieces {
 			if reveal[i] == round {
@@ -322,6 +330,7 @@ func (sq *squad) play(v *venue.Venue, warehouse *venue.Warehouse, odds []venue.P
 				}
 			}
 			if amount > s.bid {
+				raises = append(raises, amount-s.bid)
 				s.bid, s.bidAt = amount, start.Add(time.Duration(round)*time.Minute+time.Duration(rng.Int64N(int64(time.Minute))))
 			}
 		}
@@ -331,6 +340,15 @@ func (sq *squad) play(v *venue.Venue, warehouse *venue.Warehouse, odds []venue.P
 		}
 		if result = judge(rule, round, extra, bidders); result.Outcome != "" {
 			break
+		}
+		// 与 state.advanceHost 相同
+		m.hype = min(max(m.hype+hypeDelta(raises, expected, rule.Rounds), 0), hypeMax)
+		m.hypes++
+		if m.hype >= hypeHot {
+			m.hot++
+		}
+		if m.hype <= hypeCold {
+			m.cold++
 		}
 		bids := make(map[int16]int64, len(seats))
 		for _, s := range seats {
@@ -345,7 +363,7 @@ func (sq *squad) play(v *venue.Venue, warehouse *venue.Warehouse, odds []venue.P
 		contenders = result.Contenders
 	}
 
-	m := matchSim{value: warehouse.Value, round: round}
+	m.round = round
 	if warehouse.Value > 0 {
 		var top int64
 		for _, piece := range pieces {
@@ -393,6 +411,7 @@ func (sq *squad) summarize(matches []matchSim, rule *venue.AuctionRule, sellFee 
 		bidCV, topShare           float64
 		seats, winners, losers    float64
 		shares                    float64
+		hypes, hot, cold, hype    int
 	)
 	bots := playerCount - sq.humans
 	for _, m := range matches {
@@ -400,6 +419,7 @@ func (sq *squad) summarize(matches []matchSim, rule *venue.AuctionRule, sellFee 
 		bidCV += m.bidCV
 		topShare += m.topShare
 		appraised += float64(m.appraise)
+		hypes, hot, cold, hype = hypes+int(m.hypes), hot+int(m.hot), cold+int(m.cold), hype+int(m.hype)
 		if !m.sold {
 			continue
 		}
@@ -461,6 +481,10 @@ func (sq *squad) summarize(matches []matchSim, rule *venue.AuctionRule, sellFee 
 		}
 	}
 	stats.Share = int64(math.Round(shares / float64(n)))
+	if hypes > 0 {
+		stats.HypeHot, stats.HypeCold = bp(float64(hot)/float64(hypes)), bp(float64(cold)/float64(hypes))
+	}
+	stats.HypeEnd = int32(math.Round(float64(hype) / float64(n)))
 	return stats
 }
 

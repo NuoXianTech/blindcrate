@@ -343,6 +343,7 @@ func venuePack(v *venue.Venue, image func(string) string) venueadmin.VenueReques
 		Bots:          v.Bots,
 		Pve:           v.Pve,
 		Consumables:   v.Consumables,
+		Host:          v.Host,
 	}
 }
 

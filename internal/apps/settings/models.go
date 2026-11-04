@@ -180,6 +180,7 @@ var (
 				PoolRate:            7500,
 				RebateRate:          4000,
 				RebateCapRate:       10000,
+				IntelRate:           50,
 				MinRounds:           4,
 				MaxRounds:           10,
 				MinGridSide:         4,
@@ -298,6 +299,7 @@ type BalanceSettings struct {
 	PoolRate        int `json:"pool_rate" label:"入场费进奖池比例" help:"其余销毁; 只算正式局的真人" binding:"min=0,max=10000" unit:"bp"`
 	RebateRate      int `json:"rebate_rate" label:"超付进奖池比例" help:"真人的成交价超过仓库价值时, 超出部分按这个比例进奖池" binding:"min=0,max=10000" unit:"bp"`
 	RebateCapRate   int `json:"rebate_cap_rate" label:"超付进奖池上限" help:"每局进奖池的超付部分不超过入场费的这么多倍" binding:"min=0,max=100000" unit:"bp"`
+	IntelRate       int `json:"intel_rate" label:"情报价格比例" help:"向主持人买一次情报的价格占期望价值的比例, 0 表示不卖情报; 情报平均每局只值期望价值的 0.6%~2.4%, 定价要远低于它, 否则买情报稳赚, 不超过 0.7%" binding:"min=0,max=70" unit:"bp"`
 
 	MinRounds           int `json:"min_rounds" label:"轮数下限" help:"轮数太少时人机只看得到几件的品质, 估值偏高" binding:"min=1,max=10,ltefield=MaxRounds"`
 	MaxRounds           int `json:"max_rounds" label:"轮数上限" binding:"min=1,max=10"`

@@ -55,6 +55,7 @@ type Venue struct {
 	Bots          BotRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"bots"`         // 人机风格, 按模式配置出场的风格和权重
 	Pve           PveRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"pve"`          // 人机模式防刷参数
 	Consumables   ConsumableRule        `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"consumables"`  // 对局中使用道具的规则
+	Host          HostRule              `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"host"`         // 主持人的提示和情报
 	Simulation    Simulation            `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"simulation"`   // 保存时的模拟结果, 掉落池或物品改动后需要重新保存才会更新
 	CreatedAt     time.Time             `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 	UpdatedAt     time.Time             `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
@@ -154,6 +155,7 @@ type AuctionRule struct {
 	RebateRate   int32 `json:"rebate_rate"`   // 真人成交价超过仓库价值时, 超出部分进奖池的比例, 基点
 	RebateCap    int64 `json:"rebate_cap"`    // 每局进奖池的超付部分的上限
 	Finale       bool  `json:"finale"`        // 压轴揭示: 最后一轮公开品质的是仓库里最贵的一件
+	IntelPrice   int64 `json:"intel_price"`   // 向主持人买一次情报的价格, 从可用余额扣除; 0 表示不卖情报
 }
 
 // BotBudget 人机的带入资金; 推导出它之前保存的地图为带入资金上限
@@ -216,6 +218,19 @@ func (r *ConsumableRule) Allows(itemID uint64) bool {
 	return len(r.Allowed) == 0 || slices.Contains(r.Allowed, itemID)
 }
 
+// HostRule 主持人: 每轮开始时公开一条关于还没公开的藏品的提示, 有一定概率说错; 出价阶段还可以向他买只有自己看得到的情报
+//
+// 性格在开局时从 Personas 中随机选一种并公开, 决定说错时往哪边错, 见 constants.go 的 Host; 热度(Hype)由每轮的加价推动, 影响部分性格的撒谎率。
+// 说错的提示在开箱后公开。情报的价格按期望价值推导(见 AuctionRule.IntelPrice), 买过情报的座位对所有人公开, 情报的内容只给自己。
+type HostRule struct {
+	Enabled        bool     `json:"enabled" label:"主持人提示"`                                             // 关闭时没有提示和热度, 情报商店仍按 IntelLimit 开放
+	Personas       []string `json:"personas" label:"性格" binding:"max=3,dive,oneof=steady showman sly"` // 为空表示全部性格
+	LieRate        int32    `json:"lie_rate" label:"撒谎率" binding:"min=0,max=2500"`                     // 基点, 提示说错的概率, 按性格和热度调整, 不超过 25%
+	HighQuality    int16    `json:"high_quality" label:"高品质" input:"quality" binding:"min=0"`          // 提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; 也是"高品质件数"提示统计的最低品质
+	IntelLimit     int32    `json:"intel_limit" label:"每局情报上限" binding:"min=0,max=10"`                 // 每人每局最多买几次情报, 每轮最多一次, 0 表示不卖情报
+	IntelPrecision int32    `json:"intel_precision" label:"估价情报误差" binding:"min=0,max=5000"`           // 后几轮的情报为仓库价值的区间, 宽度为价值 × 误差 × 2, 基点
+}
+
 // ValueStats 模拟仓库的价值分布, 价值为出价货币的回收价之和
 type ValueStats struct {
 	FailureRate int32 `json:"failure_rate"` // 摆放失败率, 基点
@@ -266,6 +281,9 @@ type SquadStats struct {
 	WinnerEV     int64  `json:"winner_ev"`     // 真人成交时的平均盈亏
 	LoserEV      int64  `json:"loser_ev"`      // 真人没成交时的平均盈亏, 含奖池分红
 	Share        int64  `json:"share"`         // 每局发给真人输家的奖池合计的平均值
+	HypeHot      int32  `json:"hype_hot"`      // 每轮结束后热度火热(不低于 70)的比例, 加轮和成交的那一轮不算
+	HypeCold     int32  `json:"hype_cold"`     // 同上, 冷清(不高于 30)的比例
+	HypeEnd      int32  `json:"hype_end"`      // 结束时热度的平均值, 0-100
 }
 
 // Check 验算的一项闸门

@@ -79,6 +79,11 @@ export function ResultPanel({view, players, decimals, finished, released}: {
   };
 
   const fee = amountIn(view.self.entry_cost, view.venue.bid_currency);
+  // 向主持人买情报的花费, 流拍也不退
+  const intel = view.self.uses.filter((u) => u.item_id === 0).length * view.venue.intel_price;
+  const parts: string[] = [];
+  if (sold && fee > 0) parts.push(`入场费 ${formatAmount(-fee, decimals, {signed: true})}`);
+  if (intel > 0) parts.push(`情报 ${formatAmount(-intel, decimals, {signed: true})}`);
   const share = result.seats.find((s) => s.seat === view.self.seat)?.share ?? 0;
   const paid = result.seats.reduce((sum, s) => sum + s.share, 0);
   const rows = [
@@ -123,10 +128,9 @@ export function ResultPanel({view, players, decimals, finished, released}: {
         >
           {formatAmount(result.profit, decimals, {signed: true})}
         </span>
-        {sold && (fee > 0 || share > 0) && (
+        {(parts.length > 0 || share > 0) && (
           <span className="text-xs text-muted-foreground">
-            含入场费 {formatAmount(-fee, decimals, {signed: true})}
-            {share > 0 && `, 奖池分红 ${formatAmount(share, decimals, {signed: true})}`}
+            含{[...parts, ...(share > 0 ? [`奖池分红 ${formatAmount(share, decimals, {signed: true})}`] : [])].join(', ')}
           </span>
         )}
       </div>

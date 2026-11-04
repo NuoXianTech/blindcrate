@@ -114,6 +114,9 @@ func Validate(tx *gorm.DB, v *Venue) error {
 	if err := validateConsumables(tx, v); err != nil {
 		return err
 	}
+	if err := validateHost(tx, v); err != nil {
+		return err
+	}
 
 	generator, err := NewGenerator(tx, v.Warehouse, v.BidCurrency)
 	if err != nil {
@@ -228,6 +231,7 @@ func validateRules(v *Venue) error {
 		{"人机风格", &v.Bots},
 		{"人机模式", &v.Pve},
 		{"道具规则", &v.Consumables},
+		{"主持人", &v.Host},
 	}
 	for _, section := range sections {
 		if err := settings.ValidateStruct(section.value); err != nil {
@@ -327,6 +331,31 @@ func validateConsumables(tx *gorm.DB, v *Venue) error {
 		if effect.SceneOf(target.Effect) != effect.SceneMatch {
 			return invalid(ConsumableUnusable, target.Name)
 		}
+	}
+	return nil
+}
+
+// validateHost 高品质需存在, 卖情报时估价情报的误差不能太小; 校验后去掉重复的性格, 没有配置时写为空列表
+func validateHost(tx *gorm.DB, v *Venue) error {
+	rule := &v.Host
+	personas := []string{}
+	for _, persona := range HostPersonas {
+		if slices.Contains(rule.Personas, persona) {
+			personas = append(personas, persona)
+		}
+	}
+	rule.Personas = personas
+	if rule.IntelLimit > 0 && rule.IntelPrecision < minIntelPrecision {
+		return invalid(IntelPrecisionLow)
+	}
+	if rule.HighQuality == 0 {
+		return nil
+	}
+	if err := item.CheckQuality(tx, rule.HighQuality); err != nil {
+		if err.Error() == item.QualityNotFound {
+			return invalid(HostQualityInvalid, rule.HighQuality)
+		}
+		return err
 	}
 	return nil
 }
@@ -437,6 +466,7 @@ type VenueView struct {
 	Eligible      bool                 `json:"eligible"`     // 满足全部入场条件
 	Grid          Grid                 `json:"grid"`
 	Auction       AuctionRule          `json:"auction"`
+	Host          HostRule             `json:"host"`        // 主持人的提示和情报
 	ValueRange    ValueRange           `json:"value_range"` // 排位模式的仓库价值区间, 保存地图时模拟
 	Pve           PveView              `json:"pve"`
 }
@@ -574,6 +604,7 @@ func newView(tx *gorm.DB, userID uint64, v *Venue, names *costNames) (*VenueView
 		Eligible:      true,
 		Grid:          v.Warehouse.Grid,
 		Auction:       v.Auction,
+		Host:          v.Host,
 		ValueRange:    newValueRange(v.Simulation.Ranked),
 		Pve: PveView{
 			PracticeOnly: v.Pve.PracticeOnly,

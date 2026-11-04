@@ -20,10 +20,13 @@ import {
   MAX_ALLOWED_ITEMS,
   MAX_BOT_PERSONAS,
   MAX_ENTRY_COST_LINES,
+  MAX_INTEL,
+  MAX_LIE_RATE,
   MAX_REQUIREMENTS,
   MAX_SLOTS,
   MAX_SWINGS,
   MAX_USES,
+  MIN_INTEL_PRECISION,
 } from './constants';
 
 /** 基点按倍数输入, 保留 4 位小数 */
@@ -92,6 +95,16 @@ export interface VenueForm {
   usesRanked: string;
   /** 允许使用的道具 ID, 为空表示都可以用 */
   allowedItems: number[];
+  hostEnabled: boolean;
+  /** 为空表示全部性格 */
+  hostPersonas: string[];
+  /** 百分比 */
+  lieRate: string;
+  /** 品质等级, 0 表示不区分 */
+  highQuality: number;
+  intelLimit: string;
+  /** 百分比 */
+  intelPrecision: string;
 }
 
 /** 推荐的速胜倍率, 第 1 轮起, 更多轮次沿用最后一个; 在交接包的标准图上验算过的倍率 × 1.15 */
@@ -132,7 +145,11 @@ const DEFAULT_REQUEST: VenueRequest = {
   },
   pve: {practice_only: false, daily_profit_cap: 0, value_factor: 8000},
   consumables: {pve: {max_per_match: 0}, ranked: {max_per_match: 0}, allowed: []},
+  host: {enabled: true, personas: [], lie_rate: 1800, high_quality: 0, intel_limit: 2, intel_precision: 1500},
 };
+
+/** 旧地图没有主持人配置时的表单值: 不开启 */
+const EMPTY_HOST = {enabled: false, personas: [], lie_rate: 1800, high_quality: 0, intel_limit: 0, intel_precision: 1500};
 
 /** 出场的人机风格转为表单 */
 function toWeightDrafts(weights: BotWeight[]): WeightDraft[] {
@@ -201,6 +218,13 @@ export function toVenueForm(venue: VenueRequest | null, {currencies, types, pers
     usesPve: String(v.consumables?.pve.max_per_match ?? 0),
     usesRanked: String(v.consumables?.ranked.max_per_match ?? 0),
     allowedItems: v.consumables?.allowed ?? [],
+    hostEnabled: (v.host ?? EMPTY_HOST).enabled,
+    hostPersonas: v.host?.personas ?? [],
+    lieRate: ratioInput(v.host?.lie_rate ?? EMPTY_HOST.lie_rate, PERCENT_DECIMALS),
+    highQuality: v.host?.high_quality ?? 0,
+    intelLimit: String(v.host?.intel_limit ?? 0),
+    // 旧地图没有配置误差时按默认值, 否则开启卖情报时提交 0 会被拒绝
+    intelPrecision: ratioInput(v.host?.intel_precision || EMPTY_HOST.intel_precision, PERCENT_DECIMALS),
   };
 }
 
@@ -330,6 +354,14 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
       pve: {max_per_match: readNumber(form.usesPve, {label: '人机每局道具数', min: 0, max: MAX_USES})},
       ranked: {max_per_match: readNumber(form.usesRanked, {label: '排位每局道具数', min: 0, max: MAX_USES})},
       allowed: form.allowedItems,
+    },
+    host: {
+      enabled: form.hostEnabled,
+      personas: form.hostPersonas,
+      lie_rate: percent(form.lieRate, '撒谎率', 0, MAX_LIE_RATE),
+      high_quality: form.highQuality,
+      intel_limit: readNumber(form.intelLimit, {label: '每局情报上限', min: 0, max: MAX_INTEL}),
+      intel_precision: percent(form.intelPrecision, '估价情报误差', MIN_INTEL_PRECISION, 5000),
     },
   };
 }

@@ -46,6 +46,11 @@
 // 道具: 出价阶段可以通过 ws 消息 auction:use 使用效果属于对局场景的物品(见 effect 模块和 effects.go), 每用一个扣一个;
 // 次数和可用的道具由地图的道具规则决定, 练习局不能用; 得到的情报只给使用者看, 开箱后公开每个座位用了哪些道具。
 // 对局被取消时退还用掉的道具, 流拍不退。
+//
+// 主持人(见 host.go 和 intel.go, 规则见 venue.HostRule): 开局时公开性格和初始热度, 每个规定的轮次开始时公开一条关于还没公开的藏品的提示,
+// 有一定概率说错, 开箱后公开真假; 热度在每轮结束时按加价的人数和幅度变化, 变动只追加不修改。出价阶段真人可以通过 ws 消息 auction:intel
+// 向主持人买只有自己看得到的情报, 每轮一次, 从可用余额扣除, 买过的座位对所有人公开; 对局被取消时退还, 流拍不退, 结算时计入盈亏。
+// 人机不看提示也不买情报。
 package auction
 
 import "time"
@@ -76,10 +81,19 @@ const (
 	HintFarBehind = "far_behind" // 落后较多
 )
 
+// 主持人提示的类型
+const (
+	HostHintCount = "count" // 品质不低于 Quality 的藏品共有 Count 件
+	HostHintBest  = "best"  // 还没公开品质的藏品里最好的是 Quality
+	HostHintPiece = "piece" // 扫描顺序为 ScanOrder 的藏品是 Quality
+	HostHintValue = "value" // 仓库价值高于(Above)或不高于期望价值
+)
+
 // ws 消息类型
 const (
 	MessageBid     = "auction:bid"     // 客户端出价, data 为 BidRequest, 回复的 data 为 AuctionView
 	MessageUse     = "auction:use"     // 客户端使用道具, data 为 UseRequest, 回复的 data 为 AuctionView
+	MessageIntel   = "auction:intel"   // 客户端向主持人买情报, data 为 IntelRequest, 回复的 data 为 AuctionView
 	MessageUpdated = "auction:updated" // 开局、每轮结束和开箱时推送给对局中的真人, data 为 AuctionView
 )
 
@@ -92,4 +106,26 @@ const (
 	rankedBotFillAfter = 15 * time.Second
 	// hintFarRatio 领先或落后达到这个倍数时提示"较多", 基点
 	hintFarRatio = 12000
+)
+
+// 主持人和热度
+const (
+	// maxLieRate 提示说错的概率上限, 基点
+	maxLieRate = 2500
+	// hypeStart 开局时的热度
+	hypeStart = 50
+	// hypeMax 热度上限, 下限为 0
+	hypeMax = 100
+	// hypeHot 热度不低于它时煽动的主持人更敢说错
+	hypeHot = 70
+	// hypeCold 热度不高于它时狡黠的主持人更敢说错
+	hypeCold = 30
+	// hypePacePoints 按正常节奏(期望价值 ÷ 轮数)加价推高的热度, 按加价的比例缩放, 不低于 1, 不超过 hypeRaiseMax
+	hypePacePoints = 5
+	hypeRaiseMax   = 12
+	// hypeCooling 有人加价的轮次热度先降这么多, 约等于 4 个人都按正常节奏加价推高的; 没人加价时降 hypeIdle
+	hypeCooling = 15
+	hypeIdle    = 15
+	// intelName 向主持人买的情报在使用记录中的名称
+	intelName = "主持人情报"
 )

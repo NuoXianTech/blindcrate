@@ -131,6 +131,26 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
               <dd>最后一轮公开品质的是仓库里最贵的一件</dd>
             </>
           )}
+          {v.host?.enabled && (
+            <>
+              <dt className="text-muted-foreground">主持人</dt>
+              <dd>
+                每轮开始时给一条提示, 可能说错, 开箱后公开真假
+                <p className="text-xs text-muted-foreground">
+                  性格开局时公开: 稳重的很少说错, 煽动的错时往高了吹, 狡黠的错时往低了压
+                </p>
+              </dd>
+            </>
+          )}
+          {v.auction.intel_price > 0 && (v.host?.intel_limit ?? 0) > 0 && (
+            <>
+              <dt className="text-muted-foreground">情报</dt>
+              <dd>
+                每次 {formatAmount(v.auction.intel_price, decimals)}, 每局最多 {v.host.intel_limit} 次, 每轮一次
+                <p className="text-xs text-muted-foreground">从可用余额扣除, 只有自己看得到, 其他人会看到你买了情报</p>
+              </dd>
+            </>
+          )}
           <dt className="text-muted-foreground">加轮</dt>
           <dd>
             {v.auction.max_extra_rounds > 0 ?

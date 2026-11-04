@@ -51,4 +51,6 @@ const (
 	BotsInvalid        = "%s模式: %s"
 	ConsumableNotFound = "可用道具中的物品 %d 不存在"
 	ConsumableUnusable = "可用道具中的 %s 不能在对局中使用"
+	HostQualityInvalid = "主持人: 高品质 %d 不存在"
+	IntelPrecisionLow  = "主持人: 卖情报时估价情报误差不能低于 5%%"
 )

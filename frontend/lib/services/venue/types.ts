@@ -65,6 +65,27 @@ export interface AuctionRule {
   rebate_cap: number;
   /** 压轴揭示: 最后一轮公开品质的是仓库里最贵的一件 */
   finale: boolean;
+  /** 向主持人买一次情报的价格, 从可用余额扣除; 0 表示不卖情报 */
+  intel_price: number;
+}
+
+/**
+ * 主持人, 对应后端 venue.HostRule: 每轮开始时公开一条关于还没公开的藏品的提示, 有一定概率说错;
+ * 出价阶段还可以向他买只有自己看得到的情报, 价格按期望价值推导
+ */
+export interface HostRule {
+  /** 关闭时没有提示和热度, 情报商店仍按 intel_limit 开放 */
+  enabled: boolean;
+  /** 开局时从中随机选一种性格, 为空表示全部; 见 lib/services/auction 的 HOST_PERSONA */
+  personas: string[];
+  /** 提示说错的概率, 基点, 不超过 2500; 按性格和热度调整 */
+  lie_rate: number;
+  /** 提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; 也是"高品质件数"提示统计的最低品质 */
+  high_quality: number;
+  /** 每人每局最多买几次情报, 每轮最多一次, 0 表示不卖情报 */
+  intel_limit: number;
+  /** 估价情报的误差, 基点, 区间宽度为价值 × 误差 × 2; 卖情报时不低于 500 */
+  intel_precision: number;
 }
 
 /** 玩家看到的人机模式参数 */
@@ -101,6 +122,8 @@ export interface Venue {
   eligible: boolean;
   grid: Grid;
   auction: AuctionRule;
+  /** 主持人的提示和情报 */
+  host: HostRule;
   /** 排位模式的仓库价值区间 */
   value_range: ValueRange;
   pve: PveView;

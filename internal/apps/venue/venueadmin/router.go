@@ -117,6 +117,7 @@ type VenueRequest struct {
 	Bots          venue.BotRule         `json:"bots" binding:"-"`
 	Pve           venue.PveRule         `json:"pve" binding:"-"`
 	Consumables   venue.ConsumableRule  `json:"consumables" binding:"-"` // 对局中使用道具的规则
+	Host          venue.HostRule        `json:"host" binding:"-"`        // 主持人的提示和情报
 }
 
 // SimulateResponseData 试算结果

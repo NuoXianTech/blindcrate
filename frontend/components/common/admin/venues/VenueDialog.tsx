@@ -28,6 +28,7 @@ import {BasicTab} from './BasicTab';
 import {BotTab} from './BotTab';
 import {ConsumableTab} from './ConsumableTab';
 import {EntryTab} from './EntryTab';
+import {HostTab} from './HostTab';
 import {SimulationStats} from './SimulationStats';
 import {WarehouseTab} from './WarehouseTab';
 import {toRequest} from './constants';
@@ -149,6 +150,7 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
           <TabsTrigger value="auction">拍卖</TabsTrigger>
           <TabsTrigger value="bots">人机</TabsTrigger>
           <TabsTrigger value="consumables">道具</TabsTrigger>
+          <TabsTrigger value="host">主持人</TabsTrigger>
           <TabsTrigger value="simulation">模拟</TabsTrigger>
         </TabsList>
         <div className="max-h-[60vh] overflow-y-auto px-1 py-2">
@@ -169,6 +171,9 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
           </TabsContent>
           <TabsContent value="consumables">
             <ConsumableTab {...tabProps} items={items} effects={effects} />
+          </TabsContent>
+          <TabsContent value="host">
+            <HostTab {...tabProps} />
           </TabsContent>
           <TabsContent value="simulation" className="flex flex-col gap-3">
             {simulate.pending && (

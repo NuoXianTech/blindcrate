@@ -105,6 +105,7 @@ function BalanceStats({balance, amount}: { balance: Balance; amount: (value: num
     {label: '成交时盈亏', value: (s) => amount(s.winner_ev)},
     {label: '没成交时盈亏', value: (s) => amount(s.loser_ev)},
     {label: '每局奖池分红', value: (s) => amount(s.share)},
+    {label: '热度 火热 / 冷清', value: (s) => `${percent(s.hype_hot ?? 0)} / ${percent(s.hype_cold ?? 0)}`},
   ];
   const failed = balance.checks.filter((c) => !c.passed);
 

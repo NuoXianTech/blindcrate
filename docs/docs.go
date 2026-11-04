@@ -11168,6 +11168,21 @@ const docTemplate = `{
                         "$ref": "#/definitions/auction.Footprint"
                     }
                 },
+                "host": {
+                    "description": "主持人, 没有主持人提示时为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/auction.HostView"
+                        }
+                    ]
+                },
+                "intel_seats": {
+                    "description": "买过情报的座位, 按座位号; 只公开次数, 不公开内容",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.SeatIntel"
+                    }
+                },
                 "match_id": {
                     "type": "integer"
                 },
@@ -11242,6 +11257,21 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auction.Footprint"
+                    }
+                },
+                "host": {
+                    "description": "主持人, 没有主持人提示时为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/auction.HostView"
+                        }
+                    ]
+                },
+                "intel_seats": {
+                    "description": "买过情报的座位, 按座位号; 只公开次数, 不公开内容",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.SeatIntel"
                     }
                 },
                 "match_id": {
@@ -11329,6 +11359,82 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "y": {
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.HintView": {
+            "type": "object",
+            "properties": {
+                "above": {
+                    "type": "boolean"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "description": "见 constants.go 的 HostHint",
+                    "type": "string"
+                },
+                "quality": {
+                    "type": "integer"
+                },
+                "round": {
+                    "type": "integer"
+                },
+                "scan_order": {
+                    "type": "integer"
+                },
+                "truthful": {
+                    "description": "是否属实, 开箱后才公开",
+                    "type": "boolean"
+                }
+            }
+        },
+        "auction.HostView": {
+            "type": "object",
+            "properties": {
+                "hints": {
+                    "description": "按轮次",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.HintView"
+                    }
+                },
+                "hype": {
+                    "type": "integer"
+                },
+                "hypes": {
+                    "description": "热度的每次变动, 按时间",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.HypeEvent"
+                    }
+                },
+                "persona": {
+                    "description": "见 venue.HostSteady 等",
+                    "type": "string"
+                }
+            }
+        },
+        "auction.HypeEvent": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "delta": {
+                    "type": "integer"
+                },
+                "hype": {
+                    "description": "变动后的热度",
+                    "type": "integer"
+                },
+                "raises": {
+                    "type": "integer"
+                },
+                "round": {
+                    "description": "开局时为 0, 之后为结束的轮次",
                     "type": "integer"
                 }
             }
@@ -11614,6 +11720,21 @@ const docTemplate = `{
                 }
             }
         },
+        "auction.SeatIntel": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "round": {
+                    "description": "最近一次买的轮次",
+                    "type": "integer"
+                },
+                "seat": {
+                    "type": "integer"
+                }
+            }
+        },
         "auction.SeatResult": {
             "type": "object",
             "properties": {
@@ -11666,6 +11787,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/auction.Feedback"
                     }
+                },
+                "intel_bought": {
+                    "description": "本轮是否已买过情报",
+                    "type": "boolean"
+                },
+                "intel_left": {
+                    "description": "本局还能买几次情报, 练习局为 0; 本轮买过时仍计入, 见 IntelBought",
+                    "type": "integer"
                 },
                 "is_practice": {
                     "type": "boolean"
@@ -11814,6 +11943,10 @@ const docTemplate = `{
         "auction.Use": {
             "type": "object",
             "properties": {
+                "cost": {
+                    "description": "向主持人买情报时付的出价货币, 用道具时为 0",
+                    "type": "integer"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -11920,6 +12053,14 @@ const docTemplate = `{
                 },
                 "grid": {
                     "$ref": "#/definitions/venue.Grid"
+                },
+                "intel_limit": {
+                    "description": "每人每局最多买几次情报, 每轮最多一次",
+                    "type": "integer"
+                },
+                "intel_price": {
+                    "description": "向主持人买一次情报的价格, 0 表示不卖情报",
+                    "type": "integer"
                 },
                 "lead_discount": {
                     "description": "领先折让, 基点",
@@ -17275,6 +17416,10 @@ const docTemplate = `{
                     "description": "压轴揭示: 最后一轮公开品质的是仓库里最贵的一件",
                     "type": "boolean"
                 },
+                "intel_price": {
+                    "description": "向主持人买一次情报的价格, 从可用余额扣除; 0 表示不卖情报",
+                    "type": "integer"
+                },
                 "lead_discount": {
                     "description": "领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 不低于起拍价",
                     "type": "integer"
@@ -17487,6 +17632,46 @@ const docTemplate = `{
                 }
             }
         },
+        "venue.HostRule": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "关闭时没有提示和热度, 情报商店仍按 IntelLimit 开放",
+                    "type": "boolean"
+                },
+                "high_quality": {
+                    "description": "提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; 也是\"高品质件数\"提示统计的最低品质",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "intel_limit": {
+                    "description": "每人每局最多买几次情报, 每轮最多一次, 0 表示不卖情报",
+                    "type": "integer",
+                    "maximum": 10,
+                    "minimum": 0
+                },
+                "intel_precision": {
+                    "description": "后几轮的情报为仓库价值的区间, 宽度为价值 × 误差 × 2, 基点",
+                    "type": "integer",
+                    "maximum": 5000,
+                    "minimum": 0
+                },
+                "lie_rate": {
+                    "description": "基点, 提示说错的概率, 按性格和热度调整, 不超过 25%",
+                    "type": "integer",
+                    "maximum": 2500,
+                    "minimum": 0
+                },
+                "personas": {
+                    "description": "为空表示全部性格",
+                    "type": "array",
+                    "maxItems": 3,
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "venue.ListVenuesResponseData": {
             "type": "object",
             "properties": {
@@ -17688,6 +17873,18 @@ const docTemplate = `{
                     "description": "真人数, 其余为人机",
                     "type": "integer"
                 },
+                "hype_cold": {
+                    "description": "同上, 冷清(不高于 30)的比例",
+                    "type": "integer"
+                },
+                "hype_end": {
+                    "description": "结束时热度的平均值, 0-100",
+                    "type": "integer"
+                },
+                "hype_hot": {
+                    "description": "每轮结束后热度火热(不低于 70)的比例, 加轮和成交的那一轮不算",
+                    "type": "integer"
+                },
                 "loser_ev": {
                     "description": "真人没成交时的平均盈亏, 含奖池分红",
                     "type": "integer"
@@ -17841,6 +18038,14 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "host": {
+                    "description": "主持人的提示和情报",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.HostRule"
+                        }
+                    ]
+                },
                 "id": {
                     "type": "integer"
                 },
@@ -17929,6 +18134,14 @@ const docTemplate = `{
                 "grid": {
                     "$ref": "#/definitions/venue.Grid"
                 },
+                "host": {
+                    "description": "主持人的提示和情报",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.HostRule"
+                        }
+                    ]
+                },
                 "image_url": {
                     "type": "string"
                 },
@@ -17995,6 +18208,14 @@ const docTemplate = `{
                 },
                 "grid": {
                     "$ref": "#/definitions/venue.Grid"
+                },
+                "host": {
+                    "description": "主持人的提示和情报",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.HostRule"
+                        }
+                    ]
                 },
                 "image_url": {
                     "type": "string"
@@ -18178,6 +18399,14 @@ const docTemplate = `{
                     "allOf": [
                         {
                             "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "host": {
+                    "description": "主持人的提示和情报",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.HostRule"
                         }
                     ]
                 },

@@ -34,6 +34,27 @@ export const HINTS: Record<string, { label: string; className: string }> = {
   far_behind: {label: '落后较多', className: 'text-quality-red'},
 };
 
+/** 主持人的性格, 与后端 internal/apps/venue/constants.go 的 Host 常量对应 */
+export const HOST_PERSONAS: Record<string, { label: string; description: string }> = {
+  steady: {label: '稳重', description: '很少说错, 说错时可能偏高也可能偏低'},
+  showman: {label: '煽动', description: '说错时只会往高了吹, 场子越热越敢吹'},
+  sly: {label: '狡黠', description: '说错时只会往低了压, 场子越冷越敢压'},
+};
+
+/** 热度的档位, 煽动的主持人在火热时、狡黠的在冷清时更敢说错 */
+export function hypeLevel(hype: number) {
+  if (hype >= 70) return {label: '火热', className: 'text-quality-red'};
+  if (hype <= 30) return {label: '冷清', className: 'text-quality-blue'};
+  return {label: '平稳', className: 'text-muted-foreground'};
+}
+
+/** 第 round 轮(共 rounds 轮)向主持人买到的情报, 与后端 auction.intelFor 对应 */
+export function intelTier(round: number, rounds: number) {
+  if (round * 3 <= rounds) return '一件还不知道品质的藏品的品质';
+  if (round * 3 <= rounds * 2) return '一件藏品的名称和品质';
+  return '仓库价值的大致区间';
+}
+
 /** 暗拍阶段的名称 */
 export const PHASES: Record<string, string> = {
   bidding: '出价',
