@@ -30,6 +30,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -122,14 +123,57 @@ func doDeleteVenue(ctx context.Context, venueID uint64) (*venue.Venue, error) {
 	return &target, nil
 }
 
-// doSimulateVenue 按保存时的规则校验并模拟仓库, 不保存
-func doSimulateVenue(ctx context.Context, req *VenueRequest) (*venue.Simulation, error) {
+// doSimulateVenue 按保存时的规则校验并模拟, 不保存; 验算未通过时不拒绝, 结果中可以看到未通过的闸门
+func doSimulateVenue(ctx context.Context, req *VenueRequest) (*SimulateResponseData, error) {
 	target := &venue.Venue{}
 	ApplyVenue(target, req)
+	// 按停用的草稿校验, 只有启用时验算未通过才拒绝
+	target.IsEnabled = false
 	if err := venue.Validate(db.DB(ctx), target); err != nil {
 		return nil, err
 	}
-	return &target.Simulation, nil
+	return &SimulateResponseData{Simulation: target.Simulation, Auction: target.Auction}, nil
+}
+
+// doRecalibrateVenues 按当前的玩法平衡设置逐个重新推导并验算全部地图, 每个地图单独提交
+//
+// 启用的地图验算未通过时不保存, 保留原来的参数, 需要调整后再保存或先停用; 返回每个地图的结果和用到的设置版本。
+func doRecalibrateVenues(ctx context.Context) (*RecalibrateResponseData, error) {
+	var ids []uint64
+	if err := db.DB(ctx).Model(&venue.Venue{}).Order("sort_order, id").Pluck("id", &ids).Error; err != nil {
+		return nil, err
+	}
+	_, version, err := settings.Balance.Load(db.DB(ctx))
+	if err != nil {
+		return nil, err
+	}
+	data := &RecalibrateResponseData{Version: version, Results: make([]RecalibrateResult, 0, len(ids))}
+	for _, id := range ids {
+		var target venue.Venue
+		err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := LockVenue(tx, &target, id); err != nil {
+				return err
+			}
+			if err := venue.Validate(tx, &target); err != nil {
+				return err
+			}
+			return tx.Save(&target).Error
+		})
+		result := RecalibrateResult{ID: id, Code: target.Code, Name: target.Name, Updated: err == nil}
+		var invalid *venue.InvalidError
+		switch {
+		case err == nil:
+		case errors.As(err, &invalid):
+			result.Reason = err.Error()
+		case err.Error() == venue.VenueNotFound:
+			// 推导期间被删除
+			continue
+		default:
+			return nil, err
+		}
+		data.Results = append(data.Results, result)
+	}
+	return data, nil
 }
 
 // LockVenue 锁定地图, 防止并发修改和删除互相覆盖

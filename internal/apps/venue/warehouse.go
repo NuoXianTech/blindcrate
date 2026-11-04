@@ -27,6 +27,7 @@ package venue
 import (
 	"cmp"
 	"errors"
+	"math"
 	"math/rand/v2"
 	"slices"
 
@@ -250,9 +251,19 @@ func (g *Generator) withRand(randN func(n int64) int64) *Generator {
 	return &clone
 }
 
-// Simulate 用 math/rand 快速生成 runs 个仓库, 统计摆放失败率和价值分布, 不影响 g 之后的生成
+// Seeded 换用以 seed 为种子的 math/rand 抽取的副本, 用于模拟: 生成快, 相同的种子生成相同的仓库; 不影响 g
+func (g *Generator) Seeded(seed uint64) *Generator {
+	return g.withRand(rand.New(rand.NewPCG(seed, seed^simulationSalt)).Int64N)
+}
+
+// simulationSalt 模拟用的随机数的第二个种子
+const simulationSalt = 0x9e3779b97f4a7c15
+
+// Simulate 用固定种子的 math/rand 快速生成 runs 个仓库, 统计摆放失败率和价值分布, 不影响 g 之后的生成
+//
+// 相同的配置得到相同的结果, 重新保存没改过的地图时推导出的金额不变。
 func (g *Generator) Simulate(runs int, valueFactor int32) ValueStats {
-	fast := g.withRand(rand.Int64N)
+	fast := g.Seeded(1)
 	values := make([]int64, 0, runs)
 	var (
 		failures int
@@ -282,6 +293,14 @@ func (g *Generator) Simulate(runs int, valueFactor int32) ValueStats {
 	stats.P10, stats.P50, stats.P90 = percentile(10), percentile(50), percentile(90)
 	stats.Max = values[len(values)-1]
 	stats.MeanPieces = int32(pieces / len(values))
+	if total > 0 {
+		mean := float64(total) / float64(len(values))
+		var squares float64
+		for _, v := range values {
+			squares += (float64(v) - mean) * (float64(v) - mean)
+		}
+		stats.CV = int32(math.Round(math.Sqrt(squares/float64(len(values))) / mean * BasisPoints))
+	}
 	return stats
 }
 

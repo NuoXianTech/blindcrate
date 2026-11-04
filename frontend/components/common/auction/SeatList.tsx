@@ -24,10 +24,12 @@ export function SeatList({view, players, decimals}: {
         const winner = result?.winner_seat === p.seat;
         const contender = extra && view.contenders.includes(p.seat);
         const bid = seats.get(p.seat)?.bid ?? 0;
+        const share = seats.get(p.seat)?.share ?? 0;
         const uses = seats.get(p.seat)?.uses ?? [];
         let note = `${p.seat} 号位`;
         if (result) {
           note = bid ? formatAmount(bid, decimals) : '未出价';
+          if (share > 0) note += ` · 分红 ${formatAmount(share, decimals)}`;
         } else if (contender) {
           note = '加轮中';
         }

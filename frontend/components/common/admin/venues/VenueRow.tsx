@@ -12,6 +12,8 @@ import {MODES} from './constants';
  */
 interface VenueRowProps {
   venue: AdminVenue;
+  /** 当前玩法平衡设置的版本, 地图验算时的版本不同时提示重新推导 */
+  balanceVersion: number;
   items: AdminItem[];
   currencies: Currency[];
   onEdit: () => void;
@@ -22,10 +24,11 @@ interface VenueRowProps {
 /**
  * 地图列表的一行: 名称、开放的模式、入场代价、模拟的价值中位数和操作按钮
  */
-export function VenueRow({venue, items, currencies, onEdit, onToggle, onDelete}: VenueRowProps) {
+export function VenueRow({venue, balanceVersion, items, currencies, onEdit, onToggle, onDelete}: VenueRowProps) {
   const bid = currencies.find((c) => c.code === venue.bid_currency);
   const cost = bundleText(venue.entry_cost, items, currencies);
   const modes = MODES.filter((m) => (m.value === 'pve' ? venue.pve_enabled : venue.ranked_enabled));
+  const stale = (venue.simulation.balance?.version ?? 0) !== balanceVersion;
 
   return (
     <TableRow>
@@ -58,7 +61,14 @@ export function VenueRow({venue, items, currencies, onEdit, onToggle, onDelete}:
         {formatAmount(venue.simulation.ranked.p50, bid?.decimals ?? 0)}
       </TableCell>
       <TableCell>
-        {venue.is_enabled ? <Badge variant="secondary">启用中</Badge> : <Badge variant="outline">已停用</Badge>}
+        <div className="flex gap-1">
+          {venue.is_enabled ? <Badge variant="secondary">启用中</Badge> : <Badge variant="outline">已停用</Badge>}
+          {stale && (
+            <Badge variant="outline" className="text-quality-gold" title="玩法平衡设置改过, 拍卖参数还是按旧设置推导的">
+              待推导
+            </Badge>
+          )}
+        </div>
       </TableCell>
       <TableCell className="text-muted-foreground">{formatDateTime(venue.updated_at)}</TableCell>
       <TableCell>

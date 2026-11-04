@@ -17,7 +17,10 @@ export function EntryTab({form, onChange, disabled, items, currencies, types, sc
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <FieldGroup title="入场代价" help={`开局时扣除, 练习局不扣; 最多 ${MAX_ENTRY_COST_LINES} 项`}>
+      <FieldGroup
+        title="入场代价"
+        help={`开局时扣除, 练习局不扣; 最多 ${MAX_ENTRY_COST_LINES} 项。不能有出价货币, 出价货币的入场费按仓库的期望价值自动计算, 见拍卖页`}
+      >
         <BundleEditor
           drafts={form.entryCost}
           onChange={(entryCost) => onChange({entryCost})}

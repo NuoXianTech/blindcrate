@@ -1,13 +1,13 @@
 'use client';
 
 import {useEffect, useState} from 'react';
-import {Eye} from 'lucide-react';
+import {Crown, Eye} from 'lucide-react';
 import {motion, useReducedMotion} from 'motion/react';
 import {cn} from 'cn';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
-import {scanProgress} from '@/lib/auction';
+import {finaleOrder, scanProgress} from '@/lib/auction';
 import {AUCTION_OUTCOME, type AuctionPublicView, type PieceIntel} from '@/lib/services/auction';
 import {formatAmount} from '@/lib/utils';
 
@@ -89,6 +89,8 @@ export function Warehouse({view, decimals, finished, intel}: {
   const scanning = !!result && !finished && result.outcome !== AUCTION_OUTCOME.cancelled && scanFrom !== null;
   const now = useNow(scanning ? SCAN_TICK_MS : null);
   const revealed = new Map(view.revealed.map((p) => [p.order, p.quality]));
+  // 没有压轴揭示时为 0, 不标记
+  const finale = view.venue.finale ? finaleOrder(view.venue.rounds, view.piece_count) : 0;
 
   const pieces = result?.pieces ?? [];
   const progress = scanning ?
@@ -194,22 +196,30 @@ export function Warehouse({view, decimals, finished, intel}: {
       {!result && (
         <div className="flex flex-col gap-1.5">
           <span className="text-xs text-muted-foreground">
-            已公开 {view.revealed.length}/{view.piece_count} 件的品质
+            已公开 {view.revealed.length}/{view.piece_count} 件的品质, 每轮公开一件
+            {finale > 0 && `; 第 ${finale} 件压轴, 是仓库里最贵的一件`}
           </span>
           <div className="flex flex-wrap gap-1.5">
             {Array.from({length: view.piece_count}, (_, i) => {
               const quality = revealed.get(i + 1);
+              const crown = i + 1 === finale && (
+                <Crown className="size-3 text-quality-gold" aria-label="压轴: 最贵的一件" />
+              );
               if (quality === undefined) {
                 return (
-                  <span key={i} className="flex h-7 min-w-10 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
-                    ?
+                  <span
+                    key={i}
+                    className="flex h-7 min-w-10 items-center justify-center gap-1 rounded-md border border-dashed px-2 text-xs text-muted-foreground"
+                    title={i + 1 === finale ? `第 ${finale} 轮公开, 是仓库里最贵的一件` : undefined}
+                  >
+                    {crown}?
                   </span>
                 );
               }
               const q = qualityOf(quality);
               return (
                 <span key={i} className="flex h-7 min-w-10 items-center gap-1.5 rounded-md border bg-card px-2 text-xs">
-                  <span className={cn('size-2.5 rounded-full', q.bar)} />
+                  {crown || <span className={cn('size-2.5 rounded-full', q.bar)} />}
                   <span className={q.text}>{q.name}</span>
                 </span>
               );

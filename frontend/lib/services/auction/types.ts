@@ -49,6 +49,20 @@ export interface AuctionVenue {
   /** 前 rounds-1 轮的速胜倍率, 基点 */
   quick_win: number[];
   max_extra_rounds: number;
+  /** 入场费, 以下字段见 lib/services/venue 的 AuctionRule, 旧对局为 0 */
+  entry_fee: number;
+  /** 速胜时第一名的出价不能低于它 */
+  speed_floor: number;
+  /** 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让) */
+  lead_discount: number;
+  /** 入场费进奖池的比例, 基点 */
+  pool_rate: number;
+  /** 超付部分进奖池的比例, 基点 */
+  rebate_rate: number;
+  /** 超付部分进奖池的上限 */
+  rebate_cap: number;
+  /** 压轴揭示: 最后一轮公开品质的是仓库里最贵的一件 */
+  finale: boolean;
   /** 这个模式每局最多使用几个道具, 0 表示不能用 */
   max_uses: number;
   /** 可以用的道具, 为空表示所有对局中可用的道具 */
@@ -81,7 +95,7 @@ export interface Bundle {
 export interface AuctionSelf {
   seat: number;
   is_practice: boolean;
-  /** 实际扣除的入场代价, 练习局为空 */
+  /** 实际扣除的入场费和入场代价, 练习局为空 */
   entry_cost: Bundle;
   /** 带入资金, 出价的上限 */
   carry: number;
@@ -182,6 +196,8 @@ export interface SeatResult {
   seat: number;
   /** 最后的出价, 0 表示没出过价 */
   bid: number;
+  /** 分到的奖池 */
+  share: number;
   /** 用过的道具, 按第一次使用的顺序, 不公开得到的情报 */
   uses: UseCount[];
 }
@@ -194,7 +210,11 @@ export interface AuctionResult {
   price: number;
   /** 仓库价值 */
   value: number;
-  /** 自己的盈亏, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0 */
+  /** 奖池, 分给出过价的真人输家, 见 SeatResult.share; 没有人可分时销毁 */
+  pool: number;
+  /** 奖池中来自成交者超付的部分 */
+  rebate: number;
+  /** 自己的盈亏, 已扣除入场费和入场代价, 含分到的奖池; 练习局按正式局计算; 管理员查看时为 0 */
   profit: number;
   /** 自己段位分的变化, 只有排位成交时有; 管理员查看时为 0 */
   rating_delta: number;

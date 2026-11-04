@@ -25,7 +25,8 @@
 // Package venue 地图(拍卖场): 管理员在后台配置的仓库掉落、入场条件和代价、拍卖参数、人机风格
 //
 // 每张地图对应两种玩法 pve:<代码> 和 ranked:<代码>, 由拍卖模块提供; 开局时快照地图配置, 之后修改地图不影响进行中的对局。
-//   - 保存: 先调用 Validate 校验配置, 它会模拟 SimulationRuns 个仓库, 摆放失败率过高时拒绝, 并把价值分布写入 Simulation
+//   - 保存: 先调用 Validate 校验配置, 它会模拟 SimulationRuns 个仓库, 摆放失败率过高时拒绝, 并把价值分布写入 Simulation;
+//     再按价值分布推导拍卖的金额和比例, 由拍卖模块验算对局(见 RegisterBalancer), 验算未通过的地图不能启用
 //   - 开局: NewGenerator 读取掉落池和物品, Generate 抽取藏品并摆进格子
 //   - 展示: 玩家看到启用的地图、入场条件的进度和期望价值区间, 详情中附带各档位掉落池的公示概率
 //
@@ -49,3 +50,31 @@ const (
 
 // BasisPoints 基点的分母, 10000 表示 100%
 const BasisPoints = 10000
+
+// 验算的阵容
+const (
+	SquadHumans = "humans" // 4 个真人, 结构类闸门的参考阵容
+	SquadRanked = "ranked" // 排位补人机: 2 个真人和 2 个人机
+	SquadPve    = "pve"    // 人机模式: 1 个真人和 3 个人机
+)
+
+// 验算的闸门
+const (
+	CheckRounds       = "rounds"        // 轮数
+	CheckGridWidth    = "grid_width"    // 仓库宽度
+	CheckGridHeight   = "grid_height"   // 仓库高度
+	CheckTopShare     = "top_share"     // 最贵一件占仓库价值的比例
+	CheckPriceValue   = "price_value"   // 成交价 ÷ 仓库价值
+	CheckBidCV        = "bid_cv"        // 出价离散度
+	CheckSpeedWin     = "speed_win"     // 速胜率
+	CheckAppraiseBias = "appraise_bias" // 人机估值 ÷ 仓库价值
+	CheckSeatEV       = "seat_ev"       // 每个真人席位的平均盈亏
+	CheckWinRate      = "win_rate"      // 有人机时每个真人席位拍下仓库的比例
+)
+
+// 闸门数值的单位
+const (
+	UnitCount  = "count"  // 个数
+	UnitBP     = "bp"     // 基点
+	UnitAmount = "amount" // 出价货币的最小单位
+)

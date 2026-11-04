@@ -156,7 +156,7 @@ func TestReadPackInvalid(t *testing.T) {
 
 func TestOrderPackSections(t *testing.T) {
 	got, err := orderPackSections([]string{PackSettings, PackItems, PackItems, PackCurrencies})
-	if want := []string{PackCurrencies, PackItems, PackSettings}; err != nil || !reflect.DeepEqual(got, want) {
+	if want := []string{PackCurrencies, PackSettings, PackItems}; err != nil || !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v %v, want %v", got, err, want)
 	}
 	if _, err := orderPackSections(nil); err == nil || err.Error() != PackSectionsRequired {
@@ -300,7 +300,7 @@ func TestSections(t *testing.T) {
 	for _, s := range Sections() {
 		codes = append(codes, s.Code)
 	}
-	want := []string{PackCurrencies, PackQualities, PackItems, PackLootPools, PackVenues, PackShopItems, PackLeaderboards, PackSettings}
+	want := []string{PackCurrencies, PackSettings, PackQualities, PackItems, PackLootPools, PackVenues, PackShopItems, PackLeaderboards}
 	if !reflect.DeepEqual(codes, want) {
 		t.Errorf("sections = %v, want %v", codes, want)
 	}

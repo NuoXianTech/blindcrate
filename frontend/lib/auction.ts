@@ -55,6 +55,21 @@ export function formatRatio(bp: number) {
   return (bp / BASIS_POINTS).toFixed(1);
 }
 
+/** 基点格式化为百分比, 如 7500 -> "75%" */
+export function formatRate(bp: number) {
+  return `${(bp / 100).toLocaleString('zh-CN', {maximumFractionDigits: 2})}%`;
+}
+
+/** 最贵的一件在第几轮公开: 最后一轮, 件数不够时为最后一件 */
+export function finaleOrder(rounds: number, pieceCount: number) {
+  return Math.min(rounds, pieceCount);
+}
+
+/** 一组变动中某种货币的金额, 如入场代价中的入场费 */
+export function amountIn(bundle: { currencies?: { currency: string; amount: number }[] }, currency: string) {
+  return (bundle.currencies ?? []).filter((c) => c.currency === currency).reduce((sum, c) => sum + c.amount, 0);
+}
+
 /** 开箱扫描的进度 */
 export interface ScanProgress {
   /** 已扫描完的件数, 按扫描顺序前这么多件已公开 */

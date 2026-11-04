@@ -376,6 +376,7 @@ func adminRoutes(r *gin.RouterGroup) {
 		venueAdminRouter.GET("", venueadmin.ListVenues)
 		venueAdminRouter.POST("", venueadmin.CreateVenue)
 		venueAdminRouter.POST("/simulate", ratelimit.ByUser("admin:venue_simulate", ratelimit.PerMinute(30)), venueadmin.SimulateVenue)
+		venueAdminRouter.POST("/recalibrate", ratelimit.ByUser("admin:venue_recalibrate", ratelimit.PerMinute(2)), venueadmin.RecalibrateVenues)
 		venueAdminRouter.PUT("/:id", venueadmin.UpdateVenue)
 		venueAdminRouter.DELETE("/:id", venueadmin.DeleteVenue)
 	}

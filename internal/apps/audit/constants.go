@@ -76,6 +76,7 @@ const (
 	ActionVenueCreate           = "admin.venue_create"
 	ActionVenueUpdate           = "admin.venue_update"
 	ActionVenueDelete           = "admin.venue_delete"
+	ActionVenueRecalibrate      = "admin.venue_recalibrate"
 	ActionMatchCancel           = "admin.match_cancel"
 	ActionLeaderboardCreate     = "admin.leaderboard_create"
 	ActionLeaderboardUpdate     = "admin.leaderboard_update"

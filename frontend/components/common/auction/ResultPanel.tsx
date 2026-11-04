@@ -10,7 +10,7 @@ import {Button} from '@/components/ui/button';
 import {TierName} from '@/components/common/ranked';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {ROUTES, matchHref} from '@/lib/access';
-import {OUTCOMES, parseMode} from '@/lib/auction';
+import {amountIn, OUTCOMES, parseMode} from '@/lib/auction';
 import {tierOf} from '@/lib/ranked';
 import services from '@/lib/services';
 import {AUCTION_OUTCOME, type AuctionView} from '@/lib/services/auction';
@@ -78,10 +78,18 @@ export function ResultPanel({view, players, decimals, finished, released}: {
     }
   };
 
+  const fee = amountIn(view.self.entry_cost, view.venue.bid_currency);
+  const share = result.seats.find((s) => s.seat === view.self.seat)?.share ?? 0;
+  const paid = result.seats.reduce((sum, s) => sum + s.share, 0);
   const rows = [
     {label: '成交价', value: sold ? formatAmount(result.price, decimals) : '-'},
     {label: '仓库价值', value: formatAmount(result.value, decimals)},
   ];
+  if (result.pool > 0) {
+    // 没有出过价的真人输家时奖池销毁
+    rows.push({label: paid > 0 ? '奖池' : '奖池 (无人可分)', value: formatAmount(result.pool, decimals)});
+    if (!winner?.is_self) rows.push({label: '我分到', value: formatAmount(share, decimals)});
+  }
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border bg-card p-4">
@@ -115,6 +123,12 @@ export function ResultPanel({view, players, decimals, finished, released}: {
         >
           {formatAmount(result.profit, decimals, {signed: true})}
         </span>
+        {sold && (fee > 0 || share > 0) && (
+          <span className="text-xs text-muted-foreground">
+            含入场费 {formatAmount(-fee, decimals, {signed: true})}
+            {share > 0 && `, 奖池分红 ${formatAmount(share, decimals, {signed: true})}`}
+          </span>
+        )}
       </div>
 
       {rated && (

@@ -34,17 +34,37 @@ export interface Grid {
   height: number;
 }
 
-/** 拍卖参数, 金额按出价货币的最小单位, 对应后端 venue.AuctionRule */
+/**
+ * 拍卖参数, 金额按出价货币的最小单位, 对应后端 venue.AuctionRule
+ *
+ * 管理员只配置轮次、时长和速胜倍率; 金额和比例由保存时模拟的仓库价值分布推导, 旧数据中为 0
+ */
 export interface AuctionRule {
-  start_price: number;
-  /** 开局时冻结 min(可用余额, 上限), 出价不能超过它 */
-  max_carry: number;
   rounds: number;
   round_seconds: number;
   reveal_seconds: number;
-  /** 前 rounds-1 轮的速胜倍率, 基点 */
+  /** 前 rounds-1 轮的速胜倍率, 基点; 第一名不低于第二名的这么多倍且不低于速胜下限时直接成交 */
   quick_win: number[];
   max_extra_rounds: number;
+  /** 出价货币的入场费, 开局时与入场代价一起扣除 */
+  entry_fee: number;
+  start_price: number;
+  /** 开局时冻结 min(可用余额, 上限), 出价不能超过它 */
+  max_carry: number;
+  /** 人机的带入资金, 不超过带入资金上限; 旧地图为 0, 按带入资金上限 */
+  bot_carry: number;
+  /** 速胜时第一名的出价不能低于它 */
+  speed_floor: number;
+  /** 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让) */
+  lead_discount: number;
+  /** 入场费进奖池的比例, 基点 */
+  pool_rate: number;
+  /** 真人成交价超过仓库价值时, 超出部分进奖池的比例, 基点 */
+  rebate_rate: number;
+  /** 每局进奖池的超付部分的上限 */
+  rebate_cap: number;
+  /** 压轴揭示: 最后一轮公开品质的是仓库里最贵的一件 */
+  finale: boolean;
 }
 
 /** 玩家看到的人机模式参数 */

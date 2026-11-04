@@ -27,6 +27,7 @@ package bot
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math/rand/v2"
 	"regexp"
 	"slices"
@@ -131,38 +132,48 @@ func Assign(tx *gorm.DB, weights []Weight, n int) ([]Snapshot, error) {
 	if n <= 0 {
 		return nil, nil
 	}
+	candidates, picks, err := Candidates(tx, weights)
+	if err != nil {
+		return nil, err
+	}
+	snapshots := make([]Snapshot, n)
+	for i := range snapshots {
+		picked := candidates[loot.PickIndex(picks)]
+		snapshots[i] = picked
+		snapshots[i].Params = maps.Clone(picked.Params)
+	}
+	return snapshots, nil
+}
+
+// Candidates 出场的风格的快照和权重, 与 weights 的顺序相同, 用于 Assign 和模拟对局; 出错的情况同 Assign
+func Candidates(tx *gorm.DB, weights []Weight) ([]Snapshot, []int64, error) {
 	if len(weights) == 0 {
-		return nil, errors.New("bot: no persona configured")
+		return nil, nil, errors.New("bot: no persona configured")
 	}
 	codes := make([]string, len(weights))
 	picks := make([]int64, len(weights))
 	for i, w := range weights {
 		if w.Weight <= 0 {
-			return nil, fmt.Errorf("bot: invalid weight of persona %s", w.Persona)
+			return nil, nil, fmt.Errorf("bot: invalid weight of persona %s", w.Persona)
 		}
 		codes[i], picks[i] = w.Persona, int64(w.Weight)
 	}
 	var personas []Persona
 	if err := tx.Where("code IN ?", codes).Find(&personas).Error; err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	byCode := make(map[string]*Persona, len(personas))
-	for i := range personas {
-		if strategies[personas[i].Strategy] == nil {
-			return nil, fmt.Errorf("bot: strategy %s of persona %s not registered", personas[i].Strategy, personas[i].Code)
+	snapshots := make([]Snapshot, len(codes))
+	for i, code := range codes {
+		j := slices.IndexFunc(personas, func(p Persona) bool { return p.Code == code })
+		switch {
+		case j < 0:
+			return nil, nil, fmt.Errorf("bot: persona %s not found", code)
+		case strategies[personas[j].Strategy] == nil:
+			return nil, nil, fmt.Errorf("bot: strategy %s of persona %s not registered", personas[j].Strategy, code)
 		}
-		byCode[personas[i].Code] = &personas[i]
+		snapshots[i] = personas[j].Snapshot()
 	}
-	for _, code := range codes {
-		if byCode[code] == nil {
-			return nil, fmt.Errorf("bot: persona %s not found", code)
-		}
-	}
-	snapshots := make([]Snapshot, n)
-	for i := range snapshots {
-		snapshots[i] = byCode[codes[loot.PickIndex(picks)]].Snapshot()
-	}
-	return snapshots, nil
+	return snapshots, picks, nil
 }
 
 // PickNames 为一局的 n 个人机随机选取启用的昵称, 同一局不重复; 不够时用 "玩家" 加四位数字补齐

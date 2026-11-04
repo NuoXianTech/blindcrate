@@ -473,6 +473,8 @@ CREATE TABLE IF NOT EXISTS auction_matches
     outcome      VARCHAR(16) NOT NULL DEFAULT '',   -- 结算前为空, 之后为 sold、unsold 或 cancelled
     winner_seat  SMALLINT    NOT NULL DEFAULT 0,    -- 成交者的座位, 没有成交时为 0
     price        BIGINT      NOT NULL DEFAULT 0,    -- 成交价
+    pool         BIGINT      NOT NULL DEFAULT 0,    -- 奖池, 分给出过价的真人输家, 没有人可分时销毁
+    rebate       BIGINT      NOT NULL DEFAULT 0,    -- 奖池中来自成交者超付的部分
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     settled_at   TIMESTAMPTZ                        -- 结算或取消的时间
@@ -488,14 +490,15 @@ CREATE TABLE IF NOT EXISTS auction_players
     persona      JSONB       NOT NULL DEFAULT '{}',  -- 人机的风格, 开局时快照, 真人为空
     seed         BIGINT      NOT NULL DEFAULT 0,     -- 人机在这一局的随机种子, 真人为 0
     is_practice  BOOLEAN     NOT NULL DEFAULT FALSE, -- 练习局, 不扣入场代价、不冻结资金、不发藏品、不写统计
-    entry_cost   JSONB       NOT NULL DEFAULT '{}',  -- 实际扣除的入场代价
+    entry_cost   JSONB       NOT NULL DEFAULT '{}',  -- 实际扣除的入场费和入场代价
     carry        BIGINT      NOT NULL DEFAULT 0,     -- 带入资金, 出价的上限
     frozen       BIGINT      NOT NULL DEFAULT 0,     -- 冻结的带入资金
     estimate     BIGINT      NOT NULL DEFAULT 0,     -- 人机按公开信息的最新估值, 真人为 0
     bid          BIGINT      NOT NULL DEFAULT 0,     -- 当前出价
     bid_at       TIMESTAMPTZ,                        -- 当前出价的提交时间
     feedback     JSONB       NOT NULL DEFAULT '[]',  -- 每轮结束后的反馈, 人机也有, 用于决策
-    profit       BIGINT      NOT NULL DEFAULT 0,     -- 结算后的盈亏
+    profit       BIGINT      NOT NULL DEFAULT 0,     -- 结算后的盈亏, 含分到的奖池
+    share        BIGINT      NOT NULL DEFAULT 0,     -- 分到的奖池
     rating_delta INTEGER     NOT NULL DEFAULT 0,     -- 本局段位分的变化, 只有排位成交时有
     rating       INTEGER     NOT NULL DEFAULT 0,     -- 结算后的段位分, 只有排位成交时有
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),

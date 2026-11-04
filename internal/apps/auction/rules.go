@@ -67,8 +67,10 @@ func sortBidders(bidders []bidder) []bidder {
 
 // judge 判定第 round 轮, extraRounds 为之前已加的轮数
 //
-//   - 最后一轮之前: 至少两人出过价, 且第一名不低于第二名 × 本轮速胜倍率时, 第一名成交
+//   - 最后一轮之前: 至少两人出过价, 且第一名不低于第二名 × 本轮速胜倍率、不低于速胜下限时, 第一名成交
 //   - 最后一轮及加轮: 没人出过价时流拍; 最高价唯一时成交; 并列时只让并列的人加轮, 加轮用完后先出价的人成交
+//
+// 成交价见 settlePrice。
 func judge(rule *venue.AuctionRule, round, extraRounds int32, bidders []bidder) verdict {
 	sorted := sortBidders(bidders)
 	var top, second bidder
@@ -81,8 +83,8 @@ func judge(rule *venue.AuctionRule, round, extraRounds int32, bidders []bidder) 
 
 	if round < rule.Rounds {
 		quickWin := int64(rule.QuickWin[round-1])
-		if second.Bid > 0 && top.Bid > second.Bid && top.Bid*venue.BasisPoints >= second.Bid*quickWin {
-			return verdict{Outcome: OutcomeSold, Winner: top.Seat, Price: top.Bid}
+		if second.Bid > 0 && top.Bid > second.Bid && top.Bid*venue.BasisPoints >= second.Bid*quickWin && top.Bid >= rule.SpeedFloor {
+			return verdict{Outcome: OutcomeSold, Winner: top.Seat, Price: settlePrice(rule, top.Bid, second.Bid)}
 		}
 		return verdict{}
 	}
@@ -100,7 +102,96 @@ func judge(rule *venue.AuctionRule, round, extraRounds int32, bidders []bidder) 
 		slices.Sort(tied)
 		return verdict{Contenders: tied}
 	}
-	return verdict{Outcome: OutcomeSold, Winner: top.Seat, Price: top.Bid}
+	return verdict{Outcome: OutcomeSold, Winner: top.Seat, Price: settlePrice(rule, top.Bid, second.Bid)}
+}
+
+// settlePrice 成交价: 第二名的出价加上第一名领先部分 × (1 - 领先折让); 没有第二名时按起拍价算, 并列时就是最高价
+//
+// 只按最高价成交时赢家总是买贵, 按第二名的出价成交时赢家白捡; 折让由保存地图时的验算求出, 让成交价平均落在仓库价值 × (1 - 出售手续费率)。
+func settlePrice(rule *venue.AuctionRule, top, second int64) int64 {
+	base := max(second, rule.StartPrice)
+	if top <= base {
+		return top
+	}
+	return base + (top-base)*int64(venue.BasisPoints-rule.LeadDiscount)/venue.BasisPoints
+}
+
+// revealOrders 公开品质的顺序, 返回每件藏品的顺序, 从 1 开始; 没有压轴揭示时全部随机
+//
+// 压轴揭示: 最贵的一件在最后一轮公开(件数不够时为最后一件), 其余随机, 之前公开的都不是最贵的, 最后一轮才知道仓库里最好的是什么。
+// 价值只算出价货币的回收价, 一样贵时取摆放顺序在前的。perm 返回 [0, n) 的随机排列。
+func revealOrders(pieces []venue.Piece, currency string, rounds int32, finale bool, perm func(n int) []int) []int32 {
+	orders := make([]int32, len(pieces))
+	if len(pieces) == 0 {
+		return orders
+	}
+	if !finale {
+		for i, p := range perm(len(pieces)) {
+			orders[i] = int32(p + 1)
+		}
+		return orders
+	}
+	worth := func(p venue.Piece) int64 {
+		if p.SellCurrency == currency {
+			return p.SellPrice
+		}
+		return 0
+	}
+	top := 0
+	for i, piece := range pieces {
+		if worth(piece) > worth(pieces[top]) {
+			top = i
+		}
+	}
+	last := int32(min(int(rounds), len(pieces)))
+	rest := perm(len(pieces) - 1)
+	for i := range pieces {
+		switch {
+		case i == top:
+			orders[i] = last
+		case i < top:
+			orders[i] = int32(rest[i] + 1)
+		default:
+			orders[i] = int32(rest[i-1] + 1)
+		}
+		// 其余的顺序跳过压轴的那一个
+		if i != top && orders[i] >= last {
+			orders[i]++
+		}
+	}
+	return orders
+}
+
+// shareWeights 奖池按名次分配的权重, 名次更后的都按最后一个
+var shareWeights = []int64{3, 2, 1}
+
+// splitPool 成交后的奖池和分配, 不读写数据库
+//
+// fees 为正式局真人缴纳的入场费之和, 按进奖池比例进入奖池; overpay 为正式局真人成交时成交价超出仓库价值的部分, 其他情况为 0,
+// 按比例进入奖池且不超过上限。奖池分给 eligible(正式局出过价的真人输家, 按名次排好), 权重见 shareWeights, 除不尽的零头给名次最前的人;
+// 没有人可分时奖池销毁, 返回的 shares 为空。
+func splitPool(rule *venue.AuctionRule, fees, overpay int64, eligible []int16) (pool, rebate int64, shares map[int16]int64) {
+	if overpay > 0 {
+		rebate = min(overpay*int64(rule.RebateRate)/venue.BasisPoints, rule.RebateCap)
+	}
+	pool = fees*int64(rule.PoolRate)/venue.BasisPoints + rebate
+	if pool <= 0 || len(eligible) == 0 {
+		return pool, rebate, nil
+	}
+	weights := make([]int64, len(eligible))
+	var total int64
+	for i := range eligible {
+		weights[i] = shareWeights[min(i, len(shareWeights)-1)]
+		total += weights[i]
+	}
+	shares = make(map[int16]int64, len(eligible))
+	paid := int64(0)
+	for i, seat := range eligible {
+		shares[seat] = pool * weights[i] / total
+		paid += shares[seat]
+	}
+	shares[eligible[0]] += pool - paid
+	return pool, rebate, shares
 }
 
 // rankSeats 成交后的名次, 从 1 开始且不重复

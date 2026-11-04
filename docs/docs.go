@@ -7375,7 +7375,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "保存前模拟 10000 个仓库, 摆放失败率超过 1% 时拒绝; 模拟结果写入 simulation",
+                "description": "保存前模拟 10000 个仓库, 摆放失败率超过 1% 时拒绝; 再按价值分布推导拍卖的金额和比例并验算对局, 启用的地图验算未通过时拒绝; 结果写入 simulation",
                 "consumes": [
                     "application/json"
                 ],
@@ -7449,9 +7449,65 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/venues/recalibrate": {
+            "post": {
+                "description": "修改玩法平衡设置后使用: 按当前设置逐个重新模拟、推导拍卖参数并验算对局; 启用的地图验算未通过时不保存, 保留原来的参数; 进行中的对局不受影响",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "重新推导全部地图",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/venueadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/venueadmin.RecalibrateResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/venueadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/venueadmin.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/venueadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/venueadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/venues/simulate": {
             "post": {
-                "description": "按保存时的规则校验并模拟 10000 个仓库, 返回价值分布, 不保存",
+                "description": "按保存时的规则校验并模拟 10000 个仓库, 推导拍卖参数并验算对局, 返回结果, 不保存; 验算未通过时不拒绝",
                 "consumes": [
                     "application/json"
                 ],
@@ -7485,7 +7541,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/venue.Simulation"
+                                            "$ref": "#/definitions/venueadmin.SimulateResponseData"
                                         }
                                     }
                                 }
@@ -7527,7 +7583,7 @@ const docTemplate = `{
         },
         "/api/v1/admin/venues/{id}": {
             "put": {
-                "description": "需提交全部字段, 代码不能修改; 每次保存都会重新模拟仓库; 进行中的对局使用开局时的快照, 不受影响",
+                "description": "需提交全部字段, 代码不能修改; 每次保存都会重新模拟仓库、推导拍卖参数并验算对局, 启用的地图验算未通过时拒绝; 进行中的对局使用开局时的快照, 不受影响",
                 "consumes": [
                     "application/json"
                 ],
@@ -11400,7 +11456,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "entry_cost": {
-                    "description": "实际扣除的入场代价, 练习局和人机为空",
+                    "description": "实际扣除的入场费和入场代价, 练习局和人机为空",
                     "allOf": [
                         {
                             "$ref": "#/definitions/reward.Bundle"
@@ -11441,7 +11497,7 @@ const docTemplate = `{
                     ]
                 },
                 "profit": {
-                    "description": "结算后的盈亏, 出价货币; 练习局按正式局计算",
+                    "description": "结算后的盈亏, 出价货币, 含分到的奖池; 练习局按正式局计算",
                     "type": "integer"
                 },
                 "rating": {
@@ -11453,6 +11509,10 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "seat": {
+                    "type": "integer"
+                },
+                "share": {
+                    "description": "分到的奖池, 只有出过价的正式局真人输家有",
                     "type": "integer"
                 },
                 "updated_at": {
@@ -11498,6 +11558,10 @@ const docTemplate = `{
                         "$ref": "#/definitions/auction.PieceView"
                     }
                 },
+                "pool": {
+                    "description": "奖池, 分给出过价的真人输家, 见 SeatResult.Share; 没有人可分时销毁",
+                    "type": "integer"
+                },
                 "price": {
                     "type": "integer"
                 },
@@ -11511,6 +11575,10 @@ const docTemplate = `{
                 },
                 "rating_delta": {
                     "description": "自己段位分的变化, 只有排位成交时有; 管理员查看时为 0",
+                    "type": "integer"
+                },
+                "rebate": {
+                    "description": "奖池中来自成交者超付的部分",
                     "type": "integer"
                 },
                 "scan_from": {
@@ -11554,6 +11622,10 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "seat": {
+                    "type": "integer"
+                },
+                "share": {
+                    "description": "分到的奖池",
                     "type": "integer"
                 },
                 "uses": {
@@ -11838,8 +11910,20 @@ const docTemplate = `{
                 "code": {
                     "type": "string"
                 },
+                "entry_fee": {
+                    "description": "入场费等以下字段见 venue.AuctionRule, 旧对局为 0",
+                    "type": "integer"
+                },
+                "finale": {
+                    "description": "压轴揭示: 最后一轮公开品质的是仓库里最贵的一件",
+                    "type": "boolean"
+                },
                 "grid": {
                     "$ref": "#/definitions/venue.Grid"
+                },
+                "lead_discount": {
+                    "description": "领先折让, 基点",
+                    "type": "integer"
                 },
                 "max_extra_rounds": {
                     "type": "integer"
@@ -11851,6 +11935,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "pool_rate": {
+                    "description": "入场费进奖池的比例, 基点",
+                    "type": "integer"
+                },
                 "quick_win": {
                     "description": "前 Rounds-1 轮的速胜倍率, 基点",
                     "type": "array",
@@ -11858,7 +11946,19 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
+                "rebate_cap": {
+                    "description": "超付部分进奖池的上限",
+                    "type": "integer"
+                },
+                "rebate_rate": {
+                    "description": "超付部分进奖池的比例, 基点",
+                    "type": "integer"
+                },
                 "rounds": {
+                    "type": "integer"
+                },
+                "speed_floor": {
+                    "description": "速胜下限",
                     "type": "integer"
                 },
                 "start_price": {
@@ -17163,11 +17263,25 @@ const docTemplate = `{
         "venue.AuctionRule": {
             "type": "object",
             "properties": {
+                "bot_carry": {
+                    "description": "人机的带入资金, 不超过带入资金上限; 价值远高于期望的仓库人机追不上",
+                    "type": "integer"
+                },
+                "entry_fee": {
+                    "description": "出价货币的入场费, 开局时与入场代价一起扣除",
+                    "type": "integer"
+                },
+                "finale": {
+                    "description": "压轴揭示: 最后一轮公开品质的是仓库里最贵的一件",
+                    "type": "boolean"
+                },
+                "lead_discount": {
+                    "description": "领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 不低于起拍价",
+                    "type": "integer"
+                },
                 "max_carry": {
-                    "description": "开局时冻结 min(可用余额, 上限), 出价不能超过它",
-                    "type": "integer",
-                    "maximum": 1000000000000,
-                    "minimum": 1
+                    "description": "带入资金上限, 开局时冻结 min(可用余额, 上限), 出价不能超过它",
+                    "type": "integer"
                 },
                 "max_extra_rounds": {
                     "description": "最后一轮最高价并列时加轮, 之后按先出价的人成交",
@@ -17175,13 +17289,25 @@ const docTemplate = `{
                     "maximum": 5,
                     "minimum": 0
                 },
+                "pool_rate": {
+                    "description": "入场费进奖池的比例, 基点, 其余销毁; 成交后奖池分给出过价的真人输家",
+                    "type": "integer"
+                },
                 "quick_win": {
-                    "description": "前 Rounds-1 轮的速胜倍率, 基点; 第一名不低于第二名的这么多倍时直接成交",
+                    "description": "前 Rounds-1 轮的速胜倍率, 基点; 第一名不低于第二名的这么多倍且不低于速胜下限时直接成交",
                     "type": "array",
                     "maxItems": 9,
                     "items": {
                         "type": "integer"
                     }
+                },
+                "rebate_cap": {
+                    "description": "每局进奖池的超付部分的上限",
+                    "type": "integer"
+                },
+                "rebate_rate": {
+                    "description": "真人成交价超过仓库价值时, 超出部分进奖池的比例, 基点",
+                    "type": "integer"
                 },
                 "reveal_seconds": {
                     "description": "全部藏品扫描完后再停留的时长, 扫描时长见品质的 scan_ms",
@@ -17199,10 +17325,47 @@ const docTemplate = `{
                     "maximum": 10,
                     "minimum": 1
                 },
+                "speed_floor": {
+                    "description": "速胜下限, 速胜时第一名的出价不能低于它",
+                    "type": "integer"
+                },
                 "start_price": {
-                    "type": "integer",
-                    "maximum": 1000000000000,
-                    "minimum": 1
+                    "description": "起拍价",
+                    "type": "integer"
+                }
+            }
+        },
+        "venue.Balance": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.Check"
+                    }
+                },
+                "passed": {
+                    "description": "全部闸门通过, 未通过的地图不能启用",
+                    "type": "boolean"
+                },
+                "runs": {
+                    "description": "每种阵容模拟的局数",
+                    "type": "integer"
+                },
+                "squads": {
+                    "description": "参考阵容在前",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.SquadStats"
+                    }
+                },
+                "target": {
+                    "description": "成交价 ÷ 仓库价值的目标, 基点, 为 1 - 出售手续费率, 系统收支在这里平衡",
+                    "type": "integer"
+                },
+                "version": {
+                    "description": "Version 推导和验算时玩法平衡设置的版本, 与当前版本不同时需要重新推导",
+                    "type": "integer"
                 }
             }
         },
@@ -17222,6 +17385,38 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/bot.Weight"
                     }
+                }
+            }
+        },
+        "venue.Check": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "见 constants.go 的 Check",
+                    "type": "string"
+                },
+                "max": {
+                    "description": "上限, 为空表示不限",
+                    "type": "integer"
+                },
+                "min": {
+                    "description": "下限, 为空表示不限",
+                    "type": "integer"
+                },
+                "passed": {
+                    "type": "boolean"
+                },
+                "squad": {
+                    "description": "按阵容判定时为阵容",
+                    "type": "string"
+                },
+                "unit": {
+                    "description": "见 constants.go 的 Unit",
+                    "type": "string"
+                },
+                "value": {
+                    "description": "单位见 Unit",
+                    "type": "integer"
                 }
             }
         },
@@ -17374,6 +17569,14 @@ const docTemplate = `{
         "venue.Simulation": {
             "type": "object",
             "properties": {
+                "balance": {
+                    "description": "对局验算, 旧数据为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.Balance"
+                        }
+                    ]
+                },
                 "pve": {
                     "description": "人机模式, 按仓库价值系数缩放抽取次数",
                     "allOf": [
@@ -17466,6 +17669,67 @@ const docTemplate = `{
                 }
             }
         },
+        "venue.SquadStats": {
+            "type": "object",
+            "properties": {
+                "appraise_bias": {
+                    "description": "人机估值之和 ÷ 仓库价值之和, 没有人机时为 0",
+                    "type": "integer"
+                },
+                "avg_rounds": {
+                    "description": "平均在第几轮结束, 百分之一轮",
+                    "type": "integer"
+                },
+                "bid_cv": {
+                    "description": "出价离散度: 每局出过价的人的出价变异系数 ÷ √3 的平均值",
+                    "type": "integer"
+                },
+                "humans": {
+                    "description": "真人数, 其余为人机",
+                    "type": "integer"
+                },
+                "loser_ev": {
+                    "description": "真人没成交时的平均盈亏, 含奖池分红",
+                    "type": "integer"
+                },
+                "price_value": {
+                    "description": "成交价之和 ÷ 仓库价值之和",
+                    "type": "integer"
+                },
+                "seat_ev": {
+                    "description": "每个真人席位每局的平均盈亏, 藏品按扣掉出售手续费后的回收价计",
+                    "type": "integer"
+                },
+                "share": {
+                    "description": "每局发给真人输家的奖池合计的平均值",
+                    "type": "integer"
+                },
+                "sold": {
+                    "description": "成交率",
+                    "type": "integer"
+                },
+                "speed_win": {
+                    "description": "速胜率, 最后一轮之前成交的比例",
+                    "type": "integer"
+                },
+                "squad": {
+                    "description": "见 constants.go 的 Squad",
+                    "type": "string"
+                },
+                "top_share": {
+                    "description": "最贵一件占仓库价值的比例的平均值",
+                    "type": "integer"
+                },
+                "win_rate": {
+                    "description": "每个真人席位的成交率",
+                    "type": "integer"
+                },
+                "winner_ev": {
+                    "description": "真人成交时的平均盈亏",
+                    "type": "integer"
+                }
+            }
+        },
         "venue.Swing": {
             "type": "object",
             "properties": {
@@ -17499,6 +17763,10 @@ const docTemplate = `{
         "venue.ValueStats": {
             "type": "object",
             "properties": {
+                "cv": {
+                    "description": "变异系数, 标准差 ÷ 平均值, 基点",
+                    "type": "integer"
+                },
                 "failure_rate": {
                     "description": "摆放失败率, 基点",
                     "type": "integer"
@@ -17652,6 +17920,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "entry_cost": {
+                    "description": "开局时扣除的全部代价, 出价货币的入场费在前",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/venue.CostLine"
@@ -17718,6 +17987,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "entry_cost": {
+                    "description": "开局时扣除的全部代价, 出价货币的入场费在前",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/venue.CostLine"
@@ -17791,6 +18061,10 @@ const docTemplate = `{
         "venueadmin.ListVenuesResponseData": {
             "type": "object",
             "properties": {
+                "balance_version": {
+                    "description": "BalanceVersion 当前玩法平衡设置的版本, 与地图验算时的版本不同时需要重新推导",
+                    "type": "integer"
+                },
                 "total": {
                     "type": "integer"
                 },
@@ -17802,12 +18076,65 @@ const docTemplate = `{
                 }
             }
         },
+        "venueadmin.RecalibrateResponseData": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venueadmin.RecalibrateResult"
+                    }
+                },
+                "version": {
+                    "description": "用到的玩法平衡设置版本",
+                    "type": "integer"
+                }
+            }
+        },
+        "venueadmin.RecalibrateResult": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "未保存的原因, 一般是启用的地图验算未通过",
+                    "type": "string"
+                },
+                "updated": {
+                    "description": "是否已按当前设置保存",
+                    "type": "boolean"
+                }
+            }
+        },
         "venueadmin.Response": {
             "type": "object",
             "properties": {
                 "data": {},
                 "error_msg": {
                     "type": "string"
+                }
+            }
+        },
+        "venueadmin.SimulateResponseData": {
+            "type": "object",
+            "properties": {
+                "auction": {
+                    "description": "按模拟结果推导出的拍卖参数, 保存时相同",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.AuctionRule"
+                        }
+                    ]
+                },
+                "simulation": {
+                    "$ref": "#/definitions/venue.Simulation"
                 }
             }
         },

@@ -58,13 +58,13 @@ const (
 // 内置配置种类的依赖顺序, 见 Section.Order; 其他模块按引用关系选择中间的值, 如引用物品和地图的配置用 55
 const (
 	OrderCurrencies   = 10
+	OrderSettings     = 15 // 设置排在货币之后、地图之前: 地图保存时按玩法平衡和出售手续费推导金额
 	OrderQualities    = 20
 	OrderItems        = 30
 	OrderLootPools    = 40
 	OrderVenues       = 50
 	OrderShopItems    = 60
 	OrderLeaderboards = 70
-	OrderSettings     = 1000 // 设置排在最后
 )
 
 // 导入时一项配置与已有配置的比较结果

@@ -33,7 +33,9 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
+	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -56,6 +58,8 @@ type ListVenuesRequest struct {
 type ListVenuesResponseData struct {
 	Total  int64         `json:"total"`
 	Venues []venue.Venue `json:"venues"`
+	// BalanceVersion 当前玩法平衡设置的版本, 与地图验算时的版本不同时需要重新推导
+	BalanceVersion int64 `json:"balance_version"`
 }
 
 // ListVenues
@@ -83,12 +87,19 @@ func ListVenues(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListVenuesResponseData{Total: total, Venues: venues}})
+	_, version, err := settings.Balance.Load(db.DB(ctx))
+	if err != nil {
+		logger.ErrorF(ctx, "[ListVenues] load balance settings failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: ListVenuesResponseData{Total: total, Venues: venues, BalanceVersion: version}})
 }
 
 // VenueRequest 新建、修改或试算地图请求体
 //
 // 入场代价、入场条件和各项规则不在这里校验, 由 venue.Validate 校验, 提示更具体。
+// 拍卖参数中只有轮次、时长和速胜倍率由管理员配置, 金额和比例在校验时按模拟结果推导, 提交的值会被覆盖。
 type VenueRequest struct {
 	Code          string                `json:"code" binding:"required,max=24"` // 小写字母、数字和下划线, 创建后不能修改
 	Name          string                `json:"name" binding:"required,max=64"`
@@ -108,10 +119,16 @@ type VenueRequest struct {
 	Consumables   venue.ConsumableRule  `json:"consumables" binding:"-"` // 对局中使用道具的规则
 }
 
+// SimulateResponseData 试算结果
+type SimulateResponseData struct {
+	Simulation venue.Simulation  `json:"simulation"`
+	Auction    venue.AuctionRule `json:"auction"` // 按模拟结果推导出的拍卖参数, 保存时相同
+}
+
 // CreateVenue
 // @Tags admin
 // @Summary 新建地图
-// @Description 保存前模拟 10000 个仓库, 摆放失败率超过 1% 时拒绝; 模拟结果写入 simulation
+// @Description 保存前模拟 10000 个仓库, 摆放失败率超过 1% 时拒绝; 再按价值分布推导拍卖的金额和比例并验算对局, 启用的地图验算未通过时拒绝; 结果写入 simulation
 // @Accept json
 // @Produce json
 // @Param request body VenueRequest true "request body"
@@ -156,7 +173,7 @@ func CreateVenue(c *gin.Context) {
 // UpdateVenue
 // @Tags admin
 // @Summary 修改地图
-// @Description 需提交全部字段, 代码不能修改; 每次保存都会重新模拟仓库; 进行中的对局使用开局时的快照, 不受影响
+// @Description 需提交全部字段, 代码不能修改; 每次保存都会重新模拟仓库、推导拍卖参数并验算对局, 启用的地图验算未通过时拒绝; 进行中的对局使用开局时的快照, 不受影响
 // @Accept json
 // @Produce json
 // @Param id path int true "venue id"
@@ -248,11 +265,11 @@ func DeleteVenue(c *gin.Context) {
 // SimulateVenue
 // @Tags admin
 // @Summary 试算地图
-// @Description 按保存时的规则校验并模拟 10000 个仓库, 返回价值分布, 不保存
+// @Description 按保存时的规则校验并模拟 10000 个仓库, 推导拍卖参数并验算对局, 返回结果, 不保存; 验算未通过时不拒绝
 // @Accept json
 // @Produce json
 // @Param request body VenueRequest true "request body"
-// @Success 200 {object} Response{data=venue.Simulation}
+// @Success 200 {object} Response{data=SimulateResponseData}
 // @Failure 400 {object} Response
 // @Failure 401 {object} Response
 // @Failure 403 {object} Response
@@ -278,4 +295,57 @@ func SimulateVenue(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: simulation})
+}
+
+// RecalibrateResult 一个地图的重新推导结果
+type RecalibrateResult struct {
+	ID      uint64 `json:"id"`
+	Code    string `json:"code"`
+	Name    string `json:"name"`
+	Updated bool   `json:"updated"` // 是否已按当前设置保存
+	Reason  string `json:"reason"`  // 未保存的原因, 一般是启用的地图验算未通过
+}
+
+// RecalibrateResponseData 重新推导的结果
+type RecalibrateResponseData struct {
+	Version int64               `json:"version"` // 用到的玩法平衡设置版本
+	Results []RecalibrateResult `json:"results"`
+}
+
+// RecalibrateVenues
+// @Tags admin
+// @Summary 重新推导全部地图
+// @Description 修改玩法平衡设置后使用: 按当前设置逐个重新模拟、推导拍卖参数并验算对局; 启用的地图验算未通过时不保存, 保留原来的参数; 进行中的对局不受影响
+// @Produce json
+// @Success 200 {object} Response{data=RecalibrateResponseData}
+// @Failure 401 {object} Response
+// @Failure 403 {object} Response
+// @Failure 429 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/admin/venues/recalibrate [post]
+func RecalibrateVenues(c *gin.Context) {
+	ctx := c.Request.Context()
+	operator, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	data, err := doRecalibrateVenues(ctx)
+	if err != nil {
+		logger.ErrorF(ctx, "[RecalibrateVenues] recalibrate failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	updated := []string{}
+	for _, r := range data.Results {
+		if r.Updated {
+			updated = append(updated, r.Code)
+		}
+	}
+	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionVenueRecalibrate, audit.TargetVenue, 0, map[string]interface{}{
+		"balance_version": data.Version,
+		"updated":         updated,
+	})
+	logger.InfoF(ctx, "[RecalibrateVenues] %d recalibrated %d of %d venues with balance version %d", operator.ID, len(updated), len(data.Results), data.Version)
+	c.JSON(http.StatusOK, Response{Data: data})
 }

@@ -91,6 +91,17 @@ func (v *Venue) ModeEnabled(mode string) bool {
 	return false
 }
 
+// Entry 开局时扣除的全部代价: 出价货币的入场费在前, 之后是入场代价
+func (v *Venue) Entry() reward.Bundle {
+	var entry reward.Bundle
+	if v.Auction.EntryFee > 0 {
+		entry.Currencies = append(entry.Currencies, reward.CurrencyLine{Currency: v.BidCurrency, Amount: v.Auction.EntryFee})
+	}
+	entry.Currencies = append(entry.Currencies, v.EntryCost.Currencies...)
+	entry.Items = slices.Clone(v.EntryCost.Items)
+	return entry
+}
+
 // Grid 仓库的格子
 type Grid struct {
 	Width  int16 `json:"width" label:"仓库宽度" binding:"min=1,max=16"`
@@ -118,19 +129,39 @@ type Swing struct {
 type WarehouseRule struct {
 	Grid       Grid    `json:"grid" label:"仓库格子"`
 	Slots      []Slot  `json:"slots" label:"档位" binding:"min=1,max=8,dive"`
-	Swings     []Swing `json:"swings" label:"数量波动" binding:"max=8,dive"` // 为空表示不波动
+	Swings     []Swing `json:"swings" label:"数量波动" binding:"max=8,dive"`          // 为空表示不波动
 	MaxRerolls int32   `json:"max_rerolls" label:"重抽次数上限" binding:"min=0,max=50"` // 超过后开局失败
 }
 
 // AuctionRule 拍卖参数, 金额按出价货币的最小单位
+//
+// 管理员只配置轮次、时长和速胜倍率; 金额和结算比例由保存时模拟的仓库价值分布推导(见 Calibrate), 提交的值会被覆盖。
+// 旧数据中推导的字段为 0, 按旧规则进行: 不收入场费、速胜不限金额、按最高价成交、没有奖池, 重新保存后生效。
 type AuctionRule struct {
-	StartPrice     int64   `json:"start_price" label:"起拍价" binding:"min=1,max=1000000000000"`
-	MaxCarry       int64   `json:"max_carry" label:"带入资金上限" binding:"min=1,max=1000000000000"` // 开局时冻结 min(可用余额, 上限), 出价不能超过它
 	Rounds         int32   `json:"rounds" label:"轮数" binding:"min=1,max=10"`
 	RoundSeconds   int32   `json:"round_seconds" label:"每轮时长" binding:"min=5,max=120"`
 	RevealSeconds  int32   `json:"reveal_seconds" label:"开箱后停留时长" binding:"min=3,max=60"`            // 全部藏品扫描完后再停留的时长, 扫描时长见品质的 scan_ms
-	QuickWin       []int32 `json:"quick_win" label:"速胜倍率" binding:"max=9,dive,min=10000,max=100000"` // 前 Rounds-1 轮的速胜倍率, 基点; 第一名不低于第二名的这么多倍时直接成交
+	QuickWin       []int32 `json:"quick_win" label:"速胜倍率" binding:"max=9,dive,min=10000,max=100000"` // 前 Rounds-1 轮的速胜倍率, 基点; 第一名不低于第二名的这么多倍且不低于速胜下限时直接成交
 	MaxExtraRounds int32   `json:"max_extra_rounds" label:"加轮上限" binding:"min=0,max=5"`              // 最后一轮最高价并列时加轮, 之后按先出价的人成交
+
+	EntryFee     int64 `json:"entry_fee"`     // 出价货币的入场费, 开局时与入场代价一起扣除
+	StartPrice   int64 `json:"start_price"`   // 起拍价
+	MaxCarry     int64 `json:"max_carry"`     // 带入资金上限, 开局时冻结 min(可用余额, 上限), 出价不能超过它
+	BotCarry     int64 `json:"bot_carry"`     // 人机的带入资金, 不超过带入资金上限; 价值远高于期望的仓库人机追不上
+	SpeedFloor   int64 `json:"speed_floor"`   // 速胜下限, 速胜时第一名的出价不能低于它
+	LeadDiscount int32 `json:"lead_discount"` // 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 不低于起拍价
+	PoolRate     int32 `json:"pool_rate"`     // 入场费进奖池的比例, 基点, 其余销毁; 成交后奖池分给出过价的真人输家
+	RebateRate   int32 `json:"rebate_rate"`   // 真人成交价超过仓库价值时, 超出部分进奖池的比例, 基点
+	RebateCap    int64 `json:"rebate_cap"`    // 每局进奖池的超付部分的上限
+	Finale       bool  `json:"finale"`        // 压轴揭示: 最后一轮公开品质的是仓库里最贵的一件
+}
+
+// BotBudget 人机的带入资金; 推导出它之前保存的地图为带入资金上限
+func (r *AuctionRule) BotBudget() int64 {
+	if r.BotCarry > 0 {
+		return r.BotCarry
+	}
+	return r.MaxCarry
 }
 
 // BotRule 人机风格: 每个模式出场的风格和权重, 开局时每个人机按权重随机选一种; 开放的模式至少配置一种
@@ -193,15 +224,59 @@ type ValueStats struct {
 	P50         int64 `json:"p50"`
 	P90         int64 `json:"p90"`
 	Max         int64 `json:"max"`
+	CV          int32 `json:"cv"`          // 变异系数, 标准差 ÷ 平均值, 基点
 	MeanPieces  int32 `json:"mean_pieces"` // 平均藏品件数, 向下取整
 }
 
 // Simulation 保存地图时模拟的结果
 type Simulation struct {
 	Runs        int        `json:"runs"`
-	Ranked      ValueStats `json:"ranked"` // 排位模式, 不缩放抽取次数
-	Pve         ValueStats `json:"pve"`    // 人机模式, 按仓库价值系数缩放抽取次数
+	Ranked      ValueStats `json:"ranked"`  // 排位模式, 不缩放抽取次数
+	Pve         ValueStats `json:"pve"`     // 人机模式, 按仓库价值系数缩放抽取次数
+	Balance     *Balance   `json:"balance"` // 对局验算, 旧数据为空
 	SimulatedAt time.Time  `json:"simulated_at"`
+}
+
+// Balance 对局验算: 按推导出的拍卖参数模拟几种阵容的对局, 检查成交价、速胜和盈亏是否落在安全区间
+//
+// 真人按模拟的估值误差出价, 人机按地图配置的风格出价; 结构类的闸门只看 4 个真人的参考阵容, 有人机的阵容看人机估值和真人盈亏。
+type Balance struct {
+	Runs   int          `json:"runs"`   // 每种阵容模拟的局数
+	Target int32        `json:"target"` // 成交价 ÷ 仓库价值的目标, 基点, 为 1 - 出售手续费率, 系统收支在这里平衡
+	Squads []SquadStats `json:"squads"` // 参考阵容在前
+	Checks []Check      `json:"checks"`
+	Passed bool         `json:"passed"` // 全部闸门通过, 未通过的地图不能启用
+	// Version 推导和验算时玩法平衡设置的版本, 与当前版本不同时需要重新推导
+	Version int64 `json:"version"`
+}
+
+// SquadStats 一种阵容的验算结果, 金额为出价货币的最小单位, 比例为基点
+type SquadStats struct {
+	Squad        string `json:"squad"`         // 见 constants.go 的 Squad
+	Humans       int32  `json:"humans"`        // 真人数, 其余为人机
+	Sold         int32  `json:"sold"`          // 成交率
+	PriceValue   int32  `json:"price_value"`   // 成交价之和 ÷ 仓库价值之和
+	SpeedWin     int32  `json:"speed_win"`     // 速胜率, 最后一轮之前成交的比例
+	BidCV        int32  `json:"bid_cv"`        // 出价离散度: 每局出过价的人的出价变异系数 ÷ √3 的平均值
+	TopShare     int32  `json:"top_share"`     // 最贵一件占仓库价值的比例的平均值
+	AppraiseBias int32  `json:"appraise_bias"` // 人机估值之和 ÷ 仓库价值之和, 没有人机时为 0
+	AvgRounds    int32  `json:"avg_rounds"`    // 平均在第几轮结束, 百分之一轮
+	WinRate      int32  `json:"win_rate"`      // 每个真人席位的成交率
+	SeatEV       int64  `json:"seat_ev"`       // 每个真人席位每局的平均盈亏, 藏品按扣掉出售手续费后的回收价计
+	WinnerEV     int64  `json:"winner_ev"`     // 真人成交时的平均盈亏
+	LoserEV      int64  `json:"loser_ev"`      // 真人没成交时的平均盈亏, 含奖池分红
+	Share        int64  `json:"share"`         // 每局发给真人输家的奖池合计的平均值
+}
+
+// Check 验算的一项闸门
+type Check struct {
+	Code   string `json:"code"`            // 见 constants.go 的 Check
+	Squad  string `json:"squad,omitempty"` // 按阵容判定时为阵容
+	Value  int64  `json:"value"`           // 单位见 Unit
+	Min    *int64 `json:"min"`             // 下限, 为空表示不限
+	Max    *int64 `json:"max"`             // 上限, 为空表示不限
+	Unit   string `json:"unit"`            // 见 constants.go 的 Unit
+	Passed bool   `json:"passed"`
 }
 
 // Piece 仓库里的一件藏品, 坐标从 0 开始, 左上角为原点

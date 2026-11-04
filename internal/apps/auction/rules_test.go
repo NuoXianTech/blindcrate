@@ -25,6 +25,7 @@
 package auction
 
 import (
+	"math/rand/v2"
 	"slices"
 	"testing"
 	"time"
@@ -155,5 +156,109 @@ func TestScanOrders(t *testing.T) {
 	want := []int32{4, 1, 2, 3}
 	if got := scanOrders(pieces); !slices.Equal(got, want) {
 		t.Fatalf("scanOrders = %v, want %v", got, want)
+	}
+}
+
+func TestJudgeSpeedFloor(t *testing.T) {
+	rule := testRule
+	rule.SpeedFloor = 1000
+	if got := judge(&rule, 1, 0, []bidder{{1, 999, at(2)}, {2, 400, at(1)}}); got.Outcome != "" {
+		t.Errorf("below the floor should continue, got %+v", got)
+	}
+	if got := judge(&rule, 1, 0, []bidder{{1, 1000, at(2)}, {2, 400, at(1)}}); got.Outcome != OutcomeSold || got.Winner != 1 {
+		t.Errorf("at the floor should sell, got %+v", got)
+	}
+	// 最后一轮不看下限
+	if got := judge(&rule, 3, 0, []bidder{{1, 300, at(2)}, {2, 0, time.Time{}}}); got.Outcome != OutcomeSold || got.Price != 300 {
+		t.Errorf("last round ignores the floor, got %+v", got)
+	}
+}
+
+func TestSettlePrice(t *testing.T) {
+	rule := testRule
+	rule.LeadDiscount = 2000
+	cases := []struct {
+		name        string
+		top, second int64
+		want        int64
+	}{
+		{"discounted lead", 1000, 500, 900},
+		{"no second bidder starts from the start price", 600, 0, 500},
+		{"tie pays the bid", 800, 800, 800},
+		{"start price only", 100, 0, 100},
+	}
+	for _, c := range cases {
+		if got := settlePrice(&rule, c.top, c.second); got != c.want {
+			t.Errorf("%s: got %d, want %d", c.name, got, c.want)
+		}
+	}
+	if got := settlePrice(&testRule, 1000, 500); got != 1000 {
+		t.Errorf("no discount pays the top bid, got %d", got)
+	}
+	rule.QuickWin = []int32{20000, 16000}
+	if got := judge(&rule, 1, 0, []bidder{{1, 1000, at(2)}, {2, 500, at(1)}}); got.Price != 900 {
+		t.Errorf("quick win price: got %+v, want 900", got)
+	}
+}
+
+func TestRevealOrders(t *testing.T) {
+	pieces := []venue.Piece{
+		{SellCurrency: "chip", SellPrice: 100},
+		{SellCurrency: "gem", SellPrice: 9000},
+		{SellCurrency: "chip", SellPrice: 800},
+		{SellCurrency: "chip", SellPrice: 300},
+		{SellCurrency: "chip", SellPrice: 800},
+	}
+	for seed := range uint64(20) {
+		rng := rand.New(rand.NewPCG(seed, 1))
+		orders := revealOrders(pieces, "chip", 3, true, rng.Perm)
+		if orders[2] != 3 {
+			t.Fatalf("seed %d: the first most valuable piece should be revealed in round 3, got %v", seed, orders)
+		}
+		sorted := slices.Clone(orders)
+		slices.Sort(sorted)
+		if !slices.Equal(sorted, []int32{1, 2, 3, 4, 5}) {
+			t.Fatalf("seed %d: orders %v are not a permutation", seed, orders)
+		}
+	}
+	// 件数比轮数少时压轴的是最后一件
+	if orders := revealOrders(pieces[:2], "chip", 5, true, rand.New(rand.NewPCG(1, 1)).Perm); !slices.Equal(orders, []int32{2, 1}) {
+		t.Errorf("fewer pieces than rounds: got %v, want [2 1]", orders)
+	}
+	if orders := revealOrders(nil, "chip", 5, true, rand.Perm); len(orders) != 0 {
+		t.Errorf("empty warehouse: got %v", orders)
+	}
+	// 没有压轴揭示时全部随机
+	random := revealOrders(pieces, "chip", 3, false, func(n int) []int { return []int{4, 3, 2, 1, 0}[:n] })
+	if !slices.Equal(random, []int32{5, 4, 3, 2, 1}) {
+		t.Errorf("without finale: got %v, want [5 4 3 2 1]", random)
+	}
+}
+
+func TestSplitPool(t *testing.T) {
+	rule := venue.AuctionRule{PoolRate: 7500, RebateRate: 4000, RebateCap: 300}
+	pool, rebate, shares := splitPool(&rule, 1200, 500, []int16{3, 1, 4})
+	// 900 + min(200, 300) = 1100, 按 3:2:1 分为 550、366、183, 零头 1 给第一个
+	if pool != 1100 || rebate != 200 {
+		t.Fatalf("pool %d rebate %d, want 1100 and 200", pool, rebate)
+	}
+	want := map[int16]int64{3: 551, 1: 366, 4: 183}
+	if len(shares) != len(want) {
+		t.Fatalf("shares %v, want %v", shares, want)
+	}
+	for seat, amount := range want {
+		if shares[seat] != amount {
+			t.Errorf("seat %d: got %d, want %d (%v)", seat, shares[seat], amount, shares)
+		}
+	}
+
+	if _, rebate, _ := splitPool(&rule, 0, 5000, []int16{1}); rebate != 300 {
+		t.Errorf("rebate should be capped at 300, got %d", rebate)
+	}
+	if pool, _, shares := splitPool(&rule, 1200, 0, nil); pool != 900 || shares != nil {
+		t.Errorf("nobody eligible: got pool %d shares %v, want 900 burned", pool, shares)
+	}
+	if pool, _, shares := splitPool(&venue.AuctionRule{}, 1200, 500, []int16{1}); pool != 0 || shares != nil {
+		t.Errorf("legacy rule has no pool, got %d %v", pool, shares)
 	}
 }

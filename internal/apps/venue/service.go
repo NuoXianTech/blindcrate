@@ -77,9 +77,10 @@ func invalid(format string, args ...any) error {
 	return &InvalidError{Reason: fmt.Sprintf(format, args...)}
 }
 
-// Validate 保存地图前校验配置, 并模拟 SimulationRuns 个仓库, 把结果写入 v.Simulation
+// Validate 保存地图前校验配置, 并模拟 SimulationRuns 个仓库, 把结果写入 v.Simulation;
+// 再按排位模式的价值分布推导拍卖的金额和比例写入 v.Auction, 由注册的 Balancer 验算对局, 结果写入 v.Simulation.Balance
 //
-// 配置不合法或摆放失败率超过 1% 时返回 *InvalidError, 提示可以直接展示; 其他错误为查库失败等内部错误。
+// 配置不合法、摆放失败率超过 1% 或启用的地图验算未通过时返回 *InvalidError, 提示可以直接展示; 其他错误为查库失败等内部错误。
 // 名称等文本字段需要调用方先去掉首尾空白。
 func Validate(tx *gorm.DB, v *Venue) error {
 	if !codePattern.MatchString(v.Code) {
@@ -127,10 +128,32 @@ func Validate(tx *gorm.DB, v *Venue) error {
 	if rate := max(v.Simulation.Ranked.FailureRate, v.Simulation.Pve.FailureRate); rate > maxFailureRate {
 		return invalid(FailureRateTooHigh, float64(rate)/100)
 	}
+	if v.Simulation.Ranked.Mean <= 0 {
+		return invalid(ValueEmpty)
+	}
+
+	rule, version, err := settings.Balance.Load(tx)
+	if err != nil {
+		return err
+	}
+	v.Auction.Calibrate(v.Simulation.Ranked, rule)
+	if balancer == nil {
+		return nil
+	}
+	balance, err := balancer(tx, v, generator, rule)
+	if err != nil {
+		return err
+	}
+	balance.judge(v, rule)
+	balance.Version = version
+	v.Simulation.Balance = balance
+	if v.IsEnabled && !balance.Passed {
+		return invalid(BalanceFailed, balance.failures())
+	}
 	return nil
 }
 
-// validateEntryCost 入场代价的数量需为正数, 货币需存在, 物品需未删除; 校验后合并同类项
+// validateEntryCost 入场代价的数量需为正数, 货币需存在且不是出价货币(出价货币的入场费自动计算), 物品需未删除; 校验后合并同类项
 func validateEntryCost(tx *gorm.DB, v *Venue) error {
 	cost := v.EntryCost
 	if len(cost.Currencies)+len(cost.Items) > maxEntryCostLines {
@@ -139,6 +162,9 @@ func validateEntryCost(tx *gorm.DB, v *Venue) error {
 	for _, line := range cost.Currencies {
 		if line.Amount <= 0 {
 			return invalid(EntryCostInvalid)
+		}
+		if line.Currency == v.BidCurrency {
+			return invalid(EntryCostBidMoney)
 		}
 	}
 	for _, line := range cost.Items {
@@ -222,9 +248,6 @@ func validateRules(v *Venue) error {
 	}
 	if maxTimes == 0 {
 		return invalid(SlotsEmpty)
-	}
-	if v.Auction.MaxCarry < v.Auction.StartPrice {
-		return invalid(MaxCarryInvalid)
 	}
 	if len(v.Auction.QuickWin) != int(v.Auction.Rounds)-1 {
 		return invalid(QuickWinInvalid, v.Auction.Rounds-1)
@@ -409,7 +432,7 @@ type VenueView struct {
 	PveEnabled    bool                 `json:"pve_enabled"`
 	RankedEnabled bool                 `json:"ranked_enabled"`
 	BidCurrency   string               `json:"bid_currency"`
-	EntryCost     []CostLine           `json:"entry_cost"`
+	EntryCost     []CostLine           `json:"entry_cost"`   // 开局时扣除的全部代价, 出价货币的入场费在前
 	Requirements  []condition.Progress `json:"requirements"` // 每个入场条件的达成情况
 	Eligible      bool                 `json:"eligible"`     // 满足全部入场条件
 	Grid          Grid                 `json:"grid"`
@@ -501,7 +524,7 @@ func resolveCosts(tx *gorm.DB, venues []Venue) (*costNames, error) {
 	codes := map[string]struct{}{}
 	itemIDs := map[uint64]struct{}{}
 	for _, v := range venues {
-		for _, line := range v.EntryCost.Currencies {
+		for _, line := range v.Entry().Currencies {
 			codes[line.Currency] = struct{}{}
 		}
 		for _, line := range v.EntryCost.Items {
@@ -537,6 +560,7 @@ func newView(tx *gorm.DB, userID uint64, v *Venue, names *costNames) (*VenueView
 	if err != nil {
 		return nil, err
 	}
+	entry := v.Entry()
 	view := &VenueView{
 		Code:          v.Code,
 		Name:          v.Name,
@@ -545,7 +569,7 @@ func newView(tx *gorm.DB, userID uint64, v *Venue, names *costNames) (*VenueView
 		PveEnabled:    v.PveEnabled,
 		RankedEnabled: v.RankedEnabled,
 		BidCurrency:   v.BidCurrency,
-		EntryCost:     make([]CostLine, 0, len(v.EntryCost.Currencies)+len(v.EntryCost.Items)),
+		EntryCost:     make([]CostLine, 0, len(entry.Currencies)+len(entry.Items)),
 		Requirements:  progress,
 		Eligible:      true,
 		Grid:          v.Warehouse.Grid,
@@ -563,14 +587,14 @@ func newView(tx *gorm.DB, userID uint64, v *Venue, names *costNames) (*VenueView
 			view.Eligible = false
 		}
 	}
-	for _, line := range v.EntryCost.Currencies {
+	for _, line := range entry.Currencies {
 		name := names.currencies[line.Currency]
 		if name == "" {
 			name = line.Currency
 		}
 		view.EntryCost = append(view.EntryCost, CostLine{Currency: line.Currency, Name: name, Amount: line.Amount})
 	}
-	for _, line := range v.EntryCost.Items {
+	for _, line := range entry.Items {
 		target := names.items[line.ItemID]
 		view.EntryCost = append(view.EntryCost, CostLine{ItemID: line.ItemID, Name: target.Name, ImageURL: target.ImageURL, Amount: line.Quantity})
 	}

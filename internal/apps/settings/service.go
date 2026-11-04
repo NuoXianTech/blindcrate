@@ -70,6 +70,16 @@ func (h *Handle[T]) Get(ctx context.Context) (*T, error) {
 	return value.(*T), nil
 }
 
+// Load 在调用方的事务中读取当前值和版本, 未保存过时返回默认值和版本 0; 用于需要看到同一事务中刚导入的设置的场景
+func (h *Handle[T]) Load(tx *gorm.DB) (*T, int64, error) {
+	var row Setting
+	if err := tx.Where("key = ?", h.g.key).Limit(1).Find(&row).Error; err != nil {
+		return nil, 0, err
+	}
+	value, _ := h.g.decode(tx.Statement.Context, &row)
+	return value.(*T), row.Version, nil
+}
+
 // HasGroup 设置组是否存在
 func HasGroup(key string) bool {
 	return findGroup(key) != nil

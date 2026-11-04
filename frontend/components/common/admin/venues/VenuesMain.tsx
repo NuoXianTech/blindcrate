@@ -1,7 +1,7 @@
 'use client';
 
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {Plus, Search} from 'lucide-react';
+import {Plus, RefreshCw, Search} from 'lucide-react';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
@@ -16,6 +16,7 @@ import type {AdminVenue, ConditionType, ItemEffect, ListVenuesData, LootPoolList
 import type {BotPersona} from '@/lib/services/bot';
 import {toErrorMessage} from '@/lib/services/core';
 import {DeleteVenueDialog} from './DeleteVenueDialog';
+import {RecalibrateDialog} from './RecalibrateDialog';
 import {VenueDialog, type VenueOptions} from './VenueDialog';
 import {VenueRow} from './VenueRow';
 import {PAGE_SIZE, STATUS_FILTERS, toRequest, type StatusFilter} from './constants';
@@ -45,6 +46,7 @@ export function VenuesMain() {
   // null: 关闭; "new": 新建; 地图: 编辑
   const [editing, setEditing] = useState<AdminVenue | 'new' | null>(null);
   const [deleting, setDeleting] = useState<AdminVenue | null>(null);
+  const [recalibrating, setRecalibrating] = useState(false);
 
   const load = useCallback(async () => {
     // 确认是管理员后再拉取, 否则 AdminGuard 会跳走
@@ -124,10 +126,16 @@ export function VenuesMain() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">地图管理</h1>
-        <Button onClick={() => setEditing('new')}>
-          <Plus />
-          新建地图
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" title="修改玩法平衡设置后按新设置推导全部地图" onClick={() => setRecalibrating(true)}>
+            <RefreshCw />
+            重新推导
+          </Button>
+          <Button onClick={() => setEditing('new')}>
+            <Plus />
+            新建地图
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -184,6 +192,7 @@ export function VenuesMain() {
                 <VenueRow
                   key={venue.id}
                   venue={venue}
+                  balanceVersion={data?.balance_version ?? 0}
                   items={catalog.items}
                   currencies={catalog.currencies}
                   onEdit={() => setEditing(venue)}
@@ -202,6 +211,7 @@ export function VenuesMain() {
 
       <VenueDialog venue={editing} options={options} onClose={() => setEditing(null)} onSaved={load} />
       <DeleteVenueDialog venue={deleting} onClose={() => setDeleting(null)} onSaved={load} />
+      <RecalibrateDialog open={recalibrating} onClose={() => setRecalibrating(false)} onSaved={load} />
     </div>
   );
 }

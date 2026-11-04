@@ -178,6 +178,11 @@ func Register[T any](def Group[T]) *Handle[T] {
 	return &Handle[T]{g: g}
 }
 
+// Default 默认值, 每次返回新的副本
+func (h *Handle[T]) Default() *T {
+	return h.g.defaults().(*T)
+}
+
 // Key 设置组的 key
 func (h *Handle[T]) Key() string {
 	return h.g.key

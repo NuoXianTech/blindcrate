@@ -7,7 +7,7 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
-import {BASIS_POINTS, MODES, formatRatio} from '@/lib/auction';
+import {BASIS_POINTS, MODES, formatRate, formatRatio} from '@/lib/auction';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {OddsEntry, SlotOdds, Venue, VenueDetail} from '@/lib/services/venue';
@@ -94,12 +94,43 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
             {v.auction.quick_win.length ? (
               <>
                 {v.auction.quick_win.map((x, i) => `第 ${i + 1} 轮 ${formatRatio(x)} 倍`).join('、')}
-                <p className="text-xs text-muted-foreground">第一名的出价不低于第二名的这么多倍时直接成交</p>
+                <p className="text-xs text-muted-foreground">
+                  第一名的出价不低于第二名的这么多倍
+                  {v.auction.speed_floor > 0 && `, 且不低于 ${formatAmount(v.auction.speed_floor, decimals)}`}
+                  时直接成交
+                </p>
               </>
             ) : (
               '无'
             )}
           </dd>
+          {v.auction.lead_discount > 0 && (
+            <>
+              <dt className="text-muted-foreground">成交价</dt>
+              <dd>
+                第二名的出价 + 领先部分 × {formatRate(BASIS_POINTS - v.auction.lead_discount)}
+                <p className="text-xs text-muted-foreground">没有第二名时从起拍价算起, 并列时就是最高价</p>
+              </dd>
+            </>
+          )}
+          {v.auction.pool_rate > 0 && (
+            <>
+              <dt className="text-muted-foreground">奖池</dt>
+              <dd>
+                入场费的 {formatRate(v.auction.pool_rate)}, 加上成交价超出仓库价值部分的 {formatRate(v.auction.rebate_rate)}
+                (每局最多 {formatAmount(v.auction.rebate_cap, decimals)})
+                <p className="text-xs text-muted-foreground">
+                  成交后分给出过价的输家, 出价越接近仓库价值分得越多; 人机不参与, 没有人可分时不发放
+                </p>
+              </dd>
+            </>
+          )}
+          {v.auction.finale && (
+            <>
+              <dt className="text-muted-foreground">压轴</dt>
+              <dd>最后一轮公开品质的是仓库里最贵的一件</dd>
+            </>
+          )}
           <dt className="text-muted-foreground">加轮</dt>
           <dd>
             {v.auction.max_extra_rounds > 0 ?
