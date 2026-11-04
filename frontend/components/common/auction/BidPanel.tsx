@@ -6,7 +6,7 @@ import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {CurrencyIcon} from '@/components/common/wallet';
-import {formatRatio} from '@/lib/auction';
+import {formatRate, formatRatio} from '@/lib/auction';
 import services from '@/lib/services';
 import type {AuctionView} from '@/lib/services/auction';
 import {toErrorMessage} from '@/lib/services/core';
@@ -54,10 +54,17 @@ export function BidPanel({view, decimals, onBid}: {
   if (extra) {
     rule = '加轮: 只有出价并列最高的玩家可以出价, 最高价唯一时成交';
   } else if (view.round < venue.rounds) {
-    rule = `第一名的出价达到第二名的 ${formatRatio(venue.quick_win[view.round - 1])} 倍时直接成交`;
+    rule = `第一名的出价达到第二名的 ${formatRatio(venue.quick_win[view.round - 1])} 倍`;
+    rule += venue.speed_floor > 0 ? `且不低于 ${formatAmount(venue.speed_floor, decimals)} 时直接成交` : '时直接成交';
   } else {
-    rule = '最后一轮: 最高价成交, 并列时加轮';
+    rule = '最后一轮: 最高价成交, 并列时加轮; 本轮公开的是仓库里最贵的一件';
   }
+  // 结算规则, 旧对局没有
+  const settle: string[] = [];
+  if (venue.lead_discount > 0) {
+    settle.push(`成交价为第二名的出价加上领先部分的 ${formatRate(10000 - venue.lead_discount)}`);
+  }
+  if (venue.pool_rate > 0) settle.push('成交后出过价的真人输家按名次分奖池');
 
   if (!self.can_bid) {
     return (
@@ -118,6 +125,7 @@ export function BidPanel({view, decimals, onBid}: {
 
       <span className="text-xs text-muted-foreground">
         可出 {formatAmount(min, decimals)} - {formatAmount(self.carry, decimals)}; {rule}
+        {settle.length > 0 && <span className="block">{settle.join('; ')}</span>}
       </span>
 
       <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={() => void submit(0)}>

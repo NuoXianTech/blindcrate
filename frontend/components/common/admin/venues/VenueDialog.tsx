@@ -22,11 +22,13 @@ import type {
   Simulation,
 } from '@/lib/services/admin';
 import type {BotPersona} from '@/lib/services/bot';
+import type {AuctionRule} from '@/lib/services/venue';
 import {AuctionTab} from './AuctionTab';
 import {BasicTab} from './BasicTab';
 import {BotTab} from './BotTab';
 import {ConsumableTab} from './ConsumableTab';
 import {EntryTab} from './EntryTab';
+import {HostTab} from './HostTab';
 import {SimulationStats} from './SimulationStats';
 import {WarehouseTab} from './WarehouseTab';
 import {toRequest} from './constants';
@@ -60,7 +62,7 @@ interface VenueDialogProps {
 }
 
 /**
- * 新建或编辑地图, 保存前可以先模拟仓库的价值分布
+ * 新建或编辑地图, 保存前可以先模拟仓库的价值分布和对局
  */
 export function VenueDialog({venue, options, onClose, onSaved}: VenueDialogProps) {
   const editing = venue && venue !== 'new' ? venue : null;
@@ -70,7 +72,8 @@ export function VenueDialog({venue, options, onClose, onSaved}: VenueDialogProps
         <DialogHeader>
           <DialogTitle>{editing ? `编辑 ${editing.name}` : '新建地图'}</DialogTitle>
           <DialogDescription>
-            保存时会模拟 10000 个仓库, 摆放失败率超过 1% 时不能保存; 开局时快照配置, 修改不影响进行中的对局
+            保存时会模拟 10000 个仓库, 推导拍卖的金额并验算对局; 摆放失败率超过 1% 时不能保存, 验算未通过时只能保存为停用;
+            开局时快照配置, 修改不影响进行中的对局
           </DialogDescription>
         </DialogHeader>
         {venue && !options.loaded && (
@@ -103,6 +106,8 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
   );
   const [tab, setTab] = useState('basic');
   const [simulation, setSimulation] = useState<Simulation | null>(venue?.simulation ?? null);
+  // 最近一次模拟或保存时推导出的拍卖参数
+  const [derived, setDerived] = useState<AuctionRule | null>(venue?.auction ?? null);
   // 模拟结果之后表单是否有改动
   const [stale, setStale] = useState(false);
   const currency = currencies.find((c) => c.code === form.bidCurrency);
@@ -116,7 +121,9 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
   const handleSimulate = simulate.submit(async () => {
     const body = toVenueRequest(form, currencies, types);
     setTab('simulation');
-    setSimulation(await services.admin.simulateVenue(body));
+    const result = await services.admin.simulateVenue(body);
+    setSimulation(result.simulation);
+    setDerived(result.auction);
     setStale(false);
   });
 
@@ -143,6 +150,7 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
           <TabsTrigger value="auction">拍卖</TabsTrigger>
           <TabsTrigger value="bots">人机</TabsTrigger>
           <TabsTrigger value="consumables">道具</TabsTrigger>
+          <TabsTrigger value="host">主持人</TabsTrigger>
           <TabsTrigger value="simulation">模拟</TabsTrigger>
         </TabsList>
         <div className="max-h-[60vh] overflow-y-auto px-1 py-2">
@@ -156,13 +164,16 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
             <WarehouseTab {...tabProps} pools={pools} />
           </TabsContent>
           <TabsContent value="auction">
-            <AuctionTab {...tabProps} currency={currency} />
+            <AuctionTab {...tabProps} currency={currency} derived={derived} stale={stale} />
           </TabsContent>
           <TabsContent value="bots">
             <BotTab {...tabProps} currency={currency} personas={personas} />
           </TabsContent>
           <TabsContent value="consumables">
             <ConsumableTab {...tabProps} items={items} effects={effects} />
+          </TabsContent>
+          <TabsContent value="host">
+            <HostTab {...tabProps} />
           </TabsContent>
           <TabsContent value="simulation" className="flex flex-col gap-3">
             {simulate.pending && (

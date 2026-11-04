@@ -45,6 +45,10 @@ type Match struct {
 	Outcome     string     `gorm:"size:16;not null;default:''" json:"outcome"`                         // 结算前为空, 之后为 sold、unsold 或 cancelled
 	WinnerSeat  int16      `gorm:"not null;default:0" json:"winner_seat"`                              // 成交者的座位, 没有成交时为 0
 	Price       int64      `gorm:"not null;default:0" json:"price"`                                    // 成交价
+	Pool        int64      `gorm:"not null;default:0" json:"pool"`                                     // 奖池, 成交时算出, 分给出过价的真人输家, 没有人可分时销毁
+	Rebate      int64      `gorm:"not null;default:0" json:"rebate"`                                   // 奖池中来自成交者超付的部分
+	Host        string     `gorm:"size:16;not null;default:''" json:"host"`                            // 主持人的性格, 开局时选出并公开, 没有主持人提示时为空
+	Hype        int32      `gorm:"not null;default:0" json:"hype"`                                     // 当前热度, 0-100, 每次变动见 HypeEvent
 	CreatedAt   time.Time  `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time  `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
 	SettledAt   *time.Time `json:"settled_at"` // 结算或取消的时间
@@ -63,10 +67,11 @@ type Snapshot struct {
 	Code        string               `json:"code"`
 	Name        string               `json:"name"`
 	BidCurrency string               `json:"bid_currency"`
-	EntryCost   reward.Bundle        `json:"entry_cost"`
+	EntryCost   reward.Bundle        `json:"entry_cost"` // 开局时扣除的全部代价, 含出价货币的入场费
 	Grid        venue.Grid           `json:"grid"`
 	Auction     venue.AuctionRule    `json:"auction"`
 	Consumables venue.ConsumableRule `json:"consumables"`
+	Host        venue.HostRule       `json:"host"`
 	Odds        []venue.PieceOdds    `json:"odds"` // 按公示概率算出的藏品分布, 人机估值用
 }
 
@@ -81,14 +86,15 @@ type Player struct {
 	Persona     bot.Snapshot  `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"persona"`    // 人机的风格, 开局时快照, 真人为空
 	Seed        int64         `gorm:"not null;default:0" json:"-"`                                        // 人机在这一局的随机种子, 开局时生成, 真人为 0
 	IsPractice  bool          `gorm:"not null;default:false" json:"is_practice"`                          // 练习局, 准入时决定, 之后不再变化
-	EntryCost   reward.Bundle `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"entry_cost"` // 实际扣除的入场代价, 练习局和人机为空
+	EntryCost   reward.Bundle `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"entry_cost"` // 实际扣除的入场费和入场代价, 练习局和人机为空
 	Carry       int64         `gorm:"not null;default:0" json:"carry"`                                    // 带入资金, 出价的上限
 	Frozen      int64         `gorm:"not null;default:0" json:"frozen"`                                   // 冻结的带入资金, 练习局和人机为 0
 	Estimate    int64         `gorm:"not null;default:0" json:"estimate"`                                 // 人机按公开信息的最新估值, 真人为 0
 	Bid         int64         `gorm:"not null;default:0" json:"bid"`                                      // 当前出价, 0 表示还没出过价
 	BidAt       *time.Time    `json:"bid_at"`                                                             // 当前出价的提交时间, 加轮用完仍并列时先出价的人成交
 	Feedback    []Feedback    `gorm:"type:jsonb;serializer:json;not null;default:'[]'" json:"feedback"`   // 每轮结束后的反馈, 人机也有, 用于决策
-	Profit      int64         `gorm:"not null;default:0" json:"profit"`                                   // 结算后的盈亏, 出价货币; 练习局按正式局计算
+	Profit      int64         `gorm:"not null;default:0" json:"profit"`                                   // 结算后的盈亏, 出价货币, 含分到的奖池; 练习局按正式局计算
+	Share       int64         `gorm:"not null;default:0" json:"share"`                                    // 分到的奖池, 只有出过价的正式局真人输家有
 	RatingDelta int32         `gorm:"not null;default:0" json:"rating_delta"`                             // 本局段位分的变化, 只有排位成交时有
 	Rating      int32         `gorm:"not null;default:0" json:"rating"`                                   // 结算后的段位分, 只有排位成交时有
 	CreatedAt   time.Time     `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
@@ -157,11 +163,48 @@ type Use struct {
 	Effect    string         `gorm:"size:32;not null" json:"effect"`                                 // 使用时的效果代码
 	Params    map[string]any `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"params"` // 使用时的效果参数
 	Result    Intel          `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"result"` // 得到的情报, 只给使用者看
+	Cost      int64          `gorm:"not null;default:0" json:"cost"`                                 // 向主持人买情报时付的出价货币, 用道具时为 0
 	CreatedAt time.Time      `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 }
 
 // TableName 自定义表名
 func (Use) TableName() string { return "auction_uses" }
+
+// IsIntel 是否为向主持人买的情报, 不是用掉的道具
+func (u *Use) IsIntel() bool { return u.ItemID == 0 }
+
+// HostHint 主持人在一轮开始时公开的提示, 只追加; 字段按类型使用其中的一部分, 见 constants.go 的 HostHint
+//
+// 唯一索引 uniq_auction_hints_match_id_round 保证每轮只有一条。
+type HostHint struct {
+	ID        uint64    `gorm:"primaryKey" json:"-"`
+	MatchID   uint64    `gorm:"not null;uniqueIndex:uniq_auction_hints_match_id_round,priority:1" json:"-"`
+	Round     int32     `gorm:"not null;uniqueIndex:uniq_auction_hints_match_id_round,priority:2" json:"round"`
+	Kind      string    `gorm:"size:16;not null" json:"kind"`
+	Quality   int16     `gorm:"not null;default:0" json:"quality"`
+	Count     int32     `gorm:"not null;default:0" json:"count"`
+	ScanOrder int32     `gorm:"not null;default:0" json:"scan_order"`
+	Above     bool      `gorm:"not null;default:false" json:"above"`
+	Truthful  bool      `gorm:"not null" json:"truthful"` // 是否属实, 开箱前不给玩家看
+	CreatedAt time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+}
+
+// TableName 自定义表名
+func (HostHint) TableName() string { return "auction_hints" }
+
+// HypeEvent 热度的一次变动, 只追加
+type HypeEvent struct {
+	ID        uint64    `gorm:"primaryKey" json:"-"`
+	MatchID   uint64    `gorm:"not null;index:idx_auction_hype_events_match_id" json:"-"`
+	Round     int32     `gorm:"not null" json:"round"` // 开局时为 0, 之后为结束的轮次
+	Raises    int32     `gorm:"not null;default:0" json:"raises"`
+	Delta     int32     `gorm:"not null" json:"delta"`
+	Hype      int32     `gorm:"not null" json:"hype"` // 变动后的热度
+	CreatedAt time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
+}
+
+// TableName 自定义表名
+func (HypeEvent) TableName() string { return "auction_hype_events" }
 
 // PieceIntel 道具看到的一件藏品, 以扫描顺序对应 Footprint
 type PieceIntel struct {

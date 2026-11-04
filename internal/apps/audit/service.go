@@ -66,6 +66,7 @@ func init() {
 		{Code: ActionVenueCreate, Label: "新建地图"},
 		{Code: ActionVenueUpdate, Label: "修改地图"},
 		{Code: ActionVenueDelete, Label: "删除地图"},
+		{Code: ActionVenueRecalibrate, Label: "重新推导地图"},
 		{Code: ActionMatchCancel, Label: "取消对局"},
 		{Code: ActionLeaderboardCreate, Label: "新建榜单"},
 		{Code: ActionLeaderboardUpdate, Label: "修改榜单"},

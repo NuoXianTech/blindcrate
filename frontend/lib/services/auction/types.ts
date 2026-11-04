@@ -24,6 +24,30 @@ export const AUCTION_MESSAGES = {
   updated: 'auction:updated',
   /** 使用道具, data 为 UseRequest, 回复的 data 为 AuctionView */
   use: 'auction:use',
+  /** 向主持人买情报, data 为 IntelRequest, 回复的 data 为 AuctionView */
+  intel: 'auction:intel',
+} as const;
+
+/** 主持人的性格, 与后端 internal/apps/venue/constants.go 的 Host 常量对应 */
+export const HOST_PERSONA = {
+  /** 稳重: 撒谎率减半, 说错时随机偏高或偏低 */
+  steady: 'steady',
+  /** 煽动: 说错时只往高了说, 热度高时更敢说错 */
+  showman: 'showman',
+  /** 狡黠: 说错时只往低了说, 热度低时更敢说错 */
+  sly: 'sly',
+} as const;
+
+/** 主持人提示的类型, 与后端 internal/apps/auction/constants.go 的 HostHint 常量对应 */
+export const HOST_HINT = {
+  /** 品质不低于 quality 的藏品共有 count 件 */
+  count: 'count',
+  /** 还没公开品质的藏品里最好的是 quality */
+  best: 'best',
+  /** 扫描顺序为 scan_order 的藏品是 quality */
+  piece: 'piece',
+  /** 仓库价值高于(above)或不高于期望价值 */
+  value: 'value',
 } as const;
 
 /** 对局中的道具效果, 与后端 internal/apps/auction/effects.go 的 Effect 常量对应 */
@@ -49,10 +73,71 @@ export interface AuctionVenue {
   /** 前 rounds-1 轮的速胜倍率, 基点 */
   quick_win: number[];
   max_extra_rounds: number;
+  /** 入场费, 以下字段见 lib/services/venue 的 AuctionRule, 旧对局为 0 */
+  entry_fee: number;
+  /** 速胜时第一名的出价不能低于它 */
+  speed_floor: number;
+  /** 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让) */
+  lead_discount: number;
+  /** 入场费进奖池的比例, 基点 */
+  pool_rate: number;
+  /** 超付部分进奖池的比例, 基点 */
+  rebate_rate: number;
+  /** 超付部分进奖池的上限 */
+  rebate_cap: number;
+  /** 压轴揭示: 最后一轮公开品质的是仓库里最贵的一件 */
+  finale: boolean;
   /** 这个模式每局最多使用几个道具, 0 表示不能用 */
   max_uses: number;
   /** 可以用的道具, 为空表示所有对局中可用的道具 */
   allowed_items: number[];
+  /** 向主持人买一次情报的价格, 0 表示不卖情报 */
+  intel_price: number;
+  /** 每人每局最多买几次情报, 每轮最多一次 */
+  intel_limit: number;
+}
+
+/** 主持人的一条提示, 对应后端 auction.HintView */
+export interface HostHint {
+  round: number;
+  /** 见 HOST_HINT */
+  kind: string;
+  quality: number;
+  count: number;
+  scan_order: number;
+  above: boolean;
+  /** 是否属实, 开箱后才公开 */
+  truthful: boolean | null;
+}
+
+/** 热度的一次变动 */
+export interface HypeEvent {
+  /** 开局时为 0, 之后为结束的轮次 */
+  round: number;
+  /** 这一轮加价的人数 */
+  raises: number;
+  delta: number;
+  /** 变动后的热度, 0-100 */
+  hype: number;
+}
+
+/** 公开的主持人状态, 对应后端 auction.HostView */
+export interface HostView {
+  /** 见 HOST_PERSONA */
+  persona: string;
+  hype: number;
+  /** 按轮次 */
+  hints: HostHint[];
+  /** 按时间 */
+  hypes: HypeEvent[];
+}
+
+/** 一个座位买情报的次数, 只公开次数, 不公开内容 */
+export interface SeatIntel {
+  seat: number;
+  count: number;
+  /** 最近一次买的轮次 */
+  round: number;
 }
 
 /** 已公开品质的藏品 */
@@ -81,7 +166,7 @@ export interface Bundle {
 export interface AuctionSelf {
   seat: number;
   is_practice: boolean;
-  /** 实际扣除的入场代价, 练习局为空 */
+  /** 实际扣除的入场费和入场代价, 练习局为空 */
   entry_cost: Bundle;
   /** 带入资金, 出价的上限 */
   carry: number;
@@ -96,6 +181,10 @@ export interface AuctionSelf {
   uses: UseView[];
   /** 本局还能用几个道具, 练习局为 0; 不考虑阶段和轮次 */
   uses_left: number;
+  /** 本局还能买几次情报, 练习局和不卖情报时为 0 */
+  intel_left: number;
+  /** 本轮是否已买过情报 */
+  intel_bought: boolean;
 }
 
 /** 道具看到的一件藏品, 以扫描顺序对应 Footprint */
@@ -126,9 +215,10 @@ export interface Intel {
   value_max?: number;
 }
 
-/** 自己用过的一个道具 */
+/** 自己用过的一个道具或买的一次情报 */
 export interface UseView {
   round: number;
+  /** 向主持人买的情报为 0 */
   item_id: number;
   /** 使用时的物品名称 */
   name: string;
@@ -182,6 +272,8 @@ export interface SeatResult {
   seat: number;
   /** 最后的出价, 0 表示没出过价 */
   bid: number;
+  /** 分到的奖池 */
+  share: number;
   /** 用过的道具, 按第一次使用的顺序, 不公开得到的情报 */
   uses: UseCount[];
 }
@@ -194,7 +286,11 @@ export interface AuctionResult {
   price: number;
   /** 仓库价值 */
   value: number;
-  /** 自己的盈亏, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0 */
+  /** 奖池, 分给出过价的真人输家, 见 SeatResult.share; 没有人可分时销毁 */
+  pool: number;
+  /** 奖池中来自成交者超付的部分 */
+  rebate: number;
+  /** 自己的盈亏, 已扣除入场费和入场代价, 含分到的奖池; 练习局按正式局计算; 管理员查看时为 0 */
   profit: number;
   /** 自己段位分的变化, 只有排位成交时有; 管理员查看时为 0 */
   rating_delta: number;
@@ -226,6 +322,10 @@ export interface AuctionPublicView {
   revealed: RevealedPiece[];
   /** 加轮时可以出价的座位, 为空表示所有人 */
   contenders: number[];
+  /** 主持人, 没有主持人提示时为空 */
+  host: HostView | null;
+  /** 买过情报的座位, 按座位号 */
+  intel_seats: SeatIntel[];
   /** 结算后才有 */
   result: AuctionResult | null;
 }
@@ -277,6 +377,8 @@ export interface AuctionUse extends UseView {
   seat: number;
   /** 使用时的效果参数 */
   params: Record<string, unknown>;
+  /** 向主持人买情报时付的出价货币, 用道具时为 0 */
+  cost: number;
 }
 
 /** 出价请求 */
@@ -294,6 +396,13 @@ export interface UseRequest {
   /** 使用时的轮次, 与当前轮次不一致时被拒绝 */
   round: number;
   item_id: number;
+}
+
+/** 向主持人买情报 */
+export interface IntelRequest {
+  match_id: number;
+  /** 购买时的轮次, 与当前轮次不一致时被拒绝 */
+  round: number;
 }
 
 /** 背包中这局可以用的一种道具, 对应后端 auction.UsableItem */

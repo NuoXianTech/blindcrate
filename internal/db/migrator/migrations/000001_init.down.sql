@@ -13,6 +13,8 @@ DROP TABLE IF EXISTS uploads;
 DROP TABLE IF EXISTS shop_orders;
 DROP TABLE IF EXISTS shop_items;
 DROP TABLE IF EXISTS auction_suspect_reviews;
+DROP TABLE IF EXISTS auction_hype_events;
+DROP TABLE IF EXISTS auction_hints;
 DROP TABLE IF EXISTS auction_uses;
 DROP TABLE IF EXISTS auction_warehouse_items;
 DROP TABLE IF EXISTS auction_bids;

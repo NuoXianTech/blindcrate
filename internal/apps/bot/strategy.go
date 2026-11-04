@@ -166,22 +166,40 @@ func normalize(decoded any) (map[string]any, error) {
 //
 // 参数在保存风格时已校验, 这里只解析: 缺少的参数取默认值, 已删除的参数字段忽略。
 func Decide[O, D any](s *Snapshot, obs O, rng *rand.Rand) (D, error) {
-	var zero D
-	def, ok := strategies[s.Strategy]
+	decide, err := Prepare[O, D](s)
+	if err != nil {
+		var zero D
+		return zero, err
+	}
+	return decide(obs, rng)
+}
+
+// Decider 参数已解析的决策, 见 Prepare
+type Decider[O, D any] func(obs O, rng *rand.Rand) (D, error)
+
+// Prepare 解析风格快照中的参数, 返回可以反复调用的决策, 用于模拟大量对局; 策略没有注册或参数解析失败时返回错误
+//
+// 与 Decide 相同, 观察、决策的类型与策略不符时决策返回错误。可以并发调用, 策略不能修改参数。
+func Prepare[O, D any](s *Snapshot) (Decider[O, D], error) {
+	code := s.Strategy
+	def, ok := strategies[code]
 	if !ok {
-		return zero, fmt.Errorf("bot: strategy %s not registered", s.Strategy)
+		return nil, fmt.Errorf("bot: strategy %s not registered", code)
 	}
 	params, err := def.decode(s.Params, false)
 	if err != nil {
-		return zero, fmt.Errorf("bot: decode params of %s failed: %w", s.Strategy, err)
+		return nil, fmt.Errorf("bot: decode params of %s failed: %w", code, err)
 	}
-	result, err := def.decide(obs, params, rng)
-	if err != nil {
-		return zero, err
-	}
-	typed, ok := result.(D)
-	if !ok {
-		return zero, fmt.Errorf("bot: strategy %s returned %T", s.Strategy, result)
-	}
-	return typed, nil
+	return func(obs O, rng *rand.Rand) (D, error) {
+		var zero D
+		result, err := def.decide(obs, params, rng)
+		if err != nil {
+			return zero, err
+		}
+		typed, ok := result.(D)
+		if !ok {
+			return zero, fmt.Errorf("bot: strategy %s returned %T", code, result)
+		}
+		return typed, nil
+	}, nil
 }

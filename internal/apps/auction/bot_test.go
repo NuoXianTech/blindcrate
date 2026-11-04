@@ -64,12 +64,28 @@ func TestAppraise(t *testing.T) {
 		{"quality revealed", PerceptionQuality, []Footprint{{Width: 2, Height: 1, Quality: 1}, {Width: 1, Height: 1, Quality: 3}}, 80 + 2500/1.5},
 	}
 	for _, c := range cases {
-		if got := appraise(testOdds, c.footprints, c.perception); math.Abs(got-c.want) > 1e-6 {
+		if got := appraise(testOdds, c.footprints, c.perception, false); math.Abs(got-c.want) > 1e-6 {
 			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
 		}
 	}
-	if got := appraise(nil, []Footprint{{Width: 1, Height: 1}}, PerceptionSize); got != 0 {
+	if got := appraise(nil, []Footprint{{Width: 1, Height: 1}}, PerceptionSize, false); got != 0 {
 		t.Errorf("no odds: got %v, want 0", got)
+	}
+
+	// 压轴揭示后没公开的只取不比已公开的最贵一件贵的同类, 没有时按它的估价
+	finales := []struct {
+		name       string
+		footprints []Footprint
+		want       float64
+	}{
+		{"cheap top excludes dear kinds", []Footprint{{Width: 1, Height: 1, Quality: 1}, {Width: 1, Height: 1}}, 50 + 50},
+		{"dear top keeps every kind", []Footprint{{Width: 1, Height: 2, Quality: 3}, {Width: 1, Height: 1}}, 3000 + 240},
+		{"no kind below the top", []Footprint{{Width: 1, Height: 1, Quality: 1}, {Width: 2, Height: 1}}, 50 + 50},
+	}
+	for _, c := range finales {
+		if got := appraise(testOdds, c.footprints, PerceptionSize, true); math.Abs(got-c.want) > 1e-6 {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
 	}
 }
 

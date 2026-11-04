@@ -7,7 +7,7 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
-import {BASIS_POINTS, MODES, formatRatio} from '@/lib/auction';
+import {BASIS_POINTS, MODES, formatRate, formatRatio} from '@/lib/auction';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {OddsEntry, SlotOdds, Venue, VenueDetail} from '@/lib/services/venue';
@@ -94,12 +94,63 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
             {v.auction.quick_win.length ? (
               <>
                 {v.auction.quick_win.map((x, i) => `第 ${i + 1} 轮 ${formatRatio(x)} 倍`).join('、')}
-                <p className="text-xs text-muted-foreground">第一名的出价不低于第二名的这么多倍时直接成交</p>
+                <p className="text-xs text-muted-foreground">
+                  第一名的出价不低于第二名的这么多倍
+                  {v.auction.speed_floor > 0 && `, 且不低于 ${formatAmount(v.auction.speed_floor, decimals)}`}
+                  时直接成交
+                </p>
               </>
             ) : (
               '无'
             )}
           </dd>
+          {v.auction.lead_discount > 0 && (
+            <>
+              <dt className="text-muted-foreground">成交价</dt>
+              <dd>
+                第二名的出价 + 领先部分 × {formatRate(BASIS_POINTS - v.auction.lead_discount)}
+                <p className="text-xs text-muted-foreground">没有第二名时从起拍价算起, 并列时就是最高价</p>
+              </dd>
+            </>
+          )}
+          {v.auction.pool_rate > 0 && (
+            <>
+              <dt className="text-muted-foreground">奖池</dt>
+              <dd>
+                入场费的 {formatRate(v.auction.pool_rate)}, 加上成交价超出仓库价值部分的 {formatRate(v.auction.rebate_rate)}
+                (每局最多 {formatAmount(v.auction.rebate_cap, decimals)})
+                <p className="text-xs text-muted-foreground">
+                  成交后分给出过价的输家, 出价越接近仓库价值分得越多; 人机不参与, 没有人可分时不发放
+                </p>
+              </dd>
+            </>
+          )}
+          {v.auction.finale && (
+            <>
+              <dt className="text-muted-foreground">压轴</dt>
+              <dd>最后一轮公开品质的是仓库里最贵的一件</dd>
+            </>
+          )}
+          {v.host?.enabled && (
+            <>
+              <dt className="text-muted-foreground">主持人</dt>
+              <dd>
+                每轮开始时给一条提示, 可能说错, 开箱后公开真假
+                <p className="text-xs text-muted-foreground">
+                  性格开局时公开: 稳重的很少说错, 煽动的错时往高了吹, 狡黠的错时往低了压
+                </p>
+              </dd>
+            </>
+          )}
+          {v.auction.intel_price > 0 && (v.host?.intel_limit ?? 0) > 0 && (
+            <>
+              <dt className="text-muted-foreground">情报</dt>
+              <dd>
+                每次 {formatAmount(v.auction.intel_price, decimals)}, 每局最多 {v.host.intel_limit} 次, 每轮一次
+                <p className="text-xs text-muted-foreground">从可用余额扣除, 只有自己看得到, 其他人会看到你买了情报</p>
+              </dd>
+            </>
+          )}
           <dt className="text-muted-foreground">加轮</dt>
           <dd>
             {v.auction.max_extra_rounds > 0 ?

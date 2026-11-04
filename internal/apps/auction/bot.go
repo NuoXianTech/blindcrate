@@ -25,6 +25,7 @@
 package auction
 
 import (
+	"math"
 	"math/rand/v2"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
@@ -105,7 +106,7 @@ func registerStrategies() {
 
 // decideBasic 基础策略
 //
-//   - 估值: 按公开信息估算仓库价值, 再按种子偏高或偏低, 偏差在 ± Bias 内且整局不变
+//   - 估值: 按公开信息估算仓库价值, 再按种子偏高或偏低, 偏差在 ± Bias 内且整局不变; 压轴揭示后没公开的藏品按不比压轴的贵估算
 //   - 上限: min(估值 × 上限系数, 带入资金), 低于起拍价或不高于当前出价时不再加价
 //   - 抢拍: 第 1 轮有 JumpChance 的概率按估值 × 抢拍系数出价
 //   - 按轮次: 估值 × 本轮系数 × (1 ± 浮动), 系数从首轮系数逐轮线性增加到末轮系数
@@ -116,7 +117,9 @@ func registerStrategies() {
 func decideBasic(obs Observation, p *basicParams, rng *rand.Rand) Decision {
 	rules := &obs.Rules
 	personal := rand.New(rand.NewPCG(uint64(obs.Seed), 0))
-	appraisal := appraise(obs.Odds, obs.Footprints, p.Perception)
+	// 压轴揭示: 到压轴的一轮时最贵的一件已经公开, 没公开的都不比它贵
+	topRevealed := rules.Finale && obs.Round >= min(rules.Rounds, int32(len(obs.Footprints)))
+	appraisal := appraise(obs.Odds, obs.Footprints, p.Perception, topRevealed)
 	estimate := int64(appraisal * float64(venue.BasisPoints+spread(personal, p.Bias)) / venue.BasisPoints)
 	decision := Decision{Estimate: estimate}
 	limit := min(scale(estimate, int64(p.MaxFactor)), obs.Carry)
@@ -170,7 +173,10 @@ func decideBasic(obs Observation, p *basicParams, rng *rand.Rand) Decision {
 //
 // 已公开品质的按品质和尺寸(或面积)归类, 没公开的只按尺寸(或面积); 只按品质时, 没公开的按全部藏品的平均价。
 // 公示概率中没有同类时按全部藏品的平均价。
-func appraise(odds []venue.PieceOdds, footprints []Footprint, perception string) float64 {
+//
+// topRevealed 表示最贵的一件已经公开(压轴揭示): 已公开的估价最高的一件视为最贵的, 没公开的只取同类中平均回收价不超过它的,
+// 没有时按它的估价; 否则最后一轮会把没公开的按包含最贵藏品的平均价估算, 系统性地估高。
+func appraise(odds []venue.PieceOdds, footprints []Footprint, perception string, topRevealed bool) float64 {
 	type key struct{ width, height, quality int16 }
 	type group struct{ count, value float64 }
 	keyOf := func(width, height, quality int16) key {
@@ -201,12 +207,38 @@ func appraise(odds []venue.PieceOdds, footprints []Footprint, perception string)
 	if all.count <= 0 {
 		return 0
 	}
+	price := func(f Footprint) float64 {
+		if g, ok := groups[keyOf(f.Width, f.Height, f.Quality)]; ok && g.count > 0 {
+			return g.value / g.count
+		}
+		return all.value / all.count
+	}
+	top := math.Inf(1)
+	if topRevealed {
+		top = 0
+		for _, f := range footprints {
+			if f.Quality > 0 {
+				top = max(top, price(f))
+			}
+		}
+	}
 	var total float64
 	for _, f := range footprints {
-		if g, ok := groups[keyOf(f.Width, f.Height, f.Quality)]; ok && g.count > 0 {
-			total += g.value / g.count
+		if f.Quality > 0 || math.IsInf(top, 1) {
+			total += price(f)
+			continue
+		}
+		var below group
+		for _, o := range odds {
+			if keyOf(o.Width, o.Height, 0) == keyOf(f.Width, f.Height, 0) && o.Price <= top {
+				below.count += o.Count
+				below.value += o.Count * o.Price
+			}
+		}
+		if below.count > 0 {
+			total += below.value / below.count
 		} else {
-			total += all.value / all.count
+			total += min(price(f), top)
 		}
 	}
 	return total

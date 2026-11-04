@@ -56,6 +56,7 @@ const (
 	KeyStats   = "stats"
 	KeyUpload  = "upload"
 	KeyRanked  = "ranked"
+	KeyBalance = "balance"
 )
 
 // Setting 一个设置组存一行, 内容为该组的 JSON, 未保存过的设置组没有记录, 使用代码中的默认值
@@ -152,7 +153,55 @@ var (
 		Sort:        10,
 		Defaults: func() *EconomySettings {
 			// 基础货币默认为种子数据中的筹码 chip
-			return &EconomySettings{BaseCurrency: "chip", SellFeeRate: 500, SignupGrant: 5000, PveDailyProfitCap: 5000}
+			return &EconomySettings{BaseCurrency: "chip", SellFeeRate: 200, SignupGrant: 5000, PveDailyProfitCap: 5000}
+		},
+	})
+	Balance = Register(Group[BalanceSettings]{
+		Key:         KeyBalance,
+		Label:       "玩法平衡",
+		Description: "地图保存时按仓库的价值分布推导拍卖金额, 再模拟对局检查是否落在安全区间; 修改后需要在地图管理中重新推导全部地图, 进行中的对局不受影响",
+		Category:    CategoryGame,
+		Sort:        15,
+		Defaults: func() *BalanceSettings {
+			return &BalanceSettings{
+				SpeedFloorEnabled:   true,
+				LeadDiscountEnabled: true,
+				PoolEnabled:         true,
+				FinaleEnabled:       true,
+				EntryRate:           300,
+				FlatEntryRate:       200,
+				FlatCV:              6000,
+				StartPriceRate:      400,
+				CarryOfMean:         20000,
+				CarryOfP90:          15000,
+				BotCarryRate:        12000,
+				SpeedFloorRate:      7500,
+				MaxLeadDiscount:     3000,
+				PoolRate:            7500,
+				RebateRate:          4000,
+				RebateCapRate:       10000,
+				IntelRate:           50,
+				MinRounds:           4,
+				MaxRounds:           10,
+				MinGridSide:         4,
+				MaxGridSide:         10,
+				MaxTopShare:         6000,
+				PriceValueTolerance: 300,
+				MinBidCV:            1200,
+				MinSpeedWin:         800,
+				MaxSpeedWin:         4500,
+				MinAppraiseBias:     8000,
+				MaxAppraiseBias:     13000,
+				MinSeatEV:           -400,
+				MinRankedWinRate:    2500,
+				MinPveWinRate:       3000,
+				HumanSigmaStart:     4200,
+				HumanSigmaStep:      600,
+				HumanSigmaFloor:     1400,
+				HumanJumpChance:     2500,
+				HumanStair:          5500,
+				HumanCapFactor:      9700,
+			}
 		},
 	})
 	Ranked = Register(Group[RankedSettings]{
@@ -226,6 +275,53 @@ type EconomySettings struct {
 	SellFeeRate       int    `json:"sell_fee_rate" label:"出售手续费率" help:"卖出物品时按卖出金额扣除的比例, 最高 20%" binding:"min=0,max=2000" unit:"bp" public:"true"`
 	SignupGrant       int    `json:"signup_grant" label:"新手资金" help:"新用户注册时发放的基础货币, 0 表示不发放" binding:"min=0,max=1000000000" public:"true"`
 	PveDailyProfitCap int    `json:"pve_daily_profit_cap" label:"人机每日收益上限" help:"玩家当天在人机模式的净收益达到上限后, 当天剩下的人机对局变为练习局, 不扣入场费也不发藏品; 按各地图的出价货币分别计算; 0 表示不限制, 地图可以单独设置更低的上限" binding:"min=0,max=1000000000" public:"true"`
+}
+
+// BalanceSettings 玩法平衡: 推导拍卖金额的系数、对局验算的闸门和模拟的真人, 以及几条规则的开关
+//
+// 金额都是仓库期望价值(或 P90)的倍数, 换了藏品或掉落也不用重新调; 推导结果保存在地图上, 开局时随地图快照, 修改后重新推导地图才生效。
+// 默认值来自玩法改进的验算, 比例和系数都是基点。
+type BalanceSettings struct {
+	SpeedFloorEnabled   bool `json:"speed_floor_enabled" label:"速胜下限" help:"开启后速胜还要求第一名的出价不低于速胜下限; 只靠倍率挡不住速胜, 第一名常常天然高出第二名一截"`
+	LeadDiscountEnabled bool `json:"lead_discount_enabled" label:"领先折让" help:"开启后成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 折让按地图模拟求出, 让成交价平均落在仓库价值扣掉出售手续费; 关闭时按最高价成交"`
+	PoolEnabled         bool `json:"pool_enabled" label:"输家奖池" help:"开启后入场费和真人的超付部分按比例进奖池, 成交后按名次分给出过价的真人输家; 关闭时入场费全部销毁"`
+	FinaleEnabled       bool `json:"finale_enabled" label:"压轴揭示" help:"开启后最后一轮公开品质的是仓库里最贵的一件, 其余按随机顺序公开"`
+
+	EntryRate       int `json:"entry_rate" label:"入场费比例" help:"入场费占期望价值的比例; 入场费只平移盈亏, 用来抵掉其余规则留下的正期望" binding:"min=0,max=2000" unit:"bp"`
+	FlatEntryRate   int `json:"flat_entry_rate" label:"平坦地图入场费比例" help:"价值离散度低于平坦线的地图用这个比例, 这类地图成交价更贴近价值, 正期望更少" binding:"min=0,max=2000" unit:"bp"`
+	FlatCV          int `json:"flat_cv" label:"平坦线" help:"价值的变异系数低于它算平坦" binding:"min=0,max=50000" unit:"bp"`
+	StartPriceRate  int `json:"start_price_rate" label:"起拍价比例" help:"起拍价占期望价值的比例; 过高时大家都从起拍价附近出价, 出价拉不开" binding:"min=1,max=2000" unit:"bp"`
+	CarryOfMean     int `json:"carry_of_mean" label:"带入上限 ÷ 期望价值" help:"带入资金上限不低于期望价值的这么多倍, 否则高价值的仓库出价被封顶, 成交价系统性偏低; 低于 2 倍时验算多半不过" binding:"min=10000,max=100000" unit:"bp"`
+	CarryOfP90      int `json:"carry_of_p90" label:"带入上限 ÷ P90" help:"带入资金上限也不低于价值 P90 的这么多倍, 两项取大" binding:"min=0,max=100000" unit:"bp"`
+	BotCarryRate    int `json:"bot_carry_rate" label:"人机带入资金比例" help:"人机的带入资金占期望价值的比例, 不超过带入资金上限; 人机的钱不来自真人钱包, 带得越多越容易高价抢走大仓库, 真人拍不到, 系统也替它买单" binding:"min=1000,max=100000" unit:"bp"`
+	SpeedFloorRate  int `json:"speed_floor_rate" label:"速胜下限比例" help:"速胜下限占期望价值的比例; 过低挡不住速胜, 过高基本只能打到最后一轮" binding:"min=0,max=30000" unit:"bp"`
+	MaxLeadDiscount int `json:"max_lead_discount" label:"领先折让上限" help:"折让越大成交价越低, 全折让(二价)时赢家白捡、系统净发放" binding:"min=0,max=9000" unit:"bp"`
+	PoolRate        int `json:"pool_rate" label:"入场费进奖池比例" help:"其余销毁; 只算正式局的真人" binding:"min=0,max=10000" unit:"bp"`
+	RebateRate      int `json:"rebate_rate" label:"超付进奖池比例" help:"真人的成交价超过仓库价值时, 超出部分按这个比例进奖池" binding:"min=0,max=10000" unit:"bp"`
+	RebateCapRate   int `json:"rebate_cap_rate" label:"超付进奖池上限" help:"每局进奖池的超付部分不超过入场费的这么多倍" binding:"min=0,max=100000" unit:"bp"`
+	IntelRate       int `json:"intel_rate" label:"情报价格比例" help:"向主持人买一次情报的价格占期望价值的比例, 0 表示不卖情报; 情报平均每局只值期望价值的 0.6%~2.4%, 定价要远低于它, 否则买情报稳赚, 不超过 0.7%" binding:"min=0,max=70" unit:"bp"`
+
+	MinRounds           int `json:"min_rounds" label:"轮数下限" help:"轮数太少时人机只看得到几件的品质, 估值偏高" binding:"min=1,max=10,ltefield=MaxRounds"`
+	MaxRounds           int `json:"max_rounds" label:"轮数上限" binding:"min=1,max=10"`
+	MinGridSide         int `json:"min_grid_side" label:"仓库边长下限" help:"3×3 的仓库多半摆不下, 一件藏品就占了大半价值" binding:"min=1,max=16,ltefield=MaxGridSide"`
+	MaxGridSide         int `json:"max_grid_side" label:"仓库边长上限" help:"更大的仓库没有验算过" binding:"min=1,max=16"`
+	MaxTopShare         int `json:"max_top_share" label:"最贵一件的占比上限" help:"超过时一件藏品决定了整个仓库, 速胜和盈亏都被它绑架" binding:"min=0,max=10000" unit:"bp"`
+	PriceValueTolerance int `json:"price_value_tolerance" label:"成交价与价值之比的容差" help:"4 个真人时成交价 ÷ 仓库价值与目标(1 - 出售手续费率)的差距" binding:"min=0,max=10000" unit:"bp"`
+	MinBidCV            int `json:"min_bid_cv" label:"出价离散度下限" help:"低于它说明大家的出价收敛到同一个价, 暗拍失去意义" binding:"min=0,max=10000" unit:"bp"`
+	MinSpeedWin         int `json:"min_speed_win" label:"速胜率下限" help:"低于它基本只能打到最后一轮" binding:"min=0,max=10000,ltefield=MaxSpeedWin" unit:"bp"`
+	MaxSpeedWin         int `json:"max_speed_win" label:"速胜率上限" help:"高于它说明速胜倍率和下限没有起作用" binding:"min=0,max=10000" unit:"bp"`
+	MinAppraiseBias     int `json:"min_appraise_bias" label:"人机估值偏差下限" help:"人机估值 ÷ 仓库价值, 低于它说明人机系统性低估" binding:"min=0,max=100000,ltefield=MaxAppraiseBias" unit:"bp"`
+	MaxAppraiseBias     int `json:"max_appraise_bias" label:"人机估值偏差上限" help:"高于它说明人机系统性高估, 会买贵" binding:"min=0,max=100000" unit:"bp"`
+	MinSeatEV           int `json:"min_seat_ev" label:"真人盈亏下限" help:"每个真人席位平均每局的盈亏不低于期望价值的这个比例, 负数为亏损; 人机模式只能练习时不看" binding:"min=-10000,max=10000" unit:"bp"`
+	MinRankedWinRate    int `json:"min_ranked_win_rate" label:"排位补人机时真人的胜率下限" help:"2 个真人和 2 个人机时, 每个真人席位拍下仓库的比例不低于它, 0 表示不检查; 平分为 25%" binding:"min=0,max=10000" unit:"bp"`
+	MinPveWinRate       int `json:"min_pve_win_rate" label:"人机模式真人的胜率下限" help:"1 个真人和 3 个人机时, 真人拍下仓库的比例不低于它, 0 表示不检查; 平分为 25%" binding:"min=0,max=10000" unit:"bp"`
+
+	HumanSigmaStart int `json:"human_sigma_start" label:"模拟真人: 首轮估值误差" help:"验算时模拟的真人知道仓库价值但看不准, 第 1 轮的估值误差占价值的比例, 之后每轮减少, 不低于误差下限" binding:"min=0,max=10000" unit:"bp"`
+	HumanSigmaStep  int `json:"human_sigma_step" label:"模拟真人: 每轮减少的误差" help:"按 5 轮的地图计, 轮数不同时按比例缩放, 轮数越多每轮减得越少" binding:"min=0,max=10000" unit:"bp"`
+	HumanSigmaFloor int `json:"human_sigma_floor" label:"模拟真人: 误差下限" binding:"min=0,max=10000" unit:"bp"`
+	HumanJumpChance int `json:"human_jump_chance" label:"模拟真人: 首轮抢拍概率" help:"第 1 轮按估值的 95% 出价的概率, 否则按起拍价试探" binding:"min=0,max=10000" unit:"bp"`
+	HumanStair      int `json:"human_stair" label:"模拟真人: 第 2 轮出价系数" help:"第 2 轮按估值的这个比例出价, 之后每轮加 10%, 不超过 96%" binding:"min=0,max=10000" unit:"bp"`
+	HumanCapFactor  int `json:"human_cap_factor" label:"模拟真人: 出价上限系数" help:"出价不超过估值的这个比例" binding:"min=1,max=20000" unit:"bp"`
 }
 
 // RankedSettings 排位: 段位分的初始分和加减分, 挂机禁赛, 防串通和可疑名单

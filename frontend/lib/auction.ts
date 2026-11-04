@@ -34,6 +34,27 @@ export const HINTS: Record<string, { label: string; className: string }> = {
   far_behind: {label: '落后较多', className: 'text-quality-red'},
 };
 
+/** 主持人的性格, 与后端 internal/apps/venue/constants.go 的 Host 常量对应 */
+export const HOST_PERSONAS: Record<string, { label: string; description: string }> = {
+  steady: {label: '稳重', description: '很少说错, 说错时可能偏高也可能偏低'},
+  showman: {label: '煽动', description: '说错时只会往高了吹, 场子越热越敢吹'},
+  sly: {label: '狡黠', description: '说错时只会往低了压, 场子越冷越敢压'},
+};
+
+/** 热度的档位, 煽动的主持人在火热时、狡黠的在冷清时更敢说错 */
+export function hypeLevel(hype: number) {
+  if (hype >= 70) return {label: '火热', className: 'text-quality-red'};
+  if (hype <= 30) return {label: '冷清', className: 'text-quality-blue'};
+  return {label: '平稳', className: 'text-muted-foreground'};
+}
+
+/** 第 round 轮(共 rounds 轮)向主持人买到的情报, 与后端 auction.intelFor 对应 */
+export function intelTier(round: number, rounds: number) {
+  if (round * 3 <= rounds) return '一件还不知道品质的藏品的品质';
+  if (round * 3 <= rounds * 2) return '一件藏品的名称和品质';
+  return '仓库价值的大致区间';
+}
+
 /** 暗拍阶段的名称 */
 export const PHASES: Record<string, string> = {
   bidding: '出价',
@@ -53,6 +74,21 @@ export const BASIS_POINTS = 10000;
 /** 基点格式化为倍数, 如 16000 -> "1.6" */
 export function formatRatio(bp: number) {
   return (bp / BASIS_POINTS).toFixed(1);
+}
+
+/** 基点格式化为百分比, 如 7500 -> "75%" */
+export function formatRate(bp: number) {
+  return `${(bp / 100).toLocaleString('zh-CN', {maximumFractionDigits: 2})}%`;
+}
+
+/** 最贵的一件在第几轮公开: 最后一轮, 件数不够时为最后一件 */
+export function finaleOrder(rounds: number, pieceCount: number) {
+  return Math.min(rounds, pieceCount);
+}
+
+/** 一组变动中某种货币的金额, 如入场代价中的入场费 */
+export function amountIn(bundle: { currencies?: { currency: string; amount: number }[] }, currency: string) {
+  return (bundle.currencies ?? []).filter((c) => c.currency === currency).reduce((sum, c) => sum + c.amount, 0);
 }
 
 /** 开箱扫描的进度 */

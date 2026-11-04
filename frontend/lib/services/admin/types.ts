@@ -6,7 +6,7 @@ import type {LeaderboardPeriod} from '../leaderboard';
 import type {Tier} from '../ranked';
 import type {Season, SeasonStatus} from '../season';
 import type {ShopOrderStatus} from '../shop';
-import type {AuctionRule, Grid} from '../venue';
+import type {AuctionRule, Grid, HostRule} from '../venue';
 import type {WalletTransaction} from '../wallet';
 
 /** 管理端看到的完整用户, 对应后端 auth.User */
@@ -535,7 +535,92 @@ export interface ValueStats {
   p50: number;
   p90: number;
   max: number;
+  /** 变异系数, 标准差 ÷ 平均值, 基点 */
+  cv: number;
   mean_pieces: number;
+}
+
+/** 验算的阵容, 对应后端 venue 的 Squad */
+export type Squad = 'humans' | 'ranked' | 'pve';
+
+/** 一种阵容的验算结果, 金额为出价货币的最小单位, 比例为基点, 对应后端 venue.SquadStats */
+export interface SquadStats {
+  squad: Squad;
+  /** 真人数, 其余为人机 */
+  humans: number;
+  /** 成交率 */
+  sold: number;
+  /** 成交价之和 ÷ 仓库价值之和 */
+  price_value: number;
+  /** 速胜率, 最后一轮之前成交的比例 */
+  speed_win: number;
+  /** 出价离散度 */
+  bid_cv: number;
+  /** 最贵一件占仓库价值的比例 */
+  top_share: number;
+  /** 人机估值之和 ÷ 仓库价值之和, 没有人机时为 0 */
+  appraise_bias: number;
+  /** 平均在第几轮结束, 百分之一轮 */
+  avg_rounds: number;
+  /** 每个真人席位的成交率 */
+  win_rate: number;
+  /** 每个真人席位每局的平均盈亏 */
+  seat_ev: number;
+  /** 真人成交时的平均盈亏 */
+  winner_ev: number;
+  /** 真人没成交时的平均盈亏, 含奖池分红 */
+  loser_ev: number;
+  /** 每局发给真人输家的奖池合计的平均值 */
+  share: number;
+  /** 每轮结束后热度火热(不低于 70)的比例, 基点; 加轮和成交的那一轮不算 */
+  hype_hot: number;
+  /** 同上, 冷清(不高于 30)的比例 */
+  hype_cold: number;
+  /** 结束时热度的平均值, 0-100 */
+  hype_end: number;
+}
+
+/** 验算闸门, 对应后端 venue 的 Check */
+export type CheckCode =
+  | 'rounds'
+  | 'grid_width'
+  | 'grid_height'
+  | 'top_share'
+  | 'price_value'
+  | 'bid_cv'
+  | 'speed_win'
+  | 'appraise_bias'
+  | 'seat_ev'
+  | 'win_rate';
+
+/** 验算的一项闸门, 对应后端 venue.Check */
+export interface BalanceCheck {
+  code: CheckCode;
+  /** 按阵容判定时为阵容 */
+  squad?: Squad;
+  value: number;
+  /** 下限, 为空表示不限 */
+  min: number | null;
+  /** 上限, 为空表示不限 */
+  max: number | null;
+  /** count 个数, bp 基点, amount 出价货币的最小单位 */
+  unit: 'count' | 'bp' | 'amount';
+  passed: boolean;
+}
+
+/** 对局验算, 对应后端 venue.Balance */
+export interface Balance {
+  /** 每种阵容模拟的局数 */
+  runs: number;
+  /** 成交价 ÷ 仓库价值的目标, 基点 */
+  target: number;
+  /** 参考阵容在前 */
+  squads: SquadStats[];
+  checks: BalanceCheck[];
+  /** 全部闸门通过, 未通过的地图不能启用 */
+  passed: boolean;
+  /** 推导和验算时玩法平衡设置的版本, 与当前版本不同时需要重新推导 */
+  version: number;
 }
 
 /** 仓库模拟结果, 对应后端 venue.Simulation */
@@ -545,7 +630,16 @@ export interface Simulation {
   ranked: ValueStats;
   /** 人机模式, 按仓库价值系数缩放抽取次数 */
   pve: ValueStats;
+  /** 对局验算, 旧数据为空 */
+  balance: Balance | null;
   simulated_at: string;
+}
+
+/** 试算结果, 对应后端 venueadmin.SimulateResponseData */
+export interface SimulateResult {
+  simulation: Simulation;
+  /** 按模拟结果推导出的拍卖参数, 保存时相同 */
+  auction: AuctionRule;
 }
 
 /** 管理端看到的完整地图, 对应后端 venue.Venue */
@@ -563,7 +657,7 @@ export interface AdminVenue {
   pve_enabled: boolean;
   ranked_enabled: boolean;
   bid_currency: string;
-  /** 入场代价, 数量为正数, 开局时扣除 */
+  /** 入场代价, 数量为正数, 开局时扣除; 不能有出价货币, 出价货币的入场费自动计算 */
   entry_cost: Bundle;
   /** 入场条件, 需要全部满足 */
   requirements: Condition[];
@@ -573,6 +667,8 @@ export interface AdminVenue {
   pve: PveRule;
   /** 对局中使用道具的规则 */
   consumables: ConsumableRule;
+  /** 主持人的提示和情报 */
+  host: HostRule;
   /** 保存时的模拟结果 */
   simulation: Simulation;
   created_at: string;
@@ -588,10 +684,34 @@ export interface ListVenuesParams extends PageParams {
 export interface ListVenuesData {
   total: number;
   venues: AdminVenue[];
+  /** 当前玩法平衡设置的版本 */
+  balance_version: number;
 }
 
-/** 新建、修改或模拟地图, 修改时也需提交全部字段 */
-export type VenueRequest = Omit<AdminVenue, 'id' | 'simulation' | 'created_at' | 'updated_at'>;
+/** 一个地图的重新推导结果 */
+export interface RecalibrateResult {
+  id: number;
+  code: string;
+  name: string;
+  /** 是否已按当前设置保存 */
+  updated: boolean;
+  /** 未保存的原因, 一般是启用的地图验算未通过 */
+  reason: string;
+}
+
+export interface RecalibrateData {
+  /** 用到的玩法平衡设置版本 */
+  version: number;
+  results: RecalibrateResult[];
+}
+
+/** 管理员配置的拍卖参数, 金额和比例由后端按模拟结果推导 */
+export type AuctionSettings = Pick<AuctionRule, 'rounds' | 'round_seconds' | 'reveal_seconds' | 'quick_win' | 'max_extra_rounds'>;
+
+/** 新建、修改或模拟地图, 修改时也需提交全部字段; 拍卖的金额和比例不需要提交, 提交了也会被覆盖 */
+export type VenueRequest = Omit<AdminVenue, 'id' | 'auction' | 'simulation' | 'created_at' | 'updated_at'> & {
+  auction: AuctionSettings;
+};
 
 /** 榜单, 对应后端 leaderboard.Board */
 export interface AdminLeaderboard {

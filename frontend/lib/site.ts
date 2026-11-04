@@ -47,7 +47,7 @@ export const PUBLIC_SETTINGS_TAG = 'public-settings';
 const DEFAULT_SETTINGS: PublicSettings = {
   site: {name: 'BlindCrate', description: '', logo_url: '', announcement: '', icp: '', contact_email: ''},
   auth: {register_enabled: true, email_login_enabled: true},
-  economy: {base_currency: 'chip', sell_fee_rate: 500, signup_grant: 5000, pve_daily_profit_cap: 5000},
+  economy: {base_currency: 'chip', sell_fee_rate: 200, signup_grant: 5000, pve_daily_profit_cap: 5000},
   upload: {max_size_kb: 5120, allow_png: true, allow_jpeg: true, allow_webp: true, avatar_enabled: true},
 };
 

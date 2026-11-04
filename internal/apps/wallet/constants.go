@@ -40,12 +40,14 @@ const (
 	BizItemSellFee = "item_sell_fee" // 出售物品的手续费, 入账后扣除, biz_id 为出售单 ID
 	BizSignupGrant = "signup_grant"  // 新用户注册时发放的新手资金, biz_id 为用户 ID
 
-	BizMatchEntryFee     = "match_entry_fee"     // 对局的入场代价, biz_id 为对局 ID
+	BizMatchEntryFee     = "match_entry_fee"     // 对局的入场费和入场代价, biz_id 为对局 ID
 	BizMatchCarryFreeze  = "match_carry_freeze"  // 开局时冻结带入资金, biz_id 为对局 ID
 	BizMatchCarryRelease = "match_carry_release" // 结算或取消时解冻剩余的带入资金, biz_id 为对局 ID
 	BizMatchBidSettle    = "match_bid_settle"    // 成交时从冻结的带入资金中扣除成交价, biz_id 为对局 ID
-	BizMatchRefund       = "match_refund"        // 流拍或取消时退还入场代价, biz_id 为对局 ID
+	BizMatchRefund       = "match_refund"        // 流拍或取消时退还入场费和入场代价, biz_id 为对局 ID
 	BizMatchReward       = "match_reward"        // 成交者获得的藏品, 已下架的藏品按回收价折成货币, biz_id 为对局 ID
+	BizMatchPoolShare    = "match_pool_share"    // 成交后出过价的真人输家分到的奖池, biz_id 为对局 ID
+	BizMatchIntel        = "match_intel"         // 对局中向主持人买情报, 取消时退还, biz_id 为对局 ID
 
 	BizItemUseRefund = "item_use_refund" // 退还用掉的物品时, 已下架或已删除的物品按回收价折成货币, biz_id 由场景决定
 

@@ -55,6 +55,7 @@ import type {
   ListVenuesData,
   ListVenuesParams,
   QualityRequest,
+  RecalibrateData,
   ReviewSuspectRequest,
   SeasonRequest,
   SuspectReview,
@@ -73,7 +74,7 @@ import type {
   SettingGroup,
   SettingRevisionDetail,
   ShopItemRequest,
-  Simulation,
+  SimulateResult,
   StatMetric,
   UpdateSettingRequest,
   UpdateUserRequest,
@@ -216,9 +217,14 @@ export class AdminService extends BaseService {
     return this.delete<null>(`/venues/${id}`);
   }
 
-  /** 按未保存的配置模拟仓库, 不写入数据 */
+  /** 按未保存的配置模拟仓库、推导拍卖参数并验算对局, 不写入数据; 验算未通过时不报错 */
   static simulateVenue(body: VenueRequest) {
-    return this.post<Simulation>('/venues/simulate', body);
+    return this.post<SimulateResult>('/venues/simulate', body);
+  }
+
+  /** 按当前的玩法平衡设置重新推导全部地图; 启用的地图验算未通过时不保存 */
+  static recalibrateVenues() {
+    return this.post<RecalibrateData>('/venues/recalibrate');
   }
 
   /** 全部品质, 附带使用每个品质的物品数 */

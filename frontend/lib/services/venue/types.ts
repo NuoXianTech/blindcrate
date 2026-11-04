@@ -34,17 +34,58 @@ export interface Grid {
   height: number;
 }
 
-/** 拍卖参数, 金额按出价货币的最小单位, 对应后端 venue.AuctionRule */
+/**
+ * 拍卖参数, 金额按出价货币的最小单位, 对应后端 venue.AuctionRule
+ *
+ * 管理员只配置轮次、时长和速胜倍率; 金额和比例由保存时模拟的仓库价值分布推导, 旧数据中为 0
+ */
 export interface AuctionRule {
-  start_price: number;
-  /** 开局时冻结 min(可用余额, 上限), 出价不能超过它 */
-  max_carry: number;
   rounds: number;
   round_seconds: number;
   reveal_seconds: number;
-  /** 前 rounds-1 轮的速胜倍率, 基点 */
+  /** 前 rounds-1 轮的速胜倍率, 基点; 第一名不低于第二名的这么多倍且不低于速胜下限时直接成交 */
   quick_win: number[];
   max_extra_rounds: number;
+  /** 出价货币的入场费, 开局时与入场代价一起扣除 */
+  entry_fee: number;
+  start_price: number;
+  /** 开局时冻结 min(可用余额, 上限), 出价不能超过它 */
+  max_carry: number;
+  /** 人机的带入资金, 不超过带入资金上限; 旧地图为 0, 按带入资金上限 */
+  bot_carry: number;
+  /** 速胜时第一名的出价不能低于它 */
+  speed_floor: number;
+  /** 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让) */
+  lead_discount: number;
+  /** 入场费进奖池的比例, 基点 */
+  pool_rate: number;
+  /** 真人成交价超过仓库价值时, 超出部分进奖池的比例, 基点 */
+  rebate_rate: number;
+  /** 每局进奖池的超付部分的上限 */
+  rebate_cap: number;
+  /** 压轴揭示: 最后一轮公开品质的是仓库里最贵的一件 */
+  finale: boolean;
+  /** 向主持人买一次情报的价格, 从可用余额扣除; 0 表示不卖情报 */
+  intel_price: number;
+}
+
+/**
+ * 主持人, 对应后端 venue.HostRule: 每轮开始时公开一条关于还没公开的藏品的提示, 有一定概率说错;
+ * 出价阶段还可以向他买只有自己看得到的情报, 价格按期望价值推导
+ */
+export interface HostRule {
+  /** 关闭时没有提示和热度, 情报商店仍按 intel_limit 开放 */
+  enabled: boolean;
+  /** 开局时从中随机选一种性格, 为空表示全部; 见 lib/services/auction 的 HOST_PERSONA */
+  personas: string[];
+  /** 提示说错的概率, 基点, 不超过 2500; 按性格和热度调整 */
+  lie_rate: number;
+  /** 提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; 也是"高品质件数"提示统计的最低品质 */
+  high_quality: number;
+  /** 每人每局最多买几次情报, 每轮最多一次, 0 表示不卖情报 */
+  intel_limit: number;
+  /** 估价情报的误差, 基点, 区间宽度为价值 × 误差 × 2; 卖情报时不低于 500 */
+  intel_precision: number;
 }
 
 /** 玩家看到的人机模式参数 */
@@ -81,6 +122,8 @@ export interface Venue {
   eligible: boolean;
   grid: Grid;
   auction: AuctionRule;
+  /** 主持人的提示和情报 */
+  host: HostRule;
   /** 排位模式的仓库价值区间 */
   value_range: ValueRange;
   pve: PveView;

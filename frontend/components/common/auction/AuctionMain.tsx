@@ -17,6 +17,7 @@ import {MATCH_MESSAGES, MATCH_STATUS, type MatchView} from '@/lib/services/match
 import {AuctionHeader} from './AuctionHeader';
 import {BidPanel} from './BidPanel';
 import {FeedbackList} from './FeedbackList';
+import {HostPanel} from './HostPanel';
 import {IntelResult, intelPieces} from './IntelResult';
 import {ItemBar} from './ItemBar';
 import {ResultPanel} from './ResultPanel';
@@ -143,13 +144,14 @@ export function AuctionMain({matchId}: { matchId: number }) {
                 onBid={(next) => setView((prev) => newer(prev, next))}
               />
             )}
+            <HostPanel view={view} decimals={decimals} onBuy={(next) => setView((prev) => newer(prev, next))} />
             {!view.result && view.venue.max_uses > 0 && (
               <ItemBar key={view.match_id} view={view} onUse={(next) => setView((prev) => newer(prev, next))} />
             )}
             {view.self.uses.length > 0 && (
               <section className="flex flex-col gap-2">
                 <h2 className="flex items-center justify-between text-sm font-medium">
-                  道具情报
+                  我的情报
                   <span className="text-xs font-normal text-muted-foreground">仅自己可见</span>
                 </h2>
                 <ul className="flex flex-col gap-1.5">
