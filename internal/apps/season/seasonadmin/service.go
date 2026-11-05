@@ -78,6 +78,24 @@ func QuerySeasons(ctx context.Context, req *ListSeasonsRequest) (int64, []season
 // doCreateSeason 新建赛季, 时间不能与其他赛季重叠
 func doCreateSeason(ctx context.Context, req *CreateSeasonRequest) (*season.View, error) {
 	now := time.Now()
+	var target *season.Season
+	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		target, err = createSeason(tx, req, now)
+		return err
+	})
+	if err != nil {
+		if db.IsUniqueViolation(err) {
+			return nil, errors.New(season.CodeTaken)
+		}
+		return nil, err
+	}
+	view := season.NewView(target, now)
+	return &view, nil
+}
+
+// createSeason 在事务中新建赛季, 时间不能与其他赛季重叠; 后台新建和导入配置包共用
+func createSeason(tx *gorm.DB, req *CreateSeasonRequest, now time.Time) (*season.Season, error) {
 	target := &season.Season{
 		Code:        req.Code,
 		Name:        strings.TrimSpace(req.Name),
@@ -96,103 +114,101 @@ func doCreateSeason(ctx context.Context, req *CreateSeasonRequest) (*season.View
 		return nil, err
 	}
 	target.Rewards = rewards
-	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := season.CheckRewards(tx, target.Rewards); err != nil {
-			return err
-		}
-		if err := season.Lock(tx); err != nil {
-			return err
-		}
-		if err := season.CheckOverlap(tx, target); err != nil {
-			return err
-		}
-		return tx.Create(target).Error
-	})
-	if err != nil {
-		if db.IsUniqueViolation(err) {
-			return nil, errors.New(season.CodeTaken)
-		}
+	if err := season.CheckRewards(tx, target.Rewards); err != nil {
 		return nil, err
 	}
-	view := season.NewView(target, now)
-	return &view, nil
+	if err := season.Lock(tx); err != nil {
+		return nil, err
+	}
+	if err := season.CheckOverlap(tx, target); err != nil {
+		return nil, err
+	}
+	return target, tx.Create(target).Error
 }
 
 // doUpdateSeason 修改赛季, 返回修改后的赛季和本次修改的字段, 没有任何字段变化时不写库
-//
-// 时间按分钟比较, 与原来在同一分钟内视为没有修改; 赛季开始后不能修改开始时间和段位分继承比例, 结束后只能修改名称。
 func doUpdateSeason(ctx context.Context, seasonID uint64, req *SeasonRequest) (*season.View, map[string]interface{}, error) {
 	var (
 		target  season.Season
 		changes map[string]interface{}
 		now     = time.Now()
 	)
-	rewards, err := season.NormalizeRewards(req.Rewards)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := season.Lock(tx); err != nil {
 			return err
 		}
 		if err := lockSeason(tx, &target, seasonID); err != nil {
 			return err
 		}
-		old := target
-		startsAt, endsAt := req.StartsAt.Truncate(time.Minute), req.EndsAt.Truncate(time.Minute)
-		startChanged := !startsAt.Equal(target.StartsAt.Truncate(time.Minute))
-		endChanged := !endsAt.Equal(target.EndsAt.Truncate(time.Minute))
-		carryChanged := req.RatingCarry != target.RatingCarry
-		rewardsChanged := !reflect.DeepEqual(rewards, target.Rewards)
-		switch target.StatusAt(now) {
-		case season.StatusUpcoming:
-		case season.StatusActive:
-			if startChanged || carryChanged {
-				return errors.New(season.StartLocked)
-			}
-		default:
-			if startChanged || endChanged || carryChanged || rewardsChanged {
-				return errors.New(season.SeasonEnded)
-			}
-		}
-
-		target.Name = strings.TrimSpace(req.Name)
-		target.RatingCarry = req.RatingCarry
-		if rewardsChanged {
-			// 没有修改时不重新检查, 奖励中的物品删除后仍能修改其他字段
-			if err := season.CheckRewards(tx, rewards); err != nil {
-				return err
-			}
-			target.Rewards = rewards
-		}
-		if startChanged {
-			target.StartsAt = startsAt
-		}
-		if endChanged {
-			if !endsAt.After(now) {
-				return errors.New(season.TimeInvalid)
-			}
-			target.EndsAt = endsAt
-		}
-		if err := season.Validate(&target); err != nil {
-			return err
-		}
-		changes = seasonChanges(&old, &target)
-		if len(changes) == 0 {
-			return nil
-		}
-		if startChanged || endChanged {
-			if err := season.CheckOverlap(tx, &target); err != nil {
-				return err
-			}
-		}
-		return tx.Save(&target).Error
+		var err error
+		changes, err = updateSeason(tx, &target, req, now)
+		return err
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 	view := season.NewView(&target, now)
 	return &view, changes, nil
+}
+
+// updateSeason 在事务中修改已锁定的赛季, 需要先调用 season.Lock; 返回本次修改的字段, 没有任何字段变化时不写库;
+// 后台修改和导入配置包共用
+//
+// 时间按分钟比较, 与原来在同一分钟内视为没有修改; 赛季开始后不能修改开始时间和段位分继承比例, 结束后只能修改名称。
+func updateSeason(tx *gorm.DB, target *season.Season, req *SeasonRequest, now time.Time) (map[string]interface{}, error) {
+	rewards, err := season.NormalizeRewards(req.Rewards)
+	if err != nil {
+		return nil, err
+	}
+	old := *target
+	startsAt, endsAt := req.StartsAt.Truncate(time.Minute), req.EndsAt.Truncate(time.Minute)
+	startChanged := !startsAt.Equal(target.StartsAt.Truncate(time.Minute))
+	endChanged := !endsAt.Equal(target.EndsAt.Truncate(time.Minute))
+	carryChanged := req.RatingCarry != target.RatingCarry
+	rewardsChanged := !reflect.DeepEqual(rewards, target.Rewards)
+	switch target.StatusAt(now) {
+	case season.StatusUpcoming:
+	case season.StatusActive:
+		if startChanged || carryChanged {
+			return nil, errors.New(season.StartLocked)
+		}
+	default:
+		if startChanged || endChanged || carryChanged || rewardsChanged {
+			return nil, errors.New(season.SeasonEnded)
+		}
+	}
+
+	target.Name = strings.TrimSpace(req.Name)
+	target.RatingCarry = req.RatingCarry
+	if rewardsChanged {
+		// 没有修改时不重新检查, 奖励中的物品删除后仍能修改其他字段
+		if err := season.CheckRewards(tx, rewards); err != nil {
+			return nil, err
+		}
+		target.Rewards = rewards
+	}
+	if startChanged {
+		target.StartsAt = startsAt
+	}
+	if endChanged {
+		if !endsAt.After(now) {
+			return nil, errors.New(season.TimeInvalid)
+		}
+		target.EndsAt = endsAt
+	}
+	if err := season.Validate(target); err != nil {
+		return nil, err
+	}
+	changes := seasonChanges(&old, target)
+	if len(changes) == 0 {
+		return changes, nil
+	}
+	if startChanged || endChanged {
+		if err := season.CheckOverlap(tx, target); err != nil {
+			return nil, err
+		}
+	}
+	return changes, tx.Save(target).Error
 }
 
 // doDeleteSeason 删除未开始的赛季
