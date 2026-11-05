@@ -32,6 +32,7 @@
 
 ### 状态管理和数据处理
 - **[Axios](https://axios-http.com/)** - HTTP 客户端
+- **[React Hook Form](https://react-hook-form.com/)** - 高性能表单库
 
 ### 开发工具
 - **[ESLint](https://eslint.org/)** - 代码质量检查
@@ -85,6 +86,19 @@ pnpm format:check
 ```
 frontend/
 ├── app/                    # Next.js App Router
+│   ├── (auth)/            # 认证相关路由组
+│   ├── (game)/            # 游戏相关路由组
+│   ├── (main)/            # 界面相关路由组
+├── components/            # React 组件
+│   ├── common/           # 业务通用组件
+│   │   ├── layout/       # 布局组件
+│   │   └── form/         # 表单组件
+│   ├── ui/               # Shadcn UI 组件
+│   └── icons/            # 自定义图标组件
+├── hooks/                # Hooks钩子
+├── lib/                  # 工具库和配置
+│   ├── services/         # API 服务层
+│   └── utils.ts          # 通用工具函数
 ├── public/               # 静态资源
 ├── types/                # TypeScript 类型定义
 └── tailwind.config.js    # Tailwind CSS 配置
