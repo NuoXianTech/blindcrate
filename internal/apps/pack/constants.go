@@ -27,7 +27,7 @@ package pack
 // 配置包的格式
 const (
 	packFormat   = "blindcrate-pack" // manifest.json 中的 format
-	packVersion  = 1                 // 当前的格式版本, 格式变化时加 1, 并在 packUpgrades 中补上旧版本的升级函数
+	packVersion  = 2                 // 当前的格式版本, 格式变化时加 1, 并在 packUpgrades 中补上旧版本的升级函数
 	packManifest = "manifest.json"
 	packImageDir = "images/" // 打包的上传图片放在这个目录下, 路径为 images/<key>, 配置中的图片地址也写成这个路径
 )

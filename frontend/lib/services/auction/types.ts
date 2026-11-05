@@ -42,9 +42,9 @@ export const HOST_PERSONA = {
 export const HOST_HINT = {
   /** 品质不低于 quality 的藏品共有 count 件 */
   count: 'count',
-  /** 还没公开品质的藏品里最好的是 quality */
+  /** 仓库里最好的藏品是 quality */
   best: 'best',
-  /** 扫描顺序为 scan_order 的藏品是 quality */
+  /** 位置为 (x, y) 的藏品是 quality, 只指第 1 轮扫出轮廓的 */
   piece: 'piece',
   /** 仓库价值高于(above)或不高于期望价值 */
   value: 'value',
@@ -52,11 +52,13 @@ export const HOST_HINT = {
 
 /** 对局中的道具效果, 与后端 internal/apps/auction/effects.go 的 Effect 常量对应 */
 export const AUCTION_EFFECT = {
-  /** 看几件还不知道品质的藏品的品质 */
+  /** 看几件还不知道轮廓的藏品的轮廓 */
+  revealOutline: 'reveal_outline',
+  /** 看几件还不知道品质的藏品的品质和轮廓 */
   revealQuality: 'reveal_quality',
   /** 某个品质及以上的藏品各有几件 */
   countQuality: 'count_quality',
-  /** 看几件某个品质及以上的藏品的名称 */
+  /** 看几件某个品质及以上的藏品的名称、外观和轮廓 */
   revealName: 'reveal_name',
   /** 仓库价值的区间 */
   valueRange: 'value_range',
@@ -85,8 +87,8 @@ export interface AuctionVenue {
   rebate_rate: number;
   /** 超付部分进奖池的上限 */
   rebate_cap: number;
-  /** 压轴揭示: 最后一轮公开品质的是仓库里最贵的一件 */
-  finale: boolean;
+  /** 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件 */
+  preview_rate: number;
   /** 这个模式每局最多使用几个道具, 0 表示不能用 */
   max_uses: number;
   /** 可以用的道具, 为空表示所有对局中可用的道具 */
@@ -104,7 +106,9 @@ export interface HostHint {
   kind: string;
   quality: number;
   count: number;
-  scan_order: number;
+  /** 指认的藏品的位置, 是第 1 轮扫出轮廓的一件 */
+  x: number;
+  y: number;
   above: boolean;
   /** 是否属实, 开箱后才公开 */
   truthful: boolean | null;
@@ -123,7 +127,7 @@ export interface HypeEvent {
 
 /** 公开的主持人状态, 对应后端 auction.HostView */
 export interface HostView {
-  /** 见 HOST_PERSONA */
+  /** 见 HOST_PERSONA, 开箱后才公开, 之前为空 */
   persona: string;
   hype: number;
   /** 按轮次 */
@@ -138,13 +142,6 @@ export interface SeatIntel {
   count: number;
   /** 最近一次买的轮次 */
   round: number;
-}
-
-/** 已公开品质的藏品 */
-export interface RevealedPiece {
-  /** 公开顺序, 从 1 开始 */
-  order: number;
-  quality: number;
 }
 
 /** 一轮结束后的反馈, 不透露其他人的出价 */
@@ -187,9 +184,13 @@ export interface AuctionSelf {
   intel_bought: boolean;
 }
 
-/** 道具看到的一件藏品, 以扫描顺序对应 Footprint */
+/** 道具看到的一件藏品, 带占的格子, 以位置 (x, y) 区分 */
 export interface PieceIntel {
-  scan_order: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** 0 为只扫出轮廓 */
   quality: number;
   /** 只有看名称的道具有 */
   name?: string;
@@ -204,7 +205,7 @@ export interface QualityCount {
 
 /** 使用一个道具得到的情报, 字段按效果使用其中的一部分, 对应后端 auction.Intel */
 export interface Intel {
-  /** 看到品质或名称的藏品, 按扫描顺序; 没有符合条件的藏品时没有 */
+  /** 看到品质或名称的藏品, 按位置从上到下、从左到右; 没有符合条件的藏品时没有 */
   pieces?: PieceIntel[];
   /** 统计或查看的最低品质 */
   min_quality?: number;
@@ -255,16 +256,12 @@ export interface AuctionPiece {
   scan_ms: number;
 }
 
-/** 一件藏品在仓库中占的格子, 出价时就公开, 不包含名称和回收价 */
+/** 第 1 轮扫出轮廓的一件藏品占的格子, 不包含品质、名称和回收价, 以位置 (x, y) 区分 */
 export interface Footprint {
-  /** 开箱时扫描的顺序, 从 1 开始 */
-  scan_order: number;
   x: number;
   y: number;
   width: number;
   height: number;
-  /** 已公开品质时为品质, 否则为 0 */
-  quality: number;
 }
 
 /** 开箱后公开的一个座位的出价 */
@@ -315,11 +312,8 @@ export interface AuctionPublicView {
   /** 与对局的 version 一致, 只采用 version 更大的推送 */
   version: number;
   venue: AuctionVenue;
-  piece_count: number;
-  /** 全部藏品占的格子, 按扫描顺序 */
+  /** 第 1 轮扫出轮廓的藏品占的格子; 件数开箱前不公开 */
   footprints: Footprint[];
-  /** 第 N 轮公开前 N 件藏品的品质 */
-  revealed: RevealedPiece[];
   /** 加轮时可以出价的座位, 为空表示所有人 */
   contenders: number[];
   /** 主持人, 没有主持人提示时为空 */
@@ -364,6 +358,8 @@ export interface AuctionPlayer {
 
 /** 管理员看到的一局暗拍, 对应后端 auction.AdminView */
 export interface AuctionAdminView extends AuctionPublicView {
+  /** 藏品件数 */
+  piece_count: number;
   /** 按座位号排序 */
   players: AuctionPlayer[];
   /** 全部座位用过的道具和得到的情报, 按使用顺序 */

@@ -528,9 +528,9 @@ CREATE TABLE IF NOT EXISTS auction_warehouse_items
 (
     id            BIGSERIAL PRIMARY KEY,
     match_id      BIGINT        NOT NULL,
-    reveal_order  INTEGER       NOT NULL,           -- 公开品质的顺序, 从 1 开始, 第 N 轮公开前 N 件
-    scan_order    INTEGER       NOT NULL DEFAULT 0, -- 开箱时扫描的顺序, 从 1 开始, 按位置从上到下、从左到右
-    scan_ms       INTEGER       NOT NULL DEFAULT 0, -- 开箱时扫描这件的时长, 毫秒, 开局时按品质快照
+    preview       BOOLEAN       NOT NULL DEFAULT FALSE, -- 是否在第 1 轮扫出轮廓(占的格子), 所有人都看得到
+    scan_order    INTEGER       NOT NULL DEFAULT 0,     -- 开箱时扫描的顺序, 从 1 开始, 按位置从上到下、从左到右
+    scan_ms       INTEGER       NOT NULL DEFAULT 0,     -- 开箱时扫描这件的时长, 毫秒, 开局时按品质快照
     item_id       BIGINT        NOT NULL,
     name          VARCHAR(64)   NOT NULL,
     image_url     VARCHAR(1024) NOT NULL DEFAULT '',
@@ -543,7 +543,7 @@ CREATE TABLE IF NOT EXISTS auction_warehouse_items
     sell_price    BIGINT        NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_warehouse_items_match_id_reveal_order ON auction_warehouse_items (match_id, reveal_order);
+CREATE INDEX IF NOT EXISTS idx_auction_warehouse_items_match_id ON auction_warehouse_items (match_id);
 
 -- 暗拍中用掉的道具, 结果在使用时算出并保存; 每人每轮同一种道具只用一次
 CREATE TABLE IF NOT EXISTS auction_uses
@@ -572,7 +572,8 @@ CREATE TABLE IF NOT EXISTS auction_hints
     kind       VARCHAR(16) NOT NULL,              -- 提示的类型, 见代码中的 Hint
     quality    SMALLINT    NOT NULL DEFAULT 0,    -- 提示中的品质
     count      INTEGER     NOT NULL DEFAULT 0,    -- 提示中的件数
-    scan_order INTEGER     NOT NULL DEFAULT 0,    -- 提示针对的藏品的扫描顺序
+    x          SMALLINT    NOT NULL DEFAULT 0,    -- 提示针对的藏品的位置, 是第 1 轮扫出轮廓的一件
+    y          SMALLINT    NOT NULL DEFAULT 0,
     above      BOOLEAN     NOT NULL DEFAULT FALSE, -- 仓库价值是否高于期望
     truthful   BOOLEAN     NOT NULL,              -- 提示是否属实
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

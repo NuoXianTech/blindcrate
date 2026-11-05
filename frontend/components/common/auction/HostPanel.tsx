@@ -40,11 +40,11 @@ function HintText({hint}: { hint: HostHint }) {
         </span>
       );
     case HOST_HINT.best:
-      return <span>还没公开的藏品里最好的是 <QualityName quality={hint.quality} /></span>;
+      return <span>仓库里最好的藏品是 <QualityName quality={hint.quality} /></span>;
     case HOST_HINT.piece:
       return (
         <span>
-          <span className="font-mono tabular-nums">#{hint.scan_order}</span> 号藏品是 <QualityName quality={hint.quality} />
+          <Megaphone className="inline size-3.5 align-[-2px]" /> 标出的这件是 <QualityName quality={hint.quality} />
         </span>
       );
     case HOST_HINT.value:
@@ -54,7 +54,7 @@ function HintText({hint}: { hint: HostHint }) {
 }
 
 /**
- * 主持人: 公开性格、热度和每轮的提示(可能说错, 开箱后公开真假), 出价阶段可以向他买只有自己看得到的情报
+ * 主持人: 公开热度和每轮的提示(可能说错), 开箱后公开性格和提示的真假; 出价阶段可以向他买只有自己看得到的情报
  * 没有主持人提示的地图只显示情报商店; 两者都没有时不显示
  */
 export function HostPanel({view, decimals, onBuy}: {
@@ -112,7 +112,7 @@ export function HostPanel({view, decimals, onBuy}: {
           <div className="h-1.5 overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full bg-gradient-to-r from-quality-blue via-quality-gold to-quality-red" style={{width: `${host.hype}%`}} />
           </div>
-          {persona && <span className="text-xs text-muted-foreground">{persona.description}</span>}
+          {persona && <span className="text-xs text-muted-foreground">这局的主持人{persona.label}: {persona.description}</span>}
           {lastHype && lastHype.round > 0 && (
             <span className="text-xs text-muted-foreground">
               第 {lastHype.round} 轮 {lastHype.raises > 0 ? `${lastHype.raises} 人加价` : '没人加价'}

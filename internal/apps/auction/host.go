@@ -36,7 +36,7 @@ import (
 
 // hostInput 生成一轮提示时的局面
 type hostInput struct {
-	Round     int32           // 即将开始的轮次, 这一轮公开前 Round 件的品质
+	Round     int32           // 即将开始的轮次
 	Items     []WarehouseItem // 仓库里的全部藏品
 	Value     int64           // 仓库价值
 	Expected  int64           // 期望价值, 见 expectedValue
@@ -49,12 +49,12 @@ type hostInput struct {
 
 // makeHint 生成一条提示: 列出这一轮能给的提示, 随机选一种, 再按撒谎率决定是否说错; 没有能给的提示时返回 false
 //
-// 提示只涉及开局时就确定的信息, 不涉及其他人的出价。
+// 提示只涉及开局时就确定的信息, 不涉及其他人的出价; 指认一件藏品时只指第 1 轮扫出轮廓的, 不透露其他藏品的位置。
 func makeHint(in *hostInput, randN func(n int64) int64) (HostHint, bool) {
-	var hidden []WarehouseItem
+	var previewed []WarehouseItem
 	for _, it := range in.Items {
-		if it.RevealOrder > in.Round {
-			hidden = append(hidden, it)
+		if it.Preview {
+			previewed = append(previewed, it)
 		}
 	}
 	var options []HostHint
@@ -67,12 +67,13 @@ func makeHint(in *hostInput, randN func(n int64) int64) (HostHint, bool) {
 		}
 		options = append(options, HostHint{Kind: HostHintCount, Quality: q, Count: n})
 	}
-	if len(hidden) > 0 {
-		best := slices.MaxFunc(hidden, func(a, b WarehouseItem) int { return cmp.Compare(a.Quality, b.Quality) })
-		piece := hidden[randN(int64(len(hidden)))]
-		options = append(options,
-			HostHint{Kind: HostHintBest, Quality: best.Quality},
-			HostHint{Kind: HostHintPiece, Quality: piece.Quality, ScanOrder: piece.ScanOrder})
+	if len(in.Items) > 0 {
+		best := slices.MaxFunc(in.Items, func(a, b WarehouseItem) int { return cmp.Compare(a.Quality, b.Quality) })
+		options = append(options, HostHint{Kind: HostHintBest, Quality: best.Quality})
+	}
+	if len(previewed) > 0 {
+		piece := previewed[randN(int64(len(previewed)))]
+		options = append(options, HostHint{Kind: HostHintPiece, Quality: piece.Quality, X: piece.X, Y: piece.Y})
 	}
 	if in.Expected > 0 {
 		options = append(options, HostHint{Kind: HostHintValue, Above: in.Value > in.Expected})
@@ -218,7 +219,7 @@ func hypeDelta(raises []int64, expected int64, rounds int32) int32 {
 	return delta
 }
 
-// startHost 开局时选出主持人的性格并公开, 记录初始热度, 给出第 1 轮的提示; 没有开启主持人提示时什么都不做
+// startHost 开局时选出主持人的性格(开箱后才公开), 记录初始热度, 给出第 1 轮的提示; 没有开启主持人提示时什么都不做
 func startHost(tx *gorm.DB, a *Match, items []WarehouseItem) error {
 	rule := &a.Venue.Host
 	if !rule.Enabled {
@@ -322,34 +323,38 @@ func loadHost(tx *gorm.DB, matchID uint64) ([]HostHint, []HypeEvent, error) {
 
 // HintView 公开的一条提示, 字段见 HostHint
 type HintView struct {
-	Round     int32  `json:"round"`
-	Kind      string `json:"kind"` // 见 constants.go 的 HostHint
-	Quality   int16  `json:"quality"`
-	Count     int32  `json:"count"`
-	ScanOrder int32  `json:"scan_order"`
-	Above     bool   `json:"above"`
-	Truthful  *bool  `json:"truthful"` // 是否属实, 开箱后才公开
+	Round    int32  `json:"round"`
+	Kind     string `json:"kind"` // 见 constants.go 的 HostHint
+	Quality  int16  `json:"quality"`
+	Count    int32  `json:"count"`
+	X        int16  `json:"x"` // 指认的藏品的位置, 是第 1 轮扫出轮廓的一件
+	Y        int16  `json:"y"`
+	Above    bool   `json:"above"`
+	Truthful *bool  `json:"truthful"` // 是否属实, 开箱后才公开
 }
 
 // HostView 公开的主持人状态, 没有主持人提示的对局为空
 type HostView struct {
-	Persona string      `json:"persona"` // 见 venue.HostSteady 等
+	Persona string      `json:"persona"` // 见 venue.HostSteady 等, 开箱后才公开, 之前为空
 	Hype    int32       `json:"hype"`
 	Hints   []HintView  `json:"hints"` // 按轮次
 	Hypes   []HypeEvent `json:"hypes"` // 热度的每次变动, 按时间
 }
 
-// hostView 主持人的公开状态; reveal 为是否公开提示是否属实
+// hostView 主持人的公开状态; reveal 为是否公开性格和提示是否属实
 func hostView(a *Match, hints []HostHint, hypes []HypeEvent, reveal bool) *HostView {
 	if a.Host == "" {
 		return nil
 	}
-	view := &HostView{Persona: a.Host, Hype: a.Hype, Hints: make([]HintView, len(hints)), Hypes: hypes}
+	view := &HostView{Hype: a.Hype, Hints: make([]HintView, len(hints)), Hypes: hypes}
+	if reveal {
+		view.Persona = a.Host
+	}
 	if view.Hypes == nil {
 		view.Hypes = []HypeEvent{}
 	}
 	for i, h := range hints {
-		view.Hints[i] = HintView{Round: h.Round, Kind: h.Kind, Quality: h.Quality, Count: h.Count, ScanOrder: h.ScanOrder, Above: h.Above}
+		view.Hints[i] = HintView{Round: h.Round, Kind: h.Kind, Quality: h.Quality, Count: h.Count, X: h.X, Y: h.Y, Above: h.Above}
 		if reveal {
 			view.Hints[i].Truthful = &hints[i].Truthful
 		}

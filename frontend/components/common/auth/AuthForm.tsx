@@ -1,16 +1,17 @@
 'use client';
 
-import {useEffect, useState} from 'react';
+import {useEffect} from 'react';
 import Link from 'next/link';
 import {useRouter, useSearchParams} from 'next/navigation';
+import {useForm} from 'react-hook-form';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
+import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
 import {Input} from '@/components/ui/input';
-import {Label} from '@/components/ui/label';
 import {SiteLogo, useSite} from '@/components/common/site';
 import {SubmitButton} from '@/components/common/form';
 import {CurrencyIcon} from '@/components/common/wallet';
-import {check, useSubmit} from '@/hooks/use-submit';
+import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import {ROUTES, loginHref, safeRedirect} from '@/lib/access';
 import {formatAmount} from '@/lib/utils';
@@ -18,6 +19,13 @@ import {checkPassword, checkPasswordConfirm, checkUsername} from '@/lib/validati
 import {useAuth} from './AuthProvider';
 
 type Mode = 'login' | 'register';
+
+interface AuthValues {
+  username: string;
+  password: string;
+  /** 确认密码, 只有注册时有 */
+  confirm: string;
+}
 
 const COPY = {
   login: {description: '登录账号, 继续开箱', submit: '登录', switchText: '还没有账号?', switchLink: '注册一个', switchTo: ROUTES.register},
@@ -37,24 +45,16 @@ export function AuthForm({mode}: { mode: Mode }) {
   const registerClosed = !auth.register_enabled;
   const {pending, submit} = useSubmit();
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
+  const form = useForm<AuthValues>({defaultValues: {username: '', password: '', confirm: ''}});
 
   // 已登录(含刚登录成功)时离开登录页
   useEffect(() => {
     if (user) router.replace(safeRedirect(redirect));
   }, [user, redirect, router]);
 
-  const handleSubmit = submit(async () => {
-    const name = username.trim();
-    check(!name || !password ? '请填写用户名和密码' : null);
-    if (mode === 'register') {
-      check(checkUsername(name));
-      check(checkPassword(password));
-      check(checkPasswordConfirm(password, confirm));
-    }
-    const body = {username: name, password};
+  // 字段校验由表单完成, 错误显示在字段下方; 请求失败仍以提示框展示
+  const handleSubmit = form.handleSubmit(({username, password}) => submit(async () => {
+    const body = {username: username.trim(), password};
     if (mode === 'login') {
       const info = await services.auth.login(body);
       toast.success(`欢迎回来, ${info.nickname}`);
@@ -64,7 +64,7 @@ export function AuthForm({mode}: { mode: Mode }) {
     const info = await services.auth.register(body);
     toast.success(`注册成功, 欢迎 ${info.nickname}`, {description: await grantedText(economy.base_currency)});
     setUser(info);
-  });
+  })());
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-6">
@@ -87,63 +87,87 @@ export function AuthForm({mode}: { mode: Mode }) {
           <Link href={loginHref(redirect)}>去登录</Link>
         </Button>
       ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="username">{mode === 'login' && auth.email_login_enabled ? '用户名或邮箱' : '用户名'}</Label>
-            <Input
-              id="username"
-              autoComplete="username"
-              autoFocus
-              placeholder={
-                mode === 'register' ?
-                  '3-32 位字母、数字或下划线' :
-                  auth.email_login_enabled ?
-                    '用户名 / 已验证的邮箱' :
-                    '请输入用户名'
-              }
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={pending}
+        <Form {...form}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+            <FormField
+              control={form.control}
+              name="username"
+              rules={{
+                validate: (v) => (!v.trim() ? '请填写用户名' : mode === 'register' ? checkUsername(v.trim()) ?? true : true),
+              }}
+              render={({field}) => (
+                <FormItem>
+                  <FormLabel>{mode === 'login' && auth.email_login_enabled ? '用户名或邮箱' : '用户名'}</FormLabel>
+                  <FormControl>
+                    <Input
+                      autoComplete="username"
+                      autoFocus
+                      placeholder={
+                        mode === 'register' ?
+                          '3-32 位字母、数字或下划线' :
+                          auth.email_login_enabled ?
+                            '用户名 / 已验证的邮箱' :
+                            '请输入用户名'
+                      }
+                      disabled={pending}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="password">密码</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              placeholder={mode === 'login' ? '请输入密码' : '8-72 位'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={pending}
+            <FormField
+              control={form.control}
+              name="password"
+              rules={{
+                validate: (v) => (!v ? '请填写密码' : mode === 'register' ? checkPassword(v) ?? true : true),
+              }}
+              render={({field}) => (
+                <FormItem>
+                  <FormLabel>密码</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                      placeholder={mode === 'login' ? '请输入密码' : '8-72 位'}
+                      disabled={pending}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          {mode === 'register' && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="confirm">确认密码</Label>
-              <Input
-                id="confirm"
-                type="password"
-                autoComplete="new-password"
-                placeholder="再次输入密码"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                disabled={pending}
+            {mode === 'register' && (
+              <FormField
+                control={form.control}
+                name="confirm"
+                rules={{validate: (v, values) => checkPasswordConfirm(values.password, v) ?? true}}
+                render={({field}) => (
+                  <FormItem>
+                    <FormLabel>确认密码</FormLabel>
+                    <FormControl>
+                      <Input type="password" autoComplete="new-password" placeholder="再次输入密码" disabled={pending} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-          )}
-          {mode === 'register' && economy.signup_grant > 0 && (
-            <p className="flex items-center justify-center gap-1.5 rounded-lg border bg-card px-3 py-2 text-sm">
-              注册即送
-              <CurrencyIcon currency={economy.base_currency} className="size-4" />
-              {/* 注册前拿不到货币的名称和小数位, 只显示图标和整数 */}
-              <span className="font-mono font-bold tabular-nums">{formatAmount(economy.signup_grant)}</span>
-            </p>
-          )}
-          <SubmitButton pending={pending} size="lg" className="mt-2 w-full">
-            {pending ? `正在${copy.submit}...` : copy.submit}
-          </SubmitButton>
-        </form>
+            )}
+            {mode === 'register' && economy.signup_grant > 0 && (
+              <p className="flex items-center justify-center gap-1.5 rounded-lg border bg-card px-3 py-2 text-sm">
+                注册即送
+                <CurrencyIcon currency={economy.base_currency} className="size-4" />
+                {/* 注册前拿不到货币的名称和小数位, 只显示图标和整数 */}
+                <span className="font-mono font-bold tabular-nums">{formatAmount(economy.signup_grant)}</span>
+              </p>
+            )}
+            <SubmitButton pending={pending} size="lg" className="mt-2 w-full">
+              {pending ? `正在${copy.submit}...` : copy.submit}
+            </SubmitButton>
+          </form>
+        </Form>
       )}
 
       {!registerClosed && (

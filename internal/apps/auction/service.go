@@ -283,7 +283,7 @@ func (vm *venueMode) practice(tx *gorm.DB, userID uint64) (bool, error) {
 	return false, nil
 }
 
-// Start 快照地图配置和藏品分布, 生成仓库并排出公开顺序(最贵的一件压轴, 见 revealOrders), 按位置排出扫描顺序并快照扫描时长,
+// Start 快照地图配置和藏品分布, 生成仓库并按首轮扫描比例抽出第 1 轮扫出轮廓的藏品(见 previewPieces), 按位置排出扫描顺序并快照扫描时长,
 // 按地图配置的权重为人机选出风格, 进入第 1 轮出价
 //
 // 人机模式按地图的仓库价值系数缩放抽取次数; 掉落池已不可用或摆不下、人机风格已不可用时开局失败。
@@ -336,14 +336,14 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 	if err != nil {
 		return nil, err
 	}
-	revealOrder := revealOrders(warehouse.Pieces, v.BidCurrency, v.Auction.Rounds, v.Auction.Finale, rand.Perm)
+	preview := previewPieces(len(warehouse.Pieces), v.Auction.PreviewRate, rand.Int64N)
 	scanOrder := scanOrders(warehouse.Pieces)
 	rows := make([]WarehouseItem, len(warehouse.Pieces))
 	for i, piece := range warehouse.Pieces {
 		target := items[piece.ItemID]
 		rows[i] = WarehouseItem{
 			MatchID:      m.ID,
-			RevealOrder:  revealOrder[i],
+			Preview:      preview[i],
 			ScanOrder:    scanOrder[i],
 			ScanMs:       scanDurations[piece.Quality],
 			ItemID:       piece.ItemID,
@@ -560,7 +560,7 @@ func (st *state) botBids(tx *gorm.DB, waited bool) error {
 			if err != nil {
 				return err
 			}
-			prints, _ = footprints(items, min(m.Round, a.PieceCount))
+			prints = footprints(items)
 		}
 		obs := Observation{
 			Round:      m.Round,
@@ -1161,7 +1161,7 @@ func UseItem(ctx context.Context, userID uint64, req *UseRequest) (*AuctionView,
 		if err != nil {
 			return nil, err
 		}
-		useCtx := newUseContext(m.Round, a.PieceCount, a.Value, items, uses, rand.Int64N)
+		useCtx := newUseContext(a.Value, items, uses, rand.Int64N)
 		intel, err := effect.Apply[*UseContext, Intel](effect.SceneMatch, target.Effect, useCtx, target.EffectParams)
 		if err != nil {
 			return nil, err
@@ -1281,27 +1281,19 @@ type VenueInfo struct {
 	PoolRate       int32      `json:"pool_rate"`     // 入场费进奖池的比例, 基点
 	RebateRate     int32      `json:"rebate_rate"`   // 超付部分进奖池的比例, 基点
 	RebateCap      int64      `json:"rebate_cap"`    // 超付部分进奖池的上限
-	Finale         bool       `json:"finale"`        // 压轴揭示: 最后一轮公开品质的是仓库里最贵的一件
+	PreviewRate    int32      `json:"preview_rate"`  // 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件
 	MaxUses        int32      `json:"max_uses"`      // 这个模式每局最多使用几个道具, 0 表示不能用
 	AllowedItems   []uint64   `json:"allowed_items"` // 可以用的道具, 为空表示所有对局中可用的道具
 	IntelPrice     int64      `json:"intel_price"`   // 向主持人买一次情报的价格, 0 表示不卖情报
 	IntelLimit     int32      `json:"intel_limit"`   // 每人每局最多买几次情报, 每轮最多一次
 }
 
-// RevealedPiece 已公开品质的藏品
-type RevealedPiece struct {
-	Order   int32 `json:"order"` // 公开顺序, 从 1 开始
-	Quality int16 `json:"quality"`
-}
-
-// Footprint 一件藏品在仓库中占的格子, 出价时就公开, 不包含名称和回收价
+// Footprint 第 1 轮扫出轮廓的一件藏品占的格子, 不包含品质、名称、回收价和扫描顺序, 以位置(X, Y)区分
 type Footprint struct {
-	ScanOrder int32 `json:"scan_order"` // 开箱时扫描的顺序, 从 1 开始
-	X         int16 `json:"x"`
-	Y         int16 `json:"y"`
-	Width     int16 `json:"width"`
-	Height    int16 `json:"height"`
-	Quality   int16 `json:"quality"` // 已公开品质时为品质, 否则为 0
+	X      int16 `json:"x"`
+	Y      int16 `json:"y"`
+	Width  int16 `json:"width"`
+	Height int16 `json:"height"`
 }
 
 // SelfView 自己在这局中的状态
@@ -1379,21 +1371,19 @@ type ResultView struct {
 
 // PublicView 一局暗拍中所有人都看得到的部分
 type PublicView struct {
-	MatchID     uint64          `json:"match_id"`
-	Mode        string          `json:"mode"`
-	Status      string          `json:"status"`
-	Phase       string          `json:"phase"`
-	Round       int32           `json:"round"`
-	PhaseEndsAt *time.Time      `json:"phase_ends_at"`
-	Version     int64           `json:"version"` // 与对局的 version 一致, 客户端只采用 version 更大的推送
-	Venue       VenueInfo       `json:"venue"`
-	PieceCount  int32           `json:"piece_count"`
-	Footprints  []Footprint     `json:"footprints"`  // 全部藏品占的格子, 按扫描顺序
-	Revealed    []RevealedPiece `json:"revealed"`    // 已公开品质的藏品, 第 N 轮公开前 N 件
-	Contenders  []int16         `json:"contenders"`  // 加轮时可以出价的座位, 为空表示所有人
-	Host        *HostView       `json:"host"`        // 主持人, 没有主持人提示时为空
-	IntelSeats  []SeatIntel     `json:"intel_seats"` // 买过情报的座位, 按座位号; 只公开次数, 不公开内容
-	Result      *ResultView     `json:"result"`      // 结算后才有
+	MatchID     uint64      `json:"match_id"`
+	Mode        string      `json:"mode"`
+	Status      string      `json:"status"`
+	Phase       string      `json:"phase"`
+	Round       int32       `json:"round"`
+	PhaseEndsAt *time.Time  `json:"phase_ends_at"`
+	Version     int64       `json:"version"` // 与对局的 version 一致, 客户端只采用 version 更大的推送
+	Venue       VenueInfo   `json:"venue"`
+	Footprints  []Footprint `json:"footprints"`  // 第 1 轮扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开
+	Contenders  []int16     `json:"contenders"`  // 加轮时可以出价的座位, 为空表示所有人
+	Host        *HostView   `json:"host"`        // 主持人, 没有主持人提示时为空
+	IntelSeats  []SeatIntel `json:"intel_seats"` // 买过情报的座位, 按座位号; 只公开次数, 不公开内容
+	Result      *ResultView `json:"result"`      // 结算后才有
 }
 
 // SeatIntel 一个座位买情报的次数
@@ -1412,8 +1402,9 @@ type AuctionView struct {
 // AdminView 管理员看到的一局暗拍: 公开部分和每个座位的暗拍数据, 结算结果中的 profit 为 0, 以 players 中的为准
 type AdminView struct {
 	PublicView
-	Players []Player `json:"players"` // 按座位号排序
-	Uses    []Use    `json:"uses"`    // 全部座位用过的道具和得到的情报, 按使用顺序
+	PieceCount int32    `json:"piece_count"` // 藏品件数
+	Players    []Player `json:"players"`     // 按座位号排序
+	Uses       []Use    `json:"uses"`        // 全部座位用过的道具和得到的情报, 按使用顺序
 }
 
 // view 以 viewerID 的视角查看, 不是这局的真人玩家时返回 nil
@@ -1494,23 +1485,17 @@ func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
 			PoolRate:       rule.PoolRate,
 			RebateRate:     rule.RebateRate,
 			RebateCap:      rule.RebateCap,
-			Finale:         rule.Finale,
+			PreviewRate:    rule.PreviewRate,
 			MaxUses:        a.Venue.Consumables.MaxPerMatch(st.kind()),
 			AllowedItems:   a.Venue.Consumables.Allowed,
 			IntelPrice:     rule.IntelPrice,
 			IntelLimit:     a.Venue.Host.IntelLimit,
 		},
-		PieceCount: a.PieceCount,
+		Footprints: footprints(items),
 		Contenders: a.Contenders,
 		Host:       hostView(a, st.hints, st.hypes, a.Outcome != ""),
 		IntelSeats: intelSeats(st.players, uses),
 	}
-
-	revealed := min(m.Round, a.PieceCount)
-	if a.Outcome != "" {
-		revealed = a.PieceCount
-	}
-	view.Footprints, view.Revealed = footprints(items, revealed)
 	if a.Outcome == "" {
 		return view
 	}
@@ -1549,19 +1534,15 @@ func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
 	return view
 }
 
-// footprints 藏品占的格子, 与 items 的顺序相同; 公开顺序不超过 revealed 的带品质, 另按公开顺序列出
-func footprints(items []WarehouseItem, revealed int32) ([]Footprint, []RevealedPiece) {
-	prints := make([]Footprint, len(items))
-	pieces := []RevealedPiece{}
-	for i, it := range items {
-		prints[i] = Footprint{ScanOrder: it.ScanOrder, X: it.X, Y: it.Y, Width: it.Width, Height: it.Height}
-		if it.RevealOrder <= revealed {
-			prints[i].Quality = it.Quality
-			pieces = append(pieces, RevealedPiece{Order: it.RevealOrder, Quality: it.Quality})
+// footprints 第 1 轮扫出轮廓的藏品占的格子, 与 items 的顺序相同
+func footprints(items []WarehouseItem) []Footprint {
+	prints := []Footprint{}
+	for _, it := range items {
+		if it.Preview {
+			prints = append(prints, Footprint{X: it.X, Y: it.Y, Width: it.Width, Height: it.Height})
 		}
 	}
-	slices.SortFunc(pieces, func(a, b RevealedPiece) int { return cmp.Compare(a.Order, b.Order) })
-	return prints, pieces
+	return prints
 }
 
 // intelSeats 买过情报的座位, 按座位号
@@ -1602,7 +1583,7 @@ func useCounts(uses []Use, seat int16) []UseCount {
 // loadItems 仓库里的藏品, 按扫描顺序
 func loadItems(tx *gorm.DB, matchID uint64) ([]WarehouseItem, error) {
 	var items []WarehouseItem
-	if err := tx.Where("match_id = ?", matchID).Order("scan_order, reveal_order").Find(&items).Error; err != nil {
+	if err := tx.Where("match_id = ?", matchID).Order("scan_order").Find(&items).Error; err != nil {
 		return nil, err
 	}
 	return items, nil
@@ -1658,7 +1639,7 @@ func QueryAdminAuction(ctx context.Context, matchID uint64) (*AdminView, error) 
 	if err != nil {
 		return nil, err
 	}
-	view := &AdminView{PublicView: st.publicView(items, uses), Players: st.players, Uses: uses}
+	view := &AdminView{PublicView: st.publicView(items, uses), PieceCount: st.auction.PieceCount, Players: st.players, Uses: uses}
 	view.Host = hostView(&st.auction, st.hints, st.hypes, true)
 	return view, nil
 }

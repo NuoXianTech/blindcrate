@@ -3,16 +3,23 @@
 import {cn} from 'cn';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
+import {cellKey} from '@/lib/auction';
 import type {Intel, PieceIntel} from '@/lib/services/auction';
 import {formatAmount} from '@/lib/utils';
 
-/** 一件藏品的品质色点和品质名称 */
+/** 一件藏品的品质色点和品质名称, 品质为 0(只扫出轮廓)时显示 "轮廓" */
 function QualityTag({quality, children}: { quality: number; children?: React.ReactNode }) {
   const q = useQualities().qualityOf(quality);
   return (
     <span className="inline-flex h-6 items-center gap-1.5 rounded-md border bg-card px-2 text-xs">
-      <span className={cn('size-2 rounded-full', q.bar)} />
-      <span className={q.text}>{q.name}</span>
+      {quality ? (
+        <>
+          <span className={cn('size-2 rounded-full', q.bar)} />
+          <span className={q.text}>{q.name}</span>
+        </>
+      ) : (
+        <span className="text-muted-foreground">轮廓</span>
+      )}
       {children}
     </span>
   );
@@ -20,7 +27,7 @@ function QualityTag({quality, children}: { quality: number; children?: React.Rea
 
 /**
  * 一个道具得到的情报, 按结果中有的字段展示, 不依赖效果代码, 新增的效果复用同样的字段即可
- * 藏品以扫描顺序编号, 与仓库中的格子对应
+ * 看到的藏品同时在仓库中扫出轮廓, 这里不编号, 只标出占的格子大小
  */
 export function IntelResult({intel, currency, decimals}: {
   intel: Intel;
@@ -43,8 +50,8 @@ export function IntelResult({intel, currency, decimals}: {
       {pieces.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {pieces.map((p) => (
-            <QualityTag key={p.scan_order} quality={p.quality}>
-              <span className="font-mono text-muted-foreground tabular-nums">#{p.scan_order}</span>
+            <QualityTag key={cellKey(p)} quality={p.quality}>
+              <span className="font-mono text-muted-foreground tabular-nums">{p.width}×{p.height}</span>
               {p.name && <span>{p.name}</span>}
             </QualityTag>
           ))}
@@ -73,13 +80,18 @@ export function IntelResult({intel, currency, decimals}: {
   );
 }
 
-/** 合并道具看到的藏品, 按扫描顺序索引; 同一件看到过多次时保留带名称的 */
-export function intelPieces(intels: Intel[]): Map<number, PieceIntel> {
-  const known = new Map<number, PieceIntel>();
+/** 一件藏品情报的详细程度: 名称 > 品质 > 只有轮廓 */
+function detail(p: PieceIntel) {
+  return p.name ? 2 : p.quality ? 1 : 0;
+}
+
+/** 合并道具看到的藏品, 按位置索引, 见 cellKey; 同一件看到过多次时保留最详细的 */
+export function intelPieces(intels: Intel[]): Map<string, PieceIntel> {
+  const known = new Map<string, PieceIntel>();
   for (const intel of intels) {
     for (const p of intel.pieces ?? []) {
-      const prev = known.get(p.scan_order);
-      if (!prev || (!prev.name && p.name)) known.set(p.scan_order, p);
+      const prev = known.get(cellKey(p));
+      if (!prev || detail(p) > detail(prev)) known.set(cellKey(p), p);
     }
   }
   return known;

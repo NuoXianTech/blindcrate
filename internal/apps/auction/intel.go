@@ -122,7 +122,7 @@ func BuyIntel(ctx context.Context, userID uint64, req *IntelRequest) (*AuctionVi
 		if err != nil {
 			return nil, err
 		}
-		useCtx := newUseContext(m.Round, a.PieceCount, a.Value, items, uses, rand.Int64N)
+		useCtx := newUseContext(a.Value, items, uses, rand.Int64N)
 		code, intel, err := intelFor(m.Round, a.Venue.Auction.Rounds, a.Venue.Host.IntelPrecision, useCtx)
 		if err != nil {
 			return nil, err
@@ -149,7 +149,8 @@ func BuyIntel(ctx context.Context, userID uint64, req *IntelRequest) (*AuctionVi
 }
 
 // intelFor 第 round 轮(共 rounds 轮)买到的情报, 返回效果代码和情报, 随轮次升级:
-// 前三分之一的轮次看一件还不知道品质的藏品的品质, 中间三分之一看一件还不知道名称的藏品的名称, 之后为仓库价值的区间(误差 precision);
+// 前三分之一的轮次看一件还不知道品质的藏品的品质, 中间三分之一看一件还不知道名称的藏品的名称和外观, 之后为仓库价值的区间(误差 precision);
+// 看到的藏品同时扫出轮廓;
 // 这一档已经没有可以看的藏品时升到下一档。加轮按最后一档。
 func intelFor(round, rounds, precision int32, ctx *UseContext) (string, Intel, error) {
 	if round*3 <= rounds {
@@ -170,19 +171,10 @@ func intelFor(round, rounds, precision int32, ctx *UseContext) (string, Intel, e
 	return EffectValueRange, intel, err
 }
 
-// randomQuality 随机看一件还不知道品质的藏品的品质; 与鉴定品质不同, 不优先选最晚公开的
+// randomQuality 随机看一件还不知道品质的藏品的品质, 同鉴定品质看一件
 func randomQuality(ctx *UseContext) Intel {
-	var unknown []WarehouseItem
-	for _, it := range ctx.Pieces {
-		if !ctx.Known[it.ScanOrder] {
-			unknown = append(unknown, it)
-		}
-	}
-	if len(unknown) == 0 {
-		return Intel{}
-	}
-	it := unknown[ctx.Rand(int64(len(unknown)))]
-	return Intel{Pieces: []PieceIntel{{ScanOrder: it.ScanOrder, Quality: it.Quality}}}
+	intel, _ := revealQuality(ctx, &RevealQualityParams{Count: 1})
+	return intel
 }
 
 // intelCost p 在这局买情报付的出价货币

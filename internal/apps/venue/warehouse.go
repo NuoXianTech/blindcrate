@@ -103,7 +103,7 @@ func (g *Generator) Generate(valueFactor int32) (*Warehouse, error) {
 	factor := int32(int64(valueFactor) * g.swing() / BasisPoints)
 	for range g.rule.MaxRerolls + 1 {
 		pieces := g.draw(factor)
-		if place(g.rule.Grid, pieces) {
+		if place(g.rule.Grid, pieces, g.randN) {
 			warehouse := &Warehouse{Pieces: pieces}
 			for _, piece := range pieces {
 				if piece.SellCurrency == g.currency {
@@ -197,14 +197,30 @@ func (g *Generator) pick(weights []int64) int {
 	return len(weights) - 1
 }
 
-// place 按面积从大到小, 逐行扫描找第一个放得下的位置; 全部放下时写入坐标并返回 true
-func place(grid Grid, pieces []Piece) bool {
+// placeAttempts 随机摆放的尝试次数, 都摆不下时改为逐行扫描
+const placeAttempts = 8
+
+// place 按面积从大到小摆放, 每件在所有放得下的位置中随机选一个; 随机摆放 placeAttempts 次都摆不下时改为逐行扫描找第一个放得下的位置,
+// 摆放成功率不低于逐行扫描; 全部放下时写入坐标并返回 true
+//
+// 位置要随机: 逐行扫描时藏品都挤在左上角, 空出的行能透露件数。randN 返回 [0, n) 的随机数。
+func place(grid Grid, pieces []Piece, randN func(n int64) int64) bool {
 	if len(pieces) == 0 {
 		return false
 	}
 	slices.SortStableFunc(pieces, func(a, b Piece) int {
 		return cmp.Compare(int32(b.Width)*int32(b.Height), int32(a.Width)*int32(a.Height))
 	})
+	for range placeAttempts {
+		if arrange(grid, pieces, randN) {
+			return true
+		}
+	}
+	return arrange(grid, pieces, nil)
+}
+
+// arrange 依次摆放每一件: randN 为空时取逐行扫描的第一个放得下的位置, 否则在所有放得下的位置中随机选; 有一件摆不下时返回 false
+func arrange(grid Grid, pieces []Piece, randN func(n int64) int64) bool {
 	width, height := int(grid.Width), int(grid.Height)
 	used := make([]bool, width*height)
 	fits := func(x, y, w, h int) bool {
@@ -220,26 +236,31 @@ func place(grid Grid, pieces []Piece) bool {
 		}
 		return true
 	}
+	var spots []int // 放得下的位置, y × width + x
 	for i := range pieces {
 		w, h := int(pieces[i].Width), int(pieces[i].Height)
-		placed := false
-		for y := 0; y < height && !placed; y++ {
-			for x := 0; x < width && !placed; x++ {
-				if !fits(x, y, w, h) {
-					continue
+		spots = spots[:0]
+		for y := 0; y < height && (randN != nil || len(spots) == 0); y++ {
+			for x := 0; x < width && (randN != nil || len(spots) == 0); x++ {
+				if fits(x, y, w, h) {
+					spots = append(spots, y*width+x)
 				}
-				for dy := range h {
-					for dx := range w {
-						used[(y+dy)*width+x+dx] = true
-					}
-				}
-				pieces[i].X, pieces[i].Y = int16(x), int16(y)
-				placed = true
 			}
 		}
-		if !placed {
+		if len(spots) == 0 {
 			return false
 		}
+		spot := spots[0]
+		if randN != nil {
+			spot = spots[randN(int64(len(spots)))]
+		}
+		x, y := spot%width, spot/width
+		for dy := range h {
+			for dx := range w {
+				used[(y+dy)*width+x+dx] = true
+			}
+		}
+		pieces[i].X, pieces[i].Y = int16(x), int16(y)
 	}
 	return true
 }

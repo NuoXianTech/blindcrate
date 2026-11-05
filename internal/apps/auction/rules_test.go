@@ -201,37 +201,33 @@ func TestSettlePrice(t *testing.T) {
 	}
 }
 
-func TestRevealOrders(t *testing.T) {
-	pieces := []venue.Piece{
-		{SellCurrency: "chip", SellPrice: 100},
-		{SellCurrency: "gem", SellPrice: 9000},
-		{SellCurrency: "chip", SellPrice: 800},
-		{SellCurrency: "chip", SellPrice: 300},
-		{SellCurrency: "chip", SellPrice: 800},
+func TestPreviewPieces(t *testing.T) {
+	// 每件抽一次, 小于比例的扫出
+	if got := previewPieces(4, 3000, sequence(0, 5000, 2999, 3000)); !slices.Equal(got, []bool{true, false, true, false}) {
+		t.Errorf("by chance: got %v", got)
 	}
-	for seed := range uint64(20) {
-		rng := rand.New(rand.NewPCG(seed, 1))
-		orders := revealOrders(pieces, "chip", 3, true, rng.Perm)
-		if orders[2] != 3 {
-			t.Fatalf("seed %d: the first most valuable piece should be revealed in round 3, got %v", seed, orders)
+	// 一件都没抽中时随机扫出一件
+	if got := previewPieces(3, 3000, sequence(9999, 9999, 9999, 1)); !slices.Equal(got, []bool{false, true, false}) {
+		t.Errorf("at least one: got %v", got)
+	}
+	if got := previewPieces(3, 0, first); slices.Contains(got, true) || len(got) != 3 {
+		t.Errorf("rate 0: got %v", got)
+	}
+	if got := previewPieces(0, 3000, first); len(got) != 0 {
+		t.Errorf("empty warehouse: got %v", got)
+	}
+	// 扫出的比例接近设置的比例
+	rng := rand.New(rand.NewPCG(1, 1))
+	picked := 0
+	for range 1000 {
+		for _, p := range previewPieces(10, 3000, rng.Int64N) {
+			if p {
+				picked++
+			}
 		}
-		sorted := slices.Clone(orders)
-		slices.Sort(sorted)
-		if !slices.Equal(sorted, []int32{1, 2, 3, 4, 5}) {
-			t.Fatalf("seed %d: orders %v are not a permutation", seed, orders)
-		}
 	}
-	// 件数比轮数少时压轴的是最后一件
-	if orders := revealOrders(pieces[:2], "chip", 5, true, rand.New(rand.NewPCG(1, 1)).Perm); !slices.Equal(orders, []int32{2, 1}) {
-		t.Errorf("fewer pieces than rounds: got %v, want [2 1]", orders)
-	}
-	if orders := revealOrders(nil, "chip", 5, true, rand.Perm); len(orders) != 0 {
-		t.Errorf("empty warehouse: got %v", orders)
-	}
-	// 没有压轴揭示时全部随机
-	random := revealOrders(pieces, "chip", 3, false, func(n int) []int { return []int{4, 3, 2, 1, 0}[:n] })
-	if !slices.Equal(random, []int32{5, 4, 3, 2, 1}) {
-		t.Errorf("without finale: got %v, want [5 4 3 2 1]", random)
+	if picked < 2900 || picked > 3200 {
+		t.Errorf("rate: picked %d of 10000", picked)
 	}
 }
 

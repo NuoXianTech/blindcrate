@@ -7833,7 +7833,7 @@ const docTemplate = `{
         },
         "/api/v1/auctions/{match_id}": {
             "get": {
-                "description": "进行中时只公开已公开品质的藏品和自己的出价与反馈, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用",
+                "description": "进行中时只公开仓库大小、第 1 轮扫出的轮廓和自己的出价、反馈与情报, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用",
                 "produces": [
                     "application/json"
                 ],
@@ -11162,7 +11162,7 @@ const docTemplate = `{
                     }
                 },
                 "footprints": {
-                    "description": "全部藏品占的格子, 按扫描顺序",
+                    "description": "第 1 轮扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auction.Footprint"
@@ -11196,6 +11196,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "piece_count": {
+                    "description": "藏品件数",
                     "type": "integer"
                 },
                 "players": {
@@ -11212,13 +11213,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/auction.ResultView"
                         }
                     ]
-                },
-                "revealed": {
-                    "description": "已公开品质的藏品, 第 N 轮公开前 N 件",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auction.RevealedPiece"
-                    }
                 },
                 "round": {
                     "type": "integer"
@@ -11253,7 +11247,7 @@ const docTemplate = `{
                     }
                 },
                 "footprints": {
-                    "description": "全部藏品占的格子, 按扫描顺序",
+                    "description": "第 1 轮扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auction.Footprint"
@@ -11286,9 +11280,6 @@ const docTemplate = `{
                 "phase_ends_at": {
                     "type": "string"
                 },
-                "piece_count": {
-                    "type": "integer"
-                },
                 "result": {
                     "description": "结算后才有",
                     "allOf": [
@@ -11296,13 +11287,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/auction.ResultView"
                         }
                     ]
-                },
-                "revealed": {
-                    "description": "已公开品质的藏品, 第 N 轮公开前 N 件",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auction.RevealedPiece"
-                    }
                 },
                 "round": {
                     "type": "integer"
@@ -11344,14 +11328,6 @@ const docTemplate = `{
                 "height": {
                     "type": "integer"
                 },
-                "quality": {
-                    "description": "已公开品质时为品质, 否则为 0",
-                    "type": "integer"
-                },
-                "scan_order": {
-                    "description": "开箱时扫描的顺序, 从 1 开始",
-                    "type": "integer"
-                },
                 "width": {
                     "type": "integer"
                 },
@@ -11382,12 +11358,16 @@ const docTemplate = `{
                 "round": {
                     "type": "integer"
                 },
-                "scan_order": {
-                    "type": "integer"
-                },
                 "truthful": {
                     "description": "是否属实, 开箱后才公开",
                     "type": "boolean"
+                },
+                "x": {
+                    "description": "指认的藏品的位置, 是第 1 轮扫出轮廓的一件",
+                    "type": "integer"
+                },
+                "y": {
+                    "type": "integer"
                 }
             }
         },
@@ -11412,7 +11392,7 @@ const docTemplate = `{
                     }
                 },
                 "persona": {
-                    "description": "见 venue.HostSteady 等",
+                    "description": "见 venue.HostSteady 等, 开箱后才公开, 之前为空",
                     "type": "string"
                 }
             }
@@ -11454,7 +11434,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "pieces": {
-                    "description": "看到品质或名称的藏品, 按扫描顺序; 没有符合条件的藏品时为空",
+                    "description": "看到品质或名称的藏品, 按位置从上到下、从左到右; 没有符合条件的藏品时为空",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auction.PieceIntel"
@@ -11483,6 +11463,9 @@ const docTemplate = `{
         "auction.PieceIntel": {
             "type": "object",
             "properties": {
+                "height": {
+                    "type": "integer"
+                },
                 "image_url": {
                     "description": "同 Name",
                     "type": "string"
@@ -11492,9 +11475,16 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "quality": {
+                    "description": "0 为只扫出轮廓",
                     "type": "integer"
                 },
-                "scan_order": {
+                "width": {
+                    "type": "integer"
+                },
+                "x": {
+                    "type": "integer"
+                },
+                "y": {
                     "type": "integer"
                 }
             }
@@ -11704,18 +11694,6 @@ const docTemplate = `{
                 },
                 "winner_seat": {
                     "description": "没有成交时为 0",
-                    "type": "integer"
-                }
-            }
-        },
-        "auction.RevealedPiece": {
-            "type": "object",
-            "properties": {
-                "order": {
-                    "description": "公开顺序, 从 1 开始",
-                    "type": "integer"
-                },
-                "quality": {
                     "type": "integer"
                 }
             }
@@ -12047,10 +12025,6 @@ const docTemplate = `{
                     "description": "入场费等以下字段见 venue.AuctionRule, 旧对局为 0",
                     "type": "integer"
                 },
-                "finale": {
-                    "description": "压轴揭示: 最后一轮公开品质的是仓库里最贵的一件",
-                    "type": "boolean"
-                },
                 "grid": {
                     "$ref": "#/definitions/venue.Grid"
                 },
@@ -12078,6 +12052,10 @@ const docTemplate = `{
                 },
                 "pool_rate": {
                     "description": "入场费进奖池的比例, 基点",
+                    "type": "integer"
+                },
+                "preview_rate": {
+                    "description": "首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件",
                     "type": "integer"
                 },
                 "quick_win": {
@@ -17412,10 +17390,6 @@ const docTemplate = `{
                     "description": "出价货币的入场费, 开局时与入场代价一起扣除",
                     "type": "integer"
                 },
-                "finale": {
-                    "description": "压轴揭示: 最后一轮公开品质的是仓库里最贵的一件",
-                    "type": "boolean"
-                },
                 "intel_price": {
                     "description": "向主持人买一次情报的价格, 从可用余额扣除; 0 表示不卖情报",
                     "type": "integer"
@@ -17436,6 +17410,10 @@ const docTemplate = `{
                 },
                 "pool_rate": {
                     "description": "入场费进奖池的比例, 基点, 其余销毁; 成交后奖池分给出过价的真人输家",
+                    "type": "integer"
+                },
+                "preview_rate": {
+                    "description": "首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率公开占的格子, 至少一件; 0 表示不公开",
                     "type": "integer"
                 },
                 "quick_win": {

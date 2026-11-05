@@ -134,7 +134,7 @@ func TestReadPackInvalid(t *testing.T) {
 	}{
 		{"no manifest", map[string]string{"currencies.json": `[]`}, PackInvalid},
 		{"wrong format", map[string]string{packManifest: `{"format":"other","version":1,"name":"a","sections":["settings"]}`}, PackInvalid},
-		{"newer version", map[string]string{packManifest: manifestJSON(2, PackSettings)}, fmt.Sprintf(PackVersionUnsupported, 2)},
+		{"newer version", map[string]string{packManifest: manifestJSON(packVersion+1, PackSettings)}, fmt.Sprintf(PackVersionUnsupported, packVersion+1)},
 		{"unknown section", map[string]string{packManifest: manifestJSON(1, "seasons")}, fmt.Sprintf(PackSectionInvalid, "seasons")},
 		{"missing file", map[string]string{packManifest: manifestJSON(1, PackItems)}, fmt.Sprintf(PackFileInvalid, "items.json")},
 		{"unknown field", map[string]string{packManifest: manifestJSON(1, PackItems), "items.json": `[{"id":1,"price":3}]`}, fmt.Sprintf(PackFileInvalid, "items.json")},
@@ -151,6 +151,25 @@ func TestReadPackInvalid(t *testing.T) {
 	}
 	if _, err := readPack([]byte("not a zip")); err == nil || err.Error() != PackInvalid {
 		t.Errorf("not a zip: err = %v", err)
+	}
+}
+
+func TestDropFinale(t *testing.T) {
+	files := map[string][]byte{
+		PackSettings: []byte(`{"balance":{"finale_enabled":true,"pool_rate":7500},"economy":{"sell_fee_rate":200}}`),
+		PackVenues:   []byte(`[{"code":"dock","auction":{"rounds":5,"finale":true}},{"code":"old"}]`),
+	}
+	if err := dropFinale(files); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := string(files[PackSettings]), `{"balance":{"pool_rate":7500},"economy":{"sell_fee_rate":200}}`; got != want {
+		t.Errorf("settings = %s, want %s", got, want)
+	}
+	if got, want := string(files[PackVenues]), `[{"auction":{"rounds":5},"code":"dock"},{"code":"old"}]`; got != want {
+		t.Errorf("venues = %s, want %s", got, want)
+	}
+	if err := dropFinale(map[string][]byte{PackVenues: []byte(`{}`)}); err == nil || err.Error() != fmt.Sprintf(PackFileInvalid, "venues.json") {
+		t.Errorf("invalid venues: err = %v", err)
 	}
 }
 

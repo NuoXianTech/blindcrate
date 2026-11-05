@@ -63,14 +63,14 @@ export interface AuctionRule {
   rebate_rate: number;
   /** 每局进奖池的超付部分的上限 */
   rebate_cap: number;
-  /** 压轴揭示: 最后一轮公开品质的是仓库里最贵的一件 */
-  finale: boolean;
+  /** 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件; 其余直到开箱都不公开 */
+  preview_rate: number;
   /** 向主持人买一次情报的价格, 从可用余额扣除; 0 表示不卖情报 */
   intel_price: number;
 }
 
 /**
- * 主持人, 对应后端 venue.HostRule: 每轮开始时公开一条关于还没公开的藏品的提示, 有一定概率说错;
+ * 主持人, 对应后端 venue.HostRule: 每轮开始时公开一条关于仓库的提示, 有一定概率说错;
  * 出价阶段还可以向他买只有自己看得到的情报, 价格按期望价值推导
  */
 export interface HostRule {
