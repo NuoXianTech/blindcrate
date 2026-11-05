@@ -27,7 +27,7 @@ export function HostTab({form, onChange, disabled}: FormTabProps) {
       <SwitchField
         id="venue-host-enabled"
         label="主持人提示"
-        help="开局时公开主持人的性格, 每轮开始时公开一条关于还没公开的藏品的提示, 有一定概率说错, 开箱后公开真假; 热度随每轮的加价变化"
+        help="开局时选出主持人的性格(开箱后才公开), 每轮开始时公开一条关于仓库的提示, 有一定概率说错, 开箱后公开真假; 热度随每轮的加价变化"
         checked={form.hostEnabled}
         onChange={(hostEnabled) => onChange({hostEnabled})}
         disabled={disabled}

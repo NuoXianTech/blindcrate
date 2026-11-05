@@ -8,6 +8,7 @@ import {Button} from '@/components/ui/button';
 import {Skeleton} from '@/components/ui/skeleton';
 import {useAuth} from '@/components/common/auth';
 import {useCountdown} from '@/hooks/use-countdown';
+import {useScan} from '@/hooks/use-scan';
 import {useWsConnected, useWsEvent} from '@/hooks/use-ws';
 import {ROUTES} from '@/lib/access';
 import services from '@/lib/services';
@@ -82,9 +83,6 @@ export function AuctionMain({matchId}: { matchId: number }) {
     if (data.id === matchId) setMatch((prev) => newer(prev, data));
   });
 
-  const uses = view?.self.uses;
-  const intel = useMemo(() => intelPieces((uses ?? []).map((u) => u.result)), [uses]);
-
   const finished = !!match && match.status !== MATCH_STATUS.playing;
   const remaining = useCountdown(finished ? null : view?.phase_ends_at ?? null);
   const expired = remaining === 0;
@@ -109,45 +107,69 @@ export function AuctionMain({matchId}: { matchId: number }) {
   }
 
   if (!view || !match) {
-    return (
-      <div className="mx-auto grid w-full max-w-6xl gap-4 p-4 lg:grid-cols-[1fr_380px]">
-        <Skeleton className="aspect-square rounded-xl" />
-        <div className="flex flex-col gap-4">
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-56 rounded-xl" />
-        </div>
-      </div>
-    );
+    return <AuctionSkeleton />;
   }
+
+  return (
+    <AuctionTable
+      view={view}
+      match={match}
+      decimals={decimals}
+      remaining={remaining}
+      onView={(next) => setView((prev) => newer(prev, next))}
+    />
+  );
+}
+
+/** 拍卖桌还没加载时的占位 */
+function AuctionSkeleton() {
+  return (
+    <div className="mx-auto grid w-full max-w-6xl gap-4 p-4 lg:grid-cols-[1fr_380px]">
+      <Skeleton className="aspect-square rounded-xl" />
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-32 rounded-xl" />
+        <Skeleton className="h-56 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+/** 加载完的拍卖桌, 开箱扫描的进度在这里算一次, 仓库、座位和结算按同一进度揭晓 */
+function AuctionTable({view, match, decimals, remaining, onView}: {
+  view: AuctionView;
+  match: MatchView;
+  decimals: number;
+  remaining: number | null;
+  /** 出价、用道具和买情报后返回的最新视角 */
+  onView: (view: AuctionView) => void;
+}) {
+  const uses = view.self.uses;
+  const intel = useMemo(() => intelPieces(uses.map((u) => u.result)), [uses]);
+  const finished = match.status !== MATCH_STATUS.playing;
+  const scan = useScan(view, finished);
 
   return (
     <>
       <AuctionHeader view={view} finished={finished} remaining={remaining} />
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto grid w-full max-w-6xl gap-6 p-4 lg:grid-cols-[1fr_380px]">
-          <Warehouse view={view} decimals={decimals} finished={finished} intel={intel} />
+          <Warehouse view={view} decimals={decimals} scan={scan} intel={intel} />
           <div className="flex flex-col gap-4">
-            <SeatList view={view} players={match.players} decimals={decimals} />
+            <SeatList view={view} players={match.players} decimals={decimals} revealed={scan.complete} />
             {view.result ? (
               <ResultPanel
                 view={view}
                 players={match.players}
                 decimals={decimals}
+                scan={scan}
                 finished={finished}
                 released={finished || !!match.released_at}
               />
             ) : (
-              <BidPanel
-                key={view.round}
-                view={view}
-                decimals={decimals}
-                onBid={(next) => setView((prev) => newer(prev, next))}
-              />
+              <BidPanel key={view.round} view={view} decimals={decimals} onBid={onView} />
             )}
-            <HostPanel view={view} decimals={decimals} onBuy={(next) => setView((prev) => newer(prev, next))} />
-            {!view.result && view.venue.max_uses > 0 && (
-              <ItemBar key={view.match_id} view={view} onUse={(next) => setView((prev) => newer(prev, next))} />
-            )}
+            <HostPanel view={view} decimals={decimals} onBuy={onView} />
+            {!view.result && view.venue.max_uses > 0 && <ItemBar key={view.match_id} view={view} onUse={onView} />}
             {view.self.uses.length > 0 && (
               <section className="flex flex-col gap-2">
                 <h2 className="flex items-center justify-between text-sm font-medium">

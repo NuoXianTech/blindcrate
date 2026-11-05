@@ -44,6 +44,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
@@ -113,7 +114,52 @@ func packErrorf(format string, args ...any) error {
 }
 
 // packUpgrades 把旧格式版本的文件升级到下一个版本, 按版本号; 参数为包中各配置种类的 JSON
-var packUpgrades = map[int]func(files map[string][]byte) error{}
+var packUpgrades = map[int]func(files map[string][]byte) error{
+	1: dropFinale,
+}
+
+// dropFinale 版本 1 升到 2: 去掉已经取消的压轴揭示, 即玩法平衡设置的 finale_enabled 和地图拍卖参数的 finale
+func dropFinale(files map[string][]byte) error {
+	if raw := files[PackSettings]; raw != nil {
+		var groups map[string]map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &groups); err != nil {
+			return packErrorf(PackFileInvalid, PackSettings+".json")
+		}
+		delete(groups[settings.KeyBalance], "finale_enabled")
+		data, err := json.Marshal(groups)
+		if err != nil {
+			return err
+		}
+		files[PackSettings] = data
+	}
+	if raw := files[PackVenues]; raw != nil {
+		var venues []map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &venues); err != nil {
+			return packErrorf(PackFileInvalid, PackVenues+".json")
+		}
+		for _, v := range venues {
+			if v["auction"] == nil {
+				continue
+			}
+			var auction map[string]json.RawMessage
+			if err := json.Unmarshal(v["auction"], &auction); err != nil {
+				return packErrorf(PackFileInvalid, PackVenues+".json")
+			}
+			delete(auction, "finale")
+			data, err := json.Marshal(auction)
+			if err != nil {
+				return err
+			}
+			v["auction"] = data
+		}
+		data, err := json.Marshal(venues)
+		if err != nil {
+			return err
+		}
+		files[PackVenues] = data
+	}
+	return nil
+}
 
 // packLockKey 导入和预览在这个咨询锁上排队, 同一时间只有一个导入
 const packLockKey = "blindcrate:pack:import"

@@ -25,8 +25,10 @@
 package venue
 
 import (
+	"cmp"
 	"math"
 	"math/rand/v2"
+	"slices"
 	"testing"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
@@ -122,4 +124,70 @@ func TestSwing(t *testing.T) {
 	if w, err := g.withRand(rand.Int64N).Generate(BasisPoints); err != nil || len(w.Pieces) != 4 {
 		t.Errorf("without swings got %v pieces, err %v, want 4", w, err)
 	}
+}
+
+func TestPlace(t *testing.T) {
+	grid := Grid{Width: 4, Height: 3}
+	pieces := func() []Piece {
+		return []Piece{{ItemID: 1, Width: 1, Height: 1}, {ItemID: 2, Width: 2, Height: 2}, {ItemID: 3, Width: 2, Height: 1}, {ItemID: 4, Width: 1, Height: 3}}
+	}
+	// 摆下的藏品不出界、不重叠, 面积大的在前
+	check := func(name string, ps []Piece) {
+		used := map[[2]int16]bool{}
+		for _, p := range ps {
+			if p.X < 0 || p.Y < 0 || p.X+p.Width > grid.Width || p.Y+p.Height > grid.Height {
+				t.Fatalf("%s: piece %+v out of the grid", name, p)
+			}
+			for dy := range p.Height {
+				for dx := range p.Width {
+					cell := [2]int16{p.X + dx, p.Y + dy}
+					if used[cell] {
+						t.Fatalf("%s: piece %+v overlaps", name, p)
+					}
+					used[cell] = true
+				}
+			}
+		}
+		if ps[0].ItemID != 2 {
+			t.Fatalf("%s: largest piece should go first, got %+v", name, ps)
+		}
+	}
+
+	// 逐行扫描: 没有随机数时位置固定
+	first := pieces()
+	if !arrange(grid, sortByArea(first), nil) {
+		t.Fatal("first fit failed")
+	}
+	check("first fit", first)
+	if first[0].X != 0 || first[0].Y != 0 {
+		t.Errorf("first fit: largest piece at (%d, %d), want (0, 0)", first[0].X, first[0].Y)
+	}
+
+	// 随机摆放: 位置会变化, 每次都摆得下
+	rng := rand.New(rand.NewPCG(1, 2))
+	spots := map[[2]int16]bool{}
+	for range 200 {
+		ps := pieces()
+		if !place(grid, ps, rng.Int64N) {
+			t.Fatal("random placement failed")
+		}
+		check("random", ps)
+		spots[[2]int16{ps[0].X, ps[0].Y}] = true
+	}
+	if len(spots) < 4 {
+		t.Errorf("largest piece only landed on %v", spots)
+	}
+
+	// 放不下时返回 false
+	if place(Grid{Width: 2, Height: 2}, []Piece{{Width: 2, Height: 2}, {Width: 1, Height: 1}}, rng.Int64N) {
+		t.Error("overfull warehouse placed")
+	}
+}
+
+// sortByArea 按面积从大到小排列, 同 place
+func sortByArea(pieces []Piece) []Piece {
+	slices.SortStableFunc(pieces, func(a, b Piece) int {
+		return cmp.Compare(int32(b.Width)*int32(b.Height), int32(a.Width)*int32(a.Height))
+	})
+	return pieces
 }

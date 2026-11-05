@@ -7,7 +7,7 @@ definitions:
           type: integer
         type: array
       footprints:
-        description: 全部藏品占的格子, 按扫描顺序
+        description: 第 1 轮扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开
         items:
           $ref: '#/definitions/auction.Footprint'
         type: array
@@ -29,6 +29,7 @@ definitions:
       phase_ends_at:
         type: string
       piece_count:
+        description: 藏品件数
         type: integer
       players:
         description: 按座位号排序
@@ -39,11 +40,6 @@ definitions:
         allOf:
         - $ref: '#/definitions/auction.ResultView'
         description: 结算后才有
-      revealed:
-        description: 已公开品质的藏品, 第 N 轮公开前 N 件
-        items:
-          $ref: '#/definitions/auction.RevealedPiece'
-        type: array
       round:
         type: integer
       status:
@@ -67,7 +63,7 @@ definitions:
           type: integer
         type: array
       footprints:
-        description: 全部藏品占的格子, 按扫描顺序
+        description: 第 1 轮扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开
         items:
           $ref: '#/definitions/auction.Footprint'
         type: array
@@ -88,17 +84,10 @@ definitions:
         type: string
       phase_ends_at:
         type: string
-      piece_count:
-        type: integer
       result:
         allOf:
         - $ref: '#/definitions/auction.ResultView'
         description: 结算后才有
-      revealed:
-        description: 已公开品质的藏品, 第 N 轮公开前 N 件
-        items:
-          $ref: '#/definitions/auction.RevealedPiece'
-        type: array
       round:
         type: integer
       self:
@@ -126,12 +115,6 @@ definitions:
     properties:
       height:
         type: integer
-      quality:
-        description: 已公开品质时为品质, 否则为 0
-        type: integer
-      scan_order:
-        description: 开箱时扫描的顺序, 从 1 开始
-        type: integer
       width:
         type: integer
       x:
@@ -152,11 +135,14 @@ definitions:
         type: integer
       round:
         type: integer
-      scan_order:
-        type: integer
       truthful:
         description: 是否属实, 开箱后才公开
         type: boolean
+      x:
+        description: 指认的藏品的位置, 是第 1 轮扫出轮廓的一件
+        type: integer
+      "y":
+        type: integer
     type: object
   auction.HostView:
     properties:
@@ -173,7 +159,7 @@ definitions:
           $ref: '#/definitions/auction.HypeEvent'
         type: array
       persona:
-        description: 见 venue.HostSteady 等
+        description: 见 venue.HostSteady 等, 开箱后才公开, 之前为空
         type: string
     type: object
   auction.HypeEvent:
@@ -202,7 +188,7 @@ definitions:
         description: 统计或查看的最低品质
         type: integer
       pieces:
-        description: 看到品质或名称的藏品, 按扫描顺序; 没有符合条件的藏品时为空
+        description: 看到品质或名称的藏品, 按位置从上到下、从左到右; 没有符合条件的藏品时为空
         items:
           $ref: '#/definitions/auction.PieceIntel'
         type: array
@@ -221,6 +207,8 @@ definitions:
     type: object
   auction.PieceIntel:
     properties:
+      height:
+        type: integer
       image_url:
         description: 同 Name
         type: string
@@ -228,8 +216,13 @@ definitions:
         description: 只有看名称的道具有
         type: string
       quality:
+        description: 0 为只扫出轮廓
         type: integer
-      scan_order:
+      width:
+        type: integer
+      x:
+        type: integer
+      "y":
         type: integer
     type: object
   auction.PieceView:
@@ -374,14 +367,6 @@ definitions:
         type: integer
       winner_seat:
         description: 没有成交时为 0
-        type: integer
-    type: object
-  auction.RevealedPiece:
-    properties:
-      order:
-        description: 公开顺序, 从 1 开始
-        type: integer
-      quality:
         type: integer
     type: object
   auction.SeatIntel:
@@ -603,9 +588,6 @@ definitions:
       entry_fee:
         description: 入场费等以下字段见 venue.AuctionRule, 旧对局为 0
         type: integer
-      finale:
-        description: '压轴揭示: 最后一轮公开品质的是仓库里最贵的一件'
-        type: boolean
       grid:
         $ref: '#/definitions/venue.Grid'
       intel_limit:
@@ -626,6 +608,9 @@ definitions:
         type: string
       pool_rate:
         description: 入场费进奖池的比例, 基点
+        type: integer
+      preview_rate:
+        description: '首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件'
         type: integer
       quick_win:
         description: 前 Rounds-1 轮的速胜倍率, 基点
@@ -4282,9 +4267,6 @@ definitions:
       entry_fee:
         description: 出价货币的入场费, 开局时与入场代价一起扣除
         type: integer
-      finale:
-        description: '压轴揭示: 最后一轮公开品质的是仓库里最贵的一件'
-        type: boolean
       intel_price:
         description: 向主持人买一次情报的价格, 从可用余额扣除; 0 表示不卖情报
         type: integer
@@ -4301,6 +4283,9 @@ definitions:
         type: integer
       pool_rate:
         description: 入场费进奖池的比例, 基点, 其余销毁; 成交后奖池分给出过价的真人输家
+        type: integer
+      preview_rate:
+        description: '首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率公开占的格子, 至少一件; 0 表示不公开'
         type: integer
       quick_win:
         description: 前 Rounds-1 轮的速胜倍率, 基点; 第一名不低于第二名的这么多倍且不低于速胜下限时直接成交
@@ -10158,8 +10143,9 @@ paths:
       - admin
   /api/v1/auctions/{match_id}:
     get:
-      description: 进行中时只公开已公开品质的藏品和自己的出价与反馈, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以
-        ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用
+      description: 进行中时只公开仓库大小、第 1 轮扫出的轮廓和自己的出价、反馈与情报, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复,
+        之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use
+        使用
       parameters:
       - description: match id
         in: path

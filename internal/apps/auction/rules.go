@@ -116,50 +116,24 @@ func settlePrice(rule *venue.AuctionRule, top, second int64) int64 {
 	return base + (top-base)*int64(venue.BasisPoints-rule.LeadDiscount)/venue.BasisPoints
 }
 
-// revealOrders 公开品质的顺序, 返回每件藏品的顺序, 从 1 开始; 没有压轴揭示时全部随机
+// previewPieces 第 1 轮扫出轮廓的藏品, 返回每件是否扫出: 每件按 rate(基点)的概率独立抽取, rate 大于 0 时至少扫出一件
 //
-// 压轴揭示: 最贵的一件在最后一轮公开(件数不够时为最后一件), 其余随机, 之前公开的都不是最贵的, 最后一轮才知道仓库里最好的是什么。
-// 价值只算出价货币的回收价, 一样贵时取摆放顺序在前的。perm 返回 [0, n) 的随机排列。
-func revealOrders(pieces []venue.Piece, currency string, rounds int32, finale bool, perm func(n int) []int) []int32 {
-	orders := make([]int32, len(pieces))
-	if len(pieces) == 0 {
-		return orders
+// 按概率而不是按比例取整, 否则从扫出的件数就能反推出总件数。randN 返回 [0, n) 的随机数。
+func previewPieces(n int, rate int32, randN func(n int64) int64) []bool {
+	picked := make([]bool, n)
+	if n == 0 || rate <= 0 {
+		return picked
 	}
-	if !finale {
-		for i, p := range perm(len(pieces)) {
-			orders[i] = int32(p + 1)
-		}
-		return orders
-	}
-	worth := func(p venue.Piece) int64 {
-		if p.SellCurrency == currency {
-			return p.SellPrice
-		}
-		return 0
-	}
-	top := 0
-	for i, piece := range pieces {
-		if worth(piece) > worth(pieces[top]) {
-			top = i
+	some := false
+	for i := range picked {
+		if randN(venue.BasisPoints) < int64(rate) {
+			picked[i], some = true, true
 		}
 	}
-	last := int32(min(int(rounds), len(pieces)))
-	rest := perm(len(pieces) - 1)
-	for i := range pieces {
-		switch {
-		case i == top:
-			orders[i] = last
-		case i < top:
-			orders[i] = int32(rest[i] + 1)
-		default:
-			orders[i] = int32(rest[i-1] + 1)
-		}
-		// 其余的顺序跳过压轴的那一个
-		if i != top && orders[i] >= last {
-			orders[i]++
-		}
+	if !some {
+		picked[randN(int64(n))] = true
 	}
-	return orders
+	return picked
 }
 
 // shareWeights 奖池按名次分配的权重, 名次更后的都按最后一个

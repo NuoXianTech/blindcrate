@@ -39,7 +39,7 @@ type Match struct {
 	VenueID     uint64     `gorm:"not null" json:"venue_id"`
 	Venue       Snapshot   `gorm:"type:jsonb;serializer:json;not null" json:"venue"`                   // 开局时的地图配置, 之后修改地图不影响这一局
 	Value       int64      `gorm:"not null" json:"value"`                                              // 仓库价值, 出价货币的回收价之和
-	PieceCount  int32      `gorm:"not null" json:"piece_count"`                                        // 藏品件数, 开局时公开
+	PieceCount  int32      `gorm:"not null" json:"piece_count"`                                        // 藏品件数, 开箱前不公开
 	Contenders  []int16    `gorm:"type:jsonb;serializer:json;not null;default:'[]'" json:"contenders"` // 加轮时可以出价的座位, 为空表示所有人
 	ExtraRounds int32      `gorm:"not null;default:0" json:"extra_rounds"`                             // 已加的轮数
 	Outcome     string     `gorm:"size:16;not null;default:''" json:"outcome"`                         // 结算前为空, 之后为 sold、unsold 或 cancelled
@@ -47,7 +47,7 @@ type Match struct {
 	Price       int64      `gorm:"not null;default:0" json:"price"`                                    // 成交价
 	Pool        int64      `gorm:"not null;default:0" json:"pool"`                                     // 奖池, 成交时算出, 分给出过价的真人输家, 没有人可分时销毁
 	Rebate      int64      `gorm:"not null;default:0" json:"rebate"`                                   // 奖池中来自成交者超付的部分
-	Host        string     `gorm:"size:16;not null;default:''" json:"host"`                            // 主持人的性格, 开局时选出并公开, 没有主持人提示时为空
+	Host        string     `gorm:"size:16;not null;default:''" json:"host"`                            // 主持人的性格, 开局时选出, 开箱后才公开; 没有主持人提示时为空
 	Hype        int32      `gorm:"not null;default:0" json:"hype"`                                     // 当前热度, 0-100, 每次变动见 HypeEvent
 	CreatedAt   time.Time  `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time  `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
@@ -126,15 +126,13 @@ type Bid struct {
 // TableName 自定义表名
 func (Bid) TableName() string { return "auction_bids" }
 
-// WarehouseItem 仓库里的一件藏品, 开局时快照名称、回收价和扫描时长
-//
-// 唯一索引 uniq_auction_warehouse_items_match_id_reveal_order 保证公开顺序不重复。
+// WarehouseItem 仓库里的一件藏品, 开局时快照名称、回收价和扫描时长; 一局中按位置(X, Y)区分, 位置不重复
 type WarehouseItem struct {
 	ID           uint64 `gorm:"primaryKey" json:"id"`
-	MatchID      uint64 `gorm:"not null;uniqueIndex:uniq_auction_warehouse_items_match_id_reveal_order,priority:1" json:"match_id"`
-	RevealOrder  int32  `gorm:"not null;uniqueIndex:uniq_auction_warehouse_items_match_id_reveal_order,priority:2" json:"reveal_order"` // 公开品质的顺序, 从 1 开始, 第 N 轮公开前 N 件
-	ScanOrder    int32  `gorm:"not null;default:0" json:"scan_order"`                                                                   // 开箱时扫描的顺序, 从 1 开始, 按位置从上到下、从左到右
-	ScanMs       int32  `gorm:"not null;default:0" json:"scan_ms"`                                                                      // 开箱时扫描这件的时长, 毫秒, 开局时按品质快照
+	MatchID      uint64 `gorm:"not null;index:idx_auction_warehouse_items_match_id" json:"match_id"`
+	Preview      bool   `gorm:"not null;default:false" json:"preview"` // 是否在第 1 轮扫出轮廓(占的格子), 所有人都看得到, 不含品质和名称
+	ScanOrder    int32  `gorm:"not null;default:0" json:"scan_order"`  // 开箱时扫描的顺序, 从 1 开始, 按位置从上到下、从左到右
+	ScanMs       int32  `gorm:"not null;default:0" json:"scan_ms"`     // 开箱时扫描这件的时长, 毫秒, 开局时按品质快照
 	ItemID       uint64 `gorm:"not null" json:"item_id"`
 	Name         string `gorm:"size:64;not null" json:"name"`
 	ImageURL     string `gorm:"size:1024;not null;default:''" json:"image_url"`
@@ -183,7 +181,8 @@ type HostHint struct {
 	Kind      string    `gorm:"size:16;not null" json:"kind"`
 	Quality   int16     `gorm:"not null;default:0" json:"quality"`
 	Count     int32     `gorm:"not null;default:0" json:"count"`
-	ScanOrder int32     `gorm:"not null;default:0" json:"scan_order"`
+	X         int16     `gorm:"not null;default:0" json:"x"` // 提示针对的藏品的位置
+	Y         int16     `gorm:"not null;default:0" json:"y"`
 	Above     bool      `gorm:"not null;default:false" json:"above"`
 	Truthful  bool      `gorm:"not null" json:"truthful"` // 是否属实, 开箱前不给玩家看
 	CreatedAt time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
@@ -206,12 +205,15 @@ type HypeEvent struct {
 // TableName 自定义表名
 func (HypeEvent) TableName() string { return "auction_hype_events" }
 
-// PieceIntel 道具看到的一件藏品, 以扫描顺序对应 Footprint
+// PieceIntel 道具看到的一件藏品, 带占的格子, 以位置(X, Y)区分; 不带扫描顺序, 否则能从中推出件数
 type PieceIntel struct {
-	ScanOrder int32  `json:"scan_order"`
-	Quality   int16  `json:"quality"`
-	Name      string `json:"name,omitempty"`      // 只有看名称的道具有
-	ImageURL  string `json:"image_url,omitempty"` // 同 Name
+	X        int16  `json:"x"`
+	Y        int16  `json:"y"`
+	Width    int16  `json:"width"`
+	Height   int16  `json:"height"`
+	Quality  int16  `json:"quality"`             // 0 为只扫出轮廓
+	Name     string `json:"name,omitempty"`      // 只有看名称的道具有
+	ImageURL string `json:"image_url,omitempty"` // 同 Name
 }
 
 // QualityCount 一种品质的藏品件数
@@ -222,7 +224,7 @@ type QualityCount struct {
 
 // Intel 使用一个道具得到的情报, 字段按效果使用其中的一部分
 type Intel struct {
-	Pieces     []PieceIntel   `json:"pieces,omitempty"`      // 看到品质或名称的藏品, 按扫描顺序; 没有符合条件的藏品时为空
+	Pieces     []PieceIntel   `json:"pieces,omitempty"`      // 看到品质或名称的藏品, 按位置从上到下、从左到右; 没有符合条件的藏品时为空
 	MinQuality int16          `json:"min_quality,omitempty"` // 统计或查看的最低品质
 	Counts     []QualityCount `json:"counts,omitempty"`      // 最低品质及以上各品质的件数, 品质从高到低, 没有的品质不列出
 	ValueMin   int64          `json:"value_min,omitempty"`   // 仓库价值的区间, 出价货币

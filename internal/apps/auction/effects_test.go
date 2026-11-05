@@ -29,54 +29,87 @@ import (
 	"testing"
 )
 
-// testPieces 6 件藏品, 扫描顺序 1-6, 公开顺序和品质各不相同
+// testPieces 6 件 1×1 的藏品排成一行, 扫描顺序 1-6 即 X 为 0-5, 品质各不相同; 第 1、3 件第 1 轮扫出轮廓
 func testPieces() []WarehouseItem {
-	return []WarehouseItem{
-		{ScanOrder: 1, RevealOrder: 3, Quality: 1, Name: "a"},
-		{ScanOrder: 2, RevealOrder: 6, Quality: 4, Name: "b"},
-		{ScanOrder: 3, RevealOrder: 1, Quality: 2, Name: "c"},
-		{ScanOrder: 4, RevealOrder: 5, Quality: 5, Name: "d"},
-		{ScanOrder: 5, RevealOrder: 2, Quality: 4, Name: "e"},
-		{ScanOrder: 6, RevealOrder: 4, Quality: 3, Name: "f"},
+	items := []WarehouseItem{
+		{Preview: true, Quality: 1, Name: "a"},
+		{Quality: 4, Name: "b"},
+		{Preview: true, Quality: 2, Name: "c"},
+		{Quality: 5, Name: "d"},
+		{Quality: 4, Name: "e"},
+		{Quality: 3, Name: "f"},
 	}
+	for i := range items {
+		items[i].ScanOrder, items[i].X, items[i].Width, items[i].Height = int32(i+1), int16(i), 1, 1
+		items[i].ImageURL = "/" + items[i].Name
+	}
+	return items
+}
+
+// intelAt 第 x 件(从 0 开始)的情报, name 为空时只有品质
+func intelAt(x int16, quality int16, name string) PieceIntel {
+	piece := PieceIntel{X: x, Width: 1, Height: 1, Quality: quality, Name: name}
+	if name != "" {
+		piece.ImageURL = "/" + name
+	}
+	return piece
 }
 
 // first 总是返回 0 的随机数
 func first(int64) int64 { return 0 }
 
 func TestUseContextKnown(t *testing.T) {
-	uses := []Use{{Result: Intel{Pieces: []PieceIntel{{ScanOrder: 2, Quality: 4}, {ScanOrder: 4, Quality: 5, Name: "d"}}}}}
-	ctx := newUseContext(2, 6, 100, testPieces(), uses, first)
-	want := map[int32]bool{3: true, 5: true, 2: true, 4: true}
-	if !reflect.DeepEqual(ctx.Known, want) {
+	uses := []Use{{Result: Intel{Pieces: []PieceIntel{intelAt(1, 4, ""), intelAt(3, 5, "d"), intelAt(5, 0, "")}}}}
+	ctx := newUseContext(100, testPieces(), uses, first)
+	// 第 1 轮扫出的 0、2 加上之前看到的, 只扫出轮廓的不算已知品质
+	if want := map[cell]bool{{0, 0}: true, {1, 0}: true, {2, 0}: true, {3, 0}: true, {5, 0}: true}; !reflect.DeepEqual(ctx.Outlined, want) {
+		t.Errorf("outlined: got %v, want %v", ctx.Outlined, want)
+	}
+	if want := map[cell]bool{{1, 0}: true, {3, 0}: true}; !reflect.DeepEqual(ctx.Known, want) {
 		t.Errorf("known: got %v, want %v", ctx.Known, want)
 	}
-	if !reflect.DeepEqual(ctx.KnownNames, map[int32]bool{4: true}) {
+	if !reflect.DeepEqual(ctx.KnownNames, map[cell]bool{{3, 0}: true}) {
 		t.Errorf("known names: got %v", ctx.KnownNames)
 	}
 }
 
+func TestRevealOutline(t *testing.T) {
+	// 跳过第 1 轮扫出的 0、2 和之前看到的 1, 只给轮廓
+	uses := []Use{{Result: Intel{Pieces: []PieceIntel{intelAt(1, 4, "")}}}}
+	ctx := newUseContext(100, testPieces(), uses, first)
+	got, _ := revealOutline(ctx, &RevealOutlineParams{Count: 2})
+	want := []PieceIntel{intelAt(3, 0, ""), intelAt(4, 0, "")}
+	if !reflect.DeepEqual(got.Pieces, want) {
+		t.Errorf("got %+v, want %+v", got.Pieces, want)
+	}
+	// 不够时全给
+	got, _ = revealOutline(ctx, &RevealOutlineParams{Count: 10})
+	if len(got.Pieces) != 3 {
+		t.Errorf("got %d pieces, want 3", len(got.Pieces))
+	}
+}
+
 func TestRevealQuality(t *testing.T) {
-	// 第 2 轮已公开公开顺序 1、2 (扫描顺序 3、5), 从公开顺序最大的开始选
-	ctx := newUseContext(2, 6, 100, testPieces(), nil, first)
+	// 随机数为 0 时依次选剩下的第一件, 结果按位置排列, 带轮廓不带名称
+	ctx := newUseContext(100, testPieces(), nil, first)
 	got, _ := revealQuality(ctx, &RevealQualityParams{Count: 2})
-	want := []PieceIntel{{ScanOrder: 2, Quality: 4}, {ScanOrder: 4, Quality: 5}}
+	want := []PieceIntel{intelAt(0, 1, ""), intelAt(1, 4, "")}
 	if !reflect.DeepEqual(got.Pieces, want) {
 		t.Errorf("got %+v, want %+v", got.Pieces, want)
 	}
 
-	// 已经看过的跳过, 不够时有几件给几件
-	uses := []Use{{Result: got}}
-	ctx = newUseContext(2, 6, 100, testPieces(), uses, first)
+	// 已经看过的跳过, 不够时有几件给几件; 首轮扫出的轮廓不算知道品质
+	uses := []Use{{Result: Intel{Pieces: []PieceIntel{intelAt(1, 4, ""), intelAt(3, 5, ""), intelAt(4, 4, ""), intelAt(5, 3, "")}}}}
+	ctx = newUseContext(100, testPieces(), uses, first)
 	got, _ = revealQuality(ctx, &RevealQualityParams{Count: 5})
-	want = []PieceIntel{{ScanOrder: 1, Quality: 1}, {ScanOrder: 6, Quality: 3}}
+	want = []PieceIntel{intelAt(0, 1, ""), intelAt(2, 2, "")}
 	if !reflect.DeepEqual(got.Pieces, want) {
 		t.Errorf("rest: got %+v, want %+v", got.Pieces, want)
 	}
 }
 
 func TestCountQuality(t *testing.T) {
-	ctx := newUseContext(1, 6, 100, testPieces(), nil, first)
+	ctx := newUseContext(100, testPieces(), nil, first)
 	got, _ := countQuality(ctx, &CountQualityParams{MinQuality: 4})
 	want := Intel{MinQuality: 4, Counts: []QualityCount{{Quality: 5, Count: 1}, {Quality: 4, Count: 2}}}
 	if !reflect.DeepEqual(got, want) {
@@ -89,17 +122,17 @@ func TestCountQuality(t *testing.T) {
 }
 
 func TestRevealName(t *testing.T) {
-	ctx := newUseContext(1, 6, 100, testPieces(), nil, first)
+	ctx := newUseContext(100, testPieces(), nil, first)
 	got, _ := revealName(ctx, &RevealNameParams{Count: 2, MinQuality: 4})
-	want := []PieceIntel{{ScanOrder: 2, Quality: 4, Name: "b"}, {ScanOrder: 4, Quality: 5, Name: "d"}}
+	want := []PieceIntel{intelAt(1, 4, "b"), intelAt(3, 5, "d")}
 	if !reflect.DeepEqual(got.Pieces, want) {
 		t.Errorf("got %+v, want %+v", got.Pieces, want)
 	}
 
 	// 已知名称的跳过; 没有符合条件的藏品时为空
-	ctx = newUseContext(1, 6, 100, testPieces(), []Use{{Result: got}}, first)
+	ctx = newUseContext(100, testPieces(), []Use{{Result: got}}, first)
 	got, _ = revealName(ctx, &RevealNameParams{Count: 2, MinQuality: 4})
-	if want := []PieceIntel{{ScanOrder: 5, Quality: 4, Name: "e"}}; !reflect.DeepEqual(got.Pieces, want) {
+	if want := []PieceIntel{intelAt(4, 4, "e")}; !reflect.DeepEqual(got.Pieces, want) {
 		t.Errorf("rest: got %+v, want %+v", got.Pieces, want)
 	}
 	got, _ = revealName(ctx, &RevealNameParams{Count: 1, MinQuality: 6})

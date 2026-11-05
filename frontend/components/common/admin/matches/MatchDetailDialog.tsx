@@ -10,6 +10,7 @@ import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, Di
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {IntelResult, Warehouse} from '@/components/common/auction';
 import {CurrencyIcon} from '@/components/common/wallet';
+import {useScan} from '@/hooks/use-scan';
 import {OUTCOMES, modeLabel, parseMode} from '@/lib/auction';
 import services from '@/lib/services';
 import type {AdminMatch, AdminMatchPlayer} from '@/lib/services/admin';
@@ -196,7 +197,7 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
       ) : (
         auction && (
           <div className="mx-auto w-full max-w-2xl">
-            <Warehouse view={auction} decimals={decimals} finished />
+            <AdminWarehouse view={auction} decimals={decimals} />
           </div>
         )
       )}
@@ -211,6 +212,14 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
       )}
     </>
   );
+}
+
+/**
+ * 详情中的仓库, 不播放开箱扫描, 结算后直接显示全部藏品
+ */
+function AdminWarehouse({view, decimals}: { view: AuctionAdminView; decimals: number }) {
+  const scan = useScan(view, true);
+  return <Warehouse view={view} decimals={decimals} scan={scan} />;
 }
 
 /**

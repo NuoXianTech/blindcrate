@@ -149,9 +149,9 @@ function DerivedRule({derived, currency, stale}: { derived: AuctionRule | null; 
         help: '真人成交价超过仓库价值时, 超出部分按比例进奖池',
       },
       {
-        label: '压轴揭示',
-        value: derived.finale ? '开启' : '关闭',
-        help: '开启时最后一轮公开品质的是仓库里最贵的一件, 否则公开顺序全部随机',
+        label: '首轮扫描比例',
+        value: derived.preview_rate > 0 ? formatRate(derived.preview_rate) : '不扫',
+        help: '第 1 轮每件藏品按这个概率扫出轮廓, 至少一件; 其余藏品直到开箱都不公开, 件数也不公开',
       },
       {
         label: '情报价格',

@@ -167,7 +167,6 @@ var (
 				SpeedFloorEnabled:   true,
 				LeadDiscountEnabled: true,
 				PoolEnabled:         true,
-				FinaleEnabled:       true,
 				EntryRate:           300,
 				FlatEntryRate:       200,
 				FlatCV:              6000,
@@ -181,6 +180,7 @@ var (
 				RebateRate:          4000,
 				RebateCapRate:       10000,
 				IntelRate:           50,
+				PreviewRate:         3000,
 				MinRounds:           4,
 				MaxRounds:           10,
 				MinGridSide:         4,
@@ -285,7 +285,6 @@ type BalanceSettings struct {
 	SpeedFloorEnabled   bool `json:"speed_floor_enabled" label:"速胜下限" help:"开启后速胜还要求第一名的出价不低于速胜下限; 只靠倍率挡不住速胜, 第一名常常天然高出第二名一截"`
 	LeadDiscountEnabled bool `json:"lead_discount_enabled" label:"领先折让" help:"开启后成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 折让按地图模拟求出, 让成交价平均落在仓库价值扣掉出售手续费; 关闭时按最高价成交"`
 	PoolEnabled         bool `json:"pool_enabled" label:"输家奖池" help:"开启后入场费和真人的超付部分按比例进奖池, 成交后按名次分给出过价的真人输家; 关闭时入场费全部销毁"`
-	FinaleEnabled       bool `json:"finale_enabled" label:"压轴揭示" help:"开启后最后一轮公开品质的是仓库里最贵的一件, 其余按随机顺序公开"`
 
 	EntryRate       int `json:"entry_rate" label:"入场费比例" help:"入场费占期望价值的比例; 入场费只平移盈亏, 用来抵掉其余规则留下的正期望" binding:"min=0,max=2000" unit:"bp"`
 	FlatEntryRate   int `json:"flat_entry_rate" label:"平坦地图入场费比例" help:"价值离散度低于平坦线的地图用这个比例, 这类地图成交价更贴近价值, 正期望更少" binding:"min=0,max=2000" unit:"bp"`
@@ -300,8 +299,9 @@ type BalanceSettings struct {
 	RebateRate      int `json:"rebate_rate" label:"超付进奖池比例" help:"真人的成交价超过仓库价值时, 超出部分按这个比例进奖池" binding:"min=0,max=10000" unit:"bp"`
 	RebateCapRate   int `json:"rebate_cap_rate" label:"超付进奖池上限" help:"每局进奖池的超付部分不超过入场费的这么多倍" binding:"min=0,max=100000" unit:"bp"`
 	IntelRate       int `json:"intel_rate" label:"情报价格比例" help:"向主持人买一次情报的价格占期望价值的比例, 0 表示不卖情报; 情报平均每局只值期望价值的 0.6%~2.4%, 定价要远低于它, 否则买情报稳赚, 不超过 0.7%" binding:"min=0,max=70" unit:"bp"`
+	PreviewRate     int `json:"preview_rate" label:"首轮扫描比例" help:"第 1 轮每件藏品按这个概率扫出轮廓(只有占的格子, 没有品质和名称), 至少扫出一件; 其余的直到开箱都不公开, 件数也不公开, 只能靠道具和情报看到; 0 表示不扫" binding:"min=0,max=10000" unit:"bp"`
 
-	MinRounds           int `json:"min_rounds" label:"轮数下限" help:"轮数太少时人机只看得到几件的品质, 估值偏高" binding:"min=1,max=10,ltefield=MaxRounds"`
+	MinRounds           int `json:"min_rounds" label:"轮数下限" help:"轮数太少时出价来不及拉开, 速胜和追价都没有余地" binding:"min=1,max=10,ltefield=MaxRounds"`
 	MaxRounds           int `json:"max_rounds" label:"轮数上限" binding:"min=1,max=10"`
 	MinGridSide         int `json:"min_grid_side" label:"仓库边长下限" help:"3×3 的仓库多半摆不下, 一件藏品就占了大半价值" binding:"min=1,max=16,ltefield=MaxGridSide"`
 	MaxGridSide         int `json:"max_grid_side" label:"仓库边长上限" help:"更大的仓库没有验算过" binding:"min=1,max=16"`

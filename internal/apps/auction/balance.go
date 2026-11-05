@@ -257,14 +257,15 @@ func (sq *squad) run(v *venue.Venue, source warehouses, seed uint64) ([]matchSim
 	return matches, nil
 }
 
-// play 模拟一局, 规则与对局中相同: 公开顺序见 revealOrders, 判定见 judge, 反馈见 feedbackFor; 真人带满上限, 人机带 BotCarry
+// play 模拟一局, 规则与对局中相同: 首轮扫出的轮廓见 previewPieces, 判定见 judge, 反馈见 feedbackFor; 真人带满上限, 人机带 BotCarry
 func (sq *squad) play(v *venue.Venue, warehouse *venue.Warehouse, odds []venue.PieceOdds, rng *rand.Rand) (matchSim, error) {
 	rule := &v.Auction
 	pieces := warehouse.Pieces
-	reveal := revealOrders(pieces, v.BidCurrency, rule.Rounds, rule.Finale, rng.Perm)
-	prints := make([]Footprint, len(pieces))
-	for i, piece := range pieces {
-		prints[i] = Footprint{X: piece.X, Y: piece.Y, Width: piece.Width, Height: piece.Height}
+	prints := []Footprint{}
+	for i, picked := range previewPieces(len(pieces), rule.PreviewRate, rng.Int64N) {
+		if picked {
+			prints = append(prints, Footprint{X: pieces[i].X, Y: pieces[i].Y, Width: pieces[i].Width, Height: pieces[i].Height})
+		}
 	}
 
 	seats := make([]seatSim, playerCount)
@@ -294,12 +295,6 @@ func (sq *squad) play(v *venue.Venue, warehouse *venue.Warehouse, odds []venue.P
 	)
 	for round = 1; ; round++ {
 		raises = raises[:0]
-		// 出价的观察是这一轮的格子, 只在两轮之间改
-		for i := range pieces {
-			if reveal[i] == round {
-				prints[i].Quality = pieces[i].Quality
-			}
-		}
 		for i := range seats {
 			s := &seats[i]
 			if len(contenders) > 0 && !slices.Contains(contenders, s.seat) {

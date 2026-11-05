@@ -25,7 +25,6 @@
 package auction
 
 import (
-	"math"
 	"math/rand/v2"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
@@ -38,19 +37,19 @@ const StrategyBasic = "auction_basic"
 
 // 基础策略的估值方式, 越粗越容易看错
 const (
-	PerceptionSize    = "size"    // 按尺寸和品质
-	PerceptionArea    = "area"    // 按面积和品质, 不分横竖和形状
-	PerceptionQuality = "quality" // 只按品质, 不看尺寸
+	PerceptionSize    = "size"    // 按尺寸
+	PerceptionArea    = "area"    // 按面积, 不分横竖和形状
+	PerceptionQuality = "quality" // 不看尺寸, 扫出轮廓的也按全部藏品的平均价
 )
 
 // Observation 人机每轮决策时看到的信息, 与同座位的真人在这一轮出价时看到的相同:
-// 地图的拍卖规则和公示概率, 藏品占的格子和已公开的品质, 自己的带入资金、出价和之前每轮的反馈;
-// 不包含仓库价值、藏品名称和其他人的出价。策略不能修改观察。
+// 地图的拍卖规则(含首轮扫描比例)和公示概率, 第 1 轮扫出轮廓的藏品占的格子, 自己的带入资金、出价和之前每轮的反馈;
+// 不包含仓库价值、件数、品质、藏品名称和其他人的出价。策略不能修改观察。
 type Observation struct {
 	Round      int32             `json:"round"` // 第几轮, 大于规则的轮数时为加轮, 此时自己与其他可以出价的人并列最高
 	Rules      venue.AuctionRule `json:"rules"`
 	Grid       venue.Grid        `json:"grid"`
-	Footprints []Footprint       `json:"footprints"` // 全部藏品占的格子, 已公开品质的带品质
+	Footprints []Footprint       `json:"footprints"` // 第 1 轮扫出轮廓的藏品占的格子
 	Odds       []venue.PieceOdds `json:"odds"`       // 按公示概率算出的藏品分布
 	Carry      int64             `json:"carry"`      // 带入资金, 出价的上限
 	Bid        int64             `json:"bid"`        // 自己的当前出价, 0 表示还没出过价
@@ -66,7 +65,7 @@ type Decision struct {
 
 // basicParams 基础策略的参数, 系数和概率都是基点
 type basicParams struct {
-	Perception  string `json:"perception" label:"估值方式" options:"size:按尺寸和品质,area:按面积和品质,quality:只按品质" binding:"oneof=size area quality"`
+	Perception  string `json:"perception" label:"估值方式" options:"size:按尺寸,area:按面积,quality:不看尺寸" binding:"oneof=size area quality"`
 	Bias        int32  `json:"bias" label:"估值偏差" unit:"bp" help:"每局的估值在 ± 偏差内随机偏高或偏低, 整局不变" binding:"min=0,max=5000"`
 	OpenFactor  int32  `json:"open_factor" label:"首轮系数" unit:"bp" help:"第 1 轮按估值 × 首轮系数出价, 之后逐轮增加, 最后一轮为末轮系数" binding:"min=100,max=15000"`
 	CloseFactor int32  `json:"close_factor" label:"末轮系数" unit:"bp" binding:"min=100,max=15000"`
@@ -89,7 +88,7 @@ func (p *basicParams) Validate(*gorm.DB) (string, error) {
 // registerStrategies 注册人机的决策策略, 在 init 中调用
 func registerStrategies() {
 	bot.RegisterStrategy(StrategyBasic, "暗拍基础策略",
-		"按公开信息估值: 藏品按尺寸(已公开品质的再按品质)取地图公示概率下的平均回收价; 按轮次逐步加价, 看反馈追价或放弃",
+		"按公开信息估值: 扫出轮廓的藏品按尺寸取地图公示概率下的平均回收价, 没扫出的按期望价值折算; 按轮次逐步加价, 看反馈追价或放弃",
 		basicParams{
 			Perception:  PerceptionSize,
 			Bias:        1000,
@@ -106,7 +105,7 @@ func registerStrategies() {
 
 // decideBasic 基础策略
 //
-//   - 估值: 按公开信息估算仓库价值, 再按种子偏高或偏低, 偏差在 ± Bias 内且整局不变; 压轴揭示后没公开的藏品按不比压轴的贵估算
+//   - 估值: 按公开信息估算仓库价值(见 appraise), 再按种子偏高或偏低, 偏差在 ± Bias 内且整局不变; 公开信息开局后不再变化, 估值整局不变
 //   - 上限: min(估值 × 上限系数, 带入资金), 低于起拍价或不高于当前出价时不再加价
 //   - 抢拍: 第 1 轮有 JumpChance 的概率按估值 × 抢拍系数出价
 //   - 按轮次: 估值 × 本轮系数 × (1 ± 浮动), 系数从首轮系数逐轮线性增加到末轮系数
@@ -117,9 +116,7 @@ func registerStrategies() {
 func decideBasic(obs Observation, p *basicParams, rng *rand.Rand) Decision {
 	rules := &obs.Rules
 	personal := rand.New(rand.NewPCG(uint64(obs.Seed), 0))
-	// 压轴揭示: 到压轴的一轮时最贵的一件已经公开, 没公开的都不比它贵
-	topRevealed := rules.Finale && obs.Round >= min(rules.Rounds, int32(len(obs.Footprints)))
-	appraisal := appraise(obs.Odds, obs.Footprints, p.Perception, topRevealed)
+	appraisal := appraise(obs.Odds, obs.Footprints, p.Perception, rules.PreviewRate)
 	estimate := int64(appraisal * float64(venue.BasisPoints+spread(personal, p.Bias)) / venue.BasisPoints)
 	decision := Decision{Estimate: estimate}
 	limit := min(scale(estimate, int64(p.MaxFactor)), obs.Carry)
@@ -169,76 +166,46 @@ func decideBasic(obs Observation, p *basicParams, rng *rand.Rand) Decision {
 	return decision
 }
 
-// appraise 按公开信息估算仓库价值: 每件藏品按估值方式归类, 取公示概率下同类藏品按期望件数加权的平均回收价
+// appraise 按公开信息估算仓库价值: 扫出轮廓的每件按估值方式归类, 取公示概率下同类藏品按期望件数加权的平均回收价;
+// 没扫出的按期望价值 × (1 - 首轮扫描比例) 估算
 //
-// 已公开品质的按品质和尺寸(或面积)归类, 没公开的只按尺寸(或面积); 只按品质时, 没公开的按全部藏品的平均价。
-// 公示概率中没有同类时按全部藏品的平均价。
-//
-// topRevealed 表示最贵的一件已经公开(压轴揭示): 已公开的估价最高的一件视为最贵的, 没公开的只取同类中平均回收价不超过它的,
-// 没有时按它的估价; 否则最后一轮会把没公开的按包含最贵藏品的平均价估算, 系统性地估高。
-func appraise(odds []venue.PieceOdds, footprints []Footprint, perception string, topRevealed bool) float64 {
-	type key struct{ width, height, quality int16 }
+// 每件藏品扫不扫出与它是什么无关, 没扫出的部分平均就是期望价值的 (1 - 比例); 不看尺寸或公示概率中没有同类时按全部藏品的平均价。
+// 扫出的件数也透露了总件数, 这里不利用, 留给真人。previewRate 为基点。
+func appraise(odds []venue.PieceOdds, footprints []Footprint, perception string, previewRate int32) float64 {
+	type key struct{ width, height int16 }
 	type group struct{ count, value float64 }
-	keyOf := func(width, height, quality int16) key {
+	keyOf := func(width, height int16) key {
 		switch perception {
 		case PerceptionArea:
-			return key{width * height, 0, quality}
+			return key{width * height, 0}
 		case PerceptionQuality:
-			return key{0, 0, quality}
+			return key{}
 		}
-		return key{width, height, quality}
+		return key{width, height}
 	}
 	groups := map[key]*group{}
 	var all group
 	for _, o := range odds {
-		// 每种藏品同时计入带品质的类和不看品质的类, 品质从 1 开始, 0 表示没公开
-		for _, k := range []key{keyOf(o.Width, o.Height, o.Quality), keyOf(o.Width, o.Height, 0)} {
-			g, ok := groups[k]
-			if !ok {
-				g = &group{}
-				groups[k] = g
-			}
-			g.count += o.Count
-			g.value += o.Count * o.Price
+		k := keyOf(o.Width, o.Height)
+		g, ok := groups[k]
+		if !ok {
+			g = &group{}
+			groups[k] = g
 		}
+		g.count += o.Count
+		g.value += o.Count * o.Price
 		all.count += o.Count
 		all.value += o.Count * o.Price
 	}
 	if all.count <= 0 {
 		return 0
 	}
-	price := func(f Footprint) float64 {
-		if g, ok := groups[keyOf(f.Width, f.Height, f.Quality)]; ok && g.count > 0 {
-			return g.value / g.count
-		}
-		return all.value / all.count
-	}
-	top := math.Inf(1)
-	if topRevealed {
-		top = 0
-		for _, f := range footprints {
-			if f.Quality > 0 {
-				top = max(top, price(f))
-			}
-		}
-	}
-	var total float64
+	total := all.value * float64(venue.BasisPoints-previewRate) / venue.BasisPoints
 	for _, f := range footprints {
-		if f.Quality > 0 || math.IsInf(top, 1) {
-			total += price(f)
-			continue
-		}
-		var below group
-		for _, o := range odds {
-			if keyOf(o.Width, o.Height, 0) == keyOf(f.Width, f.Height, 0) && o.Price <= top {
-				below.count += o.Count
-				below.value += o.Count * o.Price
-			}
-		}
-		if below.count > 0 {
-			total += below.value / below.count
+		if g, ok := groups[keyOf(f.Width, f.Height)]; ok && g.count > 0 {
+			total += g.value / g.count
 		} else {
-			total += min(price(f), top)
+			total += all.value / all.count
 		}
 	}
 	return total

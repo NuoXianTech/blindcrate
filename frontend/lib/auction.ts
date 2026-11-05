@@ -81,9 +81,9 @@ export function formatRate(bp: number) {
   return `${(bp / 100).toLocaleString('zh-CN', {maximumFractionDigits: 2})}%`;
 }
 
-/** 最贵的一件在第几轮公开: 最后一轮, 件数不够时为最后一件 */
-export function finaleOrder(rounds: number, pieceCount: number) {
-  return Math.min(rounds, pieceCount);
+/** 一件藏品的位置, 一局中不重复, 用来对应扫出的轮廓、情报和主持人的指认 */
+export function cellKey(c: { x: number; y: number }) {
+  return `${c.x},${c.y}`;
 }
 
 /** 一组变动中某种货币的金额, 如入场代价中的入场费 */

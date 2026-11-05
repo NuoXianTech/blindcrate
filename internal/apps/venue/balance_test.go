@@ -59,7 +59,7 @@ func TestCalibrate(t *testing.T) {
 		c.want.Rounds, c.want.QuickWin = rule.Rounds, rule.QuickWin
 		if !slices.Equal(rule.QuickWin, []int32{23000, 18975, 18630, 17825}) || rule.EntryFee != c.want.EntryFee || rule.StartPrice != c.want.StartPrice ||
 			rule.MaxCarry != c.want.MaxCarry || rule.BotCarry != c.want.BotCarry || rule.SpeedFloor != c.want.SpeedFloor || rule.LeadDiscount != 0 ||
-			rule.PoolRate != c.want.PoolRate || rule.RebateRate != c.want.RebateRate || rule.RebateCap != c.want.RebateCap || rule.IntelPrice != c.want.IntelPrice || !rule.Finale {
+			rule.PoolRate != c.want.PoolRate || rule.RebateRate != c.want.RebateRate || rule.RebateCap != c.want.RebateCap || rule.IntelPrice != c.want.IntelPrice || rule.PreviewRate != 3000 {
 			t.Errorf("%s: got %+v, want %+v", c.name, rule, c.want)
 		}
 	}
@@ -130,10 +130,10 @@ func TestBalanceJudge(t *testing.T) {
 
 func TestCalibrateSwitches(t *testing.T) {
 	b := settings.Balance.Default()
-	b.SpeedFloorEnabled, b.PoolEnabled, b.FinaleEnabled, b.IntelRate = false, false, false, 0
+	b.SpeedFloorEnabled, b.PoolEnabled, b.IntelRate, b.PreviewRate = false, false, 0, 0
 	var rule AuctionRule
 	rule.Calibrate(ValueStats{Mean: 10000, P90: 20000, CV: 8900}, b)
-	if rule.SpeedFloor != 0 || rule.PoolRate != 0 || rule.RebateRate != 0 || rule.RebateCap != 0 || rule.Finale || rule.IntelPrice != 0 || rule.EntryFee != 300 {
+	if rule.SpeedFloor != 0 || rule.PoolRate != 0 || rule.RebateRate != 0 || rule.RebateCap != 0 || rule.PreviewRate != 0 || rule.IntelPrice != 0 || rule.EntryFee != 300 {
 		t.Errorf("switches off: %+v", rule)
 	}
 }

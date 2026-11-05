@@ -35,53 +35,81 @@ import (
 	"gorm.io/gorm"
 )
 
-// 对局中可用的道具效果, 都只给使用者自己提供情报
+// 对局中可用的道具效果, 都只给使用者自己提供情报; 看到的藏品同时扫出轮廓
 const (
-	EffectRevealQuality = "reveal_quality" // 看几件还不知道品质的藏品的品质
+	EffectRevealOutline = "reveal_outline" // 看几件还不知道轮廓的藏品的轮廓
+	EffectRevealQuality = "reveal_quality" // 看几件还不知道品质的藏品的品质和轮廓
 	EffectCountQuality  = "count_quality"  // 某品质及以上的藏品各有几件
-	EffectRevealName    = "reveal_name"    // 看几件某品质及以上藏品的名称
+	EffectRevealName    = "reveal_name"    // 看几件某品质及以上藏品的名称、外观和轮廓
 	EffectValueRange    = "value_range"    // 仓库价值的区间
 )
 
 // registerEffects 注册对局场景的道具效果, 在 init 中调用
 func registerEffects() {
+	effect.Register(EffectRevealOutline, effect.SceneMatch, "扫描仓库",
+		"随机扫出几件还不知道轮廓的藏品的轮廓, 不含品质和名称", revealOutline)
 	effect.Register(EffectRevealQuality, effect.SceneMatch, "鉴定品质",
-		"查看几件还不知道品质的藏品的品质, 优先选之后几轮最晚公开的", revealQuality)
+		"随机扫出几件还不知道品质的藏品的品质和轮廓", revealQuality)
 	effect.Register(EffectCountQuality, effect.SceneMatch, "品质清单",
 		"知道某品质及以上的藏品各有几件", countQuality)
 	effect.Register(EffectRevealName, effect.SceneMatch, "透视名称",
-		"随机查看几件某品质及以上藏品的名称和品质, 没有时提示没有", revealName)
+		"随机扫出几件某品质及以上藏品的名称、外观、品质和轮廓, 没有时提示没有", revealName)
 	effect.Register(EffectValueRange, effect.SceneMatch, "估价区间",
 		"给出仓库价值的区间, 区间的位置随机, 真实价值不一定在中间", valueRange)
 }
+
+// cell 一件藏品的位置, 一局中不重复
+type cell struct{ x, y int16 }
 
 // UseContext 对局中使用道具时的上下文, 效果只读不写
 type UseContext struct {
 	Pieces     []WarehouseItem     // 仓库里的全部藏品, 按扫描顺序
 	Value      int64               // 仓库价值
-	Known      map[int32]bool      // 使用者已知品质的藏品, 按扫描顺序; 包括已公开的和之前用道具看到的
-	KnownNames map[int32]bool      // 使用者已知名称的藏品, 按扫描顺序
+	Outlined   map[cell]bool       // 使用者已知轮廓的藏品, 按位置; 第 1 轮扫出的和之前用道具或买情报看到的
+	Known      map[cell]bool       // 使用者已知品质的藏品, 按位置; 品质从不公开, 只有之前用道具或买情报看到的
+	KnownNames map[cell]bool       // 使用者已知名称的藏品, 按位置
 	Rand       func(n int64) int64 // 返回 [0, n) 的随机数, 测试时可以替换
 }
 
 // newUseContext 以座位 seat 的视角生成上下文; uses 为这个座位之前用过的道具
-func newUseContext(round, pieceCount int32, value int64, items []WarehouseItem, uses []Use, random func(n int64) int64) *UseContext {
-	ctx := &UseContext{Pieces: items, Value: value, Known: map[int32]bool{}, KnownNames: map[int32]bool{}, Rand: random}
-	revealed := min(round, pieceCount)
+func newUseContext(value int64, items []WarehouseItem, uses []Use, random func(n int64) int64) *UseContext {
+	ctx := &UseContext{Pieces: items, Value: value, Outlined: map[cell]bool{}, Known: map[cell]bool{}, KnownNames: map[cell]bool{}, Rand: random}
 	for _, it := range items {
-		if it.RevealOrder <= revealed {
-			ctx.Known[it.ScanOrder] = true
+		if it.Preview {
+			ctx.Outlined[cell{it.X, it.Y}] = true
 		}
 	}
 	for _, use := range uses {
 		for _, piece := range use.Result.Pieces {
-			ctx.Known[piece.ScanOrder] = true
+			ctx.Outlined[cell{piece.X, piece.Y}] = true
+			if piece.Quality > 0 {
+				ctx.Known[cell{piece.X, piece.Y}] = true
+			}
 			if piece.Name != "" {
-				ctx.KnownNames[piece.ScanOrder] = true
+				ctx.KnownNames[cell{piece.X, piece.Y}] = true
 			}
 		}
 	}
 	return ctx
+}
+
+// pieceIntel 看到的一件藏品, 带占的格子; withName 为是否带名称和外观
+func pieceIntel(it *WarehouseItem, withName bool) PieceIntel {
+	intel := PieceIntel{X: it.X, Y: it.Y, Width: it.Width, Height: it.Height, Quality: it.Quality}
+	if withName {
+		intel.Name, intel.ImageURL = it.Name, it.ImageURL
+	}
+	return intel
+}
+
+// pickPieces 从 candidates 中随机选 n 件, 不够时全选; 会打乱 candidates
+func pickPieces(ctx *UseContext, candidates []WarehouseItem, n int) []WarehouseItem {
+	n = min(len(candidates), n)
+	for i := range n {
+		j := i + int(ctx.Rand(int64(len(candidates)-i)))
+		candidates[i], candidates[j] = candidates[j], candidates[i]
+	}
+	return candidates[:n]
 }
 
 // checkQuality 品质不存在时返回原因
@@ -95,24 +123,45 @@ func checkQuality(tx *gorm.DB, level int16) (string, error) {
 	return "", nil
 }
 
+// RevealOutlineParams 扫描仓库的参数
+type RevealOutlineParams struct {
+	Count int32 `json:"count" label:"件数" binding:"min=1,max=10"`
+}
+
+// revealOutline 从还不知道轮廓的藏品中随机选几件, 只给位置和大小
+func revealOutline(ctx *UseContext, params *RevealOutlineParams) (Intel, error) {
+	var unknown []WarehouseItem
+	for _, it := range ctx.Pieces {
+		if !ctx.Outlined[cell{it.X, it.Y}] {
+			unknown = append(unknown, it)
+		}
+	}
+	picked := pickPieces(ctx, unknown, int(params.Count))
+	intel := Intel{Pieces: make([]PieceIntel, len(picked))}
+	for i, it := range picked {
+		intel.Pieces[i] = PieceIntel{X: it.X, Y: it.Y, Width: it.Width, Height: it.Height}
+	}
+	sortPieces(intel.Pieces)
+	return intel, nil
+}
+
 // RevealQualityParams 鉴定品质的参数
 type RevealQualityParams struct {
 	Count int32 `json:"count" label:"件数" binding:"min=1,max=10"`
 }
 
-// revealQuality 按公开顺序从后往前选还不知道品质的藏品, 避开之后几轮马上会公开的
+// revealQuality 从还不知道品质的藏品中随机选几件
 func revealQuality(ctx *UseContext, params *RevealQualityParams) (Intel, error) {
 	var unknown []WarehouseItem
 	for _, it := range ctx.Pieces {
-		if !ctx.Known[it.ScanOrder] {
+		if !ctx.Known[cell{it.X, it.Y}] {
 			unknown = append(unknown, it)
 		}
 	}
-	slices.SortFunc(unknown, func(a, b WarehouseItem) int { return cmp.Compare(b.RevealOrder, a.RevealOrder) })
-	unknown = unknown[:min(len(unknown), int(params.Count))]
-	intel := Intel{Pieces: make([]PieceIntel, len(unknown))}
-	for i, it := range unknown {
-		intel.Pieces[i] = PieceIntel{ScanOrder: it.ScanOrder, Quality: it.Quality}
+	picked := pickPieces(ctx, unknown, int(params.Count))
+	intel := Intel{Pieces: make([]PieceIntel, len(picked))}
+	for i := range picked {
+		intel.Pieces[i] = pieceIntel(&picked[i], false)
 	}
 	sortPieces(intel.Pieces)
 	return intel, nil
@@ -159,18 +208,14 @@ func (p *RevealNameParams) Validate(tx *gorm.DB) (string, error) {
 func revealName(ctx *UseContext, params *RevealNameParams) (Intel, error) {
 	var candidates []WarehouseItem
 	for _, it := range ctx.Pieces {
-		if it.Quality >= params.MinQuality && !ctx.KnownNames[it.ScanOrder] {
+		if it.Quality >= params.MinQuality && !ctx.KnownNames[cell{it.X, it.Y}] {
 			candidates = append(candidates, it)
 		}
 	}
-	n := min(len(candidates), int(params.Count))
-	for i := range n {
-		j := i + int(ctx.Rand(int64(len(candidates)-i)))
-		candidates[i], candidates[j] = candidates[j], candidates[i]
-	}
-	intel := Intel{MinQuality: params.MinQuality, Pieces: make([]PieceIntel, n)}
-	for i, it := range candidates[:n] {
-		intel.Pieces[i] = PieceIntel{ScanOrder: it.ScanOrder, Quality: it.Quality, Name: it.Name, ImageURL: it.ImageURL}
+	picked := pickPieces(ctx, candidates, int(params.Count))
+	intel := Intel{MinQuality: params.MinQuality, Pieces: make([]PieceIntel, len(picked))}
+	for i := range picked {
+		intel.Pieces[i] = pieceIntel(&picked[i], true)
 	}
 	sortPieces(intel.Pieces)
 	return intel, nil
@@ -194,7 +239,7 @@ func valueRange(ctx *UseContext, params *ValueRangeParams) (Intel, error) {
 	return Intel{ValueMin: max(low, 0), ValueMax: high}, nil
 }
 
-// sortPieces 按扫描顺序排列
+// sortPieces 按位置从上到下、从左到右排列, 与扫描顺序相同
 func sortPieces(pieces []PieceIntel) {
-	slices.SortFunc(pieces, func(a, b PieceIntel) int { return cmp.Compare(a.ScanOrder, b.ScanOrder) })
+	slices.SortFunc(pieces, func(a, b PieceIntel) int { return cmp.Or(cmp.Compare(a.Y, b.Y), cmp.Compare(a.X, b.X)) })
 }

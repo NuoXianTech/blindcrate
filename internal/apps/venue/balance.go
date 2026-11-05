@@ -63,7 +63,7 @@ func (r *AuctionRule) Calibrate(stats ValueStats, b *settings.BalanceSettings) {
 		r.PoolRate, r.RebateRate = int32(b.PoolRate), int32(b.RebateRate)
 		r.RebateCap = ofRate(r.EntryFee, b.RebateCapRate)
 	}
-	r.Finale = b.FinaleEnabled
+	r.PreviewRate = int32(b.PreviewRate)
 	r.IntelPrice = 0
 	if b.IntelRate > 0 {
 		r.IntelPrice = max(ofRate(stats.Mean, b.IntelRate), 1)

@@ -43,7 +43,7 @@ type Response struct {
 // GetAuction
 // @Tags auction
 // @Summary 获取当前用户参与的一局暗拍
-// @Description 进行中时只公开已公开品质的藏品和自己的出价与反馈, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用
+// @Description 进行中时只公开仓库大小、第 1 轮扫出的轮廓和自己的出价、反馈与情报, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用
 // @Produce json
 // @Param match_id path int true "match id"
 // @Success 200 {object} Response{data=AuctionView}

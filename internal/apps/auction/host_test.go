@@ -42,7 +42,7 @@ func sequence(values ...int64) func(int64) int64 {
 	}
 }
 
-// testHost 第 2 轮的局面: 还没公开的是扫描顺序 1、2、4、6 (品质 1、4、5、3), 价值高于期望
+// testHost 第 2 轮的局面: 藏品见 testPieces, 首轮扫出轮廓的是第 1、3 件 (品质 1、2), 价值高于期望
 func testHost(persona string, lieRate int32) *hostInput {
 	return &hostInput{
 		Round:     2,
@@ -114,7 +114,7 @@ func TestLie(t *testing.T) {
 }
 
 func TestMakeHint(t *testing.T) {
-	// 不撒谎: 候选为 件数(品质 4 及以上 3 件)、最好(5)、单件(按随机数选还没公开的第 2 件, 扫描顺序 2)、价值(高于期望)
+	// 不撒谎: 候选为 件数(品质 4 及以上 3 件)、最好(5)、单件(按随机数选扫出轮廓的第 2 件, 位置 (2, 0))、价值(高于期望)
 	cases := []struct {
 		name   string
 		last   string
@@ -123,7 +123,7 @@ func TestMakeHint(t *testing.T) {
 	}{
 		{"件数", "", []int64{1, 0}, HostHint{Round: 2, Kind: HostHintCount, Quality: 4, Count: 3, Truthful: true}},
 		{"最好", "", []int64{1, 1}, HostHint{Round: 2, Kind: HostHintBest, Quality: 5, Truthful: true}},
-		{"单件", "", []int64{1, 2}, HostHint{Round: 2, Kind: HostHintPiece, Quality: 4, ScanOrder: 2, Truthful: true}},
+		{"单件", "", []int64{1, 2}, HostHint{Round: 2, Kind: HostHintPiece, Quality: 2, X: 2, Truthful: true}},
 		{"价值", "", []int64{1, 3}, HostHint{Round: 2, Kind: HostHintValue, Above: true, Truthful: true}},
 		{"不连续出同一种", HostHintCount, []int64{1, 0}, HostHint{Round: 2, Kind: HostHintBest, Quality: 5, Truthful: true}},
 	}
@@ -136,22 +136,25 @@ func TestMakeHint(t *testing.T) {
 		}
 	}
 
-	// 撒谎: 随机数依次为 单件选第 1 件(扫描顺序 1, 品质 1)、选单件、撒谎判定 0 < 撒谎率
+	// 撒谎: 随机数依次为 单件选第 1 件(位置 (0, 0), 品质 1)、选单件、撒谎判定 0 < 撒谎率
 	in := testHost(venue.HostShowman, 1800)
 	got, _ := makeHint(in, sequence(0, 2, 0))
-	want := HostHint{Round: 2, Kind: HostHintPiece, Quality: 2, ScanOrder: 1}
+	want := HostHint{Round: 2, Kind: HostHintPiece, Quality: 2}
 	if got != want {
 		t.Errorf("lie: got %+v, want %+v", got, want)
 	}
 
-	// 全部公开后只剩件数和价值, 没有期望价值和高品质的仓库没有能给的提示
+	// 没有扫出轮廓时不指认单件: 候选为 件数、最好、价值
 	in = testHost(venue.HostSteady, 0)
-	in.Round = 6
-	got, _ = makeHint(in, sequence(1))
-	if got.Kind != HostHintValue {
-		t.Errorf("revealed: got %+v", got)
+	for i := range in.Items {
+		in.Items[i].Preview = false
 	}
-	in.Expected, in.Rule.HighQuality, in.Qualities = 0, 0, nil
+	got, _ = makeHint(in, sequence(2))
+	if got.Kind != HostHintValue {
+		t.Errorf("no preview: got %+v", got)
+	}
+	// 空仓库没有期望价值和高品质时没有能给的提示
+	in.Items, in.Expected, in.Rule.HighQuality, in.Qualities = nil, 0, 0, nil
 	if _, ok := makeHint(in, first); ok {
 		t.Error("nothing to say: got a hint")
 	}
@@ -182,18 +185,22 @@ func TestIntelFor(t *testing.T) {
 		name   string
 		round  int32
 		rounds int32
-		known  int32 // 已公开前几件
+		known  bool // 是否已知全部藏品的品质
 		want   string
 	}{
-		{"前三分之一看品质", 1, 5, 1, EffectRevealQuality},
-		{"中间看名称", 2, 5, 2, EffectRevealName},
-		{"中间的最后一轮", 3, 5, 3, EffectRevealName},
-		{"之后看价值区间", 4, 5, 4, EffectValueRange},
-		{"加轮看价值区间", 7, 5, 6, EffectValueRange},
-		{"品质都知道了改看名称", 1, 5, 6, EffectRevealName},
+		{"前三分之一看品质", 1, 5, false, EffectRevealQuality},
+		{"中间看名称", 2, 5, false, EffectRevealName},
+		{"中间的最后一轮", 3, 5, false, EffectRevealName},
+		{"之后看价值区间", 4, 5, false, EffectValueRange},
+		{"加轮看价值区间", 7, 5, false, EffectValueRange},
+		{"品质都知道了改看名称", 1, 5, true, EffectRevealName},
 	}
 	for _, c := range cases {
-		ctx := newUseContext(c.known, 6, 1000, testPieces(), nil, first)
+		var uses []Use
+		if c.known {
+			uses = []Use{{Result: Intel{Pieces: []PieceIntel{intelAt(0, 1, ""), intelAt(1, 4, ""), intelAt(2, 2, ""), intelAt(3, 5, ""), intelAt(4, 4, ""), intelAt(5, 3, "")}}}}
+		}
+		ctx := newUseContext(1000, testPieces(), uses, first)
 		code, intel, err := intelFor(c.round, c.rounds, 1500, ctx)
 		if err != nil || code != c.want {
 			t.Errorf("%s: got %s %v, want %s", c.name, code, err, c.want)
@@ -201,7 +208,7 @@ func TestIntelFor(t *testing.T) {
 		}
 		switch code {
 		case EffectRevealQuality:
-			if len(intel.Pieces) != 1 || ctx.Known[intel.Pieces[0].ScanOrder] {
+			if len(intel.Pieces) != 1 || ctx.Known[cell{intel.Pieces[0].X, intel.Pieces[0].Y}] || intel.Pieces[0].Width != 1 {
 				t.Errorf("%s: got %+v", c.name, intel)
 			}
 		case EffectRevealName:

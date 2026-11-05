@@ -154,7 +154,7 @@ type AuctionRule struct {
 	PoolRate     int32 `json:"pool_rate"`     // 入场费进奖池的比例, 基点, 其余销毁; 成交后奖池分给出过价的真人输家
 	RebateRate   int32 `json:"rebate_rate"`   // 真人成交价超过仓库价值时, 超出部分进奖池的比例, 基点
 	RebateCap    int64 `json:"rebate_cap"`    // 每局进奖池的超付部分的上限
-	Finale       bool  `json:"finale"`        // 压轴揭示: 最后一轮公开品质的是仓库里最贵的一件
+	PreviewRate  int32 `json:"preview_rate"`  // 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率公开占的格子, 至少一件; 0 表示不公开
 	IntelPrice   int64 `json:"intel_price"`   // 向主持人买一次情报的价格, 从可用余额扣除; 0 表示不卖情报
 }
 
@@ -218,7 +218,7 @@ func (r *ConsumableRule) Allows(itemID uint64) bool {
 	return len(r.Allowed) == 0 || slices.Contains(r.Allowed, itemID)
 }
 
-// HostRule 主持人: 每轮开始时公开一条关于还没公开的藏品的提示, 有一定概率说错; 出价阶段还可以向他买只有自己看得到的情报
+// HostRule 主持人: 每轮开始时公开一条关于仓库的提示, 有一定概率说错, 性格开箱后才公开; 出价阶段还可以向他买只有自己看得到的情报
 //
 // 性格在开局时从 Personas 中随机选一种并公开, 决定说错时往哪边错, 见 constants.go 的 Host; 热度(Hype)由每轮的加价推动, 影响部分性格的撒谎率。
 // 说错的提示在开箱后公开。情报的价格按期望价值推导(见 AuctionRule.IntelPrice), 买过情报的座位对所有人公开, 情报的内容只给自己。

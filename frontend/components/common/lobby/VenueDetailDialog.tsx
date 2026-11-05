@@ -125,19 +125,22 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
               </dd>
             </>
           )}
-          {v.auction.finale && (
-            <>
-              <dt className="text-muted-foreground">压轴</dt>
-              <dd>最后一轮公开品质的是仓库里最贵的一件</dd>
-            </>
-          )}
+          <dt className="text-muted-foreground">扫描</dt>
+          <dd>
+            {v.auction.preview_rate > 0 ?
+              `第 1 轮每件藏品有 ${formatRate(v.auction.preview_rate)} 的概率扫出轮廓, 至少一件` :
+              '开局不扫描, 只知道仓库大小'}
+            <p className="text-xs text-muted-foreground">
+              只看得到占的格子; 件数、品质和名称直到开箱都不公开, 只能靠道具和情报看到
+            </p>
+          </dd>
           {v.host?.enabled && (
             <>
               <dt className="text-muted-foreground">主持人</dt>
               <dd>
                 每轮开始时给一条提示, 可能说错, 开箱后公开真假
                 <p className="text-xs text-muted-foreground">
-                  性格开局时公开: 稳重的很少说错, 煽动的错时往高了吹, 狡黠的错时往低了压
+                  性格开箱后才公开: 稳重的很少说错, 煽动的错时往高了吹, 狡黠的错时往低了压
                 </p>
               </dd>
             </>

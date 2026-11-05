@@ -9,6 +9,7 @@ import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
 import {TierName} from '@/components/common/ranked';
 import {CurrencyIcon} from '@/components/common/wallet';
+import type {Scan} from '@/hooks/use-scan';
 import {ROUTES, matchHref} from '@/lib/access';
 import {amountIn, OUTCOMES, parseMode} from '@/lib/auction';
 import {tierOf} from '@/lib/ranked';
@@ -21,11 +22,14 @@ import {formatAmount} from '@/lib/utils';
 
 /**
  * 结算结果: 成交价、仓库价值、自己的盈亏和排位的段位分、段位变化; 结算后对局随即释放, 开箱时就可以离开或再来一局
+ * 仓库价值随开箱扫描累加, 盈亏、奖池和段位分能推出仓库价值, 扫完才公开
  */
-export function ResultPanel({view, players, decimals, finished, released}: {
+export function ResultPanel({view, players, decimals, scan, finished, released}: {
   view: AuctionView;
   players: MatchPlayer[];
   decimals: number;
+  /** 开箱扫描的进度, 见 useScan */
+  scan: Scan;
   /** 开箱阶段结束, 对局已结束 */
   finished: boolean;
   /** 对局已释放, 可以离开去排下一局 */
@@ -88,9 +92,9 @@ export function ResultPanel({view, players, decimals, finished, released}: {
   const paid = result.seats.reduce((sum, s) => sum + s.share, 0);
   const rows = [
     {label: '成交价', value: sold ? formatAmount(result.price, decimals) : '-'},
-    {label: '仓库价值', value: formatAmount(result.value, decimals)},
+    {label: scan.complete ? '仓库价值' : '仓库价值 (扫描中)', value: formatAmount(scan.complete ? result.value : scan.value, decimals)},
   ];
-  if (result.pool > 0) {
+  if (scan.complete && result.pool > 0) {
     // 没有出过价的真人输家时奖池销毁
     rows.push({label: paid > 0 ? '奖池' : '奖池 (无人可分)', value: formatAmount(result.pool, decimals)});
     if (!winner?.is_self) rows.push({label: '我分到', value: formatAmount(share, decimals)});
@@ -115,27 +119,37 @@ export function ResultPanel({view, players, decimals, finished, released}: {
         ))}
       </dl>
 
-      <div className="flex flex-col gap-0.5">
-        <span className="text-xs text-muted-foreground">
-          我的盈亏{view.self.is_practice && ' (练习局, 仅供参考)'}
-        </span>
-        <span
-          className={cn(
-              'font-mono text-3xl font-bold tabular-nums',
-              result.profit > 0 && 'text-quality-green',
-              result.profit < 0 && 'text-quality-red',
-          )}
-        >
-          {formatAmount(result.profit, decimals, {signed: true})}
-        </span>
-        {(parts.length > 0 || share > 0) && (
-          <span className="text-xs text-muted-foreground">
-            含{[...parts, ...(share > 0 ? [`奖池分红 ${formatAmount(share, decimals, {signed: true})}`] : [])].join(', ')}
+      {!scan.complete ? (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground">我的盈亏</span>
+          <span className="flex items-center gap-2 text-sm text-muted-foreground">
+            <LoaderCircle className="size-4 animate-spin" />
+            开箱扫描中, 扫完揭晓
           </span>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground">
+            我的盈亏{view.self.is_practice && ' (练习局, 仅供参考)'}
+          </span>
+          <span
+            className={cn(
+                'font-mono text-3xl font-bold tabular-nums',
+                result.profit > 0 && 'text-quality-green',
+                result.profit < 0 && 'text-quality-red',
+            )}
+          >
+            {formatAmount(result.profit, decimals, {signed: true})}
+          </span>
+          {(parts.length > 0 || share > 0) && (
+            <span className="text-xs text-muted-foreground">
+              含{[...parts, ...(share > 0 ? [`奖池分红 ${formatAmount(share, decimals, {signed: true})}`] : [])].join(', ')}
+            </span>
+          )}
+        </div>
+      )}
 
-      {rated && (
+      {rated && scan.complete && (
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">段位分</span>
           <span className="flex items-baseline gap-2 font-mono tabular-nums">

@@ -51,45 +51,28 @@ func TestAppraise(t *testing.T) {
 		name       string
 		perception string
 		footprints []Footprint
+		rate       int32
 		want       float64
 	}{
-		{"size unrevealed", PerceptionSize, []Footprint{{Width: 1, Height: 1}}, 240},
-		{"size revealed", PerceptionSize, []Footprint{{Width: 1, Height: 1, Quality: 3}}, 1000},
-		{"size by shape", PerceptionSize, []Footprint{{Width: 2, Height: 1}, {Width: 1, Height: 2}}, 3200},
-		{"size unknown shape", PerceptionSize, []Footprint{{Width: 3, Height: 3}}, average},
-		{"size unknown kind", PerceptionSize, []Footprint{{Width: 2, Height: 1, Quality: 3}}, average},
-		{"area merges shapes", PerceptionArea, []Footprint{{Width: 1, Height: 2}}, 1700 / 1.5},
-		{"area revealed", PerceptionArea, []Footprint{{Width: 2, Height: 1, Quality: 3}}, 3000},
-		{"quality unrevealed", PerceptionQuality, []Footprint{{Width: 1, Height: 1}}, average},
-		{"quality revealed", PerceptionQuality, []Footprint{{Width: 2, Height: 1, Quality: 1}, {Width: 1, Height: 1, Quality: 3}}, 80 + 2500/1.5},
+		{"size", PerceptionSize, []Footprint{{Width: 1, Height: 1}}, 10000, 240},
+		{"size by shape", PerceptionSize, []Footprint{{Width: 2, Height: 1}, {Width: 1, Height: 2}}, 10000, 3200},
+		{"size unknown shape", PerceptionSize, []Footprint{{Width: 3, Height: 3}}, 10000, average},
+		{"area merges shapes", PerceptionArea, []Footprint{{Width: 1, Height: 2}}, 10000, 1700 / 1.5},
+		{"quality ignores size", PerceptionQuality, []Footprint{{Width: 1, Height: 2}}, 10000, average},
+		{"nothing previewed", PerceptionSize, nil, 0, 2900},
+		{"unseen at the expected value", PerceptionSize, []Footprint{{Width: 1, Height: 1}}, 3000, 240 + 2900*0.7},
 	}
 	for _, c := range cases {
-		if got := appraise(testOdds, c.footprints, c.perception, false); math.Abs(got-c.want) > 1e-6 {
+		if got := appraise(testOdds, c.footprints, c.perception, c.rate); math.Abs(got-c.want) > 1e-6 {
 			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
 		}
 	}
-	if got := appraise(nil, []Footprint{{Width: 1, Height: 1}}, PerceptionSize, false); got != 0 {
+	if got := appraise(nil, []Footprint{{Width: 1, Height: 1}}, PerceptionSize, 3000); got != 0 {
 		t.Errorf("no odds: got %v, want 0", got)
-	}
-
-	// 压轴揭示后没公开的只取不比已公开的最贵一件贵的同类, 没有时按它的估价
-	finales := []struct {
-		name       string
-		footprints []Footprint
-		want       float64
-	}{
-		{"cheap top excludes dear kinds", []Footprint{{Width: 1, Height: 1, Quality: 1}, {Width: 1, Height: 1}}, 50 + 50},
-		{"dear top keeps every kind", []Footprint{{Width: 1, Height: 2, Quality: 3}, {Width: 1, Height: 1}}, 3000 + 240},
-		{"no kind below the top", []Footprint{{Width: 1, Height: 1, Quality: 1}, {Width: 2, Height: 1}}, 50 + 50},
-	}
-	for _, c := range finales {
-		if got := appraise(testOdds, c.footprints, PerceptionSize, true); math.Abs(got-c.want) > 1e-6 {
-			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
-		}
 	}
 }
 
-// flatObservation 10 件 1×1 的藏品, 每件估价 1000, 没有估值偏差时估值为 10000; hints 为之前每轮的提示
+// flatObservation 10 件 1×1 的藏品, 全部扫出轮廓, 每件估价 1000, 没有估值偏差时估值为 10000; hints 为之前每轮的提示
 func flatObservation(round int32, bid int64, hints ...string) Observation {
 	obs := Observation{
 		Round:      round,
@@ -100,8 +83,9 @@ func flatObservation(round int32, bid int64, hints ...string) Observation {
 		Bid:        bid,
 		Seed:       1,
 	}
+	obs.Rules.PreviewRate = venue.BasisPoints
 	for i := range obs.Footprints {
-		obs.Footprints[i] = Footprint{ScanOrder: int32(i + 1), Width: 1, Height: 1}
+		obs.Footprints[i] = Footprint{X: int16(i), Width: 1, Height: 1}
 	}
 	for i, hint := range hints {
 		obs.Feedback = append(obs.Feedback, Feedback{Round: int32(i + 1), Hint: hint})
