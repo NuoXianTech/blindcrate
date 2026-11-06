@@ -41,7 +41,7 @@ type Response struct {
 // GetCodex
 // @Tags codex
 // @Summary 获取图鉴
-// @Description 全部启用的藏品, 按品质从高到低排列, 带是否已收集和第一次获得的时间; 以及启用的收集组的进度和领取情况
+// @Description 全部启用的藏品, 按品质从高到低排列, 带是否已收集和第一次获得的时间, 名称、说明和当前售价收集后才返回; 以及启用的收集组的进度和领取情况
 // @Produce json
 // @Success 200 {object} Response{data=CodexData}
 // @Failure 401 {object} Response

@@ -11,6 +11,7 @@ import {RewardResultDialog} from '@/components/common/reward';
 import services from '@/lib/services';
 import type {ClaimCodexSetResult, CodexData, CodexEntry, CodexSet} from '@/lib/services/codex';
 import {toErrorMessage} from '@/lib/services/core';
+import type {BalanceItem} from '@/lib/services/wallet';
 import {CodexEntryDialog} from './CodexEntryDialog';
 import {CodexGrid} from './CodexGrid';
 import {CodexSetCard} from './CodexSetCard';
@@ -28,6 +29,8 @@ export function CodexMain() {
   const [viewing, setViewing] = useState<CodexEntry | null>(null);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [result, setResult] = useState<ClaimCodexSetResult | null>(null);
+  // 货币名称和小数位, 用于展示售价
+  const [currencies, setCurrencies] = useState<BalanceItem[]>([]);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -45,6 +48,15 @@ export function CodexMain() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 进入页面时拉取图鉴
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!user) return;
+    services.wallet.listBalances()
+        .then((res) => setCurrencies(res.balances))
+        .catch(() => {
+          // 只影响售价的货币名称, 失败时显示货币代码
+        });
+  }, [user]);
 
   const claim = async (set: CodexSet) => {
     setClaiming(set.code);
@@ -135,7 +147,7 @@ export function CodexMain() {
         </>
       )}
 
-      <CodexEntryDialog entry={viewing} sets={data?.sets ?? []} onClose={() => setViewing(null)} />
+      <CodexEntryDialog entry={viewing} sets={data?.sets ?? []} currencies={currencies} onClose={() => setViewing(null)} />
       <RewardResultDialog lines={result?.received ?? null} onClose={() => setResult(null)} />
     </div>
   );

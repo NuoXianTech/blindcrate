@@ -8566,7 +8566,7 @@
         },
         "/api/v1/codex": {
             "get": {
-                "description": "全部启用的藏品, 按品质从高到低排列, 带是否已收集和第一次获得的时间; 以及启用的收集组的进度和领取情况",
+                "description": "全部启用的藏品, 按品质从高到低排列, 带是否已收集和第一次获得的时间, 名称、说明和当前售价收集后才返回; 以及启用的收集组的进度和领取情况",
                 "produces": [
                     "application/json"
                 ],
@@ -12853,6 +12853,7 @@
                     "type": "integer"
                 },
                 "name": {
+                    "description": "收集后才返回",
                     "type": "string"
                 },
                 "quality": {
@@ -12860,6 +12861,14 @@
                 },
                 "quantity": {
                     "description": "背包中现有的数量, 卖出或用掉后为 0",
+                    "type": "integer"
+                },
+                "sell_currency": {
+                    "description": "收集后才返回",
+                    "type": "string"
+                },
+                "sell_price": {
+                    "description": "物品当前的卖出单价, 收集后才返回; 0 表示不可出售",
                     "type": "integer"
                 }
             }

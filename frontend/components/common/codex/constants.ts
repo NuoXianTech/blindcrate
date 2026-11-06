@@ -1,7 +1,15 @@
-import type {CodexSet} from '@/lib/services/codex';
+import type {CodexEntry, CodexSet} from '@/lib/services/codex';
 
 /** 没有收集的藏品显示为剪影: 图片压成纯黑再反色, 所有主题都是暗色系, 浅色剪影更清楚 */
 export const SILHOUETTE = 'brightness-0 invert opacity-20';
+
+/** 没有收集的藏品, 后端不返回名称, 显示为问号 */
+export const UNKNOWN_NAME = '???';
+
+/** 藏品显示的名称 */
+export function entryName(entry: CodexEntry) {
+  return entry.collected ? entry.name : UNKNOWN_NAME;
+}
 
 /** 收集组卡片上最多显示的藏品缩略图数, 其余显示为 +N */
 export const SET_THUMBNAILS = 16;

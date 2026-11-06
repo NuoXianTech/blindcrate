@@ -3,11 +3,12 @@
 import {cn} from 'cn';
 import {Badge} from '@/components/ui/badge';
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from '@/components/ui/dialog';
-import {ItemImage} from '@/components/common/item';
+import {ItemImage, SellPriceText} from '@/components/common/item';
 import {useQualities} from '@/components/common/site';
 import type {CodexEntry, CodexSet} from '@/lib/services/codex';
+import type {BalanceItem} from '@/lib/services/wallet';
 import {formatDateTime} from '@/lib/utils';
-import {SILHOUETTE} from './constants';
+import {SILHOUETTE, entryName} from './constants';
 
 /**
  * 藏品详情对话框的Props接口
@@ -17,13 +18,16 @@ interface CodexEntryDialogProps {
   entry: CodexEntry | null;
   /** 全部收集组, 用于列出收录这件藏品的收集组 */
   sets: CodexSet[];
+  /** 货币列表, 用于展示售价的货币名称和小数位 */
+  currencies: BalanceItem[];
   onClose: () => void;
 }
 
 /**
- * 藏品详情: 收集过的显示描述、第一次获得的时间和背包中的数量, 没有收集的只显示名称和品质; 都列出收录它的收集组
+ * 藏品详情: 收集过的显示描述、当前的出售价格、背包中的数量和第一次获得的时间;
+ * 没有收集的名称显示为问号, 只显示品质; 都列出收录它的收集组
  */
-export function CodexEntryDialog({entry, sets, onClose}: CodexEntryDialogProps) {
+export function CodexEntryDialog({entry, sets, currencies, onClose}: CodexEntryDialogProps) {
   const q = useQualities().qualityOf(entry?.quality ?? 0);
   const included = entry ? sets.filter((s) => s.item_ids.includes(entry.item_id)) : [];
 
@@ -37,7 +41,7 @@ export function CodexEntryDialog({entry, sets, onClose}: CodexEntryDialogProps) 
                 <ItemImage item={entry} className={cn(!entry.collected && SILHOUETTE)} />
               </span>
               <div className="flex min-w-0 flex-col gap-1">
-                <DialogTitle className={cn('truncate', entry.collected ? q.text : 'text-muted-foreground')}>{entry.name}</DialogTitle>
+                <DialogTitle className={cn('truncate', entry.collected ? q.text : 'text-muted-foreground')}>{entryName(entry)}</DialogTitle>
                 <DialogDescription className="flex flex-wrap items-center gap-2">
                   <span>{q.name}品质</span>
                   <Badge variant={entry.collected ? 'secondary' : 'outline'}>{entry.collected ? '已收集' : '未收集'}</Badge>
@@ -49,14 +53,17 @@ export function CodexEntryDialog({entry, sets, onClose}: CodexEntryDialogProps) 
               <>
                 {entry.description && <p className="text-sm whitespace-pre-wrap text-muted-foreground">{entry.description}</p>}
                 <dl className="grid grid-cols-2 gap-3 rounded-lg border bg-card p-4 text-sm">
-                  <Detail label="第一次获得">{formatDateTime(entry.first_at)}</Detail>
+                  <Detail label="出售价格">
+                    <SellPriceText item={entry} currencies={currencies} />
+                  </Detail>
                   <Detail label="背包中">
                     <span className="font-mono tabular-nums">{entry.quantity}</span>
                   </Detail>
+                  <Detail label="第一次获得">{formatDateTime(entry.first_at)}</Detail>
                 </dl>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">还没有获得过这件藏品, 获得后会收进图鉴, 之后卖出或用掉也会保留。</p>
+              <p className="text-sm text-muted-foreground">还没有获得过这件藏品, 获得后会收进图鉴并显示详情, 之后卖出或用掉也会保留。</p>
             )}
 
             {included.length > 0 && (

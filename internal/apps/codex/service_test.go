@@ -28,6 +28,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestValidate 只校验不需要查库的部分
@@ -56,6 +57,24 @@ func TestValidate(t *testing.T) {
 		if err := Validate(nil, &s, nil); err == nil || err.Error() != c.want {
 			t.Errorf("%s: got %v, want %s", c.name, err, c.want)
 		}
+	}
+}
+
+func TestNewEntry(t *testing.T) {
+	row := entryRow{ID: 7, Name: "金怀表", Description: "表盖内刻着名字", Quality: 4, ImageURL: "/a.png", SellCurrency: "chip", SellPrice: 1500}
+	// 没有收集时只返回品质和图片
+	if got := newEntry(row); got != (EntryView{ItemID: 7, Quality: 4, ImageURL: "/a.png"}) {
+		t.Errorf("missing: got %+v", got)
+	}
+	// 卖出后数量为 0, 仍算已收集
+	firstAt := time.Date(2026, 11, 1, 8, 0, 0, 0, time.UTC)
+	row.FirstAt = &firstAt
+	want := EntryView{
+		ItemID: 7, Name: "金怀表", Description: "表盖内刻着名字", Quality: 4, ImageURL: "/a.png",
+		SellCurrency: "chip", SellPrice: 1500, Collected: true, FirstAt: &firstAt,
+	}
+	if got := newEntry(row); got != want {
+		t.Errorf("collected: got %+v", got)
 	}
 }
 
