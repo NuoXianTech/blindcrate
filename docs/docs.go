@@ -11594,7 +11594,7 @@ const docTemplate = `{
                     ]
                 },
                 "profit": {
-                    "description": "结算后的盈亏, 出价货币; 练习局按正式局计算",
+                    "description": "结算后的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算",
                     "type": "integer"
                 },
                 "rating": {
@@ -11655,7 +11655,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "profit": {
-                    "description": "自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0",
+                    "description": "自己的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算; 管理员查看时为 0",
                     "type": "integer"
                 },
                 "rating": {

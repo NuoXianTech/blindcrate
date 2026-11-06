@@ -295,7 +295,7 @@ definitions:
         - $ref: '#/definitions/bot.Snapshot'
         description: 人机的风格, 开局时快照, 真人为空
       profit:
-        description: 结算后的盈亏, 出价货币; 练习局按正式局计算
+        description: 结算后的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算
         type: integer
       rating:
         description: 结算后的段位分, 只有排位成交时有
@@ -337,7 +337,7 @@ definitions:
       price:
         type: integer
       profit:
-        description: 自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0
+        description: 自己的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算; 管理员查看时为 0
         type: integer
       rating:
         description: 自己结算后的段位分, 只有排位成交时有; 管理员查看时为 0

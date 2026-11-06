@@ -11,7 +11,7 @@ import {TierName} from '@/components/common/ranked';
 import {CurrencyIcon} from '@/components/common/wallet';
 import type {Scan} from '@/hooks/use-scan';
 import {ROUTES, matchHref} from '@/lib/access';
-import {amountIn, OUTCOMES, parseMode} from '@/lib/auction';
+import {OUTCOMES, parseMode} from '@/lib/auction';
 import {tierOf} from '@/lib/ranked';
 import services from '@/lib/services';
 import {AUCTION_OUTCOME, type AuctionView} from '@/lib/services/auction';
@@ -82,12 +82,8 @@ export function ResultPanel({view, players, decimals, scan, finished, released}:
     }
   };
 
-  const fee = amountIn(view.self.entry_cost, view.venue.bid_currency);
-  // 向主持人买情报的花费, 流拍也不退
+  // 向主持人买情报的花费, 流拍也不退; 入场费在准入时已扣除, 不计入盈亏
   const intel = view.self.uses.filter((u) => u.item_id === 0).length * view.venue.intel_price;
-  const parts: string[] = [];
-  if (sold && fee > 0) parts.push(`入场费 ${formatAmount(-fee, decimals, {signed: true})}`);
-  if (intel > 0) parts.push(`情报 ${formatAmount(-intel, decimals, {signed: true})}`);
   const rows = [
     {label: '成交价', value: sold ? formatAmount(result.price, decimals) : '-'},
     {label: scan.complete ? '仓库价值' : '仓库价值 (扫描中)', value: formatAmount(scan.complete ? result.value : scan.value, decimals)},
@@ -134,7 +130,9 @@ export function ResultPanel({view, players, decimals, scan, finished, released}:
           >
             {formatAmount(result.profit, decimals, {signed: true})}
           </span>
-          {parts.length > 0 && <span className="text-xs text-muted-foreground">含{parts.join(', ')}</span>}
+          {intel > 0 && (
+            <span className="text-xs text-muted-foreground">含情报 {formatAmount(-intel, decimals, {signed: true})}</span>
+          )}
         </div>
       )}
 
