@@ -5,7 +5,7 @@ import {ItemImage} from '@/components/common/item';
 import {PriceText} from '@/components/common/reward';
 import type {CodexEntry, CodexSet} from '@/lib/services/codex';
 import {ProgressBar} from './ProgressBar';
-import {SET_THUMBNAILS, SILHOUETTE} from './constants';
+import {SET_THUMBNAILS, SILHOUETTE, entryName} from './constants';
 
 /**
  * 收集组卡片的Props接口
@@ -63,8 +63,8 @@ export function CodexSetCard({set, entries, claiming, disabled, onClaim, onView}
             <button
               key={e.item_id}
               type="button"
-              title={e.name}
-              aria-label={e.name}
+              title={entryName(e)}
+              aria-label={entryName(e)}
               onClick={() => onView(e)}
               className={cn(
                   'flex size-9 items-center justify-center overflow-hidden rounded-md border bg-background p-0.5 transition-colors outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',

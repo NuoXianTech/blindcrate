@@ -122,16 +122,18 @@ func Validate(tx *gorm.DB, s *Set, kept []uint64) error {
 	return nil
 }
 
-// EntryView 图鉴中的一种藏品
+// EntryView 图鉴中的一种藏品, 没有收集时只返回品质和图片
 type EntryView struct {
-	ItemID      uint64     `json:"item_id"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"` // 收集后才返回
-	Quality     int16      `json:"quality"`
-	ImageURL    string     `json:"image_url"` // 没有收集时也返回, 由前端显示为剪影
-	Collected   bool       `json:"collected"`
-	FirstAt     *time.Time `json:"first_at"` // 第一次获得的时间, 没有收集时为空
-	Quantity    int64      `json:"quantity"` // 背包中现有的数量, 卖出或用掉后为 0
+	ItemID       uint64     `json:"item_id"`
+	Name         string     `json:"name"`        // 收集后才返回
+	Description  string     `json:"description"` // 收集后才返回
+	Quality      int16      `json:"quality"`
+	ImageURL     string     `json:"image_url"`     // 没有收集时也返回, 由前端显示为剪影
+	SellCurrency string     `json:"sell_currency"` // 收集后才返回
+	SellPrice    int64      `json:"sell_price"`    // 物品当前的卖出单价, 收集后才返回; 0 表示不可出售
+	Collected    bool       `json:"collected"`
+	FirstAt      *time.Time `json:"first_at"` // 第一次获得的时间, 没有收集时为空
+	Quantity     int64      `json:"quantity"` // 背包中现有的数量, 卖出或用掉后为 0
 }
 
 // SetView 玩家看到的收集组, 带收集进度和领取情况
@@ -156,13 +158,34 @@ type CodexData struct {
 
 // entryRow 一种启用的藏品和用户的背包行, 没有收集时背包的字段为空
 type entryRow struct {
-	ID          uint64
-	Name        string
-	Description string
-	Quality     int16
-	ImageURL    string
-	FirstAt     *time.Time
-	Quantity    int64
+	ID           uint64
+	Name         string
+	Description  string
+	Quality      int16
+	ImageURL     string
+	SellCurrency string
+	SellPrice    int64
+	FirstAt      *time.Time
+	Quantity     int64
+}
+
+// newEntry 图鉴中的一格, 没有收集时去掉名称、说明和售价
+func newEntry(row entryRow) EntryView {
+	entry := EntryView{
+		ItemID:    row.ID,
+		Quality:   row.Quality,
+		ImageURL:  row.ImageURL,
+		Collected: row.FirstAt != nil,
+		FirstAt:   row.FirstAt,
+		Quantity:  row.Quantity,
+	}
+	if entry.Collected {
+		entry.Name = row.Name
+		entry.Description = row.Description
+		entry.SellCurrency = row.SellCurrency
+		entry.SellPrice = row.SellPrice
+	}
+	return entry
 }
 
 // QueryCodex 获取用户的图鉴: 全部启用的藏品和收集情况, 以及启用的收集组的进度
@@ -170,7 +193,7 @@ func QueryCodex(ctx context.Context, userID uint64) (*CodexData, error) {
 	tx := db.DB(ctx)
 	var rows []entryRow
 	if err := tx.Model(&item.Item{}).
-		Select("items.id, items.name, items.description, items.quality, items.image_url, "+
+		Select("items.id, items.name, items.description, items.quality, items.image_url, items.sell_currency, items.sell_price, "+
 			"inventory_items.created_at AS first_at, COALESCE(inventory_items.quantity, 0) AS quantity").
 		Joins("LEFT JOIN inventory_items ON inventory_items.item_id = items.id AND inventory_items.user_id = ?", userID).
 		Where("items.category = ? AND items.is_enabled", item.CategoryCollectible).
@@ -180,20 +203,10 @@ func QueryCodex(ctx context.Context, userID uint64) (*CodexData, error) {
 	}
 	data := &CodexData{Items: make([]EntryView, len(rows)), Sets: []SetView{}}
 	for i, row := range rows {
-		entry := EntryView{
-			ItemID:    row.ID,
-			Name:      row.Name,
-			Quality:   row.Quality,
-			ImageURL:  row.ImageURL,
-			Collected: row.FirstAt != nil,
-			FirstAt:   row.FirstAt,
-			Quantity:  row.Quantity,
-		}
-		if entry.Collected {
-			entry.Description = row.Description
+		data.Items[i] = newEntry(row)
+		if data.Items[i].Collected {
 			data.Collected++
 		}
-		data.Items[i] = entry
 	}
 
 	var sets []Set

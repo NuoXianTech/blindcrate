@@ -2,13 +2,14 @@ import {cn} from 'cn';
 import {ItemImage} from '@/components/common/item';
 import {useQualities} from '@/components/common/site';
 import type {CodexEntry} from '@/lib/services/codex';
-import {SILHOUETTE} from './constants';
+import {SILHOUETTE, entryName} from './constants';
 
 /**
- * 图鉴中的一格: 收集过的显示图片和品质色, 没有收集的显示剪影和虚线边框
+ * 图鉴中的一格: 收集过的显示图片、名称和品质色, 没有收集的显示剪影、问号和虚线边框
  */
 export function CodexCard({entry, onClick}: { entry: CodexEntry; onClick: () => void }) {
   const q = useQualities().qualityOf(entry.quality);
+  const name = entryName(entry);
   return (
     <button
       type="button"
@@ -24,9 +25,9 @@ export function CodexCard({entry, onClick}: { entry: CodexEntry; onClick: () => 
       </span>
       <span
         className={cn('truncate px-2 pb-2 text-center text-xs font-medium', entry.collected ? q.text : 'text-muted-foreground')}
-        title={entry.name}
+        title={name}
       >
-        {entry.name}
+        {name}
       </span>
     </button>
   );

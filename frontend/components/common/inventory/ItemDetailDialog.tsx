@@ -5,12 +5,11 @@ import {cn} from 'cn';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
-import {ItemImage} from '@/components/common/item';
-import {CurrencyIcon} from '@/components/common/wallet';
+import {ItemImage, SellPriceText} from '@/components/common/item';
 import {useQualities} from '@/components/common/site';
 import type {UserItem} from '@/lib/services/inventory';
 import type {BalanceItem} from '@/lib/services/wallet';
-import {formatAmount, formatDateTime} from '@/lib/utils';
+import {formatDateTime} from '@/lib/utils';
 
 /**
  * 物品详情对话框的Props接口
@@ -33,7 +32,6 @@ interface ItemDetailDialogProps {
  */
 export function ItemDetailDialog({item, currencies, onClose, onViewRecords, onSell}: ItemDetailDialogProps) {
   const q = useQualities().qualityOf(item?.quality ?? 0);
-  const currency = currencies.find((c) => c.currency === item?.sell_currency);
 
   return (
     <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
@@ -68,15 +66,7 @@ export function ItemDetailDialog({item, currencies, onClose, onViewRecords, onSe
                 {item.width}×{item.height} 格
               </Detail>
               <Detail label="出售价格">
-                {item.sell_price > 0 ? (
-                  <span className="flex items-center gap-1.5">
-                    <CurrencyIcon currency={item.sell_currency} className="size-4" />
-                    <span className="font-mono tabular-nums">{formatAmount(item.sell_price, currency?.decimals ?? 0)}</span>
-                    <span className="text-muted-foreground">{currency?.name ?? item.sell_currency}</span>
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">不可出售</span>
-                )}
+                <SellPriceText item={item} currencies={currencies} />
               </Detail>
               <Detail label="首次获得">{formatDateTime(item.created_at)}</Detail>
             </dl>

@@ -2,9 +2,10 @@ import type {Bundle} from '../auction';
 import type {PageParams} from '../core';
 import type {RewardLine} from '../reward';
 
-/** 图鉴中的一种藏品, 对应后端 codex.EntryView */
+/** 图鉴中的一种藏品, 对应后端 codex.EntryView; 没有收集时只返回品质和图片 */
 export interface CodexEntry {
   item_id: number;
+  /** 收集后才返回, 没有收集时为空, 显示为 ??? */
   name: string;
   /** 收集后才返回, 没有收集时为空 */
   description: string;
@@ -12,6 +13,10 @@ export interface CodexEntry {
   quality: number;
   /** 没有收集时也返回, 显示为剪影 */
   image_url: string;
+  /** 收集后才返回 */
+  sell_currency: string;
+  /** 物品当前的卖出单价, 收集后才返回; 0 表示不可出售 */
+  sell_price: number;
   collected: boolean;
   /** 第一次获得的时间, 没有收集时为 null */
   first_at: string | null;
