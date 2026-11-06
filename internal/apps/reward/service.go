@@ -80,6 +80,7 @@ func Apply(tx *gorm.DB, req *ApplyRequest) (*Result, bool, error) {
 		InventoryTransactions: make([]*inventory.Transaction, 0, len(bundle.Items)),
 	}
 	replayedLines := 0
+	var batchID uint64
 	for _, line := range bundle.Items {
 		txn, replayed, err := inventory.Change(tx, &inventory.ChangeRequest{
 			UserID:         req.UserID,
@@ -87,12 +88,16 @@ func Apply(tx *gorm.DB, req *ApplyRequest) (*Result, bool, error) {
 			Quantity:       line.Quantity,
 			BizType:        req.BizType,
 			BizID:          req.BizID,
+			BatchID:        batchID,
 			IdempotencyKey: lineKey(req.IdempotencyKey, strconv.FormatUint(line.ItemID, 10)),
 			OperatorID:     req.OperatorID,
 			Remark:         req.Remark,
 		})
 		if err != nil {
 			return nil, false, err
+		}
+		if batchID == 0 {
+			batchID = txn.ID // 一次发放或扣除多种物品, 背包记录中合并为一条
 		}
 		if replayed {
 			replayedLines++

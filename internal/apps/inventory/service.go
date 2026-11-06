@@ -70,6 +70,7 @@ type ChangeRequest struct {
 	Quantity       int64  // 正数获得, 负数消耗
 	BizType        string // 业务类型, 见 constants.go, 最长 32
 	BizID          string // 业务单号, 便于按业务回查流水, 最长 64
+	BatchID        uint64 // 同一次变动多种物品时, 第二种起传第一种的流水 ID, 见 Transaction.BatchID
 	IdempotencyKey string // 非空时同一个 key 只生效一次, 需带业务前缀保证全局唯一, 最长 128
 	OperatorID     uint64 // 操作人, 0 表示系统
 	Remark         string // 最长 255 个字符
@@ -119,6 +120,7 @@ func Change(tx *gorm.DB, req *ChangeRequest) (*Transaction, bool, error) {
 	}
 
 	txn := &Transaction{
+		BatchID:        req.BatchID,
 		UserID:         req.UserID,
 		ItemID:         req.ItemID,
 		ItemName:       target.Name,
@@ -303,47 +305,105 @@ func QueryUserItems(ctx context.Context, userID uint64, req *ListItemsRequest) (
 	return total, details, nil
 }
 
-// TransactionItem 用户自己看到的流水, 不含操作人和幂等键
-type TransactionItem struct {
-	ID            uint64    `json:"id"`
-	ItemID        uint64    `json:"item_id"`
-	ItemName      string    `json:"item_name"`
-	Quantity      int64     `json:"quantity"`
-	QuantityAfter int64     `json:"quantity_after"`
-	BizType       string    `json:"biz_type"`
-	BizID         string    `json:"biz_id"`
-	Remark        string    `json:"remark"`
-	CreatedAt     time.Time `json:"created_at"`
+// Record 用户自己看到的一条背包记录, 同一次变动的多种物品合并为一条, 不含操作人和幂等键
+type Record struct {
+	ID        uint64       `json:"id"` // 这次变动第一行流水的 ID
+	BizType   string       `json:"biz_type"`
+	BizID     string       `json:"biz_id"`
+	Remark    string       `json:"remark"`
+	CreatedAt time.Time    `json:"created_at"`
+	Items     []RecordLine `json:"items"` // 每种物品一行, 按流水 ID 排序
 }
 
-// QueryUserTransactions 获取用户自己的背包流水
-func QueryUserTransactions(ctx context.Context, userID uint64, req *ListTransactionsRequest) (int64, []TransactionItem, error) {
-	offset := (req.Current - 1) * req.Size
+// RecordLine 背包记录中一种物品的变动
+type RecordLine struct {
+	ItemID        uint64 `json:"item_id"`
+	ItemName      string `json:"item_name"` // 变动时的物品名称
+	Quantity      int64  `json:"quantity"`  // 正数获得, 负数消耗
+	QuantityAfter int64  `json:"quantity_after"`
+}
 
-	query := db.DB(ctx).Model(&Transaction{}).Where("user_id = ?", userID)
-	if req.ItemID != nil {
-		query = query.Where("item_id = ?", *req.ItemID)
+// batchKey 流水所属的批次, 即这次变动第一行流水的 ID, 与 Transaction.batch 一致
+const batchKey = "CASE WHEN batch_id = 0 THEN id ELSE batch_id END"
+
+// batch 流水所属的批次, 即这次变动第一行流水的 ID
+func (t *Transaction) batch() uint64 {
+	if t.BatchID == 0 {
+		return t.ID
 	}
-	if req.BizType != "" {
-		query = query.Where("biz_type = ?", req.BizType)
-	}
-	if req.StartTime != nil {
-		query = query.Where("created_at >= ?", *req.StartTime)
-	}
-	if req.EndTime != nil {
-		query = query.Where("created_at < ?", *req.EndTime)
+	return t.BatchID
+}
+
+// QueryUserRecords 获取用户自己的背包记录, 同一次变动的多种物品合并为一条, 按时间倒序
+//
+// 先按批次分页, 再取出这一页各批次的流水; 按物品筛选时每条记录只含这种物品。
+func QueryUserRecords(ctx context.Context, userID uint64, req *ListTransactionsRequest) (int64, []Record, error) {
+	tx := db.DB(ctx)
+	filtered := func() *gorm.DB {
+		query := tx.Model(&Transaction{}).Where("user_id = ?", userID)
+		if req.ItemID != nil {
+			query = query.Where("item_id = ?", *req.ItemID)
+		}
+		if req.BizType != "" {
+			query = query.Where("biz_type = ?", req.BizType)
+		}
+		if req.StartTime != nil {
+			query = query.Where("created_at >= ?", *req.StartTime)
+		}
+		if req.EndTime != nil {
+			query = query.Where("created_at < ?", *req.EndTime)
+		}
+		return query
 	}
 
 	var total int64
-	if err := query.Count(&total).Error; err != nil {
+	if err := filtered().Select("COUNT(DISTINCT " + batchKey + ")").Scan(&total).Error; err != nil {
 		return 0, nil, err
 	}
 
-	items := []TransactionItem{}
-	if err := query.Order("id DESC").Offset(offset).Limit(req.Size).Scan(&items).Error; err != nil {
+	var batches []uint64
+	if err := filtered().Select(batchKey + " AS batch").Group("batch").Order("batch DESC").
+		Offset((req.Current - 1) * req.Size).Limit(req.Size).Scan(&batches).Error; err != nil {
 		return 0, nil, err
 	}
-	return total, items, nil
+	if len(batches) == 0 {
+		return total, []Record{}, nil
+	}
+
+	var rows []Transaction
+	if err := filtered().Where(batchKey+" IN ?", batches).Order("id").Find(&rows).Error; err != nil {
+		return 0, nil, err
+	}
+	return total, groupRecords(batches, rows), nil
+}
+
+// groupRecords 把流水按批次合并成记录, 按 batches 的顺序返回
+//
+// rows 需按 ID 升序; 记录的时间、业务类型和备注取批次中最早的一行。
+func groupRecords(batches []uint64, rows []Transaction) []Record {
+	records := make([]Record, len(batches))
+	index := make(map[uint64]int, len(batches))
+	for i, batch := range batches {
+		records[i] = Record{ID: batch, Items: []RecordLine{}}
+		index[batch] = i
+	}
+	for _, row := range rows {
+		i, ok := index[row.batch()]
+		if !ok {
+			continue
+		}
+		record := &records[i]
+		if len(record.Items) == 0 {
+			record.BizType, record.BizID, record.Remark, record.CreatedAt = row.BizType, row.BizID, row.Remark, row.CreatedAt
+		}
+		record.Items = append(record.Items, RecordLine{
+			ItemID:        row.ItemID,
+			ItemName:      row.ItemName,
+			Quantity:      row.Quantity,
+			QuantityAfter: row.QuantityAfter,
+		})
+	}
+	return records
 }
 
 // SellIncome 出售单在一种货币上的入账, 实际到账为 Amount - Fee
@@ -458,6 +518,7 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, feeRate int32, line
 	orderItems := make([]SellOrderItem, len(lines))
 	itemTxns := make([]*Transaction, 0, len(lines))
 	incomes := map[string]int64{}
+	var batchID uint64
 	for i, line := range lines {
 		target := items[line.ItemID]
 		if target.SellPrice <= 0 {
@@ -483,9 +544,13 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, feeRate int32, line
 			Quantity: -line.Quantity,
 			BizType:  BizItemSell,
 			BizID:    bizID,
+			BatchID:  batchID,
 		})
 		if err != nil {
 			return nil, nil, nil, err
+		}
+		if batchID == 0 {
+			batchID = itemTxn.ID // 一次出售多种物品, 背包记录中合并为一条
 		}
 		itemTxns = append(itemTxns, itemTxn)
 		orderItems[i] = SellOrderItem{

@@ -8995,13 +8995,14 @@ const docTemplate = `{
         },
         "/api/v1/inventory/transactions": {
             "get": {
+                "description": "同一次变动的多种物品合并为一条, 如一局拍下的全部藏品; 按时间倒序, 按物品筛选时每条记录只含这种物品",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "inventory"
                 ],
-                "summary": "获取当前用户的背包流水",
+                "summary": "获取当前用户的背包记录",
                 "parameters": [
                     {
                         "maxLength": 32,
@@ -13256,14 +13257,62 @@ const docTemplate = `{
         "inventory.ListTransactionsResponseData": {
             "type": "object",
             "properties": {
-                "total": {
-                    "type": "integer"
-                },
-                "transactions": {
+                "records": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/inventory.TransactionItem"
+                        "$ref": "#/definitions/inventory.Record"
                     }
+                },
+                "total": {
+                    "description": "记录的条数, 同一次变动的多种物品算一条",
+                    "type": "integer"
+                }
+            }
+        },
+        "inventory.Record": {
+            "type": "object",
+            "properties": {
+                "biz_id": {
+                    "type": "string"
+                },
+                "biz_type": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "description": "这次变动第一行流水的 ID",
+                    "type": "integer"
+                },
+                "items": {
+                    "description": "每种物品一行, 按流水 ID 排序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/inventory.RecordLine"
+                    }
+                },
+                "remark": {
+                    "type": "string"
+                }
+            }
+        },
+        "inventory.RecordLine": {
+            "type": "object",
+            "properties": {
+                "item_id": {
+                    "type": "integer"
+                },
+                "item_name": {
+                    "description": "变动时的物品名称",
+                    "type": "string"
+                },
+                "quantity": {
+                    "description": "正数获得, 负数消耗",
+                    "type": "integer"
+                },
+                "quantity_after": {
+                    "type": "integer"
                 }
             }
         },
@@ -13418,6 +13467,10 @@ const docTemplate = `{
         "inventory.Transaction": {
             "type": "object",
             "properties": {
+                "batch_id": {
+                    "description": "同一次变动中第一行的 ID, 第一行自身和只变动一种物品时为 0",
+                    "type": "integer"
+                },
                 "biz_id": {
                     "type": "string"
                 },
@@ -13454,38 +13507,6 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "integer"
-                }
-            }
-        },
-        "inventory.TransactionItem": {
-            "type": "object",
-            "properties": {
-                "biz_id": {
-                    "type": "string"
-                },
-                "biz_type": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "item_id": {
-                    "type": "integer"
-                },
-                "item_name": {
-                    "type": "string"
-                },
-                "quantity": {
-                    "type": "integer"
-                },
-                "quantity_after": {
-                    "type": "integer"
-                },
-                "remark": {
-                    "type": "string"
                 }
             }
         },

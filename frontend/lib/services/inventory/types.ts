@@ -35,7 +35,7 @@ export interface ListUserItemsData {
   items: UserItem[];
 }
 
-/** 用户自己的背包流水, 对应后端 inventory.TransactionItem */
+/** 背包流水的一行, 对应后端 inventory.Transaction, 后台查看和调整背包时使用; 玩家看到的背包记录见 InventoryRecord */
 export interface InventoryTransaction {
   id: number;
   item_id: number;
@@ -50,6 +50,28 @@ export interface InventoryTransaction {
   created_at: string;
 }
 
+/** 用户自己的一条背包记录, 同一次变动的多种物品合并为一条, 对应后端 inventory.Record */
+export interface InventoryRecord {
+  /** 这次变动第一行流水的 ID */
+  id: number;
+  biz_type: string;
+  biz_id: string;
+  remark: string;
+  created_at: string;
+  /** 每种物品一行; 按物品筛选时只含这种物品 */
+  items: InventoryRecordLine[];
+}
+
+/** 背包记录中一种物品的变动, 对应后端 inventory.RecordLine */
+export interface InventoryRecordLine {
+  item_id: number;
+  /** 变动时的物品名称 */
+  item_name: string;
+  /** 正数获得, 负数消耗 */
+  quantity: number;
+  quantity_after: number;
+}
+
 export interface ListInventoryTransactionsParams extends PageParams {
   item_id?: number;
   biz_type?: string;
@@ -60,8 +82,9 @@ export interface ListInventoryTransactionsParams extends PageParams {
 }
 
 export interface ListInventoryTransactionsData {
+  /** 记录的条数, 同一次变动的多种物品算一条 */
   total: number;
-  transactions: InventoryTransaction[];
+  records: InventoryRecord[];
 }
 
 /** 出售的一种物品, 单价和货币需与背包中看到的一致, 否则后端拒绝出售 */
