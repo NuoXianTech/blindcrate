@@ -8,6 +8,7 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {useAuth} from '@/components/common/auth';
 import {CheckinCard} from '@/components/common/checkin';
 import {MissionsBadge} from '@/components/common/missions';
+import {useLockNavigation} from '@/hooks/use-navigation-lock';
 import {useWsConnected, useWsEvent} from '@/hooks/use-ws';
 import {matchHref} from '@/lib/access';
 import {modeCode, parseMode, type ModeKind} from '@/lib/auction';
@@ -31,7 +32,7 @@ import {VenueDetailDialog} from './VenueDetailDialog';
 
 /**
  * 游戏大厅: 任务入口、当前赛季和段位分、签到、地图列表、地图详情和匹配
- * 加入后凑够一局时直接进入对局; 排队时等待 match:updated 推送, 被拒绝或开局失败时提示, 队列人数变化时更新人数
+ * 加入后凑够一局时直接进入对局; 排队时锁定导航并等待 match:updated 推送, 被拒绝或开局失败时提示, 队列人数变化时更新人数
  * 推送不保证送达, 连上 WebSocket 后重新拉取匹配状态
  */
 export function LobbyMain() {
@@ -75,7 +76,10 @@ export function LobbyMain() {
 
   useWsEvent<MatchView>(MATCH_MESSAGES.updated, (view) => {
     // 已释放的对局只剩开箱展示, 离开后不再拉回去
-    if (view.status === MATCH_STATUS.playing && !view.released_at) router.push(matchHref(view.id));
+    if (view.status !== MATCH_STATUS.playing || view.released_at) return;
+    // 开局后已出队, 先更新状态, 免得回到大厅时按旧的排队状态锁定导航
+    setStatus({queue: null, match_id: view.id});
+    router.push(matchHref(view.id));
   });
 
   useWsEvent<MatchmakingRejectedMessage>(MATCH_MESSAGES.matchmakingRejected, (msg) => {
@@ -121,24 +125,12 @@ export function LobbyMain() {
     }
   };
 
-  // 排位人少时改打人机: 先离开队列再加入人机
-  const switchToPve = async (venue: Venue) => {
-    setLeaving(true);
-    try {
-      await services.match.leaveMatchmaking();
-    } catch (err) {
-      toast.error(toErrorMessage(err));
-      void loadStatus();
-      return;
-    } finally {
-      setLeaving(false);
-    }
-    await join(venue, 'pve');
-  };
-
   const queued = status?.queue ? parseMode(status.queue.mode) : null;
   const queuedVenue = venues?.find((v) => v.code === queued?.venue);
   const busy = !!status && (status.queue !== null || status.match_id !== 0);
+
+  // 开局时只有大厅会进入对局, 加入和排队期间不能离开大厅
+  useLockNavigation(joining !== null || !!status?.queue);
 
   return (
     <div className="flex flex-col gap-6">
@@ -157,7 +149,6 @@ export function LobbyMain() {
           venueName={queuedVenue?.name}
           leaving={leaving}
           onLeave={leave}
-          onSwitchPve={queuedVenue?.pve_enabled ? () => void switchToPve(queuedVenue) : undefined}
         />
       )}
 

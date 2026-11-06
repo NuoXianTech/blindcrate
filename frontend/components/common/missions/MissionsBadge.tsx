@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {ClipboardList} from 'lucide-react';
 import {cn} from 'cn';
 import {useAuth} from '@/components/common/auth';
+import {useNavigationLocked} from '@/hooks/use-navigation-lock';
 import {ROUTES} from '@/lib/access';
 import services from '@/lib/services';
 
@@ -14,6 +15,7 @@ import services from '@/lib/services';
  */
 export function MissionsBadge({version = 0}: { version?: number }) {
   const {user} = useAuth();
+  const locked = useNavigationLocked();
   const [claimable, setClaimable] = useState(0);
 
   useEffect(() => {
@@ -29,7 +31,16 @@ export function MissionsBadge({version = 0}: { version?: number }) {
   return (
     <Link
       href={ROUTES.missions}
-      className={cn('flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-xs transition-colors hover:text-foreground', tone)}
+      aria-disabled={locked}
+      // 锁定导航时只展示, 不能进入任务页
+      onNavigate={(e) => {
+        if (locked) e.preventDefault();
+      }}
+      className={cn(
+          'flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-xs',
+          locked ? 'cursor-default' : 'transition-colors hover:text-foreground',
+          tone,
+      )}
     >
       <ClipboardList className="size-3.5" />
       {claimable ? `${claimable} 个任务奖励待领取` : '任务'}
