@@ -147,6 +147,9 @@ func doRegister(ctx context.Context, username, password string) (*User, error) {
 		}
 		user.IsAdmin = !hasUser
 
+		// 注册成功后直接登录, 创建用户时一并记录首次登录时间
+		now := time.Now()
+		user.LastLoginAt = &now
 		if err := tx.Create(&user).Error; err != nil {
 			if db.IsUniqueViolation(err) {
 				return errors.New(UsernameTaken)
