@@ -86,11 +86,6 @@ export function cellKey(c: { x: number; y: number }) {
   return `${c.x},${c.y}`;
 }
 
-/** 一组变动中某种货币的金额, 如入场代价中的入场费 */
-export function amountIn(bundle: { currencies?: { currency: string; amount: number }[] }, currency: string) {
-  return (bundle.currencies ?? []).filter((c) => c.currency === currency).reduce((sum, c) => sum + c.amount, 0);
-}
-
 /** 开箱扫描的进度 */
 export interface ScanProgress {
   /** 已扫描完的件数, 按扫描顺序前这么多件已公开 */

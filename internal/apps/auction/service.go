@@ -697,16 +697,10 @@ func (st *state) settle(tx *gorm.DB, result verdict) error {
 	for i := range st.players {
 		p := &st.players[i]
 		won := sold && p.Seat == result.Winner
-		// 买情报的钱流拍也不退
-		intel := intelCost(uses, p.Seat)
-		cost := amountIn(p.EntryCost, a.Venue.BidCurrency) + intel
-		switch {
-		case won:
-			p.Profit = a.Value - result.Price - cost
-		case sold:
-			p.Profit = -cost
-		default:
-			p.Profit = -intel
+		// 入场费和入场代价在准入时已扣除, 不计入盈亏; 买情报的钱流拍也不退, 计入盈亏
+		p.Profit = -intelCost(uses, p.Seat)
+		if won {
+			p.Profit += a.Value - result.Price
 		}
 		if err := tx.Model(p).Select("profit").Updates(p).Error; err != nil {
 			return err
@@ -1321,7 +1315,7 @@ type ResultView struct {
 	WinnerSeat  int16        `json:"winner_seat"` // 没有成交时为 0
 	Price       int64        `json:"price"`
 	Value       int64        `json:"value"`        // 仓库价值
-	Profit      int64        `json:"profit"`       // 自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0
+	Profit      int64        `json:"profit"`       // 自己的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算; 管理员查看时为 0
 	RatingDelta int32        `json:"rating_delta"` // 自己段位分的变化, 只有排位成交时有; 管理员查看时为 0
 	Rating      int32        `json:"rating"`       // 自己结算后的段位分, 只有排位成交时有; 管理员查看时为 0
 	Pieces      []PieceView  `json:"pieces"`       // 按扫描顺序

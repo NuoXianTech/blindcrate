@@ -275,7 +275,7 @@ export interface AuctionResult {
   price: number;
   /** 仓库价值 */
   value: number;
-  /** 自己的盈亏, 已扣除入场费和入场代价; 练习局按正式局计算; 管理员查看时为 0 */
+  /** 自己的盈亏, 不含准入时扣除的入场费和入场代价; 练习局按正式局计算; 管理员查看时为 0 */
   profit: number;
   /** 自己段位分的变化, 只有排位成交时有; 管理员查看时为 0 */
   rating_delta: number;

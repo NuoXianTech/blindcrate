@@ -29,7 +29,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 )
 
@@ -236,17 +235,6 @@ func scanOrders(pieces []venue.Piece) []int32 {
 		orders[i] = int32(order + 1)
 	}
 	return orders
-}
-
-// amountIn 一组变动中某种货币的金额
-func amountIn(bundle reward.Bundle, currency string) int64 {
-	var amount int64
-	for _, line := range bundle.Currencies {
-		if line.Currency == currency {
-			amount += line.Amount
-		}
-	}
-	return amount
 }
 
 func absInt64(v int64) int64 {
