@@ -9,15 +9,17 @@ import {FloatingDock, type DockEntry} from '@/components/ui/floating-dock';
 import {useAuth} from '@/components/common/auth';
 import {ProfileDialog, UserAvatar} from '@/components/common/user';
 import {useMailCounts, useMailCountsSync} from '@/hooks/use-mail-counts';
+import {useNavigationLocked} from '@/hooks/use-navigation-lock';
 import {ROUTES} from '@/lib/access';
 import {ADMIN_NAV, PLAYER_NAV, isActive, type NavBadge} from '@/lib/nav';
 import {THEMES} from '@/lib/themes';
 
-/** 底部悬浮导航: 桌面端居中, 移动端右下角 */
+/** 底部悬浮导航: 桌面端居中, 移动端右下角; 锁定导航时只能停在当前页面, 也不能退出登录 */
 export function ManagementBar() {
   const pathname = usePathname();
   const {theme, setTheme} = useTheme();
   const {user, logout} = useAuth();
+  const locked = useNavigationLocked();
   const [profileOpen, setProfileOpen] = useState(false);
   useMailCountsSync(user?.id);
   const mailCounts = useMailCounts();
@@ -37,21 +39,27 @@ export function ManagementBar() {
     }
   };
 
+  // 锁定导航时只有指向当前页面的入口可以点
+  const blocked = (href: string) => locked && href !== pathname;
+
   const items: DockEntry[] = PLAYER_NAV.map((entry) => ({
     title: entry.title,
     icon: <entry.icon />,
     href: entry.href,
     active: isActive(entry, pathname),
+    disabled: blocked(entry.href),
     badge: entry.badge && badges[entry.badge],
   }));
 
   // 管理区域只放一个入口, 各管理页面在管理区顶部切换
   if (user?.is_admin) {
+    const href = ADMIN_NAV[0].entries[0].href;
     items.push(null, {
       title: '管理后台',
       icon: <LayoutDashboard />,
-      href: ADMIN_NAV[0].entries[0].href,
+      href,
       active: pathname === ROUTES.admin || pathname.startsWith(`${ROUTES.admin}/`),
+      disabled: blocked(href),
     });
   }
 
@@ -65,7 +73,7 @@ export function ManagementBar() {
           icon: <UserAvatar user={user} className="text-sm" />,
           onClick: () => setProfileOpen(true),
         },
-        {title: '退出登录', icon: <LogOut />, onClick: handleLogout},
+        {title: '退出登录', icon: <LogOut />, onClick: handleLogout, disabled: locked},
     );
   }
   if (personal.length) items.push(null, ...personal);

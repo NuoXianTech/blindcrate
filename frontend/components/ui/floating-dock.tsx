@@ -20,6 +20,8 @@ export interface DockItem {
   href?: string;
   onClick?: () => void;
   active?: boolean;
+  /** 不能点击, 如锁定导航时离开当前页面的入口 */
+  disabled?: boolean;
   /** 角标数字, 为 0 或空时不显示 */
   badge?: number;
 }
@@ -53,6 +55,19 @@ function ItemAction({
   className?: string;
   children: React.ReactNode;
 }) {
+  // 不能点击时渲染成 span 而不是禁用的按钮, 悬停提示照常显示
+  if (item.disabled) {
+    return (
+      <span
+        role={item.href ? "link" : "button"}
+        aria-disabled="true"
+        aria-label={item.title}
+        className={cn("cursor-not-allowed opacity-50", className)}
+      >
+        {children}
+      </span>
+    );
+  }
   if (item.href) {
     return (
       <Link href={item.href} aria-label={item.title} className={className} onClick={item.onClick}>
@@ -178,7 +193,8 @@ function IconContainer({ mouseX, item }: { mouseX: MotionValue<number>; item: Do
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className={cn(
-          "relative flex aspect-square items-center justify-center rounded-full bg-secondary text-muted-foreground transition-colors hover:text-foreground",
+          "relative flex aspect-square items-center justify-center rounded-full bg-secondary text-muted-foreground transition-colors",
+          !item.disabled && "hover:text-foreground",
           item.active && "bg-primary/15 text-primary hover:text-primary",
         )}
       >

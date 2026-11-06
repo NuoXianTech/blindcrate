@@ -3,7 +3,9 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
+import {cn} from 'cn';
 import {useAuth} from '@/components/common/auth';
+import {useNavigationLocked} from '@/hooks/use-navigation-lock';
 import {useWsEvent} from '@/hooks/use-ws';
 import {ROUTES} from '@/lib/access';
 import services from '@/lib/services';
@@ -18,6 +20,7 @@ import {CurrencyIcon} from './CurrencyIcon';
 export function BalanceBar() {
   const {user} = useAuth();
   const pathname = usePathname();
+  const locked = useNavigationLocked();
   const [balances, setBalances] = useState<BalanceItem[] | null>(null);
   // 每种货币已采用的最新流水 ID, 推送可能乱序, 旧的推送不覆盖新的余额
   const latest = useRef<Record<string, number>>({});
@@ -62,7 +65,15 @@ export function BalanceBar() {
       {balances && balances.length > 0 && (
         <Link
           href={ROUTES.wallet}
-          className="flex items-center gap-4 rounded-full border bg-card px-4 text-sm transition-colors hover:bg-accent"
+          aria-disabled={locked}
+          // 锁定导航时只展示余额, 不能进入钱包
+          onNavigate={(e) => {
+            if (locked) e.preventDefault();
+          }}
+          className={cn(
+              'flex items-center gap-4 rounded-full border bg-card px-4 text-sm',
+              locked ? 'cursor-default' : 'transition-colors hover:bg-accent',
+          )}
         >
           {balances.map((b) => (
             <span
