@@ -3,26 +3,25 @@
 import {useCallback, useEffect, useState} from 'react';
 import {X} from 'lucide-react';
 import {toast} from 'sonner';
-import {cn} from 'cn';
 import {Badge} from '@/components/ui/badge';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
-import type {InventoryTransaction} from '@/lib/services/inventory';
+import type {InventoryRecord, InventoryRecordLine} from '@/lib/services/inventory';
 import {useLabels} from '@/hooks/use-labels';
 import {formatDateTime} from '@/lib/utils';
 import {RECORD_PAGE_SIZE, type ItemFilter} from './constants';
 
 /**
- * 背包记录, 可只看某个物品
+ * 背包记录, 同一次变动的多种物品合并为一行, 如一局拍下的全部藏品; 可只看某个物品
  */
 export function RecordList({itemFilter, onClearFilter}: { itemFilter: ItemFilter | null; onClearFilter: () => void }) {
   const bizLabels = useLabels('inventoryBiz');
   const {user} = useAuth();
   const [current, setCurrent] = useState(1);
-  const [data, setData] = useState<{ total: number; transactions: InventoryTransaction[] } | null>(null);
+  const [data, setData] = useState<{ total: number; records: InventoryRecord[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const itemID = itemFilter?.id;
 
@@ -79,20 +78,29 @@ export function RecordList({itemFilter, onClearFilter}: { itemFilter: ItemFilter
           <TableBody>
             {loading && !data ? (
               <TableSkeleton cols={6} />
-            ) : data?.transactions.length ? (
-              data.transactions.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell className="text-muted-foreground">{formatDateTime(t.created_at)}</TableCell>
-                  <TableCell>{t.item_name}</TableCell>
-                  <TableCell
-                    className={cn('text-right font-mono tabular-nums', t.quantity > 0 ? 'text-quality-green' : 'text-destructive')}
-                  >
-                    {t.quantity > 0 ? `+${t.quantity}` : t.quantity}
+            ) : data?.records.length ? (
+              data.records.map((r) => (
+                <TableRow key={r.id} className="[&>td]:align-top">
+                  <TableCell className="text-muted-foreground">{formatDateTime(r.created_at)}</TableCell>
+                  <TableCell>
+                    <Lines record={r} render={(line) => line.item_name} />
                   </TableCell>
-                  <TableCell className="text-right font-mono text-muted-foreground tabular-nums">{t.quantity_after}</TableCell>
-                  <TableCell>{bizLabels[t.biz_type] ?? t.biz_type}</TableCell>
-                  <TableCell className="max-w-64 truncate text-muted-foreground" title={t.remark || undefined}>
-                    {t.remark || '-'}
+                  <TableCell className="text-right font-mono tabular-nums">
+                    <Lines
+                      record={r}
+                      render={(line) => (
+                        <span className={line.quantity > 0 ? 'text-quality-green' : 'text-destructive'}>
+                          {line.quantity > 0 ? `+${line.quantity}` : line.quantity}
+                        </span>
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-muted-foreground tabular-nums">
+                    <Lines record={r} render={(line) => line.quantity_after} />
+                  </TableCell>
+                  <TableCell>{bizLabels[r.biz_type] ?? r.biz_type}</TableCell>
+                  <TableCell className="max-w-64 truncate text-muted-foreground" title={r.remark || undefined}>
+                    {r.remark || '-'}
                   </TableCell>
                 </TableRow>
               ))
@@ -105,5 +113,16 @@ export function RecordList({itemFilter, onClearFilter}: { itemFilter: ItemFilter
 
       <Pagination current={current} size={RECORD_PAGE_SIZE} total={data?.total ?? 0} onChange={setCurrent} />
     </div>
+  );
+}
+
+/** 记录中每种物品一行, 物品、变动和变动后数量三列逐行对齐 */
+function Lines({record, render}: { record: InventoryRecord; render: (line: InventoryRecordLine) => React.ReactNode }) {
+  return (
+    <ul className="flex flex-col gap-1">
+      {record.items.map((line) => (
+        <li key={line.item_id}>{render(line)}</li>
+      ))}
+    </ul>
   );
 }

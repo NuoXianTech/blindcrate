@@ -207,10 +207,11 @@ CREATE TABLE IF NOT EXISTS inventory_items
 
 CREATE INDEX IF NOT EXISTS idx_inventory_items_item_id ON inventory_items (item_id) WHERE quantity > 0; -- 统计物品的持有人数
 
--- 背包流水, 只追加不修改; 每次背包变动对应一行
+-- 背包流水, 只追加不修改; 每种物品的每次变动对应一行, 同一次变动多种物品时用 batch_id 关联
 CREATE TABLE IF NOT EXISTS inventory_transactions
 (
     id              BIGSERIAL PRIMARY KEY,
+    batch_id        BIGINT       NOT NULL DEFAULT 0,  -- 同一次变动中第一行的 id, 第一行自身和只变动一种物品时为 0
     user_id         BIGINT       NOT NULL,
     item_id         BIGINT       NOT NULL,
     item_name       VARCHAR(64)  NOT NULL,            -- 变动时的物品名称

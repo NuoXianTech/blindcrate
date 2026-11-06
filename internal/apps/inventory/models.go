@@ -45,11 +45,14 @@ func (UserItem) TableName() string { return "inventory_items" }
 
 // Transaction 背包流水, 只追加不修改
 //
+// 每种物品的每次变动一行; 同一次变动多种物品时用 BatchID 关联, 用户的背包记录中合并为一条。
+//
 // 联合索引：
 //   - idx_inventory_transactions_user_item (user_id, item_id, id)：按用户和物品倒序分页查询流水
 //   - idx_inventory_transactions_biz       (biz_type, biz_id)：按业务单号回查流水
 type Transaction struct {
 	ID             uint64    `gorm:"primaryKey;index:idx_inventory_transactions_user_item,priority:3" json:"id"`
+	BatchID        uint64    `gorm:"not null;default:0" json:"batch_id"` // 同一次变动中第一行的 ID, 第一行自身和只变动一种物品时为 0
 	UserID         uint64    `gorm:"not null;index:idx_inventory_transactions_user_item,priority:1" json:"user_id"`
 	ItemID         uint64    `gorm:"not null;index:idx_inventory_transactions_user_item,priority:2" json:"item_id"`
 	ItemName       string    `gorm:"size:64;not null" json:"item_name"` // 变动时的物品名称

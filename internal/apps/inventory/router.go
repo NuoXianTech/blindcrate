@@ -87,7 +87,7 @@ func ListItems(c *gin.Context) {
 	c.JSON(http.StatusOK, Response{Data: ListItemsResponseData{Total: total, Items: items}})
 }
 
-// ListTransactionsRequest 背包流水查询参数
+// ListTransactionsRequest 背包记录查询参数
 type ListTransactionsRequest struct {
 	Current   int        `json:"current" form:"current" binding:"min=1"`
 	Size      int        `json:"size" form:"size" binding:"min=1,max=100"`
@@ -97,15 +97,16 @@ type ListTransactionsRequest struct {
 	EndTime   *time.Time `json:"end_time" form:"end_time" time_format:"2006-01-02T15:04:05Z07:00"`     // RFC3339, 不包含
 }
 
-// ListTransactionsResponseData 背包流水分页结果
+// ListTransactionsResponseData 背包记录分页结果
 type ListTransactionsResponseData struct {
-	Total        int64             `json:"total"`
-	Transactions []TransactionItem `json:"transactions"`
+	Total   int64    `json:"total"` // 记录的条数, 同一次变动的多种物品算一条
+	Records []Record `json:"records"`
 }
 
 // ListTransactions
 // @Tags inventory
-// @Summary 获取当前用户的背包流水
+// @Summary 获取当前用户的背包记录
+// @Description 同一次变动的多种物品合并为一条, 如一局拍下的全部藏品; 按时间倒序, 按物品筛选时每条记录只含这种物品
 // @Produce json
 // @Param request query ListTransactionsRequest true "request query"
 // @Success 200 {object} Response{data=ListTransactionsResponseData}
@@ -126,13 +127,13 @@ func ListTransactions(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
-	total, transactions, err := QueryUserTransactions(ctx, user.ID, req)
+	total, records, err := QueryUserRecords(ctx, user.ID, req)
 	if err != nil {
 		logger.ErrorF(ctx, "[ListTransactions] query failed: %v", err)
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListTransactionsResponseData{Total: total, Transactions: transactions}})
+	c.JSON(http.StatusOK, Response{Data: ListTransactionsResponseData{Total: total, Records: records}})
 }
 
 // SellItemsRequestItem 出售的一种物品
