@@ -46,7 +46,7 @@ export interface AuctionRule {
   /** 前 rounds-1 轮的速胜倍率, 基点; 第一名不低于第二名的这么多倍且不低于速胜下限时直接成交 */
   quick_win: number[];
   max_extra_rounds: number;
-  /** 出价货币的入场费, 开局时与入场代价一起扣除 */
+  /** 出价货币的入场费, 开局时与入场代价一起扣除, 流拍时退还; 由对局验算求出 */
   entry_fee: number;
   start_price: number;
   /** 开局时冻结 min(可用余额, 上限), 出价不能超过它 */
@@ -57,12 +57,6 @@ export interface AuctionRule {
   speed_floor: number;
   /** 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让) */
   lead_discount: number;
-  /** 入场费进奖池的比例, 基点 */
-  pool_rate: number;
-  /** 真人成交价超过仓库价值时, 超出部分进奖池的比例, 基点 */
-  rebate_rate: number;
-  /** 每局进奖池的超付部分的上限 */
-  rebate_cap: number;
   /** 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件; 其余直到开箱都不公开 */
   preview_rate: number;
   /** 向主持人买一次情报的价格, 从可用余额扣除; 0 表示不卖情报 */

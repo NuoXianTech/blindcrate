@@ -128,7 +128,11 @@ function DerivedRule({derived, currency, stale}: { derived: AuctionRule | null; 
   const ready = derived && derived.start_price > 0;
   const rows = ready ?
     [
-      {label: '入场费', value: amount(derived.entry_fee), help: '开局时与入场代价一起扣除, 练习局不扣'},
+      {
+        label: '入场费',
+        value: amount(derived.entry_fee),
+        help: '开局时与入场代价一起扣除, 练习局不扣, 流拍时退还; 按对局验算求出, 让 4 个真人时每人每局的盈亏等于玩法平衡设置的目标',
+      },
       {label: '起拍价', value: amount(derived.start_price), help: '出价不能低于它'},
       {label: '带入资金上限', value: amount(derived.max_carry), help: '开局时冻结 min(可用余额, 上限)'},
       {
@@ -141,12 +145,6 @@ function DerivedRule({derived, currency, stale}: { derived: AuctionRule | null; 
         label: '领先折让',
         value: formatRate(derived.lead_discount),
         help: '成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 让成交价平均落在仓库价值扣掉出售手续费',
-      },
-      {label: '奖池', value: `入场费的 ${formatRate(derived.pool_rate)}`, help: '成交后分给出过价的真人输家, 名次越前分得越多'},
-      {
-        label: '超付进奖池',
-        value: `${formatRate(derived.rebate_rate)}, 每局最多 ${amount(derived.rebate_cap)}`,
-        help: '真人成交价超过仓库价值时, 超出部分按比例进奖池',
       },
       {
         label: '首轮扫描比例',

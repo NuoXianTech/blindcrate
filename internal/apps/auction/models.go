@@ -45,8 +45,6 @@ type Match struct {
 	Outcome     string     `gorm:"size:16;not null;default:''" json:"outcome"`                         // 结算前为空, 之后为 sold、unsold 或 cancelled
 	WinnerSeat  int16      `gorm:"not null;default:0" json:"winner_seat"`                              // 成交者的座位, 没有成交时为 0
 	Price       int64      `gorm:"not null;default:0" json:"price"`                                    // 成交价
-	Pool        int64      `gorm:"not null;default:0" json:"pool"`                                     // 奖池, 成交时算出, 分给出过价的真人输家, 没有人可分时销毁
-	Rebate      int64      `gorm:"not null;default:0" json:"rebate"`                                   // 奖池中来自成交者超付的部分
 	Host        string     `gorm:"size:16;not null;default:''" json:"host"`                            // 主持人的性格, 开局时选出, 开箱后才公开; 没有主持人提示时为空
 	Hype        int32      `gorm:"not null;default:0" json:"hype"`                                     // 当前热度, 0-100, 每次变动见 HypeEvent
 	CreatedAt   time.Time  `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
@@ -93,8 +91,7 @@ type Player struct {
 	Bid         int64         `gorm:"not null;default:0" json:"bid"`                                      // 当前出价, 0 表示还没出过价
 	BidAt       *time.Time    `json:"bid_at"`                                                             // 当前出价的提交时间, 加轮用完仍并列时先出价的人成交
 	Feedback    []Feedback    `gorm:"type:jsonb;serializer:json;not null;default:'[]'" json:"feedback"`   // 每轮结束后的反馈, 人机也有, 用于决策
-	Profit      int64         `gorm:"not null;default:0" json:"profit"`                                   // 结算后的盈亏, 出价货币, 含分到的奖池; 练习局按正式局计算
-	Share       int64         `gorm:"not null;default:0" json:"share"`                                    // 分到的奖池, 只有出过价的正式局真人输家有
+	Profit      int64         `gorm:"not null;default:0" json:"profit"`                                   // 结算后的盈亏, 出价货币; 练习局按正式局计算
 	RatingDelta int32         `gorm:"not null;default:0" json:"rating_delta"`                             // 本局段位分的变化, 只有排位成交时有
 	Rating      int32         `gorm:"not null;default:0" json:"rating"`                                   // 结算后的段位分, 只有排位成交时有
 	CreatedAt   time.Time     `gorm:"not null;default:now();autoCreateTime" json:"created_at"`

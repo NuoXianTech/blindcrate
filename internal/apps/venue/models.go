@@ -136,8 +136,8 @@ type WarehouseRule struct {
 
 // AuctionRule 拍卖参数, 金额按出价货币的最小单位
 //
-// 管理员只配置轮次、时长和速胜倍率; 金额和结算比例由保存时模拟的仓库价值分布推导(见 Calibrate), 提交的值会被覆盖。
-// 旧数据中推导的字段为 0, 按旧规则进行: 不收入场费、速胜不限金额、按最高价成交、没有奖池, 重新保存后生效。
+// 管理员只配置轮次、时长和速胜倍率; 金额和比例由保存时模拟的仓库价值分布推导(见 Calibrate), 领先折让和入场费由对局验算求出, 提交的值会被覆盖。
+// 旧数据中推导的字段为 0, 按旧规则进行: 不收入场费、速胜不限金额、按最高价成交, 重新保存后生效。
 type AuctionRule struct {
 	Rounds         int32   `json:"rounds" label:"轮数" binding:"min=1,max=10"`
 	RoundSeconds   int32   `json:"round_seconds" label:"每轮时长" binding:"min=5,max=120"`
@@ -145,15 +145,12 @@ type AuctionRule struct {
 	QuickWin       []int32 `json:"quick_win" label:"速胜倍率" binding:"max=9,dive,min=10000,max=100000"` // 前 Rounds-1 轮的速胜倍率, 基点; 第一名不低于第二名的这么多倍且不低于速胜下限时直接成交
 	MaxExtraRounds int32   `json:"max_extra_rounds" label:"加轮上限" binding:"min=0,max=5"`              // 最后一轮最高价并列时加轮, 之后按先出价的人成交
 
-	EntryFee     int64 `json:"entry_fee"`     // 出价货币的入场费, 开局时与入场代价一起扣除
+	EntryFee     int64 `json:"entry_fee"`     // 出价货币的入场费, 开局时与入场代价一起扣除, 成交时销毁, 流拍时退还
 	StartPrice   int64 `json:"start_price"`   // 起拍价
 	MaxCarry     int64 `json:"max_carry"`     // 带入资金上限, 开局时冻结 min(可用余额, 上限), 出价不能超过它
 	BotCarry     int64 `json:"bot_carry"`     // 人机的带入资金, 不超过带入资金上限; 价值远高于期望的仓库人机追不上
 	SpeedFloor   int64 `json:"speed_floor"`   // 速胜下限, 速胜时第一名的出价不能低于它
 	LeadDiscount int32 `json:"lead_discount"` // 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 不低于起拍价
-	PoolRate     int32 `json:"pool_rate"`     // 入场费进奖池的比例, 基点, 其余销毁; 成交后奖池分给出过价的真人输家
-	RebateRate   int32 `json:"rebate_rate"`   // 真人成交价超过仓库价值时, 超出部分进奖池的比例, 基点
-	RebateCap    int64 `json:"rebate_cap"`    // 每局进奖池的超付部分的上限
 	PreviewRate  int32 `json:"preview_rate"`  // 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率公开占的格子, 至少一件; 0 表示不公开
 	IntelPrice   int64 `json:"intel_price"`   // 向主持人买一次情报的价格, 从可用余额扣除; 0 表示不卖情报
 }
@@ -278,9 +275,7 @@ type SquadStats struct {
 	AvgRounds    int32  `json:"avg_rounds"`    // 平均在第几轮结束, 百分之一轮
 	WinRate      int32  `json:"win_rate"`      // 每个真人席位的成交率
 	SeatEV       int64  `json:"seat_ev"`       // 每个真人席位每局的平均盈亏, 藏品按扣掉出售手续费后的回收价计
-	WinnerEV     int64  `json:"winner_ev"`     // 真人成交时的平均盈亏
-	LoserEV      int64  `json:"loser_ev"`      // 真人没成交时的平均盈亏, 含奖池分红
-	Share        int64  `json:"share"`         // 每局发给真人输家的奖池合计的平均值
+	WinnerEV     int64  `json:"winner_ev"`     // 真人成交时的平均盈亏, 没成交时只亏入场费, 流拍时不亏
 	HypeHot      int32  `json:"hype_hot"`      // 每轮结束后热度火热(不低于 70)的比例, 加轮和成交的那一轮不算
 	HypeCold     int32  `json:"hype_cold"`     // 同上, 冷清(不高于 30)的比例
 	HypeEnd      int32  `json:"hype_end"`      // 结束时热度的平均值, 0-100

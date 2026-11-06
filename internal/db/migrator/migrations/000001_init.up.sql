@@ -475,8 +475,6 @@ CREATE TABLE IF NOT EXISTS auction_matches
     outcome      VARCHAR(16) NOT NULL DEFAULT '',   -- 结算前为空, 之后为 sold、unsold 或 cancelled
     winner_seat  SMALLINT    NOT NULL DEFAULT 0,    -- 成交者的座位, 没有成交时为 0
     price        BIGINT      NOT NULL DEFAULT 0,    -- 成交价
-    pool         BIGINT      NOT NULL DEFAULT 0,    -- 奖池, 分给出过价的真人输家, 没有人可分时销毁
-    rebate       BIGINT      NOT NULL DEFAULT 0,    -- 奖池中来自成交者超付的部分
     host         VARCHAR(16) NOT NULL DEFAULT '',   -- 主持人的性格, 没有主持人提示时为空
     hype         INTEGER     NOT NULL DEFAULT 0,    -- 当前热度, 0-100, 变动见 auction_hype_events
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -501,8 +499,7 @@ CREATE TABLE IF NOT EXISTS auction_players
     bid          BIGINT      NOT NULL DEFAULT 0,     -- 当前出价
     bid_at       TIMESTAMPTZ,                        -- 当前出价的提交时间
     feedback     JSONB       NOT NULL DEFAULT '[]',  -- 每轮结束后的反馈, 人机也有, 用于决策
-    profit       BIGINT      NOT NULL DEFAULT 0,     -- 结算后的盈亏, 含分到的奖池
-    share        BIGINT      NOT NULL DEFAULT 0,     -- 分到的奖池
+    profit       BIGINT      NOT NULL DEFAULT 0,     -- 结算后的盈亏
     rating_delta INTEGER     NOT NULL DEFAULT 0,     -- 本局段位分的变化, 只有排位成交时有
     rating       INTEGER     NOT NULL DEFAULT 0,     -- 结算后的段位分, 只有排位成交时有
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),

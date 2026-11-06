@@ -11594,7 +11594,7 @@ const docTemplate = `{
                     ]
                 },
                 "profit": {
-                    "description": "结算后的盈亏, 出价货币, 含分到的奖池; 练习局按正式局计算",
+                    "description": "结算后的盈亏, 出价货币; 练习局按正式局计算",
                     "type": "integer"
                 },
                 "rating": {
@@ -11606,10 +11606,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "seat": {
-                    "type": "integer"
-                },
-                "share": {
-                    "description": "分到的奖池, 只有出过价的正式局真人输家有",
                     "type": "integer"
                 },
                 "updated_at": {
@@ -11655,10 +11651,6 @@ const docTemplate = `{
                         "$ref": "#/definitions/auction.PieceView"
                     }
                 },
-                "pool": {
-                    "description": "奖池, 分给出过价的真人输家, 见 SeatResult.Share; 没有人可分时销毁",
-                    "type": "integer"
-                },
                 "price": {
                     "type": "integer"
                 },
@@ -11672,10 +11664,6 @@ const docTemplate = `{
                 },
                 "rating_delta": {
                     "description": "自己段位分的变化, 只有排位成交时有; 管理员查看时为 0",
-                    "type": "integer"
-                },
-                "rebate": {
-                    "description": "奖池中来自成交者超付的部分",
                     "type": "integer"
                 },
                 "scan_from": {
@@ -11722,10 +11710,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "seat": {
-                    "type": "integer"
-                },
-                "share": {
-                    "description": "分到的奖池",
                     "type": "integer"
                 },
                 "uses": {
@@ -12051,10 +12035,6 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "pool_rate": {
-                    "description": "入场费进奖池的比例, 基点",
-                    "type": "integer"
-                },
                 "preview_rate": {
                     "description": "首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件",
                     "type": "integer"
@@ -12065,14 +12045,6 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
-                },
-                "rebate_cap": {
-                    "description": "超付部分进奖池的上限",
-                    "type": "integer"
-                },
-                "rebate_rate": {
-                    "description": "超付部分进奖池的比例, 基点",
-                    "type": "integer"
                 },
                 "rounds": {
                     "type": "integer"
@@ -17417,7 +17389,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "entry_fee": {
-                    "description": "出价货币的入场费, 开局时与入场代价一起扣除",
+                    "description": "出价货币的入场费, 开局时与入场代价一起扣除, 成交时销毁, 流拍时退还",
                     "type": "integer"
                 },
                 "intel_price": {
@@ -17438,10 +17410,6 @@ const docTemplate = `{
                     "maximum": 5,
                     "minimum": 0
                 },
-                "pool_rate": {
-                    "description": "入场费进奖池的比例, 基点, 其余销毁; 成交后奖池分给出过价的真人输家",
-                    "type": "integer"
-                },
                 "preview_rate": {
                     "description": "首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率公开占的格子, 至少一件; 0 表示不公开",
                     "type": "integer"
@@ -17453,14 +17421,6 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
-                },
-                "rebate_cap": {
-                    "description": "每局进奖池的超付部分的上限",
-                    "type": "integer"
-                },
-                "rebate_rate": {
-                    "description": "真人成交价超过仓库价值时, 超出部分进奖池的比例, 基点",
-                    "type": "integer"
                 },
                 "reveal_seconds": {
                     "description": "全部藏品扫描完后再停留的时长, 扫描时长见品质的 scan_ms",
@@ -17893,20 +17853,12 @@ const docTemplate = `{
                     "description": "每轮结束后热度火热(不低于 70)的比例, 加轮和成交的那一轮不算",
                     "type": "integer"
                 },
-                "loser_ev": {
-                    "description": "真人没成交时的平均盈亏, 含奖池分红",
-                    "type": "integer"
-                },
                 "price_value": {
                     "description": "成交价之和 ÷ 仓库价值之和",
                     "type": "integer"
                 },
                 "seat_ev": {
                     "description": "每个真人席位每局的平均盈亏, 藏品按扣掉出售手续费后的回收价计",
-                    "type": "integer"
-                },
-                "share": {
-                    "description": "每局发给真人输家的奖池合计的平均值",
                     "type": "integer"
                 },
                 "sold": {
@@ -17930,7 +17882,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "winner_ev": {
-                    "description": "真人成交时的平均盈亏",
+                    "description": "真人成交时的平均盈亏, 没成交时只亏入场费, 流拍时不亏",
                     "type": "integer"
                 }
             }

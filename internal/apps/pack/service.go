@@ -116,16 +116,32 @@ func packErrorf(format string, args ...any) error {
 // packUpgrades 把旧格式版本的文件升级到下一个版本, 按版本号; 参数为包中各配置种类的 JSON
 var packUpgrades = map[int]func(files map[string][]byte) error{
 	1: dropFinale,
+	2: dropPool,
 }
 
 // dropFinale 版本 1 升到 2: 去掉已经取消的压轴揭示, 即玩法平衡设置的 finale_enabled 和地图拍卖参数的 finale
 func dropFinale(files map[string][]byte) error {
+	return dropFields(files, []string{"finale_enabled"}, []string{"finale"})
+}
+
+// dropPool 版本 2 升到 3: 去掉已经取消的奖池分红和按比例计算的入场费, 即玩法平衡设置的奖池开关、奖池比例和入场费比例,
+// 以及地图拍卖参数的奖池比例; 入场费改为按真人盈亏目标求出, 导入后按当前设置重新推导
+func dropPool(files map[string][]byte) error {
+	return dropFields(files,
+		[]string{"pool_enabled", "entry_rate", "flat_entry_rate", "flat_cv", "pool_rate", "rebate_rate", "rebate_cap_rate"},
+		[]string{"pool_rate", "rebate_rate", "rebate_cap"})
+}
+
+// dropFields 去掉玩法平衡设置中的 balance 字段和每张地图拍卖参数中的 auction 字段, 包中没有的配置种类不处理
+func dropFields(files map[string][]byte, balance, auction []string) error {
 	if raw := files[PackSettings]; raw != nil {
 		var groups map[string]map[string]json.RawMessage
 		if err := json.Unmarshal(raw, &groups); err != nil {
 			return packErrorf(PackFileInvalid, PackSettings+".json")
 		}
-		delete(groups[settings.KeyBalance], "finale_enabled")
+		for _, key := range balance {
+			delete(groups[settings.KeyBalance], key)
+		}
 		data, err := json.Marshal(groups)
 		if err != nil {
 			return err
@@ -141,12 +157,14 @@ func dropFinale(files map[string][]byte) error {
 			if v["auction"] == nil {
 				continue
 			}
-			var auction map[string]json.RawMessage
-			if err := json.Unmarshal(v["auction"], &auction); err != nil {
+			var rule map[string]json.RawMessage
+			if err := json.Unmarshal(v["auction"], &rule); err != nil {
 				return packErrorf(PackFileInvalid, PackVenues+".json")
 			}
-			delete(auction, "finale")
-			data, err := json.Marshal(auction)
+			for _, key := range auction {
+				delete(rule, key)
+			}
+			data, err := json.Marshal(rule)
 			if err != nil {
 				return err
 			}

@@ -64,7 +64,6 @@ export function BidPanel({view, decimals, onBid}: {
   if (venue.lead_discount > 0) {
     settle.push(`成交价为第二名的出价加上领先部分的 ${formatRate(10000 - venue.lead_discount)}`);
   }
-  if (venue.pool_rate > 0) settle.push('成交后出过价的真人输家按名次分奖池');
 
   if (!self.can_bid) {
     return (

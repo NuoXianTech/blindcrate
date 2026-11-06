@@ -25,7 +25,6 @@
 package auction
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -674,21 +673,17 @@ func (st *state) humanCanBid() bool {
 	return false
 }
 
-// settle 结算: 成交时扣除成交价并发放藏品, 奖池分给出过价的真人输家; 流拍时退还入场费和入场代价;
+// settle 结算: 成交时扣除成交价并发放藏品, 入场费和入场代价不退; 流拍时退还入场费和入场代价;
 // 解冻剩余的带入资金, 写入盈亏、名次和统计; 排位成交时结算段位分
 //
-// 练习局只计算盈亏, 不变动资金也不写统计, 也不进出奖池; 人机只计算盈亏。排位中挂机的真人计入统计, 提交后记录挂机次数。
+// 练习局只计算盈亏, 不变动资金也不写统计; 人机只计算盈亏。排位中挂机的真人计入统计, 提交后记录挂机次数。
 func (st *state) settle(tx *gorm.DB, result verdict) error {
 	a := &st.auction
 	now := time.Now()
 	sold := result.Outcome == OutcomeSold
-	var (
-		ranks  map[int16]int16
-		shares map[int16]int64
-	)
+	var ranks map[int16]int16
 	if sold {
 		ranks = rankSeats(st.bidders(), result.Winner, result.Price, a.Value)
-		a.Pool, a.Rebate, shares = st.splitPool(result, ranks)
 	}
 	afk, err := st.afkUsers(tx)
 	if err != nil {
@@ -705,16 +700,15 @@ func (st *state) settle(tx *gorm.DB, result verdict) error {
 		// 买情报的钱流拍也不退
 		intel := intelCost(uses, p.Seat)
 		cost := amountIn(p.EntryCost, a.Venue.BidCurrency) + intel
-		p.Share = shares[p.Seat]
 		switch {
 		case won:
 			p.Profit = a.Value - result.Price - cost
 		case sold:
-			p.Profit = p.Share - cost
+			p.Profit = -cost
 		default:
 			p.Profit = -intel
 		}
-		if err := tx.Model(p).Select("profit", "share").Updates(p).Error; err != nil {
+		if err := tx.Model(p).Select("profit").Updates(p).Error; err != nil {
 			return err
 		}
 		if p.UserID == 0 || p.IsPractice {
@@ -738,11 +732,6 @@ func (st *state) settle(tx *gorm.DB, result verdict) error {
 		}
 		if err := st.release(tx, p, release); err != nil {
 			return err
-		}
-		if p.Share > 0 {
-			if err := st.changeWallet(tx, p, p.Share, 0, wallet.BizMatchPoolShare, "share"); err != nil {
-				return err
-			}
 		}
 
 		values := stats.Values{stats.MetricMatches: 1, stats.MetricProfit(a.Venue.BidCurrency): p.Profit}
@@ -773,30 +762,7 @@ func (st *state) settle(tx *gorm.DB, result verdict) error {
 	}
 
 	a.Outcome, a.WinnerSeat, a.Price, a.SettledAt, a.Contenders = result.Outcome, result.Winner, result.Price, &now, []int16{}
-	return tx.Model(a).Select("outcome", "winner_seat", "price", "pool", "rebate", "settled_at", "contenders").Updates(a).Error
-}
-
-// splitPool 成交后的奖池和分配, 见 splitPool: 入场费和超付只算正式局的真人, 出过价的正式局真人输家按名次分
-func (st *state) splitPool(result verdict, ranks map[int16]int16) (pool, rebate int64, shares map[int16]int64) {
-	a := &st.auction
-	var (
-		fees, overpay int64
-		eligible      []int16
-	)
-	for _, p := range st.players {
-		if p.UserID == 0 || p.IsPractice {
-			continue
-		}
-		fees += amountIn(p.EntryCost, a.Venue.BidCurrency)
-		switch {
-		case p.Seat == result.Winner:
-			overpay = max(result.Price-a.Value, 0)
-		case p.Bid > 0:
-			eligible = append(eligible, p.Seat)
-		}
-	}
-	slices.SortFunc(eligible, func(x, y int16) int { return cmp.Compare(ranks[x], ranks[y]) })
-	return splitPool(&a.Venue.Auction, fees, overpay, eligible)
+	return tx.Model(a).Select("outcome", "winner_seat", "price", "settled_at", "contenders").Updates(a).Error
 }
 
 // afkUsers 排位中所有轮次都没有提交出价的真人, 练习局和其他模式不算
@@ -1278,9 +1244,6 @@ type VenueInfo struct {
 	EntryFee       int64      `json:"entry_fee"`     // 入场费等以下字段见 venue.AuctionRule, 旧对局为 0
 	SpeedFloor     int64      `json:"speed_floor"`   // 速胜下限
 	LeadDiscount   int32      `json:"lead_discount"` // 领先折让, 基点
-	PoolRate       int32      `json:"pool_rate"`     // 入场费进奖池的比例, 基点
-	RebateRate     int32      `json:"rebate_rate"`   // 超付部分进奖池的比例, 基点
-	RebateCap      int64      `json:"rebate_cap"`    // 超付部分进奖池的上限
 	PreviewRate    int32      `json:"preview_rate"`  // 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件
 	MaxUses        int32      `json:"max_uses"`      // 这个模式每局最多使用几个道具, 0 表示不能用
 	AllowedItems   []uint64   `json:"allowed_items"` // 可以用的道具, 为空表示所有对局中可用的道具
@@ -1331,10 +1294,9 @@ type UseCount struct {
 
 // SeatResult 开箱后公开的一个座位的出价
 type SeatResult struct {
-	Seat  int16      `json:"seat"`
-	Bid   int64      `json:"bid"`   // 最后的出价, 0 表示没出过价
-	Share int64      `json:"share"` // 分到的奖池
-	Uses  []UseCount `json:"uses"`  // 用过的道具, 按第一次使用的顺序, 不公开得到的情报
+	Seat int16      `json:"seat"`
+	Bid  int64      `json:"bid"`  // 最后的出价, 0 表示没出过价
+	Uses []UseCount `json:"uses"` // 用过的道具, 按第一次使用的顺序, 不公开得到的情报
 }
 
 // PieceView 开箱后公开的一件藏品
@@ -1359,8 +1321,6 @@ type ResultView struct {
 	WinnerSeat  int16        `json:"winner_seat"` // 没有成交时为 0
 	Price       int64        `json:"price"`
 	Value       int64        `json:"value"`        // 仓库价值
-	Pool        int64        `json:"pool"`         // 奖池, 分给出过价的真人输家, 见 SeatResult.Share; 没有人可分时销毁
-	Rebate      int64        `json:"rebate"`       // 奖池中来自成交者超付的部分
 	Profit      int64        `json:"profit"`       // 自己的盈亏, 出价货币, 已扣除入场代价; 练习局按正式局计算; 管理员查看时为 0
 	RatingDelta int32        `json:"rating_delta"` // 自己段位分的变化, 只有排位成交时有; 管理员查看时为 0
 	Rating      int32        `json:"rating"`       // 自己结算后的段位分, 只有排位成交时有; 管理员查看时为 0
@@ -1482,9 +1442,6 @@ func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
 			EntryFee:       rule.EntryFee,
 			SpeedFloor:     rule.SpeedFloor,
 			LeadDiscount:   rule.LeadDiscount,
-			PoolRate:       rule.PoolRate,
-			RebateRate:     rule.RebateRate,
-			RebateCap:      rule.RebateCap,
 			PreviewRate:    rule.PreviewRate,
 			MaxUses:        a.Venue.Consumables.MaxPerMatch(st.kind()),
 			AllowedItems:   a.Venue.Consumables.Allowed,
@@ -1505,8 +1462,6 @@ func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
 		WinnerSeat: a.WinnerSeat,
 		Price:      a.Price,
 		Value:      a.Value,
-		Pool:       a.Pool,
-		Rebate:     a.Rebate,
 		Pieces:     make([]PieceView, len(items)),
 		Seats:      make([]SeatResult, len(st.players)),
 		ScanFrom:   a.SettledAt,
@@ -1528,7 +1483,7 @@ func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
 		}
 	}
 	for i, p := range st.players {
-		result.Seats[i] = SeatResult{Seat: p.Seat, Bid: p.Bid, Share: p.Share, Uses: useCounts(uses, p.Seat)}
+		result.Seats[i] = SeatResult{Seat: p.Seat, Bid: p.Bid, Uses: useCounts(uses, p.Seat)}
 	}
 	view.Result = result
 	return view

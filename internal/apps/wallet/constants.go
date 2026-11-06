@@ -46,7 +46,7 @@ const (
 	BizMatchBidSettle    = "match_bid_settle"    // 成交时从冻结的带入资金中扣除成交价, biz_id 为对局 ID
 	BizMatchRefund       = "match_refund"        // 流拍或取消时退还入场费和入场代价, biz_id 为对局 ID
 	BizMatchReward       = "match_reward"        // 成交者获得的藏品, 已下架的藏品按回收价折成货币, biz_id 为对局 ID
-	BizMatchPoolShare    = "match_pool_share"    // 成交后出过价的真人输家分到的奖池, biz_id 为对局 ID
+	BizMatchPoolShare    = "match_pool_share"    // 已取消的奖池分红, 不再产生, 保留名称用于展示旧流水, biz_id 为对局 ID
 	BizMatchIntel        = "match_intel"         // 对局中向主持人买情报, 取消时退还, biz_id 为对局 ID
 
 	BizItemUseRefund = "item_use_refund" // 退还用掉的物品时, 已下架或已删除的物品按回收价折成货币, biz_id 由场景决定
