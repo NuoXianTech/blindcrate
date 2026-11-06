@@ -173,6 +173,26 @@ func TestDropFinale(t *testing.T) {
 	}
 }
 
+func TestDropPool(t *testing.T) {
+	files := map[string][]byte{
+		PackSettings: []byte(`{"balance":{"pool_enabled":true,"entry_rate":300,"flat_entry_rate":200,"flat_cv":6000,"pool_rate":7500,"rebate_rate":4000,"rebate_cap_rate":10000,"min_seat_ev":-400}}`),
+		PackVenues:   []byte(`[{"code":"dock","auction":{"entry_fee":78,"pool_rate":7500,"rebate_rate":4000,"rebate_cap":78}}]`),
+	}
+	if err := dropPool(files); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := string(files[PackSettings]), `{"balance":{"min_seat_ev":-400}}`; got != want {
+		t.Errorf("settings = %s, want %s", got, want)
+	}
+	if got, want := string(files[PackVenues]), `[{"auction":{"entry_fee":78},"code":"dock"}]`; got != want {
+		t.Errorf("venues = %s, want %s", got, want)
+	}
+	// 包中没有设置和地图时不处理
+	if err := dropPool(map[string][]byte{PackShopItems: []byte(`[]`)}); err != nil {
+		t.Errorf("no settings or venues: err = %v", err)
+	}
+}
+
 func TestOrderPackSections(t *testing.T) {
 	got, err := orderPackSections([]string{PackSettings, PackItems, PackItems, PackCurrencies})
 	if want := []string{PackCurrencies, PackSettings, PackItems}; err != nil || !reflect.DeepEqual(got, want) {

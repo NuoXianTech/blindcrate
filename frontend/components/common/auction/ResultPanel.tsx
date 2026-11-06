@@ -22,7 +22,7 @@ import {formatAmount} from '@/lib/utils';
 
 /**
  * 结算结果: 成交价、仓库价值、自己的盈亏和排位的段位分、段位变化; 结算后对局随即释放, 开箱时就可以离开或再来一局
- * 仓库价值随开箱扫描累加, 盈亏、奖池和段位分能推出仓库价值, 扫完才公开
+ * 仓库价值随开箱扫描累加, 盈亏和段位分能推出仓库价值, 扫完才公开
  */
 export function ResultPanel({view, players, decimals, scan, finished, released}: {
   view: AuctionView;
@@ -88,17 +88,10 @@ export function ResultPanel({view, players, decimals, scan, finished, released}:
   const parts: string[] = [];
   if (sold && fee > 0) parts.push(`入场费 ${formatAmount(-fee, decimals, {signed: true})}`);
   if (intel > 0) parts.push(`情报 ${formatAmount(-intel, decimals, {signed: true})}`);
-  const share = result.seats.find((s) => s.seat === view.self.seat)?.share ?? 0;
-  const paid = result.seats.reduce((sum, s) => sum + s.share, 0);
   const rows = [
     {label: '成交价', value: sold ? formatAmount(result.price, decimals) : '-'},
     {label: scan.complete ? '仓库价值' : '仓库价值 (扫描中)', value: formatAmount(scan.complete ? result.value : scan.value, decimals)},
   ];
-  if (scan.complete && result.pool > 0) {
-    // 没有出过价的真人输家时奖池销毁
-    rows.push({label: paid > 0 ? '奖池' : '奖池 (无人可分)', value: formatAmount(result.pool, decimals)});
-    if (!winner?.is_self) rows.push({label: '我分到', value: formatAmount(share, decimals)});
-  }
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border bg-card p-4">
@@ -141,11 +134,7 @@ export function ResultPanel({view, players, decimals, scan, finished, released}:
           >
             {formatAmount(result.profit, decimals, {signed: true})}
           </span>
-          {(parts.length > 0 || share > 0) && (
-            <span className="text-xs text-muted-foreground">
-              含{[...parts, ...(share > 0 ? [`奖池分红 ${formatAmount(share, decimals, {signed: true})}`] : [])].join(', ')}
-            </span>
-          )}
+          {parts.length > 0 && <span className="text-xs text-muted-foreground">含{parts.join(', ')}</span>}
         </div>
       )}
 

@@ -7,7 +7,7 @@ import type {MatchPlayer} from '@/lib/services/match';
 import {formatAmount} from '@/lib/utils';
 
 /**
- * 四个座位: 加轮时标出可以出价的人; 开箱后公开每个人的出价和成交者, 名次和分红能推出仓库价值, 扫描完才公开
+ * 四个座位: 加轮时标出可以出价的人; 开箱后公开每个人的出价和成交者, 名次能推出仓库价值, 扫描完才公开
  */
 export function SeatList({view, players, decimals, revealed}: {
   view: AuctionView;
@@ -27,13 +27,11 @@ export function SeatList({view, players, decimals, revealed}: {
         const winner = result?.winner_seat === p.seat;
         const contender = extra && view.contenders.includes(p.seat);
         const bid = seats.get(p.seat)?.bid ?? 0;
-        const share = seats.get(p.seat)?.share ?? 0;
         const uses = seats.get(p.seat)?.uses ?? [];
         const bought = intel.get(p.seat);
         let note = `${p.seat} 号位`;
         if (result) {
           note = bid ? formatAmount(bid, decimals) : '未出价';
-          if (revealed && share > 0) note += ` · 分红 ${formatAmount(share, decimals)}`;
         } else if (contender) {
           note = '加轮中';
         }

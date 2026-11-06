@@ -566,12 +566,8 @@ export interface SquadStats {
   win_rate: number;
   /** 每个真人席位每局的平均盈亏 */
   seat_ev: number;
-  /** 真人成交时的平均盈亏 */
+  /** 真人成交时的平均盈亏, 没成交时只亏入场费, 流拍时不亏 */
   winner_ev: number;
-  /** 真人没成交时的平均盈亏, 含奖池分红 */
-  loser_ev: number;
-  /** 每局发给真人输家的奖池合计的平均值 */
-  share: number;
   /** 每轮结束后热度火热(不低于 70)的比例, 基点; 加轮和成交的那一轮不算 */
   hype_hot: number;
   /** 同上, 冷清(不高于 30)的比例 */
@@ -657,7 +653,7 @@ export interface AdminVenue {
   pve_enabled: boolean;
   ranked_enabled: boolean;
   bid_currency: string;
-  /** 入场代价, 数量为正数, 开局时扣除; 不能有出价货币, 出价货币的入场费自动计算 */
+  /** 入场代价, 数量为正数, 开局时扣除; 不能有出价货币, 出价货币的入场费由对局验算求出 */
   entry_cost: Bundle;
   /** 入场条件, 需要全部满足 */
   requirements: Condition[];

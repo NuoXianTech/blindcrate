@@ -34,7 +34,7 @@ const (
 	NameInvalid        = "名称需为 1-64 个字符"
 	EntryCostInvalid   = "入场代价的数量需大于 0"
 	EntryCostTooMany   = "入场代价最多 8 项"
-	EntryCostBidMoney  = "入场代价中不能有出价货币, 出价货币的入场费按仓库的期望价值自动计算"
+	EntryCostBidMoney  = "入场代价中不能有出价货币, 出价货币的入场费由对局验算自动算出"
 	RequirementInvalid = "入场条件: %s"
 	RuleInvalid        = "%s: %s"
 	SlotRangeInvalid   = "第 %d 档: 最多次数不能少于最少次数"

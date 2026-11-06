@@ -136,38 +136,6 @@ func previewPieces(n int, rate int32, randN func(n int64) int64) []bool {
 	return picked
 }
 
-// shareWeights 奖池按名次分配的权重, 名次更后的都按最后一个
-var shareWeights = []int64{3, 2, 1}
-
-// splitPool 成交后的奖池和分配, 不读写数据库
-//
-// fees 为正式局真人缴纳的入场费之和, 按进奖池比例进入奖池; overpay 为正式局真人成交时成交价超出仓库价值的部分, 其他情况为 0,
-// 按比例进入奖池且不超过上限。奖池分给 eligible(正式局出过价的真人输家, 按名次排好), 权重见 shareWeights, 除不尽的零头给名次最前的人;
-// 没有人可分时奖池销毁, 返回的 shares 为空。
-func splitPool(rule *venue.AuctionRule, fees, overpay int64, eligible []int16) (pool, rebate int64, shares map[int16]int64) {
-	if overpay > 0 {
-		rebate = min(overpay*int64(rule.RebateRate)/venue.BasisPoints, rule.RebateCap)
-	}
-	pool = fees*int64(rule.PoolRate)/venue.BasisPoints + rebate
-	if pool <= 0 || len(eligible) == 0 {
-		return pool, rebate, nil
-	}
-	weights := make([]int64, len(eligible))
-	var total int64
-	for i := range eligible {
-		weights[i] = shareWeights[min(i, len(shareWeights)-1)]
-		total += weights[i]
-	}
-	shares = make(map[int16]int64, len(eligible))
-	paid := int64(0)
-	for i, seat := range eligible {
-		shares[seat] = pool * weights[i] / total
-		paid += shares[seat]
-	}
-	shares[eligible[0]] += pool - paid
-	return pool, rebate, shares
-}
-
 // rankSeats 成交后的名次, 从 1 开始且不重复
 //
 // 盈利(仓库价值 > 成交价)的成交者第 1; 其他出过价的人按出价与仓库价值的差距从小到大, 差距相同时先出价的在前;

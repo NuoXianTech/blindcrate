@@ -32,7 +32,7 @@ import (
 )
 
 // Balancer 对局验算, 由拍卖模块注册: 按 v 推导出的拍卖参数模拟几种阵容的对局, 开启领先折让时求出折让写入 v.Auction.LeadDiscount,
-// 返回各阵容的结果, 闸门由 Validate 判定; 只能用 g.Seeded 的副本生成仓库, 相同的配置得到相同的结果
+// 再求出入场费写入 v.Auction.EntryFee, 返回各阵容的结果, 闸门由 Validate 判定; 只能用 g.Seeded 的副本生成仓库, 相同的配置得到相同的结果
 type Balancer func(tx *gorm.DB, v *Venue, g *Generator, b *settings.BalanceSettings) (*Balance, error)
 
 // balancer 注册的对局验算, 为空时不验算, 如只测试本模块时
@@ -43,25 +43,16 @@ func RegisterBalancer(fn Balancer) {
 	balancer = fn
 }
 
-// Calibrate 按价值分布推导金额和比例, 系数和开关见 settings.BalanceSettings; 领先折让由对局验算求出, 这里先置 0
+// Calibrate 按价值分布推导金额和比例, 系数和开关见 settings.BalanceSettings; 领先折让和入场费由对局验算求出, 这里先置 0
 //
 // 两种模式共用一套金额, 按排位模式的价值分布推导: 人机模式按仓库价值系数缩小仓库, 金额不跟着缩小, 是人机模式的防刷手段之一。
 func (r *AuctionRule) Calibrate(stats ValueStats, b *settings.BalanceSettings) {
-	rate := b.EntryRate
-	if stats.CV < int32(b.FlatCV) {
-		rate = b.FlatEntryRate
-	}
-	r.EntryFee = ofRate(stats.Mean, rate)
 	r.StartPrice = max(ofRate(stats.Mean, b.StartPriceRate), 1)
 	r.MaxCarry = max(ofRate(stats.Mean, b.CarryOfMean), ofRate(stats.P90, b.CarryOfP90), r.StartPrice)
 	r.BotCarry = min(max(ofRate(stats.Mean, b.BotCarryRate), r.StartPrice), r.MaxCarry)
-	r.SpeedFloor, r.LeadDiscount, r.PoolRate, r.RebateRate, r.RebateCap = 0, 0, 0, 0, 0
+	r.EntryFee, r.SpeedFloor, r.LeadDiscount = 0, 0, 0
 	if b.SpeedFloorEnabled {
 		r.SpeedFloor = ofRate(stats.Mean, b.SpeedFloorRate)
-	}
-	if b.PoolEnabled {
-		r.PoolRate, r.RebateRate = int32(b.PoolRate), int32(b.RebateRate)
-		r.RebateCap = ofRate(r.EntryFee, b.RebateCapRate)
 	}
 	r.PreviewRate = int32(b.PreviewRate)
 	r.IntelPrice = 0

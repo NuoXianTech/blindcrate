@@ -113,18 +113,6 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
               </dd>
             </>
           )}
-          {v.auction.pool_rate > 0 && (
-            <>
-              <dt className="text-muted-foreground">奖池</dt>
-              <dd>
-                入场费的 {formatRate(v.auction.pool_rate)}, 加上成交价超出仓库价值部分的 {formatRate(v.auction.rebate_rate)}
-                (每局最多 {formatAmount(v.auction.rebate_cap, decimals)})
-                <p className="text-xs text-muted-foreground">
-                  成交后分给出过价的输家, 出价越接近仓库价值分得越多; 人机不参与, 没有人可分时不发放
-                </p>
-              </dd>
-            </>
-          )}
           <dt className="text-muted-foreground">扫描</dt>
           <dd>
             {v.auction.preview_rate > 0 ?

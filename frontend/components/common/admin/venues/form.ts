@@ -289,7 +289,7 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
   check(form.entryCost.length > MAX_ENTRY_COST_LINES ? `入场代价最多 ${MAX_ENTRY_COST_LINES} 项` : null);
   check(
     form.entryCost.some((d) => d.currency === form.bidCurrency) ?
-      '入场代价中不能有出价货币, 出价货币的入场费按仓库的期望价值自动计算' :
+      '入场代价中不能有出价货币, 出价货币的入场费由对局验算自动算出' :
       null,
   );
   check(form.requirements.length > MAX_REQUIREMENTS ? `入场条件最多 ${MAX_REQUIREMENTS} 个` : null);

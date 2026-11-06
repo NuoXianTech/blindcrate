@@ -230,31 +230,3 @@ func TestPreviewPieces(t *testing.T) {
 		t.Errorf("rate: picked %d of 10000", picked)
 	}
 }
-
-func TestSplitPool(t *testing.T) {
-	rule := venue.AuctionRule{PoolRate: 7500, RebateRate: 4000, RebateCap: 300}
-	pool, rebate, shares := splitPool(&rule, 1200, 500, []int16{3, 1, 4})
-	// 900 + min(200, 300) = 1100, 按 3:2:1 分为 550、366、183, 零头 1 给第一个
-	if pool != 1100 || rebate != 200 {
-		t.Fatalf("pool %d rebate %d, want 1100 and 200", pool, rebate)
-	}
-	want := map[int16]int64{3: 551, 1: 366, 4: 183}
-	if len(shares) != len(want) {
-		t.Fatalf("shares %v, want %v", shares, want)
-	}
-	for seat, amount := range want {
-		if shares[seat] != amount {
-			t.Errorf("seat %d: got %d, want %d (%v)", seat, shares[seat], amount, shares)
-		}
-	}
-
-	if _, rebate, _ := splitPool(&rule, 0, 5000, []int16{1}); rebate != 300 {
-		t.Errorf("rebate should be capped at 300, got %d", rebate)
-	}
-	if pool, _, shares := splitPool(&rule, 1200, 0, nil); pool != 900 || shares != nil {
-		t.Errorf("nobody eligible: got pool %d shares %v, want 900 burned", pool, shares)
-	}
-	if pool, _, shares := splitPool(&venue.AuctionRule{}, 1200, 500, []int16{1}); pool != 0 || shares != nil {
-		t.Errorf("legacy rule has no pool, got %d %v", pool, shares)
-	}
-}

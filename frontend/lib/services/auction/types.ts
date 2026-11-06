@@ -81,12 +81,6 @@ export interface AuctionVenue {
   speed_floor: number;
   /** 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让) */
   lead_discount: number;
-  /** 入场费进奖池的比例, 基点 */
-  pool_rate: number;
-  /** 超付部分进奖池的比例, 基点 */
-  rebate_rate: number;
-  /** 超付部分进奖池的上限 */
-  rebate_cap: number;
   /** 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件 */
   preview_rate: number;
   /** 这个模式每局最多使用几个道具, 0 表示不能用 */
@@ -269,8 +263,6 @@ export interface SeatResult {
   seat: number;
   /** 最后的出价, 0 表示没出过价 */
   bid: number;
-  /** 分到的奖池 */
-  share: number;
   /** 用过的道具, 按第一次使用的顺序, 不公开得到的情报 */
   uses: UseCount[];
 }
@@ -283,11 +275,7 @@ export interface AuctionResult {
   price: number;
   /** 仓库价值 */
   value: number;
-  /** 奖池, 分给出过价的真人输家, 见 SeatResult.share; 没有人可分时销毁 */
-  pool: number;
-  /** 奖池中来自成交者超付的部分 */
-  rebate: number;
-  /** 自己的盈亏, 已扣除入场费和入场代价, 含分到的奖池; 练习局按正式局计算; 管理员查看时为 0 */
+  /** 自己的盈亏, 已扣除入场费和入场代价; 练习局按正式局计算; 管理员查看时为 0 */
   profit: number;
   /** 自己段位分的变化, 只有排位成交时有; 管理员查看时为 0 */
   rating_delta: number;

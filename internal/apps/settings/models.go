@@ -159,26 +159,20 @@ var (
 	Balance = Register(Group[BalanceSettings]{
 		Key:         KeyBalance,
 		Label:       "玩法平衡",
-		Description: "地图保存时按仓库的价值分布推导拍卖金额, 再模拟对局检查是否落在安全区间; 修改后需要在地图管理中重新推导全部地图, 进行中的对局不受影响",
+		Description: "地图保存时按仓库的价值分布推导拍卖金额, 再模拟对局求出领先折让和入场费, 检查是否落在安全区间; 修改后需要在地图管理中重新推导全部地图, 进行中的对局不受影响",
 		Category:    CategoryGame,
 		Sort:        15,
 		Defaults: func() *BalanceSettings {
 			return &BalanceSettings{
 				SpeedFloorEnabled:   true,
 				LeadDiscountEnabled: true,
-				PoolEnabled:         true,
-				EntryRate:           300,
-				FlatEntryRate:       200,
-				FlatCV:              6000,
+				TargetSeatEV:        -200,
 				StartPriceRate:      400,
 				CarryOfMean:         20000,
 				CarryOfP90:          15000,
 				BotCarryRate:        12000,
 				SpeedFloorRate:      7500,
 				MaxLeadDiscount:     3000,
-				PoolRate:            7500,
-				RebateRate:          4000,
-				RebateCapRate:       10000,
 				IntelRate:           50,
 				PreviewRate:         3000,
 				MinRounds:           4,
@@ -284,20 +278,14 @@ type EconomySettings struct {
 type BalanceSettings struct {
 	SpeedFloorEnabled   bool `json:"speed_floor_enabled" label:"速胜下限" help:"开启后速胜还要求第一名的出价不低于速胜下限; 只靠倍率挡不住速胜, 第一名常常天然高出第二名一截"`
 	LeadDiscountEnabled bool `json:"lead_discount_enabled" label:"领先折让" help:"开启后成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 折让按地图模拟求出, 让成交价平均落在仓库价值扣掉出售手续费; 关闭时按最高价成交"`
-	PoolEnabled         bool `json:"pool_enabled" label:"输家奖池" help:"开启后入场费和真人的超付部分按比例进奖池, 成交后按名次分给出过价的真人输家; 关闭时入场费全部销毁"`
 
-	EntryRate       int `json:"entry_rate" label:"入场费比例" help:"入场费占期望价值的比例; 入场费只平移盈亏, 用来抵掉其余规则留下的正期望" binding:"min=0,max=2000" unit:"bp"`
-	FlatEntryRate   int `json:"flat_entry_rate" label:"平坦地图入场费比例" help:"价值离散度低于平坦线的地图用这个比例, 这类地图成交价更贴近价值, 正期望更少" binding:"min=0,max=2000" unit:"bp"`
-	FlatCV          int `json:"flat_cv" label:"平坦线" help:"价值的变异系数低于它算平坦" binding:"min=0,max=50000" unit:"bp"`
+	TargetSeatEV    int `json:"target_seat_ev" label:"入场费: 真人盈亏目标" help:"入场费按地图模拟求出, 让 4 个真人时每个真人席位平均每局的盈亏等于期望价值的这个比例, 负数为亏损, 即系统回收的部分; 入场费不影响出价, 只平移盈亏, 流拍时退还; 排位补人机和人机模式共用这个入场费, 有人机时真人更容易低价拍下, 盈亏通常高于目标; 不能低于真人盈亏下限" binding:"min=-2000,max=0,gtefield=MinSeatEV" unit:"bp"`
 	StartPriceRate  int `json:"start_price_rate" label:"起拍价比例" help:"起拍价占期望价值的比例; 过高时大家都从起拍价附近出价, 出价拉不开" binding:"min=1,max=2000" unit:"bp"`
 	CarryOfMean     int `json:"carry_of_mean" label:"带入上限 ÷ 期望价值" help:"带入资金上限不低于期望价值的这么多倍, 否则高价值的仓库出价被封顶, 成交价系统性偏低; 低于 2 倍时验算多半不过" binding:"min=10000,max=100000" unit:"bp"`
 	CarryOfP90      int `json:"carry_of_p90" label:"带入上限 ÷ P90" help:"带入资金上限也不低于价值 P90 的这么多倍, 两项取大" binding:"min=0,max=100000" unit:"bp"`
 	BotCarryRate    int `json:"bot_carry_rate" label:"人机带入资金比例" help:"人机的带入资金占期望价值的比例, 不超过带入资金上限; 人机的钱不来自真人钱包, 带得越多越容易高价抢走大仓库, 真人拍不到, 系统也替它买单" binding:"min=1000,max=100000" unit:"bp"`
 	SpeedFloorRate  int `json:"speed_floor_rate" label:"速胜下限比例" help:"速胜下限占期望价值的比例; 过低挡不住速胜, 过高基本只能打到最后一轮" binding:"min=0,max=30000" unit:"bp"`
 	MaxLeadDiscount int `json:"max_lead_discount" label:"领先折让上限" help:"折让越大成交价越低, 全折让(二价)时赢家白捡、系统净发放" binding:"min=0,max=9000" unit:"bp"`
-	PoolRate        int `json:"pool_rate" label:"入场费进奖池比例" help:"其余销毁; 只算正式局的真人" binding:"min=0,max=10000" unit:"bp"`
-	RebateRate      int `json:"rebate_rate" label:"超付进奖池比例" help:"真人的成交价超过仓库价值时, 超出部分按这个比例进奖池" binding:"min=0,max=10000" unit:"bp"`
-	RebateCapRate   int `json:"rebate_cap_rate" label:"超付进奖池上限" help:"每局进奖池的超付部分不超过入场费的这么多倍" binding:"min=0,max=100000" unit:"bp"`
 	IntelRate       int `json:"intel_rate" label:"情报价格比例" help:"向主持人买一次情报的价格占期望价值的比例, 0 表示不卖情报; 情报平均每局只值期望价值的 0.6%~2.4%, 定价要远低于它, 否则买情报稳赚, 不超过 0.7%" binding:"min=0,max=70" unit:"bp"`
 	PreviewRate     int `json:"preview_rate" label:"首轮扫描比例" help:"第 1 轮每件藏品按这个概率扫出轮廓(只有占的格子, 没有品质和名称), 至少扫出一件; 其余的直到开箱都不公开, 件数也不公开, 只能靠道具和情报看到; 0 表示不扫" binding:"min=0,max=10000" unit:"bp"`
 

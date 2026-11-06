@@ -25,7 +25,6 @@
 package auction
 
 import (
-	"cmp"
 	"math"
 	"math/rand/v2"
 	"slices"
@@ -41,7 +40,8 @@ import (
 //
 // 按推导出的拍卖参数模拟几种阵容的对局: 人机按地图配置的风格出价, 与对局中相同; 真人按 humanModel 出价。
 // 模拟的出价不受领先折让影响, 所以只模拟一遍, 记下每局第一名和第二名的出价, 再按不同的折让重算成交价,
-// 取参考阵容(4 个真人)的成交价 ÷ 仓库价值最接近目标的折让。
+// 取参考阵容(4 个真人)的成交价 ÷ 仓库价值最接近目标的折让。入场费也不影响出价, 只平移盈亏,
+// 按这个折让求出让参考阵容的真人盈亏等于目标的入场费, 见 solveEntryFee。
 
 const (
 	// balanceRuns 验算时每种阵容模拟的局数
@@ -163,7 +163,6 @@ type matchSim struct {
 	top      int64   // 第一名的出价
 	second   int64   // 第二名的出价
 	winner   int16   // 成交者的座位, 没有成交时为 0
-	eligible []int16 // 可以分奖池的座位, 按名次排好
 	bidCV    float64 // 出过价的人的出价变异系数 ÷ √3(4 个人时的上限), 不到两人出过价时为 0
 	appraise int64   // 人机最后的估值之和
 	hype     int32   // 结束时的热度, 见 hypeDelta
@@ -212,13 +211,15 @@ func balance(tx *gorm.DB, v *venue.Venue, g *venue.Generator, b *settings.Balanc
 	if b.LeadDiscountEnabled {
 		maxDiscount = int32(b.MaxLeadDiscount)
 	}
-	return simulate(v, func(seed uint64) warehouses { return g.Seeded(seed) }, squads, int32(economy.SellFeeRate), maxDiscount)
+	seatEV := scale(v.Simulation.Ranked.Mean, int64(b.TargetSeatEV))
+	return simulate(v, func(seed uint64) warehouses { return g.Seeded(seed) }, squads, int32(economy.SellFeeRate), maxDiscount, seatEV)
 }
 
-// simulate 模拟各阵容的对局, 第一种为参考阵容; 在 [0, maxDiscount] 中求出领先折让写入 v.Auction.LeadDiscount, 返回各阵容按这个折让的结果
+// simulate 模拟各阵容的对局, 第一种为参考阵容; 在 [0, maxDiscount] 中求出领先折让写入 v.Auction.LeadDiscount,
+// 再求出让参考阵容的真人盈亏等于 seatEV 的入场费写入 v.Auction.EntryFee, 返回各阵容按这个折让和入场费的结果
 //
 // source 按种子生成仓库, 每种阵容用不同的种子; 相同的输入得到相同的结果。
-func simulate(v *venue.Venue, source func(seed uint64) warehouses, squads []squad, sellFee, maxDiscount int32) (*venue.Balance, error) {
+func simulate(v *venue.Venue, source func(seed uint64) warehouses, squads []squad, sellFee, maxDiscount int32, seatEV int64) (*venue.Balance, error) {
 	results := make([][]matchSim, len(squads))
 	for i := range squads {
 		seed := uint64(i + 1)
@@ -231,6 +232,7 @@ func simulate(v *venue.Venue, source func(seed uint64) warehouses, squads []squa
 
 	target := venue.BasisPoints - sellFee
 	v.Auction.LeadDiscount = solveDiscount(results[0], v.Auction, target, maxDiscount)
+	v.Auction.EntryFee = solveEntryFee(&squads[0], results[0], v.Auction, sellFee, seatEV)
 	b := &venue.Balance{Runs: balanceRuns, Target: target, Squads: make([]venue.SquadStats, len(squads))}
 	for i := range squads {
 		b.Squads[i] = squads[i].summarize(results[i], &v.Auction, sellFee)
@@ -372,13 +374,6 @@ func (sq *squad) play(v *venue.Venue, warehouse *venue.Warehouse, odds []venue.P
 		sorted := sortBidders(bidders)
 		m.sold, m.speed, m.winner = true, round < rule.Rounds, result.Winner
 		m.top, m.second = sorted[0].Bid, sorted[1].Bid
-		ranks := rankSeats(bidders, result.Winner, result.Price, warehouse.Value)
-		for _, s := range seats {
-			if s.human && s.seat != result.Winner && s.bid > 0 {
-				m.eligible = append(m.eligible, s.seat)
-			}
-		}
-		slices.SortFunc(m.eligible, func(x, y int16) int { return cmp.Compare(ranks[x], ranks[y]) })
 	}
 	var positive []float64
 	for _, s := range seats {
@@ -393,7 +388,7 @@ func (sq *squad) play(v *venue.Venue, warehouse *venue.Warehouse, odds []venue.P
 	return m, nil
 }
 
-// summarize 按 rule 的领先折让统计一种阵容的结果, 藏品按扣掉出售手续费后的回收价计
+// summarize 按 rule 的领先折让和入场费统计一种阵容的结果, 藏品按扣掉出售手续费后的回收价计
 func (sq *squad) summarize(matches []matchSim, rule *venue.AuctionRule, sellFee int32) venue.SquadStats {
 	stats := venue.SquadStats{Squad: sq.code, Humans: int32(sq.humans)}
 	n := len(matches)
@@ -404,8 +399,7 @@ func (sq *squad) summarize(matches []matchSim, rule *venue.AuctionRule, sellFee 
 		sold, speed, wins, rounds int
 		price, value, appraised   float64
 		bidCV, topShare           float64
-		seats, winners, losers    float64
-		shares                    float64
+		seats, winners            float64
 		hypes, hot, cold, hype    int
 	)
 	bots := playerCount - sq.humans
@@ -426,23 +420,13 @@ func (sq *squad) summarize(matches []matchSim, rule *venue.AuctionRule, sellFee 
 		price += float64(paid)
 		value += float64(m.value)
 
-		// 与 state.splitPool 相同, 模拟中的真人都是正式局
-		var overpay int64
-		humanWon := int(m.winner) <= sq.humans
-		if humanWon {
-			overpay = max(paid-m.value, 0)
-		}
-		_, _, split := splitPool(rule, rule.EntryFee*int64(sq.humans), overpay, m.eligible)
+		// 模拟中的真人都是正式局, 成交时每人都交了入场费, 流拍时退还
 		for seat := int16(1); int(seat) <= sq.humans; seat++ {
-			var result int64
+			result := -rule.EntryFee
 			if seat == m.winner {
-				result = scale(m.value, int64(venue.BasisPoints-sellFee)) - paid - rule.EntryFee
+				result += scale(m.value, int64(venue.BasisPoints-sellFee)) - paid
 				winners += float64(result)
 				wins++
-			} else {
-				result = split[seat] - rule.EntryFee
-				losers += float64(result)
-				shares += float64(split[seat])
 			}
 			seats += float64(result)
 		}
@@ -471,16 +455,24 @@ func (sq *squad) summarize(matches []matchSim, rule *venue.AuctionRule, sellFee 
 		if wins > 0 {
 			stats.WinnerEV = int64(math.Round(winners / float64(wins)))
 		}
-		if lost := perSeat - float64(wins); lost > 0 {
-			stats.LoserEV = int64(math.Round(losers / lost))
-		}
 	}
-	stats.Share = int64(math.Round(shares / float64(n)))
 	if hypes > 0 {
 		stats.HypeHot, stats.HypeCold = bp(float64(hot)/float64(hypes)), bp(float64(cold)/float64(hypes))
 	}
 	stats.HypeEnd = int32(math.Round(float64(hype) / float64(n)))
 	return stats
+}
+
+// solveEntryFee 入场费: 让 sq 每个真人席位每局的平均盈亏等于 seatEV, 不低于 0; 成交价按 rule 的领先折让
+//
+// 入场费不影响出价, 只平移盈亏; 流拍时退还, 只有成交的局才收, 所以按成交率放大。不收入场费时盈亏已经不高于目标的为 0。
+func solveEntryFee(sq *squad, matches []matchSim, rule venue.AuctionRule, sellFee int32, seatEV int64) int64 {
+	rule.EntryFee = 0
+	stats := sq.summarize(matches, &rule, sellFee)
+	if stats.Sold == 0 {
+		return 0
+	}
+	return max((stats.SeatEV-seatEV)*venue.BasisPoints/int64(stats.Sold), 0)
 }
 
 // solveDiscount 领先折让: 在 [0, maxDiscount] 中按 discountStep 取值, 取成交价 ÷ 仓库价值最接近 target 的, 一样近时取小的

@@ -267,10 +267,11 @@ func standardSquads(t *testing.T) []squad {
 // maxDiscount 默认的领先折让上限
 const maxDiscount = 3000
 
-// TestSimulateStandardMap 交接包的标准图按推导出的参数验算: 参考阵容落在结构闸门内, 有人机的阵容估值不偏; 同样的输入结果相同
+// TestSimulateStandardMap 交接包的标准图按推导出的参数验算: 参考阵容落在结构闸门内, 真人盈亏等于目标, 有人机的阵容估值不偏; 同样的输入结果相同
 func TestSimulateStandardMap(t *testing.T) {
 	v := standardVenue()
-	b, err := simulate(v, newStandardWarehouses, standardSquads(t), 200, maxDiscount)
+	seatEV := scale(v.Simulation.Ranked.Mean, int64(settings.Balance.Default().TargetSeatEV))
+	b, err := simulate(v, newStandardWarehouses, standardSquads(t), 200, maxDiscount, seatEV)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,6 +299,12 @@ func TestSimulateStandardMap(t *testing.T) {
 	if humans.WinRate < 2400 || humans.WinRate > 2600 {
 		t.Errorf("reference win rate %d, want about 2500", humans.WinRate)
 	}
+	if v.Auction.EntryFee <= 0 {
+		t.Errorf("entry fee %d, want > 0", v.Auction.EntryFee)
+	}
+	if gap := humans.SeatEV - seatEV; gap < -1 || gap > 1 {
+		t.Errorf("reference seat ev %d, want %d ± 1", humans.SeatEV, seatEV)
+	}
 	for _, s := range b.Squads[1:] {
 		if s.AppraiseBias < 8000 || s.AppraiseBias > 13000 {
 			t.Errorf("%s appraise bias %d, want [8000, 13000]", s.Squad, s.AppraiseBias)
@@ -305,11 +312,11 @@ func TestSimulateStandardMap(t *testing.T) {
 	}
 
 	again := standardVenue()
-	replay, err := simulate(again, newStandardWarehouses, standardSquads(t), 200, maxDiscount)
+	replay, err := simulate(again, newStandardWarehouses, standardSquads(t), 200, maxDiscount, seatEV)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(b, replay) || again.Auction.LeadDiscount != v.Auction.LeadDiscount {
+	if !reflect.DeepEqual(b, replay) || again.Auction.LeadDiscount != v.Auction.LeadDiscount || again.Auction.EntryFee != v.Auction.EntryFee {
 		t.Errorf("same input gave different results:\n%+v\n%+v", b, replay)
 	}
 }
@@ -336,6 +343,31 @@ func TestSolveDiscount(t *testing.T) {
 		t.Errorf("discount turned off: got %d, want 0", got)
 	}
 	if got := solveDiscount([]matchSim{{value: 100}}, rule, 9800, maxDiscount); got != 0 {
+		t.Errorf("nothing sold: got %d, want 0", got)
+	}
+}
+
+// TestSolveEntryFee 入场费让每个真人席位每局的平均盈亏等于目标, 流拍的局退还入场费
+func TestSolveEntryFee(t *testing.T) {
+	sq := &squad{code: venue.SquadRanked, humans: 2}
+	rule := venue.AuctionRule{StartPrice: 10, EntryFee: 999}
+	matches := []matchSim{
+		{value: 1000, sold: true, top: 900, second: 800, winner: 1},
+		{value: 500, sold: false},
+	}
+	// 不收入场费时成交者赚 980 - 900 = 80, 平均到 2 局 × 2 个真人为 20; 只有一半的局收入场费,
+	// 要平均每人亏 10 需要 (20 + 10) ÷ 50% = 60
+	if got := solveEntryFee(sq, matches, rule, 200, -10); got != 60 {
+		t.Errorf("got %d, want 60", got)
+	}
+	rule.EntryFee = 60
+	if got := sq.summarize(matches, &rule, 200).SeatEV; got != -10 {
+		t.Errorf("seat ev with the solved fee %d, want -10", got)
+	}
+	if got := solveEntryFee(sq, matches, rule, 200, 30); got != 0 {
+		t.Errorf("target above the gross: got %d, want 0", got)
+	}
+	if got := solveEntryFee(sq, matches[1:], rule, 200, -10); got != 0 {
 		t.Errorf("nothing sold: got %d, want 0", got)
 	}
 }
