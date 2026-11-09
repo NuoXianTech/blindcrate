@@ -6,20 +6,24 @@ import {CurrencyIcon} from '@/components/common/wallet';
 import {MODES, type ModeKind} from '@/lib/auction';
 import type {ProfitCap, Venue, ValueRange} from '@/lib/services/venue';
 import {formatAmount} from '@/lib/utils';
+import {CarryPicker} from './CarryPicker';
 import {EntryCost, RequirementList} from './VenueInfo';
 
 /**
  * 大厅里的一张地图: 简介、入场代价、仓库价值区间、入场条件, 以及人机和排位两个入口
  * busy 为正在加入的模式, queued 为正在这张地图排队的模式
  */
-export function VenueCard({venue: v, decimals, busy, queued, disabled, onJoin, onDetail}: {
+export function VenueCard({venue: v, carry, decimals, busy, queued, disabled, onCarry, onJoin, onDetail}: {
   venue: Venue;
+  /** 选的带入金额, 没选过时为上限 */
+  carry: number;
   /** 出价货币的展示小数位 */
   decimals: number;
   busy: ModeKind | null;
   queued: ModeKind | null;
   /** 正在排队或对局中时不能再加入 */
   disabled: boolean;
+  onCarry: (amount: number) => void;
   onJoin: (kind: ModeKind) => void;
   /** 查看规则和掉落概率 */
   onDetail: () => void;
@@ -54,14 +58,19 @@ export function VenueCard({venue: v, decimals, busy, queued, disabled, onJoin, o
           <dd>
             <EntryCost venue={v} decimals={decimals} />
           </dd>
-          <dt className="text-muted-foreground">起拍 / 带入</dt>
-          <dd className="flex items-center gap-1 font-mono tabular-nums">
-            <CurrencyIcon currency={v.bid_currency} className="size-4" />
-            {formatAmount(v.auction.start_price, decimals)} / {formatAmount(v.auction.max_carry, decimals)}
+          {v.lots && (
+            <>
+              <dt className="text-muted-foreground">拍品</dt>
+              <dd>{v.lots.min === v.lots.max ? v.lots.min : `${v.lots.min}-${v.lots.max}`} 个仓库, 共用带入资金</dd>
+            </>
+          )}
+          <dt className="text-muted-foreground">带入</dt>
+          <dd>
+            <CarryPicker venue={v} carry={carry} decimals={decimals} disabled={disabled} onSaved={onCarry} />
           </dd>
           <dt className="text-muted-foreground">轮数</dt>
           <dd>
-            {v.auction.rounds} 轮, 每轮 {v.auction.round_seconds} 秒
+            {v.lots && '每个拍品 '}{v.auction.rounds} 轮, 每轮 {v.auction.round_seconds} 秒
           </dd>
         </dl>
 
@@ -82,7 +91,7 @@ export function VenueCard({venue: v, decimals, busy, queued, disabled, onJoin, o
                 )}
               </div>
               <span className="text-xs text-muted-foreground" title="模拟的仓库价值, 八成的仓库在这个区间内">
-                价值约 {formatAmount(range.p10, decimals, {compact: true})} - {formatAmount(range.p90, decimals, {compact: true})}
+                {v.lots ? '每仓约' : '价值约'} {formatAmount(range.p10, decimals, {compact: true})} - {formatAmount(range.p90, decimals, {compact: true})}
               </span>
               {kind === 'pve' && v.pve.profit_caps.map((c) => (
                 <ProfitCapLine key={c.scope} cap={c} currency={v.bid_currency} decimals={decimals} />

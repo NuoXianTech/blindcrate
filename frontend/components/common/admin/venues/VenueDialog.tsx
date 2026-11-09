@@ -29,6 +29,7 @@ import {BotTab} from './BotTab';
 import {ConsumableTab} from './ConsumableTab';
 import {EntryTab} from './EntryTab';
 import {HostTab} from './HostTab';
+import {LotsTab} from './LotsTab';
 import {SimulationStats} from './SimulationStats';
 import {WarehouseTab} from './WarehouseTab';
 import {toRequest} from './constants';
@@ -147,6 +148,7 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
           <TabsTrigger value="basic">基本</TabsTrigger>
           <TabsTrigger value="entry">入场</TabsTrigger>
           <TabsTrigger value="warehouse">仓库</TabsTrigger>
+          <TabsTrigger value="lots">拍场</TabsTrigger>
           <TabsTrigger value="auction">拍卖</TabsTrigger>
           <TabsTrigger value="bots">人机</TabsTrigger>
           <TabsTrigger value="consumables">道具</TabsTrigger>
@@ -163,8 +165,18 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
           <TabsContent value="warehouse">
             <WarehouseTab {...tabProps} pools={pools} />
           </TabsContent>
+          <TabsContent value="lots">
+            <LotsTab
+              {...tabProps}
+              pools={pools}
+              currency={currency}
+              savedTiers={venue?.lots?.tiers ?? []}
+              tierStats={simulation?.tiers ?? []}
+              stale={stale}
+            />
+          </TabsContent>
           <TabsContent value="auction">
-            <AuctionTab {...tabProps} currency={currency} derived={derived} stale={stale} />
+            <AuctionTab {...tabProps} currency={currency} derived={derived} stale={stale} lots={form.tiers.length > 0} />
           </TabsContent>
           <TabsContent value="bots">
             <BotTab {...tabProps} currency={currency} personas={personas} />
@@ -183,7 +195,12 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
               </p>
             )}
             {simulation ? (
-              <SimulationStats simulation={simulation} currency={currency} stale={stale} />
+              <SimulationStats
+                simulation={simulation}
+                currency={currency}
+                stale={stale}
+                tierNames={Object.fromEntries(form.tiers.map((t) => [t.code.trim(), t.name]))}
+              />
             ) : (
               !simulate.pending && <p className="py-6 text-center text-sm text-muted-foreground">还没有模拟过, 点击下方的模拟按钮</p>
             )}

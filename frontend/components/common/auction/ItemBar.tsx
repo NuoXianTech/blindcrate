@@ -18,15 +18,17 @@ import {ItemImage} from '@/components/common/item';
 import {useQualities} from '@/components/common/site';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import {AUCTION_PHASE, type AuctionView, type UsableItem} from '@/lib/services/auction';
+import {AUCTION_PHASE, type AuctionView, type LotView, type UsableItem} from '@/lib/services/auction';
 import {toErrorMessage} from '@/lib/services/core';
 
 /**
  * 道具栏: 背包中这张地图允许的道具, 点击确认后使用, 每次消耗 1 个
  * 只在出价阶段可用; 练习局、次数用完、加轮中不能出价时置灰
  */
-export function ItemBar({view, onUse}: {
+export function ItemBar({view, lot, onUse}: {
   view: AuctionView;
+  /** 当前拍品, 道具只作用于它 */
+  lot: LotView;
   /** 使用成功后返回的最新视角 */
   onUse: (view: AuctionView) => void;
 }) {
@@ -50,7 +52,7 @@ export function ItemBar({view, onUse}: {
     void load();
   }, [load]);
 
-  const contender = view.contenders.length === 0 || view.contenders.includes(self.seat);
+  const contender = lot.contenders.length === 0 || lot.contenders.includes(self.seat);
   let blocked = '';
   if (self.is_practice) blocked = '练习局不能使用道具';
   else if (view.phase !== AUCTION_PHASE.bidding) blocked = '只能在出价阶段使用道具';

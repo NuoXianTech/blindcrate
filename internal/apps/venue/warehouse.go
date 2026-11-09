@@ -284,7 +284,11 @@ const simulationSalt = 0x9e3779b97f4a7c15
 //
 // 相同的配置得到相同的结果, 重新保存没改过的地图时推导出的金额不变。
 func (g *Generator) Simulate(runs int, valueFactor int32) ValueStats {
-	fast := g.Seeded(1)
+	return simulateValues(runs, g.Seeded(1).Generate, valueFactor)
+}
+
+// simulateValues 用 generate 生成 runs 个仓库, 统计摆放失败率和价值分布
+func simulateValues(runs int, generate func(valueFactor int32) (*Warehouse, error), valueFactor int32) ValueStats {
 	values := make([]int64, 0, runs)
 	var (
 		failures int
@@ -292,7 +296,7 @@ func (g *Generator) Simulate(runs int, valueFactor int32) ValueStats {
 		total    int64
 	)
 	for range runs {
-		warehouse, err := fast.Generate(valueFactor)
+		warehouse, err := generate(valueFactor)
 		if err != nil {
 			failures++
 			continue
@@ -365,4 +369,82 @@ func (g *Generator) PieceOdds(valueFactor int32) []PieceOdds {
 		return cmp.Or(cmp.Compare(a.Quality, b.Quality), cmp.Compare(a.Width, b.Width), cmp.Compare(a.Height, b.Height))
 	})
 	return odds
+}
+
+// Lineup 按地图的档次生成拍场的拍品: 拍品数在 LotRule 的范围内均匀随机, 每个拍品按权重抽一种档次
+//
+// 没有配置档次时只有 Warehouse 一档, 拍品数为 1。与 Generator 相同, 不是并发安全的。
+type Lineup struct {
+	min, max int32
+	tiers    []*Generator
+	weights  []int64
+	randN    func(n int64) int64
+}
+
+// NewLineup 读取各档次引用的掉落池和物品, 使用 crypto/rand 抽取; 错误同 NewGenerator
+func NewLineup(tx *gorm.DB, v *Venue) (*Lineup, error) {
+	l := &Lineup{randN: loot.RandInt64N}
+	l.min, l.max = v.Lots.Range()
+	for _, t := range v.LotTiers() {
+		g, err := NewGenerator(tx, t.Warehouse, v.BidCurrency)
+		if err != nil {
+			return nil, err
+		}
+		l.tiers = append(l.tiers, g)
+		l.weights = append(l.weights, int64(t.Weight))
+	}
+	return l, nil
+}
+
+// Count 抽一个拍场的拍品数
+func (l *Lineup) Count() int {
+	if l.min == l.max {
+		return int(l.min)
+	}
+	return int(l.min + int32(l.randN(int64(l.max-l.min+1))))
+}
+
+// Pick 按权重抽一种档次, 返回下标, 同 LotTiers 的顺序
+func (l *Lineup) Pick() int {
+	if len(l.weights) == 1 {
+		return 0
+	}
+	var total int64
+	for _, w := range l.weights {
+		total += w
+	}
+	n := l.randN(total)
+	for i, w := range l.weights {
+		if n < w {
+			return i
+		}
+		n -= w
+	}
+	return len(l.weights) - 1
+}
+
+// Tier 第 i 种档次的生成器
+func (l *Lineup) Tier(i int) *Generator { return l.tiers[i] }
+
+// Tiers 档次的个数
+func (l *Lineup) Tiers() int { return len(l.tiers) }
+
+// Seeded 换用以 seed 为种子的 math/rand 抽取的副本, 各档次的生成器也换用这个随机数; 不影响 l
+func (l *Lineup) Seeded(seed uint64) *Lineup {
+	randN := rand.New(rand.NewPCG(seed, seed^simulationSalt)).Int64N
+	clone := *l
+	clone.randN = randN
+	clone.tiers = make([]*Generator, len(l.tiers))
+	for i, g := range l.tiers {
+		clone.tiers[i] = g.withRand(randN)
+	}
+	return &clone
+}
+
+// Simulate 模拟 runs 个拍品(按权重混合各档次)的价值分布, 不影响 l 之后的生成
+func (l *Lineup) Simulate(runs int, valueFactor int32) ValueStats {
+	fast := l.Seeded(1)
+	return simulateValues(runs, func(valueFactor int32) (*Warehouse, error) {
+		return fast.Tier(fast.Pick()).Generate(valueFactor)
+	}, valueFactor)
 }

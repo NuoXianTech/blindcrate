@@ -30,6 +30,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
+	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -119,4 +120,72 @@ func ListUsableItems(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListUsableItemsResponseData{Items: items}})
+}
+
+// ListCarryResponseData 自己在各地图选的带入金额
+type ListCarryResponseData struct {
+	Preferences []CarryPreference `json:"preferences"`
+}
+
+// ListCarry
+// @Tags auction
+// @Summary 获取自己在各地图选的带入金额
+// @Description 没选过的地图不在列表中, 准入时按地图的带入资金上限; 地图之后调低了上限时按新的上限截断
+// @Produce json
+// @Success 200 {object} Response{data=ListCarryResponseData}
+// @Failure 401 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/auctions/carry [get]
+func ListCarry(c *gin.Context) {
+	ctx := c.Request.Context()
+	user, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	prefs, err := QueryCarry(ctx, user.ID)
+	if err != nil {
+		logger.ErrorF(ctx, "[ListCarry] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: ListCarryResponseData{Preferences: prefs}})
+}
+
+// PutCarry
+// @Tags auction
+// @Summary 选择在一张地图的带入金额
+// @Description 整个拍场共用这笔带入资金, 超出 [起拍价, 带入资金上限] 时按边界保存; 下一局准入时按它冻结, 可用余额不够时拒绝入场
+// @Accept json
+// @Produce json
+// @Param body body CarryRequest true "带入金额"
+// @Success 200 {object} Response{data=CarryPreference}
+// @Failure 400 {object} Response
+// @Failure 401 {object} Response
+// @Failure 404 {object} Response
+// @Failure 500 {object} Response
+// @Router /api/v1/auctions/carry [put]
+func PutCarry(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req CarryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		return
+	}
+	user, ok := auth.GetUserFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
+		return
+	}
+	pref, err := SetCarry(ctx, user.ID, &req)
+	if err != nil {
+		if err.Error() == venue.VenueDisabled {
+			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
+			return
+		}
+		logger.ErrorF(ctx, "[PutCarry] save failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: pref})
 }

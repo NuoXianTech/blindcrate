@@ -7831,6 +7831,118 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/auctions/carry": {
+            "get": {
+                "description": "没选过的地图不在列表中, 准入时按地图的带入资金上限; 地图之后调低了上限时按新的上限截断",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auction"
+                ],
+                "summary": "获取自己在各地图选的带入金额",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/auction.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auction.ListCarryResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "整个拍场共用这笔带入资金, 超出 [起拍价, 带入资金上限] 时按边界保存; 下一局准入时按它冻结, 可用余额不够时拒绝入场",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auction"
+                ],
+                "summary": "选择在一张地图的带入金额",
+                "parameters": [
+                    {
+                        "description": "带入金额",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auction.CarryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/auction.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/auction.CarryPreference"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/auction.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auctions/{match_id}": {
             "get": {
                 "description": "进行中时只公开仓库大小、第 1 轮扫出的轮廓和自己的出价、反馈与情报, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用",
@@ -11155,20 +11267,6 @@ const docTemplate = `{
         "auction.AdminView": {
             "type": "object",
             "properties": {
-                "contenders": {
-                    "description": "加轮时可以出价的座位, 为空表示所有人",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "footprints": {
-                    "description": "第 1 轮扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auction.Footprint"
-                    }
-                },
                 "host": {
                     "description": "主持人, 没有主持人提示时为空",
                     "allOf": [
@@ -11178,10 +11276,35 @@ const docTemplate = `{
                     ]
                 },
                 "intel_seats": {
-                    "description": "买过情报的座位, 按座位号; 只公开次数, 不公开内容",
+                    "description": "在当前拍品上买过情报的座位, 按座位号; 只公开次数, 不公开内容",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auction.SeatIntel"
+                    }
+                },
+                "lot": {
+                    "description": "当前拍品的序号, 从 1 开始",
+                    "type": "integer"
+                },
+                "lot_count": {
+                    "type": "integer"
+                },
+                "lot_round": {
+                    "description": "当前拍品的第几轮",
+                    "type": "integer"
+                },
+                "lot_rows": {
+                    "description": "全部拍品, 含档次代码、价值和件数",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.Lot"
+                    }
+                },
+                "lots": {
+                    "description": "按序号",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.LotView"
                     }
                 },
                 "match_id": {
@@ -11196,10 +11319,6 @@ const docTemplate = `{
                 "phase_ends_at": {
                     "type": "string"
                 },
-                "piece_count": {
-                    "description": "藏品件数",
-                    "type": "integer"
-                },
                 "players": {
                     "description": "按座位号排序",
                     "type": "array",
@@ -11207,16 +11326,17 @@ const docTemplate = `{
                         "$ref": "#/definitions/auction.Player"
                     }
                 },
-                "result": {
-                    "description": "结算后才有",
+                "round": {
+                    "description": "拍场内的轮次, 从 1 开始连续编号",
+                    "type": "integer"
+                },
+                "session": {
+                    "description": "拍场结束后才有",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/auction.ResultView"
+                            "$ref": "#/definitions/auction.SessionView"
                         }
                     ]
-                },
-                "round": {
-                    "type": "integer"
                 },
                 "status": {
                     "type": "string"
@@ -11240,20 +11360,6 @@ const docTemplate = `{
         "auction.AuctionView": {
             "type": "object",
             "properties": {
-                "contenders": {
-                    "description": "加轮时可以出价的座位, 为空表示所有人",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "footprints": {
-                    "description": "第 1 轮扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auction.Footprint"
-                    }
-                },
                 "host": {
                     "description": "主持人, 没有主持人提示时为空",
                     "allOf": [
@@ -11263,10 +11369,28 @@ const docTemplate = `{
                     ]
                 },
                 "intel_seats": {
-                    "description": "买过情报的座位, 按座位号; 只公开次数, 不公开内容",
+                    "description": "在当前拍品上买过情报的座位, 按座位号; 只公开次数, 不公开内容",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auction.SeatIntel"
+                    }
+                },
+                "lot": {
+                    "description": "当前拍品的序号, 从 1 开始",
+                    "type": "integer"
+                },
+                "lot_count": {
+                    "type": "integer"
+                },
+                "lot_round": {
+                    "description": "当前拍品的第几轮",
+                    "type": "integer"
+                },
+                "lots": {
+                    "description": "按序号",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.LotView"
                     }
                 },
                 "match_id": {
@@ -11281,19 +11405,20 @@ const docTemplate = `{
                 "phase_ends_at": {
                     "type": "string"
                 },
-                "result": {
-                    "description": "结算后才有",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/auction.ResultView"
-                        }
-                    ]
-                },
                 "round": {
+                    "description": "拍场内的轮次, 从 1 开始连续编号",
                     "type": "integer"
                 },
                 "self": {
                     "$ref": "#/definitions/auction.SelfView"
+                },
+                "session": {
+                    "description": "拍场结束后才有",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/auction.SessionView"
+                        }
+                    ]
                 },
                 "status": {
                     "type": "string"
@@ -11307,19 +11432,36 @@ const docTemplate = `{
                 }
             }
         },
-        "auction.Feedback": {
+        "auction.CarryPreference": {
             "type": "object",
             "properties": {
-                "hint": {
-                    "description": "见 constants.go 的 Hint",
+                "amount": {
+                    "type": "integer"
+                },
+                "updated_at": {
                     "type": "string"
                 },
-                "rank": {
-                    "description": "自己的出价在出过价的人中排第几, 并列算同一名, 没出过价为 0",
-                    "type": "integer"
+                "venue": {
+                    "description": "地图代码",
+                    "type": "string"
+                }
+            }
+        },
+        "auction.CarryRequest": {
+            "type": "object",
+            "required": [
+                "venue"
+            ],
+            "properties": {
+                "amount": {
+                    "description": "超出 [起拍价, 带入资金上限] 时按边界",
+                    "type": "integer",
+                    "minimum": 0
                 },
-                "round": {
-                    "type": "integer"
+                "venue": {
+                    "description": "地图代码",
+                    "type": "string",
+                    "maxLength": 32
                 }
             }
         },
@@ -11353,14 +11495,18 @@ const docTemplate = `{
                     "description": "见 constants.go 的 HostHint",
                     "type": "string"
                 },
+                "lot_no": {
+                    "type": "integer"
+                },
                 "quality": {
                     "type": "integer"
                 },
                 "round": {
+                    "description": "拍场内的轮次",
                     "type": "integer"
                 },
                 "truthful": {
-                    "description": "是否属实, 开箱后才公开",
+                    "description": "是否属实, 拍场结束后才公开",
                     "type": "boolean"
                 },
                 "x": {
@@ -11393,7 +11539,7 @@ const docTemplate = `{
                     }
                 },
                 "persona": {
-                    "description": "见 venue.HostSteady 等, 开箱后才公开, 之前为空",
+                    "description": "见 venue.HostSteady 等, 拍场结束后才公开, 之前为空",
                     "type": "string"
                 }
             }
@@ -11411,11 +11557,14 @@ const docTemplate = `{
                     "description": "变动后的热度",
                     "type": "integer"
                 },
+                "lot_no": {
+                    "type": "integer"
+                },
                 "raises": {
                     "type": "integer"
                 },
                 "round": {
-                    "description": "开局时为 0, 之后为结束的轮次",
+                    "description": "开局和拍品开场(热度回落)时为 0, 之后为结束的轮次",
                     "type": "integer"
                 }
             }
@@ -11450,6 +11599,17 @@ const docTemplate = `{
                 }
             }
         },
+        "auction.ListCarryResponseData": {
+            "type": "object",
+            "properties": {
+                "preferences": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.CarryPreference"
+                    }
+                }
+            }
+        },
         "auction.ListUsableItemsResponseData": {
             "type": "object",
             "properties": {
@@ -11458,6 +11618,173 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/auction.UsableItem"
                     }
+                }
+            }
+        },
+        "auction.Lot": {
+            "type": "object",
+            "properties": {
+                "contenders": {
+                    "description": "加轮时可以出价的座位, 为空表示所有人",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "extra_rounds": {
+                    "description": "已加的轮数",
+                    "type": "integer"
+                },
+                "first_round": {
+                    "description": "开拍时的轮次, 还没开拍时为 0",
+                    "type": "integer"
+                },
+                "grid": {
+                    "description": "格子大小, 开局时公开",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.Grid"
+                        }
+                    ]
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "intel_price": {
+                    "type": "integer"
+                },
+                "lot_no": {
+                    "description": "出场顺序, 从 1 开始",
+                    "type": "integer"
+                },
+                "match_id": {
+                    "type": "integer"
+                },
+                "odds": {
+                    "description": "按格子大小推断的公示分布, 人机估值和主持人用, 见 publicLots",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.PieceOdds"
+                    }
+                },
+                "outcome": {
+                    "description": "结算前为空, 之后为 sold、unsold 或 cancelled",
+                    "type": "string"
+                },
+                "piece_count": {
+                    "description": "藏品件数, 开箱前不公开",
+                    "type": "integer"
+                },
+                "price": {
+                    "description": "成交价",
+                    "type": "integer"
+                },
+                "settled_at": {
+                    "description": "结算的时间, 即开始扫描的时间",
+                    "type": "string"
+                },
+                "speed_floor": {
+                    "type": "integer"
+                },
+                "start_price": {
+                    "description": "起拍价、速胜下限和情报价格按格子大小推导, 见 venue.Venue.Calibrate",
+                    "type": "integer"
+                },
+                "tier": {
+                    "description": "档次代码, 不公开",
+                    "type": "string"
+                },
+                "value": {
+                    "description": "仓库价值, 出价货币的回收价之和",
+                    "type": "integer"
+                },
+                "winner_seat": {
+                    "description": "成交者的座位, 没有成交时为 0",
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.LotView": {
+            "type": "object",
+            "properties": {
+                "bids": {
+                    "description": "已公开的出价, 按轮次和座位",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.PublicBid"
+                    }
+                },
+                "contenders": {
+                    "description": "加轮时可以出价的座位, 为空表示所有人",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "first_round": {
+                    "description": "开拍时的轮次, 还没开拍时为 0",
+                    "type": "integer"
+                },
+                "footprints": {
+                    "description": "第 1 轮扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.Footprint"
+                    }
+                },
+                "grid": {
+                    "$ref": "#/definitions/venue.Grid"
+                },
+                "intel_price": {
+                    "description": "向主持人买一次情报的价格, 0 表示不卖情报",
+                    "type": "integer"
+                },
+                "lot_no": {
+                    "type": "integer"
+                },
+                "outcome": {
+                    "description": "结算前为空, 之后为 sold、unsold 或 cancelled",
+                    "type": "string"
+                },
+                "pieces": {
+                    "description": "开箱后公开, 按扫描顺序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.PieceView"
+                    }
+                },
+                "price": {
+                    "type": "integer"
+                },
+                "scan_from": {
+                    "description": "开始扫描的时间, 即结算时间; 按已过去的时间和每件的扫描时长算出扫描进度",
+                    "type": "string"
+                },
+                "seats": {
+                    "description": "开箱后公开, 按座位号排序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.SeatResult"
+                    }
+                },
+                "speed_floor": {
+                    "description": "速胜下限",
+                    "type": "integer"
+                },
+                "start_price": {
+                    "type": "integer"
+                },
+                "tier": {
+                    "description": "档次名称, 拍场结束后公开",
+                    "type": "string"
+                },
+                "value": {
+                    "description": "仓库价值, 开箱后公开",
+                    "type": "integer"
+                },
+                "winner_seat": {
+                    "description": "没有成交时为 0",
+                    "type": "integer"
                 }
             }
         },
@@ -11538,7 +11865,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "bid": {
-                    "description": "当前出价, 0 表示还没出过价",
+                    "description": "当前拍品的出价, 0 表示还没出过价; 每个拍品开拍时清零",
                     "type": "integer"
                 },
                 "bid_at": {
@@ -11546,7 +11873,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "carry": {
-                    "description": "带入资金, 出价的上限",
+                    "description": "带入资金, 整个拍场共用; 真人在准入时自选, 见 CarryPreference",
                     "type": "integer"
                 },
                 "created_at": {
@@ -11561,15 +11888,8 @@ const docTemplate = `{
                     ]
                 },
                 "estimate": {
-                    "description": "人机按公开信息的最新估值, 真人为 0",
+                    "description": "人机对当前拍品按公开信息的最新估值, 真人为 0",
                     "type": "integer"
-                },
-                "feedback": {
-                    "description": "每轮结束后的反馈, 人机也有, 用于决策",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auction.Feedback"
-                    }
                 },
                 "frozen": {
                     "description": "冻结的带入资金, 练习局和人机为 0",
@@ -11594,18 +11914,26 @@ const docTemplate = `{
                     ]
                 },
                 "profit": {
-                    "description": "结算后的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算",
+                    "description": "拍场结算后的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算",
+                    "type": "integer"
+                },
+                "rank": {
+                    "description": "拍场的名次, 全部流拍时为 0",
                     "type": "integer"
                 },
                 "rating": {
-                    "description": "结算后的段位分, 只有排位成交时有",
+                    "description": "结算后的段位分, 同上",
                     "type": "integer"
                 },
                 "rating_delta": {
-                    "description": "本局段位分的变化, 只有排位成交时有",
+                    "description": "本局段位分的变化, 只有排位且至少成交一个拍品时有",
                     "type": "integer"
                 },
                 "seat": {
+                    "type": "integer"
+                },
+                "spent": {
+                    "description": "已成交的拍品的成交价之和, 剩余资金为 Carry - Spent",
                     "type": "integer"
                 },
                 "updated_at": {
@@ -11613,6 +11941,22 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "description": "人机为 0",
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.PublicBid": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "0 表示不加价",
+                    "type": "integer"
+                },
+                "round": {
+                    "description": "拍场内的轮次",
+                    "type": "integer"
+                },
+                "seat": {
                     "type": "integer"
                 }
             }
@@ -11634,56 +11978,6 @@ const docTemplate = `{
                 "data": {},
                 "error_msg": {
                     "type": "string"
-                }
-            }
-        },
-        "auction.ResultView": {
-            "type": "object",
-            "properties": {
-                "outcome": {
-                    "description": "sold、unsold 或 cancelled",
-                    "type": "string"
-                },
-                "pieces": {
-                    "description": "按扫描顺序",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auction.PieceView"
-                    }
-                },
-                "price": {
-                    "type": "integer"
-                },
-                "profit": {
-                    "description": "自己的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算; 管理员查看时为 0",
-                    "type": "integer"
-                },
-                "rating": {
-                    "description": "自己结算后的段位分, 只有排位成交时有; 管理员查看时为 0",
-                    "type": "integer"
-                },
-                "rating_delta": {
-                    "description": "自己段位分的变化, 只有排位成交时有; 管理员查看时为 0",
-                    "type": "integer"
-                },
-                "scan_from": {
-                    "description": "开始扫描的时间, 即结算时间; 按已过去的时间和每件的扫描时长算出扫描进度",
-                    "type": "string"
-                },
-                "seats": {
-                    "description": "按座位号排序",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auction.SeatResult"
-                    }
-                },
-                "value": {
-                    "description": "仓库价值",
-                    "type": "integer"
-                },
-                "winner_seat": {
-                    "description": "没有成交时为 0",
-                    "type": "integer"
                 }
             }
         },
@@ -11713,7 +12007,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "uses": {
-                    "description": "用过的道具, 按第一次使用的顺序, 不公开得到的情报",
+                    "description": "在这个拍品上用过的道具, 按第一次使用的顺序, 不公开得到的情报",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auction.UseCount"
@@ -11725,15 +12019,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "bid": {
-                    "description": "当前出价, 0 表示还没出过价",
+                    "description": "当前拍品的出价, 0 表示还没出过价",
                     "type": "integer"
                 },
                 "can_bid": {
-                    "description": "现在是否可以出价",
+                    "description": "现在是否可以出价; 剩余资金不够当前拍品的起拍价时不能",
                     "type": "boolean"
                 },
                 "carry": {
-                    "description": "带入资金, 出价的上限",
+                    "description": "带入资金",
                     "type": "integer"
                 },
                 "entry_cost": {
@@ -11743,13 +12037,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/reward.Bundle"
                         }
                     ]
-                },
-                "feedback": {
-                    "description": "每轮结束后的反馈",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auction.Feedback"
-                    }
                 },
                 "intel_bought": {
                     "description": "本轮是否已买过情报",
@@ -11762,7 +12049,31 @@ const docTemplate = `{
                 "is_practice": {
                     "type": "boolean"
                 },
+                "profit": {
+                    "description": "拍场结算后的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算",
+                    "type": "integer"
+                },
+                "rank": {
+                    "description": "拍场结算后的名次, 全部流拍时为 0",
+                    "type": "integer"
+                },
+                "rating": {
+                    "description": "结算后的段位分, 同上",
+                    "type": "integer"
+                },
+                "rating_delta": {
+                    "description": "段位分的变化, 只有排位且至少成交一个拍品时有",
+                    "type": "integer"
+                },
+                "remaining": {
+                    "description": "剩余资金, 当前拍品出价的上限",
+                    "type": "integer"
+                },
                 "seat": {
+                    "type": "integer"
+                },
+                "spent": {
+                    "description": "已拿下的拍品的成交价之和",
                     "type": "integer"
                 },
                 "submitted": {
@@ -11770,7 +12081,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "uses": {
-                    "description": "自己用过的道具和得到的情报, 按使用顺序",
+                    "description": "自己用过的道具和得到的情报, 按使用顺序, 含之前的拍品",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auction.UseView"
@@ -11779,6 +12090,43 @@ const docTemplate = `{
                 "uses_left": {
                     "description": "本局还能用几个道具, 练习局为 0; 不考虑阶段和轮次",
                     "type": "integer"
+                }
+            }
+        },
+        "auction.SessionSeat": {
+            "type": "object",
+            "properties": {
+                "carry": {
+                    "type": "integer"
+                },
+                "profit": {
+                    "description": "拿下的拍品的价值 - 成交价, 不含买情报的钱",
+                    "type": "integer"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "seat": {
+                    "type": "integer"
+                },
+                "spent": {
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.SessionView": {
+            "type": "object",
+            "properties": {
+                "outcome": {
+                    "description": "sold(至少成交一个拍品)、unsold 或 cancelled",
+                    "type": "string"
+                },
+                "seats": {
+                    "description": "按座位号排序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.SessionSeat"
+                    }
                 }
             }
         },
@@ -11792,7 +12140,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "low_wins": {
-                    "description": "其中一人低价成交的局数",
+                    "description": "其中一人低价成交的拍品数",
                     "type": "integer"
                 },
                 "matches": {
@@ -11823,7 +12171,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/auction.SuspectUser"
                 },
                 "wins": {
-                    "description": "其中一人成交的局数",
+                    "description": "其中一人成交的拍品数",
                     "type": "integer"
                 }
             }
@@ -11923,6 +12271,9 @@ const docTemplate = `{
                 "item_id": {
                     "type": "integer"
                 },
+                "lot_no": {
+                    "type": "integer"
+                },
                 "match_id": {
                     "type": "integer"
                 },
@@ -11978,6 +12329,9 @@ const docTemplate = `{
                 "item_id": {
                     "type": "integer"
                 },
+                "lot_no": {
+                    "type": "integer"
+                },
                 "name": {
                     "description": "使用时的物品名称",
                     "type": "string"
@@ -12007,36 +12361,37 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "entry_fee": {
-                    "description": "入场费等以下字段见 venue.AuctionRule, 旧对局为 0",
+                    "description": "入场费等以下字段见 venue.AuctionRule",
                     "type": "integer"
                 },
-                "grid": {
-                    "$ref": "#/definitions/venue.Grid"
+                "gap_seconds": {
+                    "description": "拍品开箱后停留多久进入下一个",
+                    "type": "integer"
                 },
                 "intel_limit": {
-                    "description": "每人每局最多买几次情报, 每轮最多一次",
-                    "type": "integer"
-                },
-                "intel_price": {
-                    "description": "向主持人买一次情报的价格, 0 表示不卖情报",
+                    "description": "每人每局(整个拍场)最多买几次情报, 每轮最多一次",
                     "type": "integer"
                 },
                 "lead_discount": {
                     "description": "领先折让, 基点",
                     "type": "integer"
                 },
+                "max_carry": {
+                    "description": "带入资金上限",
+                    "type": "integer"
+                },
                 "max_extra_rounds": {
                     "type": "integer"
                 },
                 "max_uses": {
-                    "description": "这个模式每局最多使用几个道具, 0 表示不能用",
+                    "description": "这个模式每局(整个拍场)最多使用几个道具, 0 表示不能用",
                     "type": "integer"
                 },
                 "name": {
                     "type": "string"
                 },
                 "preview_rate": {
-                    "description": "首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件",
+                    "description": "首轮扫描比例, 基点: 每个拍品的第 1 轮每件藏品按这个概率扫出轮廓, 至少一件",
                     "type": "integer"
                 },
                 "quick_win": {
@@ -12047,13 +12402,7 @@ const docTemplate = `{
                     }
                 },
                 "rounds": {
-                    "type": "integer"
-                },
-                "speed_floor": {
-                    "description": "速胜下限",
-                    "type": "integer"
-                },
-                "start_price": {
+                    "description": "每个拍品的轮数",
                     "type": "integer"
                 }
             }
@@ -17401,7 +17750,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "max_carry": {
-                    "description": "带入资金上限, 开局时冻结 min(可用余额, 上限), 出价不能超过它",
+                    "description": "带入资金上限, 玩家在 [起拍价, 上限] 内自选带入金额, 整个拍场共用",
                     "type": "integer"
                 },
                 "max_extra_rounds": {
@@ -17443,7 +17792,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "start_price": {
-                    "description": "起拍价",
+                    "description": "起拍价; 配置了档次时为各档次中最低的, 也是最低带入, 每个拍品按档次的起拍价",
                     "type": "integer"
                 }
             }
@@ -17600,6 +17949,20 @@ const docTemplate = `{
                 }
             }
         },
+        "venue.GridOdds": {
+            "type": "object",
+            "properties": {
+                "grid": {
+                    "$ref": "#/definitions/venue.Grid"
+                },
+                "variants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.VariantOdds"
+                    }
+                }
+            }
+        },
         "venue.HostRule": {
             "type": "object",
             "properties": {
@@ -17648,6 +18011,105 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/venue.VenueView"
                     }
+                }
+            }
+        },
+        "venue.LotGrid": {
+            "type": "object",
+            "properties": {
+                "grid": {
+                    "$ref": "#/definitions/venue.Grid"
+                },
+                "intel_price": {
+                    "type": "integer"
+                },
+                "share": {
+                    "description": "拍品是这种格子大小的概率, 基点",
+                    "type": "integer"
+                },
+                "speed_floor": {
+                    "type": "integer"
+                },
+                "start_price": {
+                    "type": "integer"
+                }
+            }
+        },
+        "venue.LotRule": {
+            "type": "object",
+            "properties": {
+                "coverage": {
+                    "description": "基点, 带入资金上限 = 拍场期望总价值 × 覆盖率; 0 表示用玩法平衡设置的默认值",
+                    "type": "integer",
+                    "maximum": 20000,
+                    "minimum": 0
+                },
+                "gap_seconds": {
+                    "description": "一个拍品开箱后停留多久进入下一个",
+                    "type": "integer",
+                    "maximum": 30,
+                    "minimum": 0
+                },
+                "max": {
+                    "type": "integer",
+                    "maximum": 8,
+                    "minimum": 0
+                },
+                "min": {
+                    "description": "没有配置档次时忽略, 按 1 个",
+                    "type": "integer",
+                    "maximum": 8,
+                    "minimum": 0
+                },
+                "tiers": {
+                    "type": "array",
+                    "maxItems": 6,
+                    "items": {
+                        "$ref": "#/definitions/venue.Tier"
+                    }
+                }
+            }
+        },
+        "venue.LotsView": {
+            "type": "object",
+            "properties": {
+                "gap_seconds": {
+                    "type": "integer"
+                },
+                "grids": {
+                    "description": "按第一次出现在档次中的顺序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.LotGrid"
+                    }
+                },
+                "max": {
+                    "type": "integer"
+                },
+                "min": {
+                    "type": "integer"
+                }
+            }
+        },
+        "venue.PieceOdds": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "description": "期望件数, 不考虑摆不下时的重抽",
+                    "type": "number"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "price": {
+                    "description": "平均回收价, 出价货币; 回收货币不同的按 0 计",
+                    "type": "number"
+                },
+                "quality": {
+                    "type": "integer"
+                },
+                "width": {
+                    "type": "integer"
                 }
             }
         },
@@ -17739,7 +18201,7 @@ const docTemplate = `{
                     ]
                 },
                 "ranked": {
-                    "description": "排位模式, 不缩放抽取次数",
+                    "description": "排位模式, 不缩放抽取次数; 配置了档次时为单个拍品(按权重混合各档次)的分布",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.ValueStats"
@@ -17751,6 +18213,13 @@ const docTemplate = `{
                 },
                 "simulated_at": {
                     "type": "string"
+                },
+                "tiers": {
+                    "description": "各档次的价值分布, 没有配置档次时为空",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.TierStats"
+                    }
                 }
             }
         },
@@ -17837,6 +18306,14 @@ const docTemplate = `{
                     "description": "出价离散度: 每局出过价的人的出价变异系数 ÷ √3 的平均值",
                     "type": "integer"
                 },
+                "budget_out": {
+                    "description": "拍场结束时剩余资金不够最低起拍价的真人席位比例",
+                    "type": "integer"
+                },
+                "early_share": {
+                    "description": "成交的拍品在最后一轮前的最高价 ÷ 成交价的平均值, 太低说明大家都在等最后一轮",
+                    "type": "integer"
+                },
                 "humans": {
                     "description": "真人数, 其余为人机",
                     "type": "integer"
@@ -17853,12 +18330,24 @@ const docTemplate = `{
                     "description": "每轮结束后热度火热(不低于 70)的比例, 加轮和成交的那一轮不算",
                     "type": "integer"
                 },
+                "lots": {
+                    "description": "每局平均的拍品数, 百分之一个",
+                    "type": "integer"
+                },
+                "plan_gain": {
+                    "description": "会规划预算的模拟真人比不规划的每局多赚多少, 只有两种都有时有",
+                    "type": "integer"
+                },
                 "price_value": {
                     "description": "成交价之和 ÷ 仓库价值之和",
                     "type": "integer"
                 },
+                "rank_win": {
+                    "description": "每个真人席位拿到拍场第 1 名(盈亏最高且赚钱)的比例; 多拍品时胜率闸门看它",
+                    "type": "integer"
+                },
                 "seat_ev": {
-                    "description": "每个真人席位每局的平均盈亏, 藏品按扣掉出售手续费后的回收价计",
+                    "description": "每个真人席位每局(拍场)的平均盈亏, 藏品按扣掉出售手续费后的回收价计",
                     "type": "integer"
                 },
                 "sold": {
@@ -17878,7 +18367,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "win_rate": {
-                    "description": "每个真人席位的成交率",
+                    "description": "每个真人席位每个拍品的成交率, 一局一个拍品时就是每局的成交率",
                     "type": "integer"
                 },
                 "winner_ev": {
@@ -17900,6 +18389,67 @@ const docTemplate = `{
                     "type": "integer",
                     "maximum": 10000,
                     "minimum": 1
+                }
+            }
+        },
+        "venue.Tier": {
+            "type": "object",
+            "required": [
+                "code",
+                "name"
+            ],
+            "properties": {
+                "auction": {
+                    "$ref": "#/definitions/venue.TierAuction"
+                },
+                "code": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "name": {
+                    "description": "只在管理端和拍场结束后显示",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "warehouse": {
+                    "$ref": "#/definitions/venue.WarehouseRule"
+                },
+                "weight": {
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 1
+                }
+            }
+        },
+        "venue.TierAuction": {
+            "type": "object",
+            "properties": {
+                "intel_price": {
+                    "type": "integer"
+                },
+                "mean": {
+                    "description": "这个档次的期望价值, 排位模式, 不公开",
+                    "type": "integer"
+                },
+                "speed_floor": {
+                    "type": "integer"
+                },
+                "start_price": {
+                    "type": "integer"
+                }
+            }
+        },
+        "venue.TierStats": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "pve": {
+                    "$ref": "#/definitions/venue.ValueStats"
+                },
+                "ranked": {
+                    "$ref": "#/definitions/venue.ValueStats"
                 }
             }
         },
@@ -17946,6 +18496,21 @@ const docTemplate = `{
                 },
                 "p90": {
                     "type": "integer"
+                }
+            }
+        },
+        "venue.VariantOdds": {
+            "type": "object",
+            "properties": {
+                "share": {
+                    "description": "这个格子大小的拍品是这一档的概率, 基点",
+                    "type": "integer"
+                },
+                "slots": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.SlotOdds"
+                    }
                 }
             }
         },
@@ -18016,6 +18581,14 @@ const docTemplate = `{
                     "description": "停用后不能加入队列, 进行中的对局照常打完",
                     "type": "boolean"
                 },
+                "lots": {
+                    "description": "拍场: 一局开拍几个仓库, 从哪些档次中抽",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.LotRule"
+                        }
+                    ]
+                },
                 "name": {
                     "type": "string"
                 },
@@ -18056,7 +18629,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "warehouse": {
-                    "description": "仓库生成规则",
+                    "description": "仓库生成规则, 没有配置档次时是唯一的档次",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.WarehouseRule"
@@ -18105,6 +18678,21 @@ const docTemplate = `{
                 "image_url": {
                     "type": "string"
                 },
+                "lot_slots": {
+                    "description": "拍场每种格子大小的仓库, 没有配置档次时为空",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/venue.GridOdds"
+                    }
+                },
+                "lots": {
+                    "description": "拍场的拍品数和格子大小, 没有配置档次(一局一个仓库)时为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.LotsView"
+                        }
+                    ]
+                },
                 "name": {
                     "type": "string"
                 },
@@ -18125,13 +18713,14 @@ const docTemplate = `{
                     }
                 },
                 "slots": {
+                    "description": "没有配置档次时仓库的档位; 拍场为空, 见 LotSlots",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/venue.SlotOdds"
                     }
                 },
                 "value_range": {
-                    "description": "排位模式的仓库价值区间, 保存地图时模拟",
+                    "description": "排位模式的仓库价值区间, 保存地图时模拟; 拍场为单个拍品的",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.ValueRange"
@@ -18180,6 +18769,14 @@ const docTemplate = `{
                 "image_url": {
                     "type": "string"
                 },
+                "lots": {
+                    "description": "拍场的拍品数和格子大小, 没有配置档次(一局一个仓库)时为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.LotsView"
+                        }
+                    ]
+                },
                 "name": {
                     "type": "string"
                 },
@@ -18200,7 +18797,7 @@ const docTemplate = `{
                     }
                 },
                 "value_range": {
-                    "description": "排位模式的仓库价值区间, 保存地图时模拟",
+                    "description": "排位模式的仓库价值区间, 保存地图时模拟; 拍场为单个拍品的",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.ValueRange"
@@ -18376,6 +18973,14 @@ const docTemplate = `{
                 },
                 "is_enabled": {
                     "type": "boolean"
+                },
+                "lots": {
+                    "description": "拍场的拍品数和档次, 不配置档次时一局一个仓库",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/venue.LotRule"
+                        }
+                    ]
                 },
                 "name": {
                     "type": "string",

@@ -53,17 +53,21 @@ export interface MatchSummary {
   /** 开局时的地图名称 */
   venue_name: string;
   bid_currency: string;
-  /** 结算前为空, 之后为 sold、unsold 或 cancelled */
+  /** 拍场结算前为空, 之后为 sold(至少成交一个拍品)、unsold 或 cancelled */
   outcome: string;
-  /** 成交价, 没有成交时为 0 */
-  price: number;
-  /** 是否由自己成交 */
-  won: boolean;
+  /** 拍品数 */
+  lot_count: number;
+  /** 自己拿下的拍品数 */
+  won_lots: number;
+  /** 自己拿下的拍品的成交价之和 */
+  spent: number;
   /** 自己的盈亏, 结算前为 0 */
   profit: number;
+  /** 自己的名次, 全部流拍时为 0 */
+  rank: number;
   /** 自己打的是否为练习局 */
   is_practice: boolean;
-  /** 自己段位分的变化, 只有排位成交时有 */
+  /** 自己段位分的变化, 只有排位且至少成交一个拍品时有 */
   rating_delta: number;
 }
 

@@ -24,6 +24,10 @@ export const MAX_ENTRY_COST_LINES = 8;
 export const MAX_REQUIREMENTS = 16;
 export const MAX_SLOTS = 8;
 export const MAX_SWINGS = 8;
+/** 拍场, 与后端 venue.LotRule 的校验一致 */
+export const MAX_LOTS = 8;
+export const MAX_TIERS = 6;
+export const MAX_GAP_SECONDS = 30;
 /** 每个模式出场的人机风格数量上限 */
 export const MAX_BOT_PERSONAS = 10;
 export const MAX_USES = 10;
@@ -50,6 +54,14 @@ export function toRequest(venue: AdminVenue): VenueRequest {
     entry_cost: venue.entry_cost,
     requirements: venue.requirements,
     warehouse: venue.warehouse,
+    // 档次的金额由后端推导, 不提交
+    lots: {
+      min: venue.lots?.min ?? 0,
+      max: venue.lots?.max ?? 0,
+      tiers: (venue.lots?.tiers ?? []).map(({code, name, weight, warehouse}) => ({code, name, weight, warehouse})),
+      gap_seconds: venue.lots?.gap_seconds ?? 0,
+      coverage: venue.lots?.coverage ?? 0,
+    },
     auction: venue.auction,
     bots: venue.bots,
     pve: venue.pve,

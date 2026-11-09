@@ -11,16 +11,18 @@ import {useCountdown} from '@/hooks/use-countdown';
 import {useScan} from '@/hooks/use-scan';
 import {useWsConnected, useWsEvent} from '@/hooks/use-ws';
 import {ROUTES} from '@/lib/access';
+import {currentLot} from '@/lib/auction';
 import services from '@/lib/services';
 import {AUCTION_MESSAGES, type AuctionView} from '@/lib/services/auction';
 import {ApiError, toErrorMessage} from '@/lib/services/core';
 import {MATCH_MESSAGES, MATCH_STATUS, type MatchView} from '@/lib/services/match';
 import {AuctionHeader} from './AuctionHeader';
+import {BidHistory} from './BidHistory';
 import {BidPanel} from './BidPanel';
-import {FeedbackList} from './FeedbackList';
 import {HostPanel} from './HostPanel';
 import {IntelResult, intelPieces} from './IntelResult';
 import {ItemBar} from './ItemBar';
+import {LotStrip} from './LotStrip';
 import {ResultPanel} from './ResultPanel';
 import {SeatList} from './SeatList';
 import {Warehouse} from './Warehouse';
@@ -34,7 +36,7 @@ function newer<T extends { version: number }>(prev: T | null, next: T): T {
 }
 
 /**
- * 拍卖桌: 仓库、座位、出价和结算
+ * 拍卖桌: 拍品进度、当前拍品的仓库、座位、出价和结算
  * 以 auction:updated 和 match:updated 推送为准; 推送不保证送达, 连上 WebSocket 后和阶段到期后迟迟没有推送时重新拉取
  */
 export function AuctionMain({matchId}: { matchId: number }) {
@@ -134,7 +136,7 @@ function AuctionSkeleton() {
   );
 }
 
-/** 加载完的拍卖桌, 开箱扫描的进度在这里算一次, 仓库、座位和结算按同一进度揭晓 */
+/** 加载完的拍卖桌, 当前拍品的开箱扫描进度在这里算一次, 仓库、座位和结算按同一进度揭晓 */
 function AuctionTable({view, match, decimals, remaining, onView}: {
   view: AuctionView;
   match: MatchView;
@@ -143,56 +145,60 @@ function AuctionTable({view, match, decimals, remaining, onView}: {
   /** 出价、用道具和买情报后返回的最新视角 */
   onView: (view: AuctionView) => void;
 }) {
-  const uses = view.self.uses;
+  const lot = currentLot(view);
+  // 情报只对用在的拍品有意义, 只看当前拍品的
+  const uses = useMemo(() => view.self.uses.filter((u) => u.lot_no === lot.lot_no), [view.self.uses, lot.lot_no]);
   const intel = useMemo(() => intelPieces(uses.map((u) => u.result)), [uses]);
   const finished = match.status !== MATCH_STATUS.playing;
-  const scan = useScan(view, finished);
+  const scan = useScan(lot, view.venue.bid_currency, finished);
+  const settled = lot.outcome !== '';
 
   return (
     <>
       <AuctionHeader view={view} finished={finished} remaining={remaining} />
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto grid w-full max-w-6xl gap-6 p-4 lg:grid-cols-[1fr_380px]">
-          <Warehouse view={view} decimals={decimals} scan={scan} intel={intel} />
-          <div className="flex flex-col gap-4">
-            <SeatList view={view} players={match.players} decimals={decimals} revealed={scan.complete} />
-            {view.result ? (
-              <ResultPanel
-                view={view}
-                players={match.players}
-                decimals={decimals}
-                scan={scan}
-                finished={finished}
-                released={finished || !!match.released_at}
-              />
-            ) : (
-              <BidPanel key={view.round} view={view} decimals={decimals} onBid={onView} />
-            )}
-            <HostPanel view={view} decimals={decimals} onBuy={onView} />
-            {!view.result && view.venue.max_uses > 0 && <ItemBar key={view.match_id} view={view} onUse={onView} />}
-            {view.self.uses.length > 0 && (
-              <section className="flex flex-col gap-2">
-                <h2 className="flex items-center justify-between text-sm font-medium">
-                  我的情报
-                  <span className="text-xs font-normal text-muted-foreground">仅自己可见</span>
-                </h2>
-                <ul className="flex flex-col gap-1.5">
-                  {[...view.self.uses].reverse().map((u) => (
-                    <li key={`${u.round}-${u.item_id}`} className="flex flex-col gap-1.5 rounded-lg border bg-card px-3 py-2 text-sm">
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="font-medium">{u.name}</span>
-                        <span className="text-xs text-muted-foreground">第 {u.round} 轮</span>
-                      </span>
-                      <IntelResult intel={u.result} currency={view.venue.bid_currency} decimals={decimals} />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-            <section className="flex flex-col gap-2">
-              <h2 className="text-sm font-medium">每轮反馈</h2>
-              <FeedbackList feedback={view.self.feedback} />
-            </section>
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4">
+          <LotStrip view={view} players={match.players} decimals={decimals} scan={scan} />
+          <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+            <Warehouse key={`lot:${lot.lot_no}`} view={view} lot={lot} decimals={decimals} scan={scan} intel={intel} />
+            <div className="flex flex-col gap-4">
+              <SeatList view={view} lot={lot} players={match.players} decimals={decimals} revealed={scan.complete} />
+              {settled ? (
+                <ResultPanel
+                  view={view}
+                  lot={lot}
+                  players={match.players}
+                  decimals={decimals}
+                  scan={scan}
+                  finished={finished}
+                  released={finished || !!match.released_at}
+                />
+              ) : (
+                <BidPanel key={`bid:${view.round}`} view={view} lot={lot} decimals={decimals} onBid={onView} />
+              )}
+              <BidHistory view={view} lot={lot} players={match.players} decimals={decimals} />
+              <HostPanel view={view} lot={lot} decimals={decimals} onBuy={onView} />
+              {!settled && view.venue.max_uses > 0 && <ItemBar key={`items:${view.match_id}`} view={view} lot={lot} onUse={onView} />}
+              {uses.length > 0 && (
+                <section className="flex flex-col gap-2">
+                  <h2 className="flex items-center justify-between text-sm font-medium">
+                    这个拍品的情报
+                    <span className="text-xs font-normal text-muted-foreground">仅自己可见</span>
+                  </h2>
+                  <ul className="flex flex-col gap-1.5">
+                    {[...uses].reverse().map((u) => (
+                      <li key={`${u.round}-${u.item_id}`} className="flex flex-col gap-1.5 rounded-lg border bg-card px-3 py-2 text-sm">
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="font-medium">{u.name}</span>
+                          <span className="text-xs text-muted-foreground">第 {u.round - lot.first_round + 1} 轮</span>
+                        </span>
+                        <IntelResult intel={u.result} currency={view.venue.bid_currency} decimals={decimals} />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </div>
           </div>
         </div>
       </main>

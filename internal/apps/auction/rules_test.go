@@ -79,10 +79,9 @@ func TestJudgeLastRound(t *testing.T) {
 	}
 }
 
-func TestRankSeats(t *testing.T) {
-	bidders := []bidder{{1, 900, at(1)}, {2, 700, at(2)}, {3, 1100, at(3)}, {4, 0, time.Time{}}}
-
-	ranks := rankSeats(bidders, 1, 900, 1000)
+func TestRankSession(t *testing.T) {
+	// 一个拍品, 价值 1000, 座位 1 以 900 成交; 座位 2、3 出价 700、1100, 座位 4 没出价
+	ranks := rankSession([]seatTotal{{1, 100, 0.1}, {2, 0, 0.3}, {3, 0, 0.1}, {4, 0, -1}})
 	want := map[int16]int16{1: 1, 3: 2, 2: 3, 4: 4}
 	for seat, rank := range want {
 		if ranks[seat] != rank {
@@ -90,7 +89,8 @@ func TestRankSeats(t *testing.T) {
 		}
 	}
 
-	ranks = rankSeats(bidders, 1, 900, 800)
+	// 价值 800 时成交者亏 100
+	ranks = rankSession([]seatTotal{{1, -100, 0.125}, {2, 0, 0.125}, {3, 0, 0.375}, {4, 0, -1}})
 	want = map[int16]int16{2: 1, 3: 2, 4: 3, 1: 4}
 	for seat, rank := range want {
 		if ranks[seat] != rank {
@@ -99,33 +99,14 @@ func TestRankSeats(t *testing.T) {
 	}
 }
 
-func TestFeedbackFor(t *testing.T) {
-	bids := map[int16]int64{1: 1000, 2: 800, 3: 800, 4: 0}
-	cases := []struct {
-		seat int16
-		want Feedback
-	}{
-		{1, Feedback{Round: 1, Rank: 1, Hint: HintFarAhead}},
-		{2, Feedback{Round: 1, Rank: 2, Hint: HintFarBehind}},
-		{4, Feedback{Round: 1, Rank: 0, Hint: HintNoBid}},
-	}
-	for _, c := range cases {
-		if got := feedbackFor(1, c.seat, bids); got != c.want {
-			t.Errorf("seat %d: got %+v, want %+v", c.seat, got, c.want)
+func TestRankSessionLots(t *testing.T) {
+	// 两个拍品: 座位 2 拿下两个共赚 300, 座位 1 赚 300 但出价离价值更远, 座位 3 亏 50, 座位 4 一直没出价
+	ranks := rankSession([]seatTotal{{1, 300, 0.4}, {2, 300, 0.2}, {3, -50, 0.1}, {4, 0, -1}})
+	want := map[int16]int16{2: 1, 1: 2, 4: 3, 3: 4}
+	for seat, rank := range want {
+		if ranks[seat] != rank {
+			t.Errorf("seat %d rank %d, want %d (%v)", seat, ranks[seat], rank, ranks)
 		}
-	}
-
-	if got := feedbackFor(2, 1, map[int16]int64{1: 1000, 2: 950}); got.Hint != HintAhead {
-		t.Errorf("slightly ahead: got %+v", got)
-	}
-	if got := feedbackFor(2, 2, map[int16]int64{1: 1000, 2: 950}); got.Hint != HintClose || got.Rank != 2 {
-		t.Errorf("slightly behind: got %+v", got)
-	}
-	if got := feedbackFor(2, 1, map[int16]int64{1: 1000, 2: 1000}); got.Hint != HintTied || got.Rank != 1 {
-		t.Errorf("tied: got %+v", got)
-	}
-	if got := feedbackFor(2, 1, map[int16]int64{1: 1000}); got.Hint != HintFarAhead {
-		t.Errorf("only bidder: got %+v", got)
 	}
 }
 

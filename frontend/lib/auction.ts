@@ -24,16 +24,6 @@ export function modeLabel(code: string) {
   return mode ? MODES[mode.kind].label : code;
 }
 
-/** 每轮反馈的提示, 与后端 internal/apps/auction/constants.go 的 Hint 常量对应 */
-export const HINTS: Record<string, { label: string; className: string }> = {
-  no_bid: {label: '还没出价', className: 'text-muted-foreground'},
-  far_ahead: {label: '遥遥领先', className: 'text-quality-green'},
-  ahead: {label: '小幅领先', className: 'text-quality-green'},
-  tied: {label: '并列最高', className: 'text-quality-gold'},
-  close: {label: '稍稍落后', className: 'text-quality-gold'},
-  far_behind: {label: '落后较多', className: 'text-quality-red'},
-};
-
 /** 主持人的性格, 与后端 internal/apps/venue/constants.go 的 Host 常量对应 */
 export const HOST_PERSONAS: Record<string, { label: string; description: string }> = {
   steady: {label: '稳重', description: '很少说错, 说错时可能偏高也可能偏低'},
@@ -48,7 +38,7 @@ export function hypeLevel(hype: number) {
   return {label: '平稳', className: 'text-muted-foreground'};
 }
 
-/** 第 round 轮(共 rounds 轮)向主持人买到的情报, 与后端 auction.intelFor 对应 */
+/** 拍品的第 round 轮(共 rounds 轮)向主持人买到的情报, 与后端 auction.intelFor 对应 */
 export function intelTier(round: number, rounds: number) {
   if (round * 3 <= rounds) return '一件还不知道品质的藏品的品质';
   if (round * 3 <= rounds * 2) return '一件藏品的名称和品质';
@@ -60,6 +50,24 @@ export const PHASES: Record<string, string> = {
   bidding: '出价',
   reveal: '开箱',
 };
+
+/** 拍场中的拍品, 只用到判断进度的字段 */
+interface LotLike {
+  lot_no: number;
+  outcome: string;
+  winner_seat: number;
+  price: number;
+}
+
+/** 当前拍品, 与 view.lot 对应 */
+export function currentLot<L extends LotLike>(view: { lot: number; lots: L[] }): L {
+  return view.lots[view.lot - 1];
+}
+
+/** 座位 seat 已拿下的拍品的成交价之和, 由已公开的成交结果算出, 所有人都能算 */
+export function seatSpent(lots: LotLike[], seat: number) {
+  return lots.reduce((sum, l) => sum + (l.outcome === 'sold' && l.winner_seat === seat ? l.price : 0), 0);
+}
 
 /** 结算结果的名称 */
 export const OUTCOMES: Record<string, string> = {

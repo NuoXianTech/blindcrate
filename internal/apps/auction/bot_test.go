@@ -72,8 +72,8 @@ func TestAppraise(t *testing.T) {
 	}
 }
 
-// flatObservation 10 件 1×1 的藏品, 全部扫出轮廓, 每件估价 1000, 没有估值偏差时估值为 10000; hints 为之前每轮的提示
-func flatObservation(round int32, bid int64, hints ...string) Observation {
+// flatObservation 10 件 1×1 的藏品, 全部扫出轮廓, 每件估价 1000, 没有估值偏差时估值为 10000; others 为其他座位已公开的出价
+func flatObservation(round int32, bid int64, others ...int64) Observation {
 	obs := Observation{
 		Round:      round,
 		Rules:      testRule,
@@ -81,21 +81,19 @@ func flatObservation(round int32, bid int64, hints ...string) Observation {
 		Odds:       []venue.PieceOdds{{Quality: 1, Width: 1, Height: 1, Count: 10, Price: 1000}},
 		Carry:      testRule.MaxCarry,
 		Bid:        bid,
+		Others:     append([]int64{}, others...),
 		Seed:       1,
 	}
 	obs.Rules.PreviewRate = venue.BasisPoints
 	for i := range obs.Footprints {
 		obs.Footprints[i] = Footprint{X: int16(i), Width: 1, Height: 1}
 	}
-	for i, hint := range hints {
-		obs.Feedback = append(obs.Feedback, Feedback{Round: int32(i + 1), Hint: hint})
-	}
 	return obs
 }
 
 // exactParams 没有随机成分的参数: 估值 10000 时上限为 9000, 第 1-3 轮按 4500、6250、8000 出价
 func exactParams() basicParams {
-	return basicParams{Perception: PerceptionSize, OpenFactor: 4500, CloseFactor: 8000, MaxFactor: 9000, JumpFactor: 9500, Chase: 1500}
+	return basicParams{Perception: PerceptionSize, OpenFactor: 4500, CloseFactor: 8000, MaxFactor: 9000, JumpFactor: 9500, Chase: 1500, FollowRate: venue.BasisPoints, FoldMargin: 1000}
 }
 
 func TestDecideBasic(t *testing.T) {
@@ -106,34 +104,48 @@ func TestDecideBasic(t *testing.T) {
 		low, high int64 // 出价的范围, 0 表示不加价
 	}{
 		{"round 1 opens", flatObservation(1, 0), nil, 4500, 4500},
-		{"round 2 interpolates", flatObservation(2, 4500, HintAhead), nil, 6250, 6250},
-		{"last round closes", flatObservation(3, 6250, HintAhead, HintAhead), nil, 8000, 8000},
+		{"round 2 interpolates", flatObservation(2, 4500, 4000), nil, 6250, 6250},
+		{"last round closes", flatObservation(3, 6250, 6000), nil, 8000, 8000},
 		{"single round closes", flatObservation(1, 0), func(_ *basicParams, obs *Observation) {
 			obs.Rules.Rounds, obs.Rules.QuickWin = 1, nil
 		}, 8000, 8000},
 		{"jitter", flatObservation(1, 0), func(p *basicParams, _ *Observation) { p.Jitter = 1000 }, 4050, 4950},
 		{"start price floor", flatObservation(1, 0), func(_ *basicParams, obs *Observation) { obs.Rules.StartPrice = 5000 }, 5000, 5000},
-		{"carry caps", flatObservation(3, 4000, HintAhead, HintAhead), func(_ *basicParams, obs *Observation) { obs.Carry = 5000 }, 5000, 5000},
+		{"carry caps", flatObservation(3, 4000, 3900), func(_ *basicParams, obs *Observation) { obs.Carry = 5000 }, 5000, 5000},
 		{"limit below start price", flatObservation(1, 0), func(_ *basicParams, obs *Observation) { obs.Carry = 50 }, 0, 0},
-		{"limit reached", flatObservation(3, 9000, HintClose, HintClose), nil, 0, 0},
-		{"far ahead adds half", flatObservation(2, 4500, HintFarAhead), nil, 5375, 5375},
-		{"far ahead never lowers", flatObservation(3, 8500, HintAhead, HintFarAhead), nil, 0, 0},
-		// 反超需要 5000 × 1.2 = 6000, 再加 15%
-		{"far behind chases", flatObservation(2, 5000, HintFarBehind), nil, 6900, 6900},
-		// 反超需要 8000 × 1.2 = 9600, 超过上限
-		{"far behind gives up", flatObservation(2, 8000, HintFarBehind), nil, 0, 0},
-		{"close raises", flatObservation(2, 7000, HintClose), nil, 7700, 8400},
-		{"tied raises", flatObservation(2, 7000, HintTied), nil, 7210, 7700},
-		{"extra round", flatObservation(4, 6000, HintAhead, HintAhead, HintTied), nil, 6900, 8100},
+		{"limit reached", flatObservation(3, 9000, 8900), nil, 0, 0},
+		{"far ahead adds half", flatObservation(2, 4500, 3000), nil, 5375, 5375},
+		{"alone adds half", flatObservation(2, 4500, 0, 0, 0), nil, 5375, 5375},
+		{"far ahead never lowers", flatObservation(3, 8500, 5000), nil, 0, 0},
+		// 最高价 6000 是自己的 1.2 倍, 追到 6001 之上 15%
+		{"far behind chases", flatObservation(2, 5000, 6000, 1000), nil, 6901, 6901},
+		{"no follow", flatObservation(2, 5000, 6000), func(p *basicParams, _ *Observation) { p.FollowRate = 0 }, 6250, 6250},
+		// 最高价够到上限 9000 时放弃
+		{"behind the limit gives up", flatObservation(2, 8000, 9000), nil, 0, 0},
+		// 上限放到 1.5 倍, 最高价超过估值 10% 时放弃
+		{"fold above the estimate", flatObservation(2, 8000, 11001), func(p *basicParams, _ *Observation) { p.MaxFactor, p.CloseFactor = 15000, 15000 }, 0, 0},
+		{"close raises", flatObservation(2, 7000, 7500), nil, 7726, 8251},
+		{"tied raises", flatObservation(2, 7000, 7000), nil, 7210, 7700},
+		{"extra round", flatObservation(4, 6000, 6000), nil, 6900, 8100},
 		{"jump", flatObservation(1, 0), func(p *basicParams, _ *Observation) { p.JumpChance, p.JumpFactor = venue.BasisPoints, 8800 }, 8800, 8800},
-		{"jump only in round 1", flatObservation(2, 4500, HintAhead), func(p *basicParams, _ *Observation) { p.JumpChance = venue.BasisPoints }, 6250, 6250},
+		{"jump only in round 1", flatObservation(2, 4500, 4000), func(p *basicParams, _ *Observation) { p.JumpChance = venue.BasisPoints }, 6250, 6250},
 		// 上限 9000 ÷ 速胜倍率 2 倍
 		{"guard round 1", flatObservation(1, 0), func(p *basicParams, _ *Observation) { p.Guard, p.OpenFactor = true, 3000 }, 4500, 4500},
 		// 上限 9000 ÷ 速胜倍率 1.6 倍
-		{"guard round 2", flatObservation(2, 4500, HintAhead), func(p *basicParams, _ *Observation) { p.Guard, p.OpenFactor = true, 3000 }, 5625, 5625},
-		{"no guard in last round", flatObservation(3, 5625, HintAhead, HintAhead), func(p *basicParams, _ *Observation) {
+		{"guard round 2", flatObservation(2, 4500, 4000), func(p *basicParams, _ *Observation) { p.Guard, p.OpenFactor = true, 3000 }, 5625, 5625},
+		{"no guard in last round", flatObservation(3, 5625, 5000), func(p *basicParams, _ *Observation) {
 			p.Guard, p.OpenFactor, p.CloseFactor = true, 3000, 6000
 		}, 6000, 6000},
+		// 剩余资金 10000, 后面拍品的期望也是 10000, 这个拍品最多花一半
+		{"budget", flatObservation(3, 4000, 3900), func(p *basicParams, obs *Observation) {
+			p.BudgetPace, obs.Carry, obs.Future, obs.LotsLeft = venue.BasisPoints, 10000, 10000, 1
+		}, 5000, 5000},
+		{"budget pace", flatObservation(3, 4000, 3900), func(p *basicParams, obs *Observation) {
+			p.BudgetPace, obs.Carry, obs.Future, obs.LotsLeft = 15000, 10000, 10000, 1
+		}, 7500, 7500},
+		{"last lot spends all", flatObservation(3, 4000, 3900), func(p *basicParams, obs *Observation) {
+			p.BudgetPace, obs.Carry, obs.Future, obs.LotsLeft = venue.BasisPoints, 10000, 0, 0
+		}, 8000, 8000},
 	}
 	for _, c := range cases {
 		for seed := range uint64(100) {
@@ -163,7 +175,7 @@ func TestDecideBasicBias(t *testing.T) {
 			t.Fatalf("seed %d: estimate %d out of 10000 ± 10%%", seed, first.Estimate)
 		}
 		obs.Round, obs.Bid = 3, first.Bid
-		obs.Feedback = []Feedback{{Round: 1, Hint: HintAhead}, {Round: 2, Hint: HintAhead}}
+		obs.Others = []int64{1}
 		if later := decideBasic(obs, &p, rand.New(rand.NewPCG(7, 3))); later.Estimate != first.Estimate {
 			t.Fatalf("seed %d: estimate changed from %d to %d", seed, first.Estimate, later.Estimate)
 		}

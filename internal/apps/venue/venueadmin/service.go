@@ -201,6 +201,7 @@ func ApplyVenue(target *venue.Venue, req *VenueRequest) {
 	target.EntryCost = req.EntryCost
 	target.Requirements = req.Requirements
 	target.Warehouse = req.Warehouse
+	target.Lots = req.Lots
 	target.Auction = req.Auction
 	target.Bots = req.Bots
 	target.Pve = req.Pve
@@ -223,6 +224,7 @@ func venueFields(target *venue.Venue) map[string]interface{} {
 		"entry_cost":     target.EntryCost,
 		"requirements":   target.Requirements,
 		"warehouse":      target.Warehouse,
+		"lots":           target.Lots,
 		"auction":        target.Auction,
 		"bots":           target.Bots,
 		"pve":            target.Pve,

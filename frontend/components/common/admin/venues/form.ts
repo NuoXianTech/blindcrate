@@ -11,7 +11,7 @@ import {
   type ConditionDraft,
 } from '@/components/common/admin/editors';
 import {check} from '@/hooks/use-submit';
-import type {BotWeight, ConditionType, Currency, VenueRequest} from '@/lib/services/admin';
+import type {BotWeight, ConditionType, Currency, VenueRequest, WarehouseRule} from '@/lib/services/admin';
 import type {BotPersona} from '@/lib/services/bot';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {checkImageURL} from '@/lib/validation';
@@ -20,11 +20,14 @@ import {
   MAX_ALLOWED_ITEMS,
   MAX_BOT_PERSONAS,
   MAX_ENTRY_COST_LINES,
+  MAX_GAP_SECONDS,
   MAX_INTEL,
   MAX_LIE_RATE,
+  MAX_LOTS,
   MAX_REQUIREMENTS,
   MAX_SLOTS,
   MAX_SWINGS,
+  MAX_TIERS,
   MAX_USES,
   MIN_INTEL_PRECISION,
 } from './constants';
@@ -50,6 +53,24 @@ export interface SwingDraft {
   weight: string;
 }
 
+/** 编辑中的仓库生成规则, 地图的仓库和每个档次的仓库共用 */
+export interface WarehouseDraft {
+  gridWidth: string;
+  gridHeight: string;
+  slots: SlotDraft[];
+  swings: SwingDraft[];
+  maxRerolls: string;
+}
+
+/** 编辑中的一种拍品档次 */
+export interface TierDraft {
+  key: string;
+  code: string;
+  name: string;
+  weight: string;
+  warehouse: WarehouseDraft;
+}
+
 /** 编辑中的一种出场的人机风格 */
 export interface WeightDraft {
   key: string;
@@ -73,11 +94,15 @@ export interface VenueForm {
   bidCurrency: string;
   entryCost: BundleDraft[];
   requirements: ConditionDraft[];
-  gridWidth: string;
-  gridHeight: string;
-  slots: SlotDraft[];
-  swings: SwingDraft[];
-  maxRerolls: string;
+  /** 没有配置档次时唯一的仓库, 配置了档次时不用 */
+  warehouse: WarehouseDraft;
+  lotMin: string;
+  lotMax: string;
+  /** 为空表示单仓库玩法 */
+  tiers: TierDraft[];
+  gapSeconds: string;
+  /** 百分比, 0 表示用玩法平衡设置的默认值 */
+  coverage: string;
   rounds: string;
   roundSeconds: string;
   revealSeconds: string;
@@ -117,6 +142,35 @@ export function recommendedQuickWin(rounds: number): string[] {
   );
 }
 
+/** 新建地图和新增档次时的仓库 */
+const DEFAULT_WAREHOUSE: WarehouseRule = {
+  grid: {width: 6, height: 5},
+  slots: [{pool: '', min: 4, max: 8, chance: 10000}],
+  swings: [],
+  max_rerolls: 10,
+};
+
+/** 仓库生成规则转为表单 */
+function toWarehouseDraft(w: WarehouseRule = DEFAULT_WAREHOUSE): WarehouseDraft {
+  return {
+    gridWidth: String(w.grid.width),
+    gridHeight: String(w.grid.height),
+    slots: w.slots.map((s) => ({
+      key: nanoid(),
+      pool: s.pool,
+      min: String(s.min),
+      max: String(s.max),
+      chance: ratioInput(s.chance, PERCENT_DECIMALS),
+    })),
+    swings: (w.swings ?? []).map((s) => ({
+      key: nanoid(),
+      factor: ratioInput(s.factor, PERCENT_DECIMALS),
+      weight: String(s.weight),
+    })),
+    maxRerolls: String(w.max_rerolls),
+  };
+}
+
 /** 新建地图时的默认配置; 出价货币和人机风格见 toVenueForm */
 const DEFAULT_REQUEST: VenueRequest = {
   code: '',
@@ -130,7 +184,8 @@ const DEFAULT_REQUEST: VenueRequest = {
   bid_currency: '',
   entry_cost: {},
   requirements: [],
-  warehouse: {grid: {width: 6, height: 5}, slots: [{pool: '', min: 4, max: 8, chance: 10000}], swings: [], max_rerolls: 10},
+  warehouse: DEFAULT_WAREHOUSE,
+  lots: {min: 0, max: 0, tiers: [], gap_seconds: 0, coverage: 0},
   auction: {
     rounds: 5,
     round_seconds: 20,
@@ -190,21 +245,19 @@ export function toVenueForm(venue: VenueRequest | null, {currencies, types, pers
     bidCurrency: v.bid_currency,
     entryCost: toBundleDrafts(v.entry_cost, currencies),
     requirements: toConditionDrafts(v.requirements ?? [], types),
-    gridWidth: String(v.warehouse.grid.width),
-    gridHeight: String(v.warehouse.grid.height),
-    slots: v.warehouse.slots.map((s) => ({
+    warehouse: toWarehouseDraft(v.warehouse),
+    // 没有配置档次时拍品数为 0, 表单中按 1 个展示
+    lotMin: String(v.lots.min || 1),
+    lotMax: String(v.lots.max || 1),
+    tiers: v.lots.tiers.map((t) => ({
       key: nanoid(),
-      pool: s.pool,
-      min: String(s.min),
-      max: String(s.max),
-      chance: ratioInput(s.chance, PERCENT_DECIMALS),
+      code: t.code,
+      name: t.name,
+      weight: String(t.weight),
+      warehouse: toWarehouseDraft(t.warehouse),
     })),
-    swings: (v.warehouse.swings ?? []).map((s) => ({
-      key: nanoid(),
-      factor: ratioInput(s.factor, PERCENT_DECIMALS),
-      weight: String(s.weight),
-    })),
-    maxRerolls: String(v.warehouse.max_rerolls),
+    gapSeconds: String(v.lots.gap_seconds),
+    coverage: ratioInput(v.lots.coverage, PERCENT_DECIMALS),
     rounds: String(v.auction.rounds),
     roundSeconds: String(v.auction.round_seconds),
     revealSeconds: String(v.auction.reveal_seconds),
@@ -258,6 +311,78 @@ function readNumber(text: string, {label, min, max, decimals = 0, unit = ''}: Nu
 const percent = (text: string, label: string, min: number, max: number) =>
   readNumber(text, {label, min, max, decimals: PERCENT_DECIMALS, unit: '%'});
 
+/** 仓库表单转为请求体, prefix 加在提示前面, 如档次名称 */
+function fromWarehouseDraft(w: WarehouseDraft, prefix = ''): WarehouseRule {
+  check(w.slots.length === 0 || w.slots.length > MAX_SLOTS ? `${prefix}档位需为 1-${MAX_SLOTS} 个` : null);
+  check(w.swings.length > MAX_SWINGS ? `${prefix}数量波动最多 ${MAX_SWINGS} 档` : null);
+  return {
+    grid: {
+      width: readNumber(w.gridWidth, {label: `${prefix}仓库宽度`, min: 1, max: 16}),
+      height: readNumber(w.gridHeight, {label: `${prefix}仓库高度`, min: 1, max: 16}),
+    },
+    slots: w.slots.map((s, i) => {
+      const row = `${prefix}第 ${i + 1} 档`;
+      check(!s.pool ? `${row}: 请选择掉落池` : null);
+      const min = readNumber(s.min, {label: `${row}: 最少次数`, min: 0, max: 100});
+      const max = readNumber(s.max, {label: `${row}: 最多次数`, min: 0, max: 100});
+      check(max < min ? `${row}: 最多次数不能少于最少次数` : null);
+      return {pool: s.pool, min, max, chance: percent(s.chance, `${row}: 出现概率`, 1, 10000)};
+    }),
+    swings: w.swings.map((s, i) => {
+      const row = `${prefix}第 ${i + 1} 档波动`;
+      return {
+        factor: percent(s.factor, `${row}: 数量系数`, 2000, 20000),
+        weight: readNumber(s.weight, {label: `${row}: 权重`, min: 1, max: 10000}),
+      };
+    }),
+    max_rerolls: readNumber(w.maxRerolls, {label: `${prefix}重抽次数上限`, min: 0, max: 50}),
+  };
+}
+
+/** 拍场转为请求体; 没有配置档次时拍品数不生效, 提交 0 */
+function fromLots(form: VenueForm): VenueRequest['lots'] {
+  const tiers = form.tiers;
+  check(tiers.length > MAX_TIERS ? `档次最多 ${MAX_TIERS} 种` : null);
+  const gapSeconds = readNumber(form.gapSeconds, {label: '拍品间隔', min: 0, max: MAX_GAP_SECONDS, unit: ' 秒'});
+  const coverage = percent(form.coverage, '带入覆盖率', 0, 20000);
+  if (tiers.length === 0) return {min: 0, max: 0, tiers: [], gap_seconds: gapSeconds, coverage};
+
+  const min = readNumber(form.lotMin, {label: '最少拍品数', min: 1, max: MAX_LOTS});
+  const max = readNumber(form.lotMax, {label: '最多拍品数', min: 1, max: MAX_LOTS});
+  check(max < min ? '最多拍品数不能少于最少拍品数' : null);
+  return {
+    min,
+    max,
+    gap_seconds: gapSeconds,
+    coverage,
+    tiers: tiers.map((t, i) => {
+      const row = `第 ${i + 1} 种档次`;
+      const code = t.code.trim();
+      check(code.length === 0 || [...code].length > 32 ? `${row}: 代码需为 1-32 个字符` : null);
+      check(tiers.findIndex((x) => x.code.trim() === code) < i ? `${row}: 代码 ${code} 重复` : null);
+      const name = t.name.trim();
+      check(name.length === 0 || [...name].length > 32 ? `${row}: 名称需为 1-32 个字符` : null);
+      return {
+        code,
+        name,
+        weight: readNumber(t.weight, {label: `${row}: 权重`, min: 1, max: 10000}),
+        warehouse: fromWarehouseDraft(t.warehouse, `档次 ${name}: `),
+      };
+    }),
+  };
+}
+
+/** 不校验地转换仓库表单, 格式不对的数值按 0 提交 */
+function looseWarehouse(w: WarehouseDraft): WarehouseRule {
+  const int = (text: string, decimals = 0) => parseAmount(text, decimals) ?? 0;
+  return {
+    grid: {width: int(w.gridWidth), height: int(w.gridHeight)},
+    slots: w.slots.map((s) => ({pool: s.pool, min: int(s.min), max: int(s.max), chance: int(s.chance, PERCENT_DECIMALS)})),
+    swings: w.swings.map((s) => ({factor: int(s.factor, PERCENT_DECIMALS), weight: int(s.weight)})),
+    max_rerolls: int(w.maxRerolls),
+  };
+}
+
 /** 一个模式出场的人机风格转为请求体, 开放的模式至少配置一种, 风格不能重复 */
 function fromWeightDrafts(drafts: WeightDraft[], mode: string, enabled: boolean): BotWeight[] {
   check(enabled && drafts.length === 0 ? `${mode}模式至少配置一种人机风格` : null);
@@ -293,8 +418,6 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
       null,
   );
   check(form.requirements.length > MAX_REQUIREMENTS ? `入场条件最多 ${MAX_REQUIREMENTS} 个` : null);
-  check(form.slots.length === 0 || form.slots.length > MAX_SLOTS ? `档位需为 1-${MAX_SLOTS} 个` : null);
-  check(form.swings.length > MAX_SWINGS ? `数量波动最多 ${MAX_SWINGS} 档` : null);
   check(form.allowedItems.length > MAX_ALLOWED_ITEMS ? `允许的道具最多 ${MAX_ALLOWED_ITEMS} 个` : null);
 
   const rounds = readNumber(form.rounds, {label: '轮数', min: 1, max: 10});
@@ -310,28 +433,9 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
     bid_currency: form.bidCurrency,
     entry_cost: fromBundleDrafts(form.entryCost, currencies, '入场代价'),
     requirements: fromConditionDrafts(form.requirements, types, '入场条件'),
-    warehouse: {
-      grid: {
-        width: readNumber(form.gridWidth, {label: '仓库宽度', min: 1, max: 16}),
-        height: readNumber(form.gridHeight, {label: '仓库高度', min: 1, max: 16}),
-      },
-      slots: form.slots.map((s, i) => {
-        const row = `第 ${i + 1} 档`;
-        check(!s.pool ? `${row}: 请选择掉落池` : null);
-        const min = readNumber(s.min, {label: `${row}: 最少次数`, min: 0, max: 100});
-        const max = readNumber(s.max, {label: `${row}: 最多次数`, min: 0, max: 100});
-        check(max < min ? `${row}: 最多次数不能少于最少次数` : null);
-        return {pool: s.pool, min, max, chance: percent(s.chance, `${row}: 出现概率`, 1, 10000)};
-      }),
-      swings: form.swings.map((s, i) => {
-        const row = `第 ${i + 1} 档波动`;
-        return {
-          factor: percent(s.factor, `${row}: 数量系数`, 2000, 20000),
-          weight: readNumber(s.weight, {label: `${row}: 权重`, min: 1, max: 10000}),
-        };
-      }),
-      max_rerolls: readNumber(form.maxRerolls, {label: '重抽次数上限', min: 0, max: 50}),
-    },
+    // 配置了档次时后端不用也不校验地图的仓库, 原样提交; 换回单仓库时再校验
+    warehouse: form.tiers.length > 0 ? looseWarehouse(form.warehouse) : fromWarehouseDraft(form.warehouse),
+    lots: fromLots(form),
     auction: {
       rounds,
       round_seconds: readNumber(form.roundSeconds, {label: '每轮时长', min: 5, max: 120, unit: ' 秒'}),

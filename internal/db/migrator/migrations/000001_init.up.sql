@@ -447,7 +447,8 @@ CREATE TABLE IF NOT EXISTS venues
     bid_currency   VARCHAR(32)   NOT NULL,                -- 出价和计算仓库价值的货币
     entry_cost     JSONB         NOT NULL DEFAULT '{}',   -- 入场代价 reward.Bundle, 数量为正数
     requirements   JSONB         NOT NULL DEFAULT '[]',   -- 入场条件 []condition.Condition
-    warehouse      JSONB         NOT NULL DEFAULT '{}',   -- 仓库生成规则
+    warehouse      JSONB         NOT NULL DEFAULT '{}',   -- 仓库生成规则, 没有配置拍场档次时使用
+    lots           JSONB         NOT NULL DEFAULT '{}',   -- 拍场: 拍品数、档次、拍品间隔和带入覆盖率
     auction        JSONB         NOT NULL DEFAULT '{}',   -- 拍卖参数
     bots           JSONB         NOT NULL DEFAULT '{}',   -- 每个模式出场的人机风格和权重
     pve            JSONB         NOT NULL DEFAULT '{}',   -- 人机模式防刷参数
@@ -462,12 +463,35 @@ CREATE TABLE IF NOT EXISTS venues
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_venues_code ON venues (code);
 CREATE INDEX IF NOT EXISTS idx_venues_deleted_at ON venues (deleted_at);
 
--- 暗拍的对局级数据, 与 matches 一一对应, 开局时创建; 模式取 matches.mode 中冒号之前的部分
+-- 暗拍(拍场)的对局级数据, 与 matches 一一对应, 开局时创建; 模式取 matches.mode 中冒号之前的部分
 CREATE TABLE IF NOT EXISTS auction_matches
 (
-    match_id     BIGINT PRIMARY KEY,
-    venue_id     BIGINT      NOT NULL,
-    venue        JSONB       NOT NULL,              -- 开局时的地图配置快照
+    match_id   BIGINT PRIMARY KEY,
+    venue_id   BIGINT      NOT NULL,
+    venue      JSONB       NOT NULL,            -- 开局时的地图配置快照
+    lot_count  INTEGER     NOT NULL DEFAULT 1,  -- 拍品数, 开局时公开
+    lot        INTEGER     NOT NULL DEFAULT 1,  -- 当前拍品的序号, 从 1 开始
+    outcome    VARCHAR(16) NOT NULL DEFAULT '', -- 拍场结算前为空, 之后为 sold(至少成交一个拍品)、unsold 或 cancelled
+    host       VARCHAR(16) NOT NULL DEFAULT '', -- 主持人的性格, 没有主持人提示时为空
+    hype       INTEGER     NOT NULL DEFAULT 0,  -- 当前热度, 0-100, 跨拍品延续, 变动见 auction_hype_events
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    settled_at TIMESTAMPTZ                      -- 拍场结算或取消的时间
+);
+
+-- 拍场中的拍品(仓库), 开局时全部生成; 轮次在整个拍场内连续编号, 拍品从 first_round 开始
+CREATE TABLE IF NOT EXISTS auction_lots
+(
+    id           BIGSERIAL PRIMARY KEY,
+    match_id     BIGINT      NOT NULL,
+    lot_no       INTEGER     NOT NULL,              -- 出场顺序, 从 1 开始
+    tier         VARCHAR(32) NOT NULL DEFAULT '',   -- 档次代码, 拍场结束前不公开
+    grid         JSONB       NOT NULL,              -- 格子大小, 开局时公开
+    odds         JSONB       NOT NULL DEFAULT '[]', -- 按格子大小推断的公示分布
+    start_price  BIGINT      NOT NULL DEFAULT 0,    -- 起拍价、速胜下限和情报价格按格子大小推导
+    speed_floor  BIGINT      NOT NULL DEFAULT 0,
+    intel_price  BIGINT      NOT NULL DEFAULT 0,
+    first_round  INTEGER     NOT NULL DEFAULT 0,    -- 开拍时的轮次, 还没开拍时为 0
     value        BIGINT      NOT NULL,              -- 仓库价值, 出价货币的回收价之和
     piece_count  INTEGER     NOT NULL,              -- 藏品件数
     contenders   JSONB       NOT NULL DEFAULT '[]', -- 加轮时可以出价的座位, 为空表示所有人
@@ -475,12 +499,10 @@ CREATE TABLE IF NOT EXISTS auction_matches
     outcome      VARCHAR(16) NOT NULL DEFAULT '',   -- 结算前为空, 之后为 sold、unsold 或 cancelled
     winner_seat  SMALLINT    NOT NULL DEFAULT 0,    -- 成交者的座位, 没有成交时为 0
     price        BIGINT      NOT NULL DEFAULT 0,    -- 成交价
-    host         VARCHAR(16) NOT NULL DEFAULT '',   -- 主持人的性格, 没有主持人提示时为空
-    hype         INTEGER     NOT NULL DEFAULT 0,    -- 当前热度, 0-100, 变动见 auction_hype_events
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    settled_at   TIMESTAMPTZ                        -- 结算或取消的时间
+    settled_at   TIMESTAMPTZ                        -- 结算的时间, 即开始扫描的时间
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_lots_match_id_lot_no ON auction_lots (match_id, lot_no);
 
 -- 暗拍中的座位, 真人在准入时创建(此时座位号为 0), 人机在开局时创建
 CREATE TABLE IF NOT EXISTS auction_players
@@ -493,26 +515,38 @@ CREATE TABLE IF NOT EXISTS auction_players
     seed         BIGINT      NOT NULL DEFAULT 0,     -- 人机在这一局的随机种子, 真人为 0
     is_practice  BOOLEAN     NOT NULL DEFAULT FALSE, -- 练习局, 不扣入场代价、不冻结资金、不发藏品、不写统计
     entry_cost   JSONB       NOT NULL DEFAULT '{}',  -- 实际扣除的入场费和入场代价
-    carry        BIGINT      NOT NULL DEFAULT 0,     -- 带入资金, 出价的上限
+    carry        BIGINT      NOT NULL DEFAULT 0,     -- 带入资金, 整个拍场共用; 真人在准入时自选
     frozen       BIGINT      NOT NULL DEFAULT 0,     -- 冻结的带入资金
-    estimate     BIGINT      NOT NULL DEFAULT 0,     -- 人机按公开信息的最新估值, 真人为 0
-    bid          BIGINT      NOT NULL DEFAULT 0,     -- 当前出价
+    spent        BIGINT      NOT NULL DEFAULT 0,     -- 已成交的拍品的成交价之和
+    estimate     BIGINT      NOT NULL DEFAULT 0,     -- 人机对当前拍品按公开信息的最新估值, 真人为 0
+    bid          BIGINT      NOT NULL DEFAULT 0,     -- 当前拍品的出价, 每个拍品开拍时清零
     bid_at       TIMESTAMPTZ,                        -- 当前出价的提交时间
-    feedback     JSONB       NOT NULL DEFAULT '[]',  -- 每轮结束后的反馈, 人机也有, 用于决策
-    profit       BIGINT      NOT NULL DEFAULT 0,     -- 结算后的盈亏
-    rating_delta INTEGER     NOT NULL DEFAULT 0,     -- 本局段位分的变化, 只有排位成交时有
-    rating       INTEGER     NOT NULL DEFAULT 0,     -- 结算后的段位分, 只有排位成交时有
+    profit       BIGINT      NOT NULL DEFAULT 0,     -- 拍场结算后的盈亏
+    rank         SMALLINT    NOT NULL DEFAULT 0,     -- 拍场的名次, 全部流拍时为 0
+    rating_delta INTEGER     NOT NULL DEFAULT 0,     -- 本局段位分的变化, 只有排位且至少成交一个拍品时有
+    rating       INTEGER     NOT NULL DEFAULT 0,     -- 结算后的段位分, 同上
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_auction_players_match_id ON auction_players (match_id);
 
--- 暗拍每轮的出价, 每人每轮一条, 0 表示不加价
+-- 玩家在一张地图上选的带入金额, 准入时按它冻结
+CREATE TABLE IF NOT EXISTS auction_carry_preferences
+(
+    user_id    BIGINT      NOT NULL,
+    venue      VARCHAR(32) NOT NULL, -- 地图代码
+    amount     BIGINT      NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, venue)
+);
+
+-- 暗拍每轮的出价, 每人每轮一条, 0 表示不加价; 轮次在整个拍场内连续编号
 CREATE TABLE IF NOT EXISTS auction_bids
 (
     id         BIGSERIAL PRIMARY KEY,
     match_id   BIGINT      NOT NULL,
+    lot_no     INTEGER     NOT NULL DEFAULT 1,
     round      INTEGER     NOT NULL,
     seat       SMALLINT    NOT NULL,
     amount     BIGINT      NOT NULL DEFAULT 0,
@@ -526,7 +560,8 @@ CREATE TABLE IF NOT EXISTS auction_warehouse_items
 (
     id            BIGSERIAL PRIMARY KEY,
     match_id      BIGINT        NOT NULL,
-    preview       BOOLEAN       NOT NULL DEFAULT FALSE, -- 是否在第 1 轮扫出轮廓(占的格子), 所有人都看得到
+    lot_no        INTEGER       NOT NULL DEFAULT 1,
+    preview       BOOLEAN       NOT NULL DEFAULT FALSE, -- 是否在这个拍品的第 1 轮扫出轮廓(占的格子), 所有人都看得到
     scan_order    INTEGER       NOT NULL DEFAULT 0,     -- 开箱时扫描的顺序, 从 1 开始, 按位置从上到下、从左到右
     scan_ms       INTEGER       NOT NULL DEFAULT 0,     -- 开箱时扫描这件的时长, 毫秒, 开局时按品质快照
     item_id       BIGINT        NOT NULL,
@@ -548,6 +583,7 @@ CREATE TABLE IF NOT EXISTS auction_uses
 (
     id         BIGSERIAL PRIMARY KEY,
     match_id   BIGINT      NOT NULL,
+    lot_no     INTEGER     NOT NULL DEFAULT 1,    -- 使用时的拍品
     seat       SMALLINT    NOT NULL,
     item_id    BIGINT      NOT NULL,
     round      INTEGER     NOT NULL,
@@ -561,11 +597,12 @@ CREATE TABLE IF NOT EXISTS auction_uses
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_uses_match_id_seat_item_id_round ON auction_uses (match_id, seat, item_id, round);
 
--- 暗拍中主持人每轮开始时公开的提示, 只追加; 是否说错在开箱后公开
+-- 暗拍中主持人每轮开始时公开的关于当前拍品的提示, 只追加; 是否说错在拍场结束后公开
 CREATE TABLE IF NOT EXISTS auction_hints
 (
     id         BIGSERIAL PRIMARY KEY,
     match_id   BIGINT      NOT NULL,
+    lot_no     INTEGER     NOT NULL DEFAULT 1,
     round      INTEGER     NOT NULL,
     kind       VARCHAR(16) NOT NULL,              -- 提示的类型, 见代码中的 Hint
     quality    SMALLINT    NOT NULL DEFAULT 0,    -- 提示中的品质
@@ -584,7 +621,8 @@ CREATE TABLE IF NOT EXISTS auction_hype_events
 (
     id         BIGSERIAL PRIMARY KEY,
     match_id   BIGINT      NOT NULL,
-    round      INTEGER     NOT NULL,           -- 开局时为 0, 之后为结束的轮次
+    lot_no     INTEGER     NOT NULL DEFAULT 1,
+    round      INTEGER     NOT NULL,           -- 开局和拍品开场(热度回落)时为 0, 之后为结束的轮次
     raises     INTEGER     NOT NULL DEFAULT 0, -- 这一轮加价的人数
     delta      INTEGER     NOT NULL,
     hype       INTEGER     NOT NULL,           -- 变动后的热度

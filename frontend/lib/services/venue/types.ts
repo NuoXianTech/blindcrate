@@ -34,6 +34,25 @@ export interface Grid {
   height: number;
 }
 
+/** 拍场中一种格子大小的拍品, 对应后端 venue.LotGrid */
+export interface LotGrid {
+  grid: Grid;
+  /** 拍品是这种格子大小的概率, 基点 */
+  share: number;
+  start_price: number;
+  speed_floor: number;
+  intel_price: number;
+}
+
+/** 玩家看到的拍场: 拍品数和每种格子大小, 档次不公开, 对应后端 venue.LotsView */
+export interface LotsView {
+  min: number;
+  max: number;
+  /** 拍品开箱后停留多久进入下一个, 秒 */
+  gap_seconds: number;
+  grids: LotGrid[];
+}
+
 /**
  * 拍卖参数, 金额按出价货币的最小单位, 对应后端 venue.AuctionRule
  *
@@ -48,8 +67,9 @@ export interface AuctionRule {
   max_extra_rounds: number;
   /** 出价货币的入场费, 开局时与入场代价一起扣除, 流拍时退还; 由对局验算求出 */
   entry_fee: number;
+  /** 起拍价; 配置了档次时为各档次中最低的, 也是最低带入, 每个拍品按档次的起拍价 */
   start_price: number;
-  /** 开局时冻结 min(可用余额, 上限), 出价不能超过它 */
+  /** 带入资金上限, 玩家在 [start_price, max_carry] 内自选带入金额, 整个拍场共用 */
   max_carry: number;
   /** 人机的带入资金, 不超过带入资金上限; 旧地图为 0, 按带入资金上限 */
   bot_carry: number;
@@ -121,6 +141,8 @@ export interface Venue {
   /** 排位模式的仓库价值区间 */
   value_range: ValueRange;
   pve: PveView;
+  /** 拍场的拍品数和格子大小, 一局一个仓库时为 null */
+  lots: LotsView | null;
 }
 
 /** 仓库的一个档位, 对应后端 venue.Slot */
@@ -167,5 +189,18 @@ export interface SlotOdds extends Slot {
 
 /** 玩家看到的地图详情, 对应后端 venue.VenueDetail */
 export interface VenueDetail extends Venue {
+  /** 一局一个仓库时的档位, 拍场为空, 见 lot_slots */
   slots: SlotOdds[];
+  /** 拍场每种格子大小的仓库, 一局一个仓库时为空 */
+  lot_slots: GridOdds[];
+}
+
+/** 拍场中一种格子大小的仓库, 同一格子大小的各档次不公开名称 */
+export interface GridOdds {
+  grid: Grid;
+  variants: {
+    /** 这个格子大小的拍品是这一档的概率, 基点 */
+    share: number;
+    slots: SlotOdds[];
+  }[];
 }

@@ -50,7 +50,8 @@ type Venue struct {
 	BidCurrency   string                `gorm:"size:32;not null" json:"bid_currency"`                                 // 出价和计算仓库价值的货币
 	EntryCost     reward.Bundle         `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"entry_cost"`   // 入场代价, 数量为正数, 开局时扣除
 	Requirements  []condition.Condition `gorm:"type:jsonb;serializer:json;not null;default:'[]'" json:"requirements"` // 入场条件, 需要全部满足
-	Warehouse     WarehouseRule         `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"warehouse"`    // 仓库生成规则
+	Warehouse     WarehouseRule         `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"warehouse"`    // 仓库生成规则, 没有配置档次时是唯一的档次
+	Lots          LotRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"lots"`         // 拍场: 一局开拍几个仓库, 从哪些档次中抽
 	Auction       AuctionRule           `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"auction"`      // 拍卖参数
 	Bots          BotRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"bots"`         // 人机风格, 按模式配置出场的风格和权重
 	Pve           PveRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"pve"`          // 人机模式防刷参数
@@ -134,6 +135,72 @@ type WarehouseRule struct {
 	MaxRerolls int32   `json:"max_rerolls" label:"重抽次数上限" binding:"min=0,max=50"` // 超过后开局失败
 }
 
+// LotRule 拍场: 一局依次开拍 [Min, Max] 个仓库(拍品), 共用一笔带入资金; 每个拍品按权重从档次中抽一种生成
+//
+// 没有配置档次时只有 Warehouse 一档, 一局一个仓库, 即单仓库玩法。拍品数和每个拍品的格子大小开局时公开, 档次不公开。
+type LotRule struct {
+	Min        int32  `json:"min" label:"最少拍品数" binding:"min=0,max=8"` // 没有配置档次时忽略, 按 1 个
+	Max        int32  `json:"max" label:"最多拍品数" binding:"min=0,max=8"`
+	Tiers      []Tier `json:"tiers" label:"档次" binding:"max=6,dive"`
+	GapSeconds int32  `json:"gap_seconds" label:"拍品间隔" binding:"min=0,max=30"`  // 一个拍品开箱后停留多久进入下一个
+	Coverage   int32  `json:"coverage" label:"带入覆盖率" binding:"min=0,max=20000"` // 基点, 带入资金上限 = 拍场期望总价值 × 覆盖率; 0 表示用玩法平衡设置的默认值
+}
+
+// Enabled 是否配置了档次
+func (r *LotRule) Enabled() bool { return len(r.Tiers) > 0 }
+
+// Range 拍品数的范围, 没有配置档次时为 [1, 1]
+func (r *LotRule) Range() (int32, int32) {
+	if !r.Enabled() {
+		return 1, 1
+	}
+	return r.Min, r.Max
+}
+
+// MeanCount 拍品数的期望
+func (r *LotRule) MeanCount() float64 {
+	low, high := r.Range()
+	return float64(low+high) / 2
+}
+
+// Tier 拍品的一种档次; Auction 由保存时推导, 提交的值会被覆盖
+type Tier struct {
+	Code      string        `json:"code" label:"档次代码" binding:"required,max=32"`
+	Name      string        `json:"name" label:"档次名称" binding:"required,max=32"` // 只在管理端和拍场结束后显示
+	Weight    int32         `json:"weight" label:"权重" binding:"min=1,max=10000"`
+	Warehouse WarehouseRule `json:"warehouse" label:"仓库生成规则"`
+	Auction   TierAuction   `json:"auction"`
+}
+
+// TierAuction 档次的期望价值, 以及按格子大小推导的金额(格子大小相同的档次相同, 见 Venue.Calibrate)
+type TierAuction struct {
+	Mean       int64 `json:"mean"` // 这个档次的期望价值, 排位模式, 不公开
+	StartPrice int64 `json:"start_price"`
+	SpeedFloor int64 `json:"speed_floor"`
+	IntelPrice int64 `json:"intel_price"`
+}
+
+// LotTiers 拍品的档次, 没有配置档次时为 Warehouse 一档, 金额取 Auction 的
+func (v *Venue) LotTiers() []Tier {
+	if v.Lots.Enabled() {
+		return v.Lots.Tiers
+	}
+	return []Tier{{Code: DefaultTier, Name: v.Name, Weight: 1, Warehouse: v.Warehouse, Auction: TierAuction{
+		Mean: v.Simulation.Ranked.Mean, StartPrice: v.Auction.StartPrice, SpeedFloor: v.Auction.SpeedFloor, IntelPrice: v.Auction.IntelPrice,
+	}}}
+}
+
+// SessionMean 一个拍场的期望总价值(排位模式): 拍品数的期望 × 单个拍品的期望价值, 一局一个拍品时就是仓库的期望价值
+func (v *Venue) SessionMean() int64 {
+	return int64(float64(v.Simulation.Ranked.Mean) * v.Lots.MeanCount())
+}
+
+// ForTier 一个拍品的拍卖参数: 起拍价、速胜下限和情报价格换成档次的
+func (r AuctionRule) ForTier(t *TierAuction) AuctionRule {
+	r.StartPrice, r.SpeedFloor, r.IntelPrice = t.StartPrice, t.SpeedFloor, t.IntelPrice
+	return r
+}
+
 // AuctionRule 拍卖参数, 金额按出价货币的最小单位
 //
 // 管理员只配置轮次、时长和速胜倍率; 金额和比例由保存时模拟的仓库价值分布推导(见 Calibrate), 领先折让和入场费由对局验算求出, 提交的值会被覆盖。
@@ -146,8 +213,8 @@ type AuctionRule struct {
 	MaxExtraRounds int32   `json:"max_extra_rounds" label:"加轮上限" binding:"min=0,max=5"`              // 最后一轮最高价并列时加轮, 之后按先出价的人成交
 
 	EntryFee     int64 `json:"entry_fee"`     // 出价货币的入场费, 开局时与入场代价一起扣除, 成交时销毁, 流拍时退还
-	StartPrice   int64 `json:"start_price"`   // 起拍价
-	MaxCarry     int64 `json:"max_carry"`     // 带入资金上限, 开局时冻结 min(可用余额, 上限), 出价不能超过它
+	StartPrice   int64 `json:"start_price"`   // 起拍价; 配置了档次时为各档次中最低的, 也是最低带入, 每个拍品按档次的起拍价
+	MaxCarry     int64 `json:"max_carry"`     // 带入资金上限, 玩家在 [起拍价, 上限] 内自选带入金额, 整个拍场共用
 	BotCarry     int64 `json:"bot_carry"`     // 人机的带入资金, 不超过带入资金上限; 价值远高于期望的仓库人机追不上
 	SpeedFloor   int64 `json:"speed_floor"`   // 速胜下限, 速胜时第一名的出价不能低于它
 	LeadDiscount int32 `json:"lead_discount"` // 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 不低于起拍价
@@ -242,11 +309,19 @@ type ValueStats struct {
 
 // Simulation 保存地图时模拟的结果
 type Simulation struct {
-	Runs        int        `json:"runs"`
-	Ranked      ValueStats `json:"ranked"`  // 排位模式, 不缩放抽取次数
-	Pve         ValueStats `json:"pve"`     // 人机模式, 按仓库价值系数缩放抽取次数
-	Balance     *Balance   `json:"balance"` // 对局验算, 旧数据为空
-	SimulatedAt time.Time  `json:"simulated_at"`
+	Runs        int         `json:"runs"`
+	Ranked      ValueStats  `json:"ranked"`  // 排位模式, 不缩放抽取次数; 配置了档次时为单个拍品(按权重混合各档次)的分布
+	Pve         ValueStats  `json:"pve"`     // 人机模式, 按仓库价值系数缩放抽取次数
+	Tiers       []TierStats `json:"tiers"`   // 各档次的价值分布, 没有配置档次时为空
+	Balance     *Balance    `json:"balance"` // 对局验算, 旧数据为空
+	SimulatedAt time.Time   `json:"simulated_at"`
+}
+
+// TierStats 一种档次的价值分布
+type TierStats struct {
+	Code   string     `json:"code"`
+	Ranked ValueStats `json:"ranked"`
+	Pve    ValueStats `json:"pve"`
 }
 
 // Balance 对局验算: 按推导出的拍卖参数模拟几种阵容的对局, 检查成交价、速胜和盈亏是否落在安全区间
@@ -273,8 +348,13 @@ type SquadStats struct {
 	TopShare     int32  `json:"top_share"`     // 最贵一件占仓库价值的比例的平均值
 	AppraiseBias int32  `json:"appraise_bias"` // 人机估值之和 ÷ 仓库价值之和, 没有人机时为 0
 	AvgRounds    int32  `json:"avg_rounds"`    // 平均在第几轮结束, 百分之一轮
-	WinRate      int32  `json:"win_rate"`      // 每个真人席位的成交率
-	SeatEV       int64  `json:"seat_ev"`       // 每个真人席位每局的平均盈亏, 藏品按扣掉出售手续费后的回收价计
+	WinRate      int32  `json:"win_rate"`      // 每个真人席位每个拍品的成交率, 一局一个拍品时就是每局的成交率
+	SeatEV       int64  `json:"seat_ev"`       // 每个真人席位每局(拍场)的平均盈亏, 藏品按扣掉出售手续费后的回收价计
+	Lots         int32  `json:"lots"`          // 每局平均的拍品数, 百分之一个
+	RankWin      int32  `json:"rank_win"`      // 每个真人席位拿到拍场第 1 名(盈亏最高且赚钱)的比例; 多拍品时胜率闸门看它
+	BudgetOut    int32  `json:"budget_out"`    // 拍场结束时剩余资金不够最低起拍价的真人席位比例
+	PlanGain     int64  `json:"plan_gain"`     // 会规划预算的模拟真人比不规划的每局多赚多少, 只有两种都有时有
+	EarlyShare   int32  `json:"early_share"`   // 成交的拍品在最后一轮前的最高价 ÷ 成交价的平均值, 太低说明大家都在等最后一轮
 	WinnerEV     int64  `json:"winner_ev"`     // 真人成交时的平均盈亏, 没成交时只亏入场费, 流拍时不亏
 	HypeHot      int32  `json:"hype_hot"`      // 每轮结束后热度火热(不低于 70)的比例, 加轮和成交的那一轮不算
 	HypeCold     int32  `json:"hype_cold"`     // 同上, 冷清(不高于 30)的比例

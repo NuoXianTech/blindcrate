@@ -175,6 +175,12 @@ var (
 				MaxLeadDiscount:     3000,
 				IntelRate:           50,
 				PreviewRate:         3000,
+				CarryCoverage:       3000,
+				BotCarryShare:       6000,
+				BotCarryFloor:       7000,
+				HypeLotDecay:        3000,
+				HumanPlanShare:      5000,
+				HumanBudgetPace:     25000,
 				MinRounds:           4,
 				MaxRounds:           10,
 				MinGridSide:         4,
@@ -287,6 +293,10 @@ type BalanceSettings struct {
 	SpeedFloorRate  int `json:"speed_floor_rate" label:"速胜下限比例" help:"速胜下限占期望价值的比例; 过低挡不住速胜, 过高基本只能打到最后一轮" binding:"min=0,max=30000" unit:"bp"`
 	MaxLeadDiscount int `json:"max_lead_discount" label:"领先折让上限" help:"折让越大成交价越低, 全折让(二价)时赢家白捡、系统净发放" binding:"min=0,max=9000" unit:"bp"`
 	IntelRate       int `json:"intel_rate" label:"情报价格比例" help:"向主持人买一次情报的价格占期望价值的比例, 0 表示不卖情报; 情报平均每局只值期望价值的 0.6%~2.4%, 定价要远低于它, 否则买情报稳赚, 不超过 0.7%" binding:"min=0,max=70" unit:"bp"`
+	CarryCoverage   int `json:"carry_coverage" label:"拍场: 带入覆盖率" help:"配置了档次的地图, 带入资金上限 = 每局拍品数的期望 × 单个拍品的期望价值 × 覆盖率; 地图可以单独设置; 越低越要挑着拍, 太低时后面的拍品没人出得起" binding:"min=1000,max=20000" unit:"bp"`
+	BotCarryShare   int `json:"bot_carry_share" label:"拍场: 人机带入比例" help:"配置了档次的地图, 人机带入资金的上限占带入资金上限的比例" binding:"min=1000,max=10000" unit:"bp"`
+	BotCarryFloor   int `json:"bot_carry_floor" label:"拍场: 人机带入下限" help:"每个人机的带入资金在人机带入资金 × [下限, 100%] 内随机, 真人不能从人机花掉的钱推出它还剩多少" binding:"min=1000,max=10000" unit:"bp"`
+	HypeLotDecay    int `json:"hype_lot_decay" label:"拍场: 热度回落" help:"每个拍品开场时热度向 50 回落的比例, 避免一个热门拍品把后面全部点燃" binding:"min=0,max=10000" unit:"bp"`
 	PreviewRate     int `json:"preview_rate" label:"首轮扫描比例" help:"第 1 轮每件藏品按这个概率扫出轮廓(只有占的格子, 没有品质和名称), 至少扫出一件; 其余的直到开箱都不公开, 件数也不公开, 只能靠道具和情报看到; 0 表示不扫" binding:"min=0,max=10000" unit:"bp"`
 
 	MinRounds           int `json:"min_rounds" label:"轮数下限" help:"轮数太少时出价来不及拉开, 速胜和追价都没有余地" binding:"min=1,max=10,ltefield=MaxRounds"`
@@ -301,8 +311,8 @@ type BalanceSettings struct {
 	MinAppraiseBias     int `json:"min_appraise_bias" label:"人机估值偏差下限" help:"人机估值 ÷ 仓库价值, 低于它说明人机系统性低估" binding:"min=0,max=100000,ltefield=MaxAppraiseBias" unit:"bp"`
 	MaxAppraiseBias     int `json:"max_appraise_bias" label:"人机估值偏差上限" help:"高于它说明人机系统性高估, 会买贵" binding:"min=0,max=100000" unit:"bp"`
 	MinSeatEV           int `json:"min_seat_ev" label:"真人盈亏下限" help:"每个真人席位平均每局的盈亏不低于期望价值的这个比例, 负数为亏损; 人机模式只能练习时不看" binding:"min=-10000,max=10000" unit:"bp"`
-	MinRankedWinRate    int `json:"min_ranked_win_rate" label:"排位补人机时真人的胜率下限" help:"2 个真人和 2 个人机时, 每个真人席位拍下仓库的比例不低于它, 0 表示不检查; 平分为 25%" binding:"min=0,max=10000" unit:"bp"`
-	MinPveWinRate       int `json:"min_pve_win_rate" label:"人机模式真人的胜率下限" help:"1 个真人和 3 个人机时, 真人拍下仓库的比例不低于它, 0 表示不检查; 平分为 25%" binding:"min=0,max=10000" unit:"bp"`
+	MinRankedWinRate    int `json:"min_ranked_win_rate" label:"排位补人机时真人的胜率下限" help:"2 个真人和 2 个人机时, 每个真人席位拍下仓库的比例(多拍品时为拍场第 1 名的比例)不低于它, 0 表示不检查; 平分为 25%" binding:"min=0,max=10000" unit:"bp"`
+	MinPveWinRate       int `json:"min_pve_win_rate" label:"人机模式真人的胜率下限" help:"1 个真人和 3 个人机时, 真人拍下仓库的比例(多拍品时为拍场第 1 名的比例)不低于它, 0 表示不检查; 平分为 25%" binding:"min=0,max=10000" unit:"bp"`
 
 	HumanSigmaStart int `json:"human_sigma_start" label:"模拟真人: 首轮估值误差" help:"验算时模拟的真人知道仓库价值但看不准, 第 1 轮的估值误差占价值的比例, 之后每轮减少, 不低于误差下限" binding:"min=0,max=10000" unit:"bp"`
 	HumanSigmaStep  int `json:"human_sigma_step" label:"模拟真人: 每轮减少的误差" help:"按 5 轮的地图计, 轮数不同时按比例缩放, 轮数越多每轮减得越少" binding:"min=0,max=10000" unit:"bp"`
@@ -310,6 +320,8 @@ type BalanceSettings struct {
 	HumanJumpChance int `json:"human_jump_chance" label:"模拟真人: 首轮抢拍概率" help:"第 1 轮按估值的 95% 出价的概率, 否则按起拍价试探" binding:"min=0,max=10000" unit:"bp"`
 	HumanStair      int `json:"human_stair" label:"模拟真人: 第 2 轮出价系数" help:"第 2 轮按估值的这个比例出价, 之后每轮加 10%, 不超过 96%" binding:"min=0,max=10000" unit:"bp"`
 	HumanCapFactor  int `json:"human_cap_factor" label:"模拟真人: 出价上限系数" help:"出价不超过估值的这个比例" binding:"min=1,max=20000" unit:"bp"`
+	HumanBudgetPace int `json:"human_budget_pace" label:"模拟真人: 预算系数" help:"规划预算的模拟真人这个拍品最多花剩余资金 × 估值 ÷ (估值 + 后面拍品的期望) × 预算系数; 4 个人分拍品, 每人平均只拿到 1/4, 系数大于 1 才不会把出价压到价值以下" binding:"min=1000,max=40000" unit:"bp"`
+	HumanPlanShare  int `json:"human_plan_share" label:"模拟真人: 规划预算的比例" help:"多拍品的拍场中, 这么多的模拟真人按剩余资金和后面拍品的期望分配预算, 其余只看眼前的拍品, 剩多少钱都敢出" binding:"min=0,max=10000" unit:"bp"`
 }
 
 // RankedSettings 排位: 段位分的初始分和加减分, 挂机禁赛, 防串通和可疑名单
