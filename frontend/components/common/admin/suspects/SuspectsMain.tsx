@@ -60,7 +60,7 @@ export function SuspectsMain() {
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold">可疑名单</h1>
           <p className="text-sm text-muted-foreground">
-            最近一段时间的排位中经常同局, 或同局时其中一人多次低价成交的两个账号, 可能约好不出价低价拿走仓库;
+            最近一段时间的排位中经常同局, 或同局时其中一人多次低价成交的两个账号, 可能约好不出价低价拿走拍品; 成交按拍品计, 一局可能有多个;
             统计天数、次数和低价成交比例在系统设置的排位中修改
           </p>
         </div>
@@ -90,8 +90,8 @@ export function SuspectsMain() {
             <TableRow>
               <TableHead>账号</TableHead>
               <TableHead className="text-right">同局</TableHead>
-              <TableHead className="text-right">其中一人成交</TableHead>
-              <TableHead className="text-right">低价成交</TableHead>
+              <TableHead className="text-right" title="按拍品计">其中一人成交</TableHead>
+              <TableHead className="text-right" title="按拍品计">低价成交</TableHead>
               <TableHead className="text-right">平均成交比例</TableHead>
               <TableHead>最近同局</TableHead>
               <TableHead>处理</TableHead>

@@ -72,16 +72,6 @@ const (
 	OutcomeCancelled = "cancelled" // 管理员取消, 退还入场费和入场代价
 )
 
-// 每轮反馈的提示, 只比较自己和其他人的最高出价
-const (
-	HintNoBid     = "no_bid"     // 自己还没出过价
-	HintFarAhead  = "far_ahead"  // 领先较多
-	HintAhead     = "ahead"      // 小幅领先
-	HintTied      = "tied"       // 与其他人并列最高
-	HintClose     = "close"      // 小幅落后
-	HintFarBehind = "far_behind" // 落后较多
-)
-
 // 主持人提示的类型
 const (
 	HostHintCount = "count" // 品质不低于 Quality 的藏品共有 Count 件
@@ -105,7 +95,7 @@ const (
 	rankedMinHumans = 2
 	// rankedBotFillAfter 排位模式真人不够时, 最早加入的人等满这个时间后用人机补齐
 	rankedBotFillAfter = 15 * time.Second
-	// hintFarRatio 领先或落后达到这个倍数时提示"较多", 基点
+	// hintFarRatio 人机看公开出价时, 领先或落后达到这个倍数算"较多", 基点
 	hintFarRatio = 12000
 )
 

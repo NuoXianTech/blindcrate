@@ -103,18 +103,9 @@ func pushViews(ctx context.Context, matchID uint64) {
 		logger.ErrorF(ctx, "[Auction] load auction of match %d failed: %v", matchID, err)
 		return
 	}
-	items, err := loadItems(tx, matchID)
+	items, uses, err := st.loadDetails(tx)
 	if err != nil {
-		logger.ErrorF(ctx, "[Auction] load warehouse of match %d failed: %v", matchID, err)
-		return
-	}
-	uses, err := loadUses(tx, matchID)
-	if err != nil {
-		logger.ErrorF(ctx, "[Auction] load uses of match %d failed: %v", matchID, err)
-		return
-	}
-	if st.hints, st.hypes, err = loadHost(tx, matchID); err != nil {
-		logger.ErrorF(ctx, "[Auction] load host of match %d failed: %v", matchID, err)
+		logger.ErrorF(ctx, "[Auction] load details of match %d failed: %v", matchID, err)
 		return
 	}
 

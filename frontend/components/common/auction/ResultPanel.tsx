@@ -14,18 +14,21 @@ import {ROUTES, matchHref} from '@/lib/access';
 import {OUTCOMES, parseMode} from '@/lib/auction';
 import {tierOf} from '@/lib/ranked';
 import services from '@/lib/services';
-import {AUCTION_OUTCOME, type AuctionView} from '@/lib/services/auction';
+import {AUCTION_OUTCOME, type AuctionView, type LotView} from '@/lib/services/auction';
 import {toErrorMessage} from '@/lib/services/core';
 import type {MatchPlayer} from '@/lib/services/match';
 import type {Tier} from '@/lib/services/ranked';
 import {formatAmount} from '@/lib/utils';
 
 /**
- * 结算结果: 成交价、仓库价值、自己的盈亏和排位的段位分、段位变化; 结算后对局随即释放, 开箱时就可以离开或再来一局
- * 仓库价值随开箱扫描累加, 盈亏和段位分能推出仓库价值, 扫完才公开
+ * 当前拍品的结算结果: 成交价、仓库价值; 最后一个拍品开箱后还有整场的名次、自己的盈亏和排位的段位分、段位变化,
+ * 此时拍场已结算, 对局随即释放, 开箱时就可以离开或再来一局
+ * 仓库价值随开箱扫描累加, 盈亏、名次和段位分能推出仓库价值, 扫完才公开
  */
-export function ResultPanel({view, players, decimals, scan, finished, released}: {
+export function ResultPanel({view, lot, players, decimals, scan, finished, released}: {
   view: AuctionView;
+  /** 当前拍品 */
+  lot: LotView;
   players: MatchPlayer[];
   decimals: number;
   /** 开箱扫描的进度, 见 useScan */
@@ -38,10 +41,10 @@ export function ResultPanel({view, players, decimals, scan, finished, released}:
   const router = useRouter();
   const [joining, setJoining] = useState(false);
   const [tiers, setTiers] = useState<Tier[] | null>(null);
-  const result = view.result;
-  const sold = result?.outcome === AUCTION_OUTCOME.sold;
-  // 排位成交后按名次加减段位分, 流拍和练习局不计分
-  const rated = sold && parseMode(view.mode)?.kind === 'ranked' && !view.self.is_practice;
+  const {session, self} = view;
+  const sold = lot.outcome === AUCTION_OUTCOME.sold;
+  // 排位至少成交一个拍品时按名次加减段位分, 全部流拍和练习局不计分
+  const rated = session?.outcome === AUCTION_OUTCOME.sold && parseMode(view.mode)?.kind === 'ranked' && !self.is_practice;
 
   useEffect(() => {
     if (!rated) return;
@@ -52,23 +55,23 @@ export function ResultPanel({view, players, decimals, scan, finished, released}:
         });
   }, [rated]);
 
-  if (!result) return null;
-
-  const winner = players.find((p) => p.seat === result.winner_seat);
+  const winner = players.find((p) => p.seat === lot.winner_seat);
   // 结算前后的段位, 由段位分换算; 段位按当前的分数线计算
-  const tierBefore = tiers && tierOf(tiers, result.rating - result.rating_delta);
-  const tierAfter = tiers && tierOf(tiers, result.rating);
+  const tierBefore = tiers && tierOf(tiers, self.rating - self.rating_delta);
+  const tierAfter = tiers && tierOf(tiers, self.rating);
   const tierChanged = !!tiers && tierBefore?.id !== tierAfter?.id;
 
+  // 入场费只有一个拍品都没成交时才退
+  const refunded = !view.lots.some((l) => l.outcome === AUCTION_OUTCOME.sold);
   let title: string;
   if (sold && winner?.is_self) {
     title = '你拍下了这个仓库';
   } else if (sold) {
-    title = `${winner?.nickname ?? `${result.winner_seat} 号位`} 拍下了这个仓库`;
-  } else if (result.outcome === AUCTION_OUTCOME.unsold) {
-    title = '流拍, 入场代价已退还';
+    title = `${winner?.nickname ?? `${lot.winner_seat} 号位`} 拍下了这个仓库`;
+  } else if (lot.outcome === AUCTION_OUTCOME.unsold) {
+    title = session && refunded ? '全部流拍, 入场代价已退还' : '这个拍品流拍';
   } else {
-    title = '对局已取消, 入场代价已退还';
+    title = refunded ? '对局已取消, 入场代价已退还' : '对局已取消, 已成交的拍品不受影响';
   }
 
   const again = async () => {
@@ -83,16 +86,19 @@ export function ResultPanel({view, players, decimals, scan, finished, released}:
   };
 
   // 向主持人买情报的花费, 流拍也不退; 入场费在准入时已扣除, 不计入盈亏
-  const intel = view.self.uses.filter((u) => u.item_id === 0).length * view.venue.intel_price;
+  const intel = self.uses.reduce((sum, u) => sum + (u.item_id === 0 ? view.lots[u.lot_no - 1].intel_price : 0), 0);
   const rows = [
-    {label: '成交价', value: sold ? formatAmount(result.price, decimals) : '-'},
-    {label: scan.complete ? '仓库价值' : '仓库价值 (扫描中)', value: formatAmount(scan.complete ? result.value : scan.value, decimals)},
+    {label: '成交价', value: sold ? formatAmount(lot.price, decimals) : '-'},
+    {label: scan.complete ? '仓库价值' : '仓库价值 (扫描中)', value: formatAmount(scan.complete ? lot.value : scan.value, decimals)},
+    {label: '我的剩余资金', value: formatAmount(self.remaining, decimals)},
   ];
+  // 全部流拍时名次为 0, 按座位号
+  const standings = session ? [...session.seats].sort((a, b) => a.rank - b.rank || a.seat - b.seat) : [];
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border bg-card p-4">
       <div className="flex flex-col gap-1">
-        <span className="text-xs text-muted-foreground">{OUTCOMES[result.outcome] ?? result.outcome}</span>
+        <span className="text-xs text-muted-foreground">拍品 {lot.lot_no}/{view.lot_count} · {OUTCOMES[lot.outcome] ?? lot.outcome}</span>
         <span className="text-lg font-bold">{title}</span>
       </div>
 
@@ -108,7 +114,7 @@ export function ResultPanel({view, players, decimals, scan, finished, released}:
         ))}
       </dl>
 
-      {!scan.complete ? (
+      {session && !scan.complete && (
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">我的盈亏</span>
           <span className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -116,19 +122,21 @@ export function ResultPanel({view, players, decimals, scan, finished, released}:
             开箱扫描中, 扫完揭晓
           </span>
         </div>
-      ) : (
+      )}
+
+      {session && scan.complete && (
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">
-            我的盈亏{view.self.is_practice && ' (练习局, 仅供参考)'}
+            整场盈亏{self.is_practice && ' (练习局, 仅供参考)'}
           </span>
           <span
             className={cn(
                 'font-mono text-3xl font-bold tabular-nums',
-                result.profit > 0 && 'text-quality-green',
-                result.profit < 0 && 'text-quality-red',
+                self.profit > 0 && 'text-quality-green',
+                self.profit < 0 && 'text-quality-red',
             )}
           >
-            {formatAmount(result.profit, decimals, {signed: true})}
+            {formatAmount(self.profit, decimals, {signed: true})}
           </span>
           {intel > 0 && (
             <span className="text-xs text-muted-foreground">含情报 {formatAmount(-intel, decimals, {signed: true})}</span>
@@ -136,25 +144,47 @@ export function ResultPanel({view, players, decimals, scan, finished, released}:
         </div>
       )}
 
+      {session && scan.complete && (
+        <ul className="flex flex-col gap-1 text-sm">
+          {standings.map((s) => {
+            const player = players.find((p) => p.seat === s.seat);
+            return (
+              <li key={s.seat} className={cn('flex items-center gap-2', player?.is_self && 'font-medium')}>
+                <span className="w-6 font-mono tabular-nums text-muted-foreground">{s.rank > 0 ? `#${s.rank}` : '-'}</span>
+                <span className="min-w-0 flex-1 truncate">{player?.nickname ?? `${s.seat} 号位`}</span>
+                <span className="font-mono text-xs tabular-nums text-muted-foreground" title="花费 / 带入">
+                  {formatAmount(s.spent, decimals)} / {formatAmount(s.carry, decimals)}
+                </span>
+                <span
+                  className={cn('w-20 text-right font-mono tabular-nums', s.profit > 0 && 'text-quality-green', s.profit < 0 && 'text-quality-red')}
+                >
+                  {formatAmount(s.profit, decimals, {signed: true})}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
       {rated && scan.complete && (
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">段位分</span>
           <span className="flex items-baseline gap-2 font-mono tabular-nums">
             {tiers && <TierName tier={tierAfter} className="self-center font-sans" />}
-            <span className="text-xl font-bold">{result.rating}</span>
+            <span className="text-xl font-bold">{self.rating}</span>
             <span
               className={cn(
                   'text-sm',
-                  result.rating_delta > 0 && 'text-quality-green',
-                  result.rating_delta < 0 && 'text-quality-red',
+                  self.rating_delta > 0 && 'text-quality-green',
+                  self.rating_delta < 0 && 'text-quality-red',
               )}
             >
-              {formatAmount(result.rating_delta, 0, {signed: true})}
+              {formatAmount(self.rating_delta, 0, {signed: true})}
             </span>
           </span>
           {tierChanged && (
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              {result.rating_delta > 0 ? '升段' : '降段'}
+              {self.rating_delta > 0 ? '升段' : '降段'}
               <TierName tier={tierBefore} />
               →
               <TierName tier={tierAfter} />
@@ -163,7 +193,9 @@ export function ResultPanel({view, players, decimals, scan, finished, released}:
         </div>
       )}
 
-      {released ? (
+      {!session ? (
+        <span className="text-center text-xs text-muted-foreground">开箱后进入下一个拍品, 带入资金继续沿用</span>
+      ) : released ? (
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-2 gap-2">
             <Button variant="outline" asChild>

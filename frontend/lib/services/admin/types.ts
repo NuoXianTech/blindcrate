@@ -488,6 +488,49 @@ export interface WarehouseRule {
   max_rerolls: number;
 }
 
+/** 档次的期望价值和推导出的金额, 保存时推导, 对应后端 venue.TierAuction */
+export interface TierAuction {
+  /** 这个档次的期望价值, 排位模式 */
+  mean: number;
+  start_price: number;
+  speed_floor: number;
+  intel_price: number;
+}
+
+/** 拍品的一种档次, 对应后端 venue.Tier */
+export interface LotTier {
+  /** 档次中唯一 */
+  code: string;
+  /** 只在管理端和拍场结束后显示 */
+  name: string;
+  /** 1-10000 */
+  weight: number;
+  warehouse: WarehouseRule;
+  /** 保存时推导, 提交的值会被覆盖 */
+  auction: TierAuction;
+}
+
+/**
+ * 拍场, 对应后端 venue.LotRule: 一局依次开拍 [min, max] 个拍品, 共用一笔带入资金, 每个拍品按权重抽一种档次
+ * 没有配置档次时只有 warehouse 一档, 一局一个仓库
+ */
+export interface LotRule {
+  /** 配置了档次时为 1-8, 不超过 max; 没有档次时忽略 */
+  min: number;
+  max: number;
+  /** 最多 6 种; 旧数据可能为 null */
+  tiers: LotTier[] | null;
+  /** 一个拍品开箱后停留多久进入下一个, 0-30 秒 */
+  gap_seconds: number;
+  /** 带入覆盖率, 基点; 0 表示用玩法平衡设置的默认值 */
+  coverage: number;
+}
+
+/** 提交的拍场, 档次的金额由后端推导, 不需要提交 */
+export type LotRequest = Omit<LotRule, 'tiers'> & {
+  tiers: Omit<LotTier, 'auction'>[];
+};
+
 /** 地图上一种出场的人机风格和它的权重, 对应后端 bot.Weight */
 export interface BotWeight {
   /** 风格代码 */
@@ -562,10 +605,20 @@ export interface SquadStats {
   appraise_bias: number;
   /** 平均在第几轮结束, 百分之一轮 */
   avg_rounds: number;
-  /** 每个真人席位的成交率 */
+  /** 每个真人席位每个拍品的成交率, 一局一个拍品时就是每局的成交率 */
   win_rate: number;
-  /** 每个真人席位每局的平均盈亏 */
+  /** 每个真人席位每局(拍场)的平均盈亏 */
   seat_ev: number;
+  /** 每局平均的拍品数, 百分之一个; 旧数据没有 */
+  lots?: number;
+  /** 每个真人席位拿到拍场第 1 名(盈亏最高且赚钱)的比例; 多拍品时胜率闸门看它 */
+  rank_win?: number;
+  /** 拍场结束时剩余资金不够最低起拍价的真人席位比例 */
+  budget_out?: number;
+  /** 会规划预算的模拟真人比不规划的每局多赚多少, 只有两种都有时有 */
+  plan_gain?: number;
+  /** 成交的拍品在最后一轮前的最高价 ÷ 成交价的平均值 */
+  early_share?: number;
   /** 真人成交时的平均盈亏, 没成交时只亏入场费, 流拍时不亏 */
   winner_ev: number;
   /** 每轮结束后热度火热(不低于 70)的比例, 基点; 加轮和成交的那一轮不算 */
@@ -619,13 +672,22 @@ export interface Balance {
   version: number;
 }
 
+/** 一种档次的价值分布, 对应后端 venue.TierStats */
+export interface TierStats {
+  code: string;
+  ranked: ValueStats;
+  pve: ValueStats;
+}
+
 /** 仓库模拟结果, 对应后端 venue.Simulation */
 export interface Simulation {
   runs: number;
-  /** 排位模式, 不缩放抽取次数 */
+  /** 排位模式, 不缩放抽取次数; 配置了档次时为单个拍品(按权重混合各档次)的分布 */
   ranked: ValueStats;
   /** 人机模式, 按仓库价值系数缩放抽取次数 */
   pve: ValueStats;
+  /** 各档次的价值分布, 没有配置档次时为空; 旧数据没有 */
+  tiers?: TierStats[] | null;
   /** 对局验算, 旧数据为空 */
   balance: Balance | null;
   simulated_at: string;
@@ -657,7 +719,10 @@ export interface AdminVenue {
   entry_cost: Bundle;
   /** 入场条件, 需要全部满足 */
   requirements: Condition[];
+  /** 仓库生成规则, 配置了档次时不用 */
   warehouse: WarehouseRule;
+  /** 拍场: 一局开拍几个仓库, 从哪些档次中抽; 旧数据可能没有 */
+  lots?: LotRule;
   auction: AuctionRule;
   bots: BotRule;
   pve: PveRule;
@@ -705,7 +770,8 @@ export interface RecalibrateData {
 export type AuctionSettings = Pick<AuctionRule, 'rounds' | 'round_seconds' | 'reveal_seconds' | 'quick_win' | 'max_extra_rounds'>;
 
 /** 新建、修改或模拟地图, 修改时也需提交全部字段; 拍卖的金额和比例不需要提交, 提交了也会被覆盖 */
-export type VenueRequest = Omit<AdminVenue, 'id' | 'auction' | 'simulation' | 'created_at' | 'updated_at'> & {
+export type VenueRequest = Omit<AdminVenue, 'id' | 'lots' | 'auction' | 'simulation' | 'created_at' | 'updated_at'> & {
+  lots: LotRequest;
   auction: AuctionSettings;
 };
 
@@ -854,9 +920,9 @@ export interface Suspect {
   user_b: SuspectUser;
   /** 一起打的排位局数 */
   matches: number;
-  /** 其中一人成交的局数 */
+  /** 其中一人成交的拍品数 */
   wins: number;
-  /** 其中一人低价成交的局数 */
+  /** 其中一人低价成交的拍品数 */
   low_wins: number;
   /** 其中一人成交时成交价占仓库价值的平均比例, 基点; 没有成交时为 0 */
   price_rate: number;

@@ -9,19 +9,18 @@ import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {IntelResult, Warehouse} from '@/components/common/auction';
-import {CurrencyIcon} from '@/components/common/wallet';
 import {useScan} from '@/hooks/use-scan';
 import {OUTCOMES, modeLabel, parseMode} from '@/lib/auction';
 import services from '@/lib/services';
 import type {AdminMatch, AdminMatchPlayer} from '@/lib/services/admin';
-import {AUCTION_OUTCOME, type AuctionAdminView, type AuctionPlayer} from '@/lib/services/auction';
+import {AUCTION_OUTCOME, type AuctionAdminView, type AuctionPlayer, type LotView} from '@/lib/services/auction';
 import {toErrorMessage} from '@/lib/services/core';
 import {MATCH_STATUS} from '@/lib/services/match';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 import {STATUS_LABELS, phaseLabel} from './constants';
 
 /**
- * 对局详情: 时间、每个座位, 暗拍还显示每个座位的带入资金、出价、估值和盈亏, 道具的使用记录, 以及结算结果和仓库
+ * 对局详情: 时间、每个座位, 暗拍还显示每个拍品的档次、价值和成交结果, 每个座位的带入资金、已花、当前出价、估值和盈亏, 道具的使用记录, 以及各拍品的仓库
  */
 export function MatchDetailDialog({match, venueName, decimalsOf, onClose, onCancel}: {
   match: AdminMatch | null;
@@ -55,6 +54,7 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
   const isAuction = !!parsed;
   const [auction, setAuction] = useState<AuctionAdminView | null>(null);
   const [loading, setLoading] = useState(isAuction);
+  const [shownLot, setShownLot] = useState(0);
 
   useEffect(() => {
     if (!isAuction) return;
@@ -67,7 +67,10 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
   const status = STATUS_LABELS[m.status];
   const currency = auction?.venue.bid_currency ?? '';
   const decimals = decimalsOf(currency);
-  const result = auction?.result ?? null;
+  // 拍场结束后才有名次和盈亏
+  const settled = !!auction?.session;
+  const lotNo = shownLot || auction?.lot || 1;
+  const lot = auction?.lots[lotNo - 1];
   const times = [
     {label: '开始', value: m.created_at},
     {label: '释放', value: m.released_at},
@@ -95,28 +98,50 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
         ))}
       </dl>
 
-      {result && (
-        <dl className="grid grid-cols-2 gap-3 rounded-lg border p-3 text-sm sm:grid-cols-4">
-          <div className="flex flex-col gap-0.5">
-            <dt className="text-xs text-muted-foreground">结果</dt>
-            <dd className="font-medium">
-              {OUTCOMES[result.outcome] ?? result.outcome}
-              {result.outcome === AUCTION_OUTCOME.sold && ` · ${result.winner_seat} 号位`}
-            </dd>
-          </div>
-          {[
-            {label: '成交价', value: result.outcome === AUCTION_OUTCOME.sold ? formatAmount(result.price, decimals) : '-'},
-            {label: '仓库价值', value: formatAmount(result.value, decimals)},
-          ].map((row) => (
-            <div key={row.label} className="flex flex-col gap-0.5">
-              <dt className="text-xs text-muted-foreground">{row.label}</dt>
-              <dd className="flex items-center gap-1 font-mono tabular-nums">
-                <CurrencyIcon currency={currency} className="size-4" />
-                {row.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
+      {auction && (
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>拍品</TableHead>
+                <TableHead>档次</TableHead>
+                <TableHead>格子</TableHead>
+                <TableHead>结果</TableHead>
+                <TableHead className="text-right">起拍价</TableHead>
+                <TableHead className="text-right">成交价</TableHead>
+                <TableHead className="text-right">仓库价值</TableHead>
+                <TableHead className="text-right">件数</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {auction.lot_rows.map((l) => (
+                <TableRow
+                  key={l.lot_no}
+                  className={cn('cursor-pointer', l.lot_no === lotNo && 'bg-muted/50')}
+                  onClick={() => setShownLot(l.lot_no)}
+                  title="查看这个拍品的仓库"
+                >
+                  <TableCell className="font-mono tabular-nums">
+                    {l.lot_no}
+                    {l.lot_no === auction.lot && !settled && <Badge variant="outline" className="ml-1.5">当前</Badge>}
+                  </TableCell>
+                  <TableCell>{auction.lots[l.lot_no - 1]?.tier || l.tier}</TableCell>
+                  <TableCell className="font-mono tabular-nums">{l.grid.width}×{l.grid.height}</TableCell>
+                  <TableCell>
+                    {l.outcome ? OUTCOMES[l.outcome] ?? l.outcome : l.first_round ? '竞拍中' : '未开拍'}
+                    {l.outcome === AUCTION_OUTCOME.sold && ` · ${l.winner_seat} 号位`}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">{formatAmount(l.start_price, decimals)}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {l.outcome === AUCTION_OUTCOME.sold ? formatAmount(l.price, decimals) : '-'}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">{formatAmount(l.value, decimals)}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">{l.piece_count}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       <div className="rounded-lg border">
@@ -129,8 +154,9 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
               {auction && (
                 <>
                   <TableHead className="text-right">带入</TableHead>
-                  <TableHead className="text-right">出价</TableHead>
-                  <TableHead className="text-right" title="人机对仓库价值的估值">
+                  <TableHead className="text-right">已花</TableHead>
+                  <TableHead className="text-right" title="当前拍品的出价">出价</TableHead>
+                  <TableHead className="text-right" title="人机对当前拍品价值的估值">
                     估值
                   </TableHead>
                   <TableHead className="text-right">盈亏</TableHead>
@@ -144,8 +170,8 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
                 key={p.seat}
                 player={p}
                 auction={auction?.players.find((a) => a.seat === p.seat)}
-                settled={!!result}
-                winner={result?.outcome === AUCTION_OUTCOME.sold && result.winner_seat === p.seat}
+                settled={settled}
+                winner={settled && auction?.players.find((a) => a.seat === p.seat)?.rank === 1}
                 decimals={decimals}
               />
             ))}
@@ -161,6 +187,7 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
               <TableHeader>
                 <TableRow>
                   <TableHead>座位</TableHead>
+                  <TableHead>拍品</TableHead>
                   <TableHead>轮次</TableHead>
                   <TableHead>道具</TableHead>
                   <TableHead>情报</TableHead>
@@ -171,6 +198,7 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
                 {auction.uses.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell className="font-mono tabular-nums">{u.seat}</TableCell>
+                    <TableCell className="font-mono tabular-nums">{u.lot_no}</TableCell>
                     <TableCell className="font-mono tabular-nums">{u.round}</TableCell>
                     <TableCell>
                       <span className="flex flex-col">
@@ -195,9 +223,9 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
           <LoaderCircle className="animate-spin" />
         </div>
       ) : (
-        auction && (
+        auction && lot && (
           <div className="mx-auto w-full max-w-2xl">
-            <AdminWarehouse view={auction} decimals={decimals} />
+            <AdminWarehouse key={lot.lot_no} view={auction} lot={lot} decimals={decimals} />
           </div>
         )
       )}
@@ -215,11 +243,11 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
 }
 
 /**
- * 详情中的仓库, 不播放开箱扫描, 结算后直接显示全部藏品
+ * 详情中一个拍品的仓库, 不播放开箱扫描, 结算后直接显示全部藏品
  */
-function AdminWarehouse({view, decimals}: { view: AuctionAdminView; decimals: number }) {
-  const scan = useScan(view, true);
-  return <Warehouse view={view} decimals={decimals} scan={scan} />;
+function AdminWarehouse({view, lot, decimals}: { view: AuctionAdminView; lot: LotView; decimals: number }) {
+  const scan = useScan(lot, view.venue.bid_currency, true);
+  return <Warehouse view={view} lot={lot} decimals={decimals} scan={scan} />;
 }
 
 /**
@@ -264,6 +292,7 @@ function SeatRow({player: p, auction: a, settled, winner, decimals}: {
       {a && (
         <>
           <TableCell className="text-right font-mono tabular-nums">{amount(a.carry)}</TableCell>
+          <TableCell className="text-right font-mono tabular-nums">{amount(a.spent)}</TableCell>
           <TableCell className="text-right font-mono tabular-nums">{amount(a.bid)}</TableCell>
           <TableCell className="text-right font-mono tabular-nums">{amount(a.estimate)}</TableCell>
           <TableCell

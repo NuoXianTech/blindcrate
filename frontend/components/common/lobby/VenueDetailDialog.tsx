@@ -63,6 +63,8 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
   }
 
   const v = detail;
+  // 拍场的情报价格按拍品的格子大小
+  const intelPrices = [...new Set(v.lots ? v.lots.grids.map((g) => g.intel_price) : [v.auction.intel_price])].filter((x) => x > 0);
   const ranges = [
     {kind: 'pve', enabled: v.pve_enabled, range: v.pve.value_range},
     {kind: 'ranked', enabled: v.ranked_enabled, range: v.value_range},
@@ -72,22 +74,43 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
     <div className="flex flex-col gap-6">
       <Section title="拍卖规则">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-          <dt className="text-muted-foreground">起拍价</dt>
-          <dd className="flex items-center gap-1 font-mono tabular-nums">
-            <CurrencyIcon currency={v.bid_currency} className="size-4" />
-            {formatAmount(v.auction.start_price, decimals)}
-          </dd>
+          {v.lots ? (
+            <>
+              <dt className="text-muted-foreground">拍品</dt>
+              <dd>
+                每局 {v.lots.min === v.lots.max ? v.lots.min : `${v.lots.min}-${v.lots.max}`} 个仓库, 依次开拍, 开局时公开数量和格子大小
+                <ul className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground">
+                  {v.lots.grids.map((g) => (
+                    <li key={`${g.grid.width}x${g.grid.height}`} className="font-mono tabular-nums">
+                      {g.grid.width}×{g.grid.height} · {formatRate(g.share)} · 起拍 {formatAmount(g.start_price, decimals)}
+                    </li>
+                  ))}
+                </ul>
+              </dd>
+            </>
+          ) : (
+            <>
+              <dt className="text-muted-foreground">起拍价</dt>
+              <dd className="flex items-center gap-1 font-mono tabular-nums">
+                <CurrencyIcon currency={v.bid_currency} className="size-4" />
+                {formatAmount(v.auction.start_price, decimals)}
+              </dd>
+            </>
+          )}
           <dt className="text-muted-foreground">带入资金</dt>
           <dd>
             <span className="flex items-center gap-1 font-mono tabular-nums">
               <CurrencyIcon currency={v.bid_currency} className="size-4" />
               {formatAmount(v.auction.max_carry, decimals)}
             </span>
-            <p className="text-xs text-muted-foreground">开局时冻结可用余额, 最多冻结这么多, 出价不能超过冻结的金额</p>
+            <p className="text-xs text-muted-foreground">
+              自选带入金额, 不超过这个上限, 开局时冻结; 可用余额不够时不能开局; 整场的拍品共用, 出价不能超过剩余资金
+            </p>
           </dd>
           <dt className="text-muted-foreground">轮数</dt>
           <dd>
-            {v.auction.rounds} 轮, 每轮 {v.auction.round_seconds} 秒
+            {v.lots && '每个拍品 '}{v.auction.rounds} 轮, 每轮 {v.auction.round_seconds} 秒
+            <p className="text-xs text-muted-foreground">每轮结束后公开所有人的出价, 最后一轮是暗标, 开箱后才公开</p>
           </dd>
           <dt className="text-muted-foreground">速胜</dt>
           <dd>
@@ -126,18 +149,18 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
             <>
               <dt className="text-muted-foreground">主持人</dt>
               <dd>
-                每轮开始时给一条提示, 可能说错, 开箱后公开真假
+                每轮开始时给一条提示, 可能说错, 拍场结束后公开真假
                 <p className="text-xs text-muted-foreground">
-                  性格开箱后才公开: 稳重的很少说错, 煽动的错时往高了吹, 狡黠的错时往低了压
+                  性格拍场结束后才公开: 稳重的很少说错, 煽动的错时往高了吹, 狡黠的错时往低了压
                 </p>
               </dd>
             </>
           )}
-          {v.auction.intel_price > 0 && (v.host?.intel_limit ?? 0) > 0 && (
+          {intelPrices.length > 0 && (v.host?.intel_limit ?? 0) > 0 && (
             <>
               <dt className="text-muted-foreground">情报</dt>
               <dd>
-                每次 {formatAmount(v.auction.intel_price, decimals)}, 每局最多 {v.host.intel_limit} 次, 每轮一次
+                每次 {intelPrices.map((x) => formatAmount(x, decimals)).join(' / ')}, 每局最多 {v.host.intel_limit} 次, 每轮一次
                 <p className="text-xs text-muted-foreground">从可用余额扣除, 只有自己看得到, 其他人会看到你买了情报</p>
               </dd>
             </>
@@ -148,10 +171,14 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
               `最后一轮最高价并列时加轮, 最多 ${v.auction.max_extra_rounds} 轮, 之后按先出价的人成交` :
               '最后一轮最高价并列时按先出价的人成交'}
           </dd>
-          <dt className="text-muted-foreground">仓库</dt>
-          <dd>
-            {v.grid.width} × {v.grid.height} 格
-          </dd>
+          {!v.lots && (
+            <>
+              <dt className="text-muted-foreground">仓库</dt>
+              <dd>
+                {v.grid.width} × {v.grid.height} 格
+              </dd>
+            </>
+          )}
         </dl>
       </Section>
 
@@ -169,7 +196,7 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
         </div>
       </Section>
 
-      <Section title="仓库价值" hint="模拟的仓库价值, 八成的仓库在低和高之间">
+      <Section title={v.lots ? '单个仓库的价值' : '仓库价值'} hint="模拟的仓库价值, 八成的仓库在低和高之间">
         <div className="grid grid-cols-4 gap-x-4 gap-y-1.5 text-sm">
           <span className="text-muted-foreground">模式</span>
           <span className="text-right text-muted-foreground">低</span>
@@ -185,6 +212,21 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
         <div className="flex flex-col gap-3">
           {v.slots.map((slot, i) => (
             <SlotCard key={i} index={i} slot={slot} />
+          ))}
+          {v.lot_slots.map((g) => (
+            <div key={`${g.grid.width}x${g.grid.height}`} className="flex flex-col gap-3">
+              <h4 className="font-mono text-sm font-medium tabular-nums">{g.grid.width}×{g.grid.height} 的仓库</h4>
+              {g.variants.map((variant, i) => (
+                <div key={i} className="flex flex-col gap-2">
+                  {g.variants.length > 1 && (
+                    <span className="text-xs text-muted-foreground">第 {i + 1} 种, 占这个大小的 {formatRate(variant.share)}</span>
+                  )}
+                  {variant.slots.map((slot, j) => (
+                    <SlotCard key={j} index={j} slot={slot} />
+                  ))}
+                </div>
+              ))}
+            </div>
           ))}
         </div>
       </Section>

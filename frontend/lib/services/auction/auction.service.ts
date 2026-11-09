@@ -1,5 +1,14 @@
 import {BaseService, wsClient} from '../core';
-import {AUCTION_MESSAGES, type AuctionView, type BidRequest, type IntelRequest, type UsableItem, type UseRequest} from './types';
+import {
+  AUCTION_MESSAGES,
+  type AuctionView,
+  type BidRequest,
+  type CarryPreference,
+  type CarryRequest,
+  type IntelRequest,
+  type UsableItem,
+  type UseRequest,
+} from './types';
 
 export class AuctionService extends BaseService {
   protected static readonly basePath = '/auctions';
@@ -27,5 +36,15 @@ export class AuctionService extends BaseService {
   /** 通过 WebSocket 向主持人买情报, 返回购买后自己的视角; 被拒绝时抛出 ApiError, message 可以直接展示 */
   static buyIntel(body: IntelRequest) {
     return wsClient.request<AuctionView>(AUCTION_MESSAGES.intel, body);
+  }
+
+  /** 自己在各地图选的带入金额; 没选过的地图不在列表中, 准入时按带入资金上限 */
+  static listCarry() {
+    return this.get<{ preferences: CarryPreference[] }>('/carry');
+  }
+
+  /** 选择在一张地图的带入金额, 下一局准入时按它冻结 */
+  static setCarry(body: CarryRequest) {
+    return this.put<CarryPreference>('/carry', body);
   }
 }

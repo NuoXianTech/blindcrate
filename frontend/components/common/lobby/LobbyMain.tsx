@@ -45,6 +45,8 @@ export function LobbyMain() {
   const [joining, setJoining] = useState<{ venue: string; kind: ModeKind } | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [viewing, setViewing] = useState<Venue | null>(null);
+  // 各地图选的带入金额, 没选过的地图没有
+  const [carries, setCarries] = useState<Record<string, number>>({});
   // 签到后加一, 让任务入口重新拉取可领取的数量
   const [missionsVersion, setMissionsVersion] = useState(0);
 
@@ -62,6 +64,11 @@ export function LobbyMain() {
     services.venue.listVenues()
         .then((data) => setVenues(data.venues))
         .catch((err) => toast.error(toErrorMessage(err)));
+    services.auction.listCarry()
+        .then((data) => setCarries(Object.fromEntries(data.preferences.map((p) => [p.venue, p.amount]))))
+        .catch(() => {
+          // 只影响带入金额的展示, 失败时显示上限, 准入仍按保存的金额
+        });
     services.wallet.listBalances()
         .then((data) => setDecimals(Object.fromEntries(data.balances.map((b) => [b.currency, b.decimals]))))
         .catch(() => {
@@ -170,6 +177,8 @@ export function LobbyMain() {
               busy={joining?.venue === v.code ? joining.kind : null}
               queued={queued?.venue === v.code ? queued.kind : null}
               disabled={busy || joining !== null}
+              carry={Math.min(Math.max(carries[v.code] ?? v.auction.max_carry, v.auction.start_price), v.auction.max_carry)}
+              onCarry={(amount) => setCarries((prev) => ({...prev, [v.code]: amount}))}
               onJoin={(kind) => join(v, kind)}
               onDetail={() => setViewing(v)}
             />

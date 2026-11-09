@@ -3,13 +3,13 @@ import type {Grid} from '../venue';
 
 /** 暗拍阶段, 与后端 internal/apps/auction/constants.go 对应 */
 export const AUCTION_PHASE = {
-  /** 出价, round 为第几轮, 加轮时继续递增 */
+  /** 出价, round 为拍场内的第几轮, 整场连续编号, 加轮时继续递增 */
   bidding: 'bidding',
-  /** 开箱, 已结算 */
+  /** 当前拍品开箱, 已结算; 不是最后一个拍品时之后开拍下一个 */
   reveal: 'reveal',
 } as const;
 
-/** 结算结果 */
+/** 拍品和拍场的结算结果; 拍场至少成交一个拍品时为 sold */
 export const AUCTION_OUTCOME = {
   sold: 'sold',
   unsold: 'unsold',
@@ -20,7 +20,7 @@ export const AUCTION_OUTCOME = {
 export const AUCTION_MESSAGES = {
   /** 出价请求, data 为 BidRequest, 回复的 data 为 AuctionView */
   bid: 'auction:bid',
-  /** 开局、每轮结束和开箱时推送, data 为 AuctionView */
+  /** 开局、每轮结束、开箱和下一个拍品开拍时推送, data 为 AuctionView */
   updated: 'auction:updated',
   /** 使用道具, data 为 UseRequest, 回复的 data 为 AuctionView */
   use: 'auction:use',
@@ -64,37 +64,39 @@ export const AUCTION_EFFECT = {
   valueRange: 'value_range',
 } as const;
 
-/** 对局中展示的地图参数, 来自开局时的快照 */
+/** 对局中展示的地图参数, 来自开局时的快照; 每个拍品的起拍价等见 LotView */
 export interface AuctionVenue {
   code: string;
   name: string;
   bid_currency: string;
-  grid: Grid;
-  start_price: number;
+  /** 每个拍品的轮数 */
   rounds: number;
   /** 前 rounds-1 轮的速胜倍率, 基点 */
   quick_win: number[];
   max_extra_rounds: number;
-  /** 入场费, 以下字段见 lib/services/venue 的 AuctionRule, 旧对局为 0 */
+  /** 入场费, 以下字段见 lib/services/venue 的 AuctionRule */
   entry_fee: number;
-  /** 速胜时第一名的出价不能低于它 */
-  speed_floor: number;
+  /** 带入资金上限 */
+  max_carry: number;
   /** 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让) */
   lead_discount: number;
-  /** 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件 */
+  /** 首轮扫描比例, 基点: 每个拍品的第 1 轮每件藏品按这个概率扫出轮廓, 至少一件 */
   preview_rate: number;
-  /** 这个模式每局最多使用几个道具, 0 表示不能用 */
+  /** 这个模式每局(整个拍场)最多使用几个道具, 0 表示不能用 */
   max_uses: number;
   /** 可以用的道具, 为空表示所有对局中可用的道具 */
   allowed_items: number[];
-  /** 向主持人买一次情报的价格, 0 表示不卖情报 */
-  intel_price: number;
-  /** 每人每局最多买几次情报, 每轮最多一次 */
+  /** 每人每局(整个拍场)最多买几次情报, 每轮最多一次 */
   intel_limit: number;
+  /** 拍品开箱后停留多久进入下一个, 秒 */
+  gap_seconds: number;
 }
 
 /** 主持人的一条提示, 对应后端 auction.HintView */
 export interface HostHint {
+  /** 提示针对的拍品 */
+  lot_no: number;
+  /** 拍场内的轮次 */
   round: number;
   /** 见 HOST_HINT */
   kind: string;
@@ -104,13 +106,14 @@ export interface HostHint {
   x: number;
   y: number;
   above: boolean;
-  /** 是否属实, 开箱后才公开 */
+  /** 是否属实, 拍场结束后才公开 */
   truthful: boolean | null;
 }
 
 /** 热度的一次变动 */
 export interface HypeEvent {
-  /** 开局时为 0, 之后为结束的轮次 */
+  lot_no: number;
+  /** 开局和拍品开场(热度回落)时为 0, 之后为结束的轮次 */
   round: number;
   /** 这一轮加价的人数 */
   raises: number;
@@ -121,7 +124,7 @@ export interface HypeEvent {
 
 /** 公开的主持人状态, 对应后端 auction.HostView */
 export interface HostView {
-  /** 见 HOST_PERSONA, 开箱后才公开, 之前为空 */
+  /** 见 HOST_PERSONA, 拍场结束后才公开, 之前为空 */
   persona: string;
   hype: number;
   /** 按轮次 */
@@ -138,15 +141,6 @@ export interface SeatIntel {
   round: number;
 }
 
-/** 一轮结束后的反馈, 不透露其他人的出价 */
-export interface Feedback {
-  round: number;
-  /** 自己的出价在出过价的人中排第几, 没出过价为 0 */
-  rank: number;
-  /** 见 lib/auction.ts 的 HINTS */
-  hint: string;
-}
-
 /** 一组货币和物品, 对应后端 reward.Bundle */
 export interface Bundle {
   currencies?: { currency: string; amount: number }[];
@@ -159,16 +153,19 @@ export interface AuctionSelf {
   is_practice: boolean;
   /** 实际扣除的入场费和入场代价, 练习局为空 */
   entry_cost: Bundle;
-  /** 带入资金, 出价的上限 */
+  /** 带入资金, 整个拍场共用 */
   carry: number;
-  /** 当前出价, 0 表示还没出过价 */
+  /** 已拿下的拍品的成交价之和 */
+  spent: number;
+  /** 剩余资金, 当前拍品出价的上限 */
+  remaining: number;
+  /** 当前拍品的出价, 0 表示还没出过价 */
   bid: number;
   /** 本轮是否已出价 */
   submitted: boolean;
-  /** 现在是否可以出价 */
+  /** 现在是否可以出价; 剩余资金不够当前拍品的起拍价时不能 */
   can_bid: boolean;
-  feedback: Feedback[];
-  /** 自己用过的道具和得到的情报, 按使用顺序 */
+  /** 自己用过的道具和得到的情报, 按使用顺序, 含之前的拍品 */
   uses: UseView[];
   /** 本局还能用几个道具, 练习局为 0; 不考虑阶段和轮次 */
   uses_left: number;
@@ -176,6 +173,14 @@ export interface AuctionSelf {
   intel_left: number;
   /** 本轮是否已买过情报 */
   intel_bought: boolean;
+  /** 拍场结算后的盈亏, 不含准入时扣除的入场费和入场代价; 练习局按正式局计算 */
+  profit: number;
+  /** 拍场结算后的名次, 全部流拍时为 0 */
+  rank: number;
+  /** 段位分的变化, 只有排位且至少成交一个拍品时有 */
+  rating_delta: number;
+  /** 结算后的段位分, 同上 */
+  rating: number;
 }
 
 /** 道具看到的一件藏品, 带占的格子, 以位置 (x, y) 区分 */
@@ -212,6 +217,8 @@ export interface Intel {
 
 /** 自己用过的一个道具或买的一次情报 */
 export interface UseView {
+  /** 使用时的拍品 */
+  lot_no: number;
   round: number;
   /** 向主持人买的情报为 0 */
   item_id: number;
@@ -223,7 +230,7 @@ export interface UseView {
   created_at: string;
 }
 
-/** 开箱后公开的一个座位用某种道具的个数 */
+/** 拍品开箱后公开的一个座位在这个拍品上用某种道具的个数 */
 export interface UseCount {
   item_id: number;
   name: string;
@@ -258,58 +265,105 @@ export interface Footprint {
   height: number;
 }
 
-/** 开箱后公开的一个座位的出价 */
+/** 拍品开箱后公开的一个座位的出价 */
 export interface SeatResult {
   seat: number;
   /** 最后的出价, 0 表示没出过价 */
   bid: number;
-  /** 用过的道具, 按第一次使用的顺序, 不公开得到的情报 */
+  /** 在这个拍品上用过的道具, 按第一次使用的顺序, 不公开得到的情报 */
   uses: UseCount[];
 }
 
-/** 结算结果 */
-export interface AuctionResult {
+/** 公开的一次出价: 拍品的前 rounds-1 轮结束后公开, 最后一轮和加轮在拍品结算后公开 */
+export interface PublicBid {
+  /** 拍场内的轮次 */
+  round: number;
+  seat: number;
+  /** 0 表示不加价 */
+  amount: number;
+}
+
+/**
+ * 拍场中的一个拍品(仓库), 对应后端 auction.LotView
+ * 格子大小和金额开局时公开, 第 1 轮的轮廓开拍后公开, 价值、藏品和每个座位的出价开箱后公开, 档次拍场结束后公开
+ */
+export interface LotView {
+  /** 出场顺序, 从 1 开始 */
+  lot_no: number;
+  grid: Grid;
+  start_price: number;
+  /** 速胜时第一名的出价不能低于它 */
+  speed_floor: number;
+  /** 向主持人买一次情报的价格, 0 表示不卖情报 */
+  intel_price: number;
+  /** 开拍时拍场内的轮次, 还没开拍时为 0 */
+  first_round: number;
+  /** 第 1 轮扫出轮廓的藏品占的格子; 件数开箱前不公开 */
+  footprints: Footprint[];
+  /** 加轮时可以出价的座位, 为空表示所有人 */
+  contenders: number[];
+  /** 已公开的出价, 按轮次和座位 */
+  bids: PublicBid[];
+  /** 结算前为空, 之后见 AUCTION_OUTCOME */
   outcome: string;
   /** 没有成交时为 0 */
   winner_seat: number;
   price: number;
-  /** 仓库价值 */
+  /** 仓库价值, 开箱后公开 */
   value: number;
-  /** 自己的盈亏, 不含准入时扣除的入场费和入场代价; 练习局按正式局计算; 管理员查看时为 0 */
-  profit: number;
-  /** 自己段位分的变化, 只有排位成交时有; 管理员查看时为 0 */
-  rating_delta: number;
-  /** 自己结算后的段位分, 只有排位成交时有; 管理员查看时为 0 */
-  rating: number;
-  /** 按扫描顺序 */
-  pieces: AuctionPiece[];
-  /** 按座位号排序 */
-  seats: SeatResult[];
+  /** 档次名称, 拍场结束后公开 */
+  tier: string;
+  /** 开箱后公开, 按扫描顺序 */
+  pieces: AuctionPiece[] | null;
+  /** 开箱后公开, 按座位号排序 */
+  seats: SeatResult[] | null;
   /** 开始扫描的时间, 即结算时间 */
   scan_from: string | null;
 }
 
-/** 一局暗拍中所有人都看得到的部分, 对应后端 auction.PublicView */
+/** 拍场结束后公开的一个座位的成绩 */
+export interface SessionSeat {
+  seat: number;
+  carry: number;
+  spent: number;
+  /** 拿下的拍品的价值 - 成交价, 不含买情报的钱 */
+  profit: number;
+  rank: number;
+}
+
+/** 拍场结束后公开的成绩 */
+export interface SessionView {
+  /** 至少成交一个拍品时为 sold */
+  outcome: string;
+  /** 按座位号排序 */
+  seats: SessionSeat[];
+}
+
+/** 一局暗拍(拍场)中所有人都看得到的部分, 对应后端 auction.PublicView */
 export interface AuctionPublicView {
   match_id: number;
   mode: string;
   status: string;
   phase: string;
+  /** 拍场内的轮次, 从 1 开始整场连续编号 */
   round: number;
+  /** 当前拍品的第几轮, 大于 venue.rounds 时为加轮 */
+  lot_round: number;
   phase_ends_at: string | null;
   /** 与对局的 version 一致, 只采用 version 更大的推送 */
   version: number;
   venue: AuctionVenue;
-  /** 第 1 轮扫出轮廓的藏品占的格子; 件数开箱前不公开 */
-  footprints: Footprint[];
-  /** 加轮时可以出价的座位, 为空表示所有人 */
-  contenders: number[];
+  lot_count: number;
+  /** 当前拍品的序号, 从 1 开始 */
+  lot: number;
+  /** 按序号 */
+  lots: LotView[];
   /** 主持人, 没有主持人提示时为空 */
   host: HostView | null;
-  /** 买过情报的座位, 按座位号 */
+  /** 在当前拍品上买过情报的座位, 按座位号 */
   intel_seats: SeatIntel[];
-  /** 结算后才有 */
-  result: AuctionResult | null;
+  /** 拍场结束后才有 */
+  session: SessionView | null;
 }
 
 /** 玩家看到的一局暗拍, 对应后端 auction.AuctionView */
@@ -327,27 +381,46 @@ export interface AuctionPlayer {
   is_practice: boolean;
   /** 实际扣除的入场代价, 练习局和人机为空 */
   entry_cost: Bundle;
-  /** 带入资金, 出价的上限 */
+  /** 带入资金, 整个拍场共用 */
   carry: number;
   /** 冻结的带入资金, 练习局和人机为 0 */
   frozen: number;
-  /** 人机按公开信息的最新估值, 真人为 0 */
+  /** 已拿下的拍品的成交价之和 */
+  spent: number;
+  /** 人机对当前拍品按公开信息的最新估值, 真人为 0 */
   estimate: number;
-  /** 当前出价, 0 表示还没出过价 */
+  /** 当前拍品的出价, 0 表示还没出过价 */
   bid: number;
-  /** 结算后的盈亏; 练习局按正式局计算 */
+  /** 拍场结算后的盈亏; 练习局按正式局计算 */
   profit: number;
-  /** 本局段位分的变化, 只有排位成交时有 */
+  /** 拍场的名次, 全部流拍时为 0 */
+  rank: number;
+  /** 本局段位分的变化, 只有排位且至少成交一个拍品时有 */
   rating_delta: number;
-  /** 结算后的段位分, 只有排位成交时有 */
+  /** 结算后的段位分, 同上 */
   rating: number;
-  feedback: Feedback[];
+}
+
+/** 管理员看到的一个拍品的完整数据, 对应后端 auction.Lot */
+export interface AuctionLotRow {
+  lot_no: number;
+  /** 档次代码 */
+  tier: string;
+  grid: Grid;
+  start_price: number;
+  first_round: number;
+  value: number;
+  piece_count: number;
+  extra_rounds: number;
+  outcome: string;
+  winner_seat: number;
+  price: number;
 }
 
 /** 管理员看到的一局暗拍, 对应后端 auction.AdminView */
 export interface AuctionAdminView extends AuctionPublicView {
-  /** 藏品件数 */
-  piece_count: number;
+  /** 全部拍品, 含档次代码、价值和件数 */
+  lot_rows: AuctionLotRow[];
   /** 按座位号排序 */
   players: AuctionPlayer[];
   /** 全部座位用过的道具和得到的情报, 按使用顺序 */
@@ -398,4 +471,18 @@ export interface UsableItem {
   image_url: string;
   effect: string;
   quantity: number;
+}
+
+/** 自己在一张地图选的带入金额, 对应后端 auction.CarryPreference */
+export interface CarryPreference {
+  /** 地图代码 */
+  venue: string;
+  amount: number;
+  updated_at: string;
+}
+
+/** 选择在一张地图的带入金额, 超出 [起拍价, 带入资金上限] 时按边界保存 */
+export interface CarryRequest {
+  venue: string;
+  amount: number;
 }

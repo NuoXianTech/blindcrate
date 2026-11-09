@@ -9,7 +9,7 @@ import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
 import type {Scan} from '@/hooks/use-scan';
 import {cellKey, formatRate} from '@/lib/auction';
-import {AUCTION_PHASE, HOST_HINT, type AuctionPublicView, type PieceIntel} from '@/lib/services/auction';
+import {AUCTION_PHASE, HOST_HINT, type AuctionPublicView, type LotView, type PieceIntel} from '@/lib/services/auction';
 import {formatAmount} from '@/lib/utils';
 
 /** 首轮扫出轮廓时扫描线走完整个仓库的时长, 秒 */
@@ -18,7 +18,7 @@ const OUTLINE_SWEEP_S = 1.6;
 const CELL_SWEEP_S = 0.6;
 /** 道具扫出名称和外观时金色扫描线走完一件的时长, 秒 */
 const GOLD_SWEEP_S = 0.9;
-/** 播放过首轮扫描的对局, 存在 sessionStorage, 刷新和重连后不再播放 */
+/** 播放过首轮扫描的拍品(对局:拍品), 存在 sessionStorage, 刷新和重连后不再播放 */
 const SWEPT_KEY = 'auction:outline-swept';
 
 /** 格子在仓库中的位置, 按百分比 */
@@ -31,20 +31,20 @@ function cellStyle(c: { x: number; y: number; width: number; height: number }, g
   };
 }
 
-/** 这局是否已经播放过首轮扫描 */
-function swept(matchId: number) {
+/** 这个拍品是否已经播放过首轮扫描, key 为 对局:拍品 */
+function swept(key: string) {
   try {
-    return (sessionStorage.getItem(SWEPT_KEY) ?? '').split(',').includes(String(matchId));
+    return (sessionStorage.getItem(SWEPT_KEY) ?? '').split(',').includes(key);
   } catch {
     return true;
   }
 }
 
-/** 记下这局已经播放过首轮扫描, 只保留最近几局 */
-function markSwept(matchId: number) {
+/** 记下这个拍品已经播放过首轮扫描, 只保留最近几个 */
+function markSwept(key: string) {
   try {
     const ids = (sessionStorage.getItem(SWEPT_KEY) ?? '').split(',').filter(Boolean);
-    sessionStorage.setItem(SWEPT_KEY, [...ids.slice(-9), String(matchId)].join(','));
+    sessionStorage.setItem(SWEPT_KEY, [...ids.slice(-19), key].join(','));
   } catch {
     // 无痕模式等不能写 sessionStorage 时每次进入都播放
   }
@@ -129,10 +129,10 @@ interface SeenCell {
   hint?: number;
 }
 
-/** 出价时仓库里看得到的藏品: 首轮扫出的轮廓加上自己的情报, 按位置从上到下、从左到右 */
-function seenCells(view: AuctionPublicView, intel?: Map<string, PieceIntel>): SeenCell[] {
+/** 出价时拍品里看得到的藏品: 首轮扫出的轮廓加上自己的情报, 按位置从上到下、从左到右 */
+function seenCells(view: AuctionPublicView, lot: LotView, intel?: Map<string, PieceIntel>): SeenCell[] {
   const cells = new Map<string, SeenCell>();
-  for (const f of view.footprints) {
+  for (const f of lot.footprints) {
     cells.set(cellKey(f), {key: cellKey(f), ...f, public: true});
   }
   for (const [key, p] of intel ?? []) {
@@ -140,6 +140,7 @@ function seenCells(view: AuctionPublicView, intel?: Map<string, PieceIntel>): Se
     cells.set(key, {key, x: p.x, y: p.y, width: p.width, height: p.height, public: !!prev?.public, intel: p});
   }
   for (const h of view.host?.hints ?? []) {
+    if (h.lot_no !== lot.lot_no) continue;
     const cell = h.kind === HOST_HINT.piece ? cells.get(cellKey(h)) : undefined;
     if (cell) cell.hint = h.quality;
   }
@@ -147,41 +148,46 @@ function seenCells(view: AuctionPublicView, intel?: Map<string, PieceIntel>): Se
 }
 
 /**
- * 仓库: 只公开仓库大小和第 1 轮扫出的几件藏品的轮廓, 件数、品质和名称直到开箱都不公开;
+ * 一个拍品的仓库: 只公开仓库大小和第 1 轮扫出的几件藏品的轮廓, 件数、品质和名称直到开箱都不公开;
  * 道具和情报扫出的藏品只有自己看得到, 扫出名称和外观时播放金色扫描;
  * 开箱后按扫描顺序逐件扫描, 扫到时才显示轮廓、外观和回收价, 仓库价值随扫描累加
  */
-export function Warehouse({view, decimals, scan, intel}: {
+export function Warehouse({view, lot, decimals, scan, intel}: {
   view: AuctionPublicView;
+  /** 展示的拍品, 换拍品时需要换 key 重新挂载 */
+  lot: LotView;
   decimals: number;
-  /** 开箱扫描的进度, 见 useScan */
+  /** 这个拍品的开箱扫描进度, 见 useScan */
   scan: Scan;
-  /** 自己用道具和情报看到的藏品, 按位置索引, 见 cellKey */
+  /** 自己在这个拍品上用道具和情报看到的藏品, 按位置索引, 见 cellKey */
   intel?: Map<string, PieceIntel>;
 }) {
   const reduced = useReducedMotion();
   const {qualityOf} = useQualities();
-  const {grid, bid_currency: currency} = view.venue;
-  const result = view.result;
-  const cells = seenCells(view, intel);
-  // 第 1 轮刚开局时播放一次扫描线, 轮廓随扫描线依次出现
-  const [sweep] = useState(() => !reduced && view.phase === AUCTION_PHASE.bidding && view.round === 1 && !swept(view.match_id));
+  const {grid} = lot;
+  const currency = view.venue.bid_currency;
+  const result = lot.outcome !== '';
+  const cells = seenCells(view, lot, intel);
+  const sweptKey = `${view.match_id}:${lot.lot_no}`;
+  // 拍品的第 1 轮刚开拍时播放一次扫描线, 轮廓随扫描线依次出现
+  const [sweep] = useState(() =>
+    !reduced && view.phase === AUCTION_PHASE.bidding && view.lot === lot.lot_no && view.lot_round === 1 && !swept(sweptKey));
   // 进入时已经扫出的轮廓和名称不再播放扫描, 之后用道具新扫出的才播放
   const [outlined] = useState(() => new Set(cells.map((c) => c.key)));
   const [named] = useState(() => new Set(cells.filter((c) => c.intel?.name).map((c) => c.key)));
 
   useEffect(() => {
-    if (sweep) markSwept(view.match_id);
-  }, [sweep, view.match_id]);
+    if (sweep) markSwept(sweptKey);
+  }, [sweep, sweptKey]);
 
-  const pieces = result?.pieces ?? [];
+  const pieces = lot.pieces ?? [];
   const known = new Set(cells.map((c) => c.key));
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2 text-sm">
         <span className="text-muted-foreground">
-          仓库 <span className="font-mono font-bold tabular-nums text-foreground">{grid.width}×{grid.height}</span>
+          拍品 {lot.lot_no} · 仓库 <span className="font-mono font-bold tabular-nums text-foreground">{grid.width}×{grid.height}</span>
           {result && scan.complete && (
             <>
               {' '}· 共 <span className="font-mono font-bold tabular-nums text-foreground">{pieces.length}</span> 件藏品
@@ -321,8 +327,8 @@ export function Warehouse({view, decimals, scan, intel}: {
 
       {!result && (
         <span className="text-xs text-muted-foreground">
-          {view.footprints.length > 0 ?
-            `首轮扫出 ${view.footprints.length} 件藏品的轮廓, 每件有 ${formatRate(view.venue.preview_rate)} 的概率被扫出; ` :
+          {lot.footprints.length > 0 ?
+            `首轮扫出 ${lot.footprints.length} 件藏品的轮廓, 每件有 ${formatRate(view.venue.preview_rate)} 的概率被扫出; ` :
             '首轮没有扫描; '}
           件数、品质和名称开箱前都不公开, 道具和情报扫出的只有你看得到
         </span>

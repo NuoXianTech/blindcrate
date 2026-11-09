@@ -21,7 +21,7 @@ import {CurrencyIcon} from '@/components/common/wallet';
 import {useSubmit} from '@/hooks/use-submit';
 import {HOST_PERSONAS, hypeLevel, intelTier} from '@/lib/auction';
 import services from '@/lib/services';
-import {AUCTION_PHASE, HOST_HINT, type AuctionView, type HostHint} from '@/lib/services/auction';
+import {AUCTION_PHASE, HOST_HINT, type AuctionView, type HostHint, type LotView} from '@/lib/services/auction';
 import {formatAmount} from '@/lib/utils';
 
 /** 提示中的品质, 带品质颜色 */
@@ -54,11 +54,13 @@ function HintText({hint}: { hint: HostHint }) {
 }
 
 /**
- * 主持人: 公开热度和每轮的提示(可能说错), 开箱后公开性格和提示的真假; 出价阶段可以向他买只有自己看得到的情报
+ * 主持人: 公开热度和当前拍品每轮的提示(可能说错), 拍场结束后公开性格和提示的真假; 出价阶段可以向他买只有自己看得到的情报
  * 没有主持人提示的地图只显示情报商店; 两者都没有时不显示
  */
-export function HostPanel({view, decimals, onBuy}: {
+export function HostPanel({view, lot, decimals, onBuy}: {
   view: AuctionView;
+  /** 当前拍品, 提示和情报都针对它 */
+  lot: LotView;
   decimals: number;
   /** 买到情报后返回的最新视角 */
   onBuy: (view: AuctionView) => void;
@@ -66,7 +68,9 @@ export function HostPanel({view, decimals, onBuy}: {
   const {pending, submit} = useSubmit();
   const [confirming, setConfirming] = useState(false);
   const {host, venue, self} = view;
-  const selling = venue.intel_price > 0 && venue.intel_limit > 0;
+  const selling = lot.intel_price > 0 && venue.intel_limit > 0;
+  const hints = host?.hints.filter((h) => h.lot_no === lot.lot_no) ?? [];
+  const lotRound = (round: number) => round - lot.first_round + 1;
   if (!host && !selling) return null;
 
   const persona = host ? HOST_PERSONAS[host.persona] : undefined;
@@ -74,7 +78,7 @@ export function HostPanel({view, decimals, onBuy}: {
   const lastHype = host?.hypes.at(-1);
   const others = view.intel_seats.filter((s) => s.seat !== self.seat && s.round === view.round);
 
-  const contender = view.contenders.length === 0 || view.contenders.includes(self.seat);
+  const contender = lot.contenders.length === 0 || lot.contenders.includes(self.seat);
   let blocked = '';
   if (self.is_practice) blocked = '练习局不能买情报';
   else if (view.phase !== AUCTION_PHASE.bidding) blocked = '只能在出价阶段买情报';
@@ -115,19 +119,19 @@ export function HostPanel({view, decimals, onBuy}: {
           {persona && <span className="text-xs text-muted-foreground">这局的主持人{persona.label}: {persona.description}</span>}
           {lastHype && lastHype.round > 0 && (
             <span className="text-xs text-muted-foreground">
-              第 {lastHype.round} 轮 {lastHype.raises > 0 ? `${lastHype.raises} 人加价` : '没人加价'}
+              第 {lotRound(lastHype.round)} 轮 {lastHype.raises > 0 ? `${lastHype.raises} 人加价` : '没人加价'}
             </span>
           )}
-          {host.hints.length > 0 ? (
+          {hints.length > 0 ? (
             <ul className="flex flex-col gap-1.5">
-              {[...host.hints].reverse().map((h) => (
+              {[...hints].reverse().map((h) => (
                 <li key={h.round} className="flex items-start justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
                   <HintText hint={h} />
                   <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
                     {h.truthful !== null && (
                       <span className={h.truthful ? 'text-quality-green' : 'text-quality-red'}>{h.truthful ? '属实' : '说错了'}</span>
                     )}
-                    第 {h.round} 轮
+                    第 {lotRound(h.round)} 轮
                   </span>
                 </li>
               ))}
@@ -138,7 +142,7 @@ export function HostPanel({view, decimals, onBuy}: {
         </>
       )}
 
-      {selling && !view.result && (
+      {selling && lot.outcome === '' && (
         <div className={cn('flex flex-col gap-2', host && 'border-t pt-3')}>
           <div className="flex items-center justify-between gap-2 text-sm">
             <span className="font-medium">情报</span>
@@ -151,11 +155,11 @@ export function HostPanel({view, decimals, onBuy}: {
             向主持人买情报
             <span className="flex items-center gap-1 font-mono tabular-nums">
               <CurrencyIcon currency={venue.bid_currency} className="size-3.5" />
-              {formatAmount(venue.intel_price, decimals)}
+              {formatAmount(lot.intel_price, decimals)}
             </span>
           </Button>
           <span className="text-xs text-muted-foreground">
-            {blocked || `本轮能买到${intelTier(view.round, venue.rounds)}, 只有你看得到`}
+            {blocked || `本轮能买到${intelTier(view.lot_round, venue.rounds)}, 只有你看得到`}
           </span>
           {others.length > 0 && (
             <span className="text-xs text-quality-gold">
@@ -170,9 +174,9 @@ export function HostPanel({view, decimals, onBuy}: {
           <AlertDialogHeader>
             <AlertDialogTitle>向主持人买情报</AlertDialogTitle>
             <AlertDialogDescription className="flex flex-col gap-1">
-              <span>本轮能买到{intelTier(view.round, venue.rounds)}, 只有你看得到; 其他人会看到你买了情报</span>
+              <span>本轮能买到{intelTier(view.lot_round, venue.rounds)}, 只有你看得到; 其他人会看到你买了情报</span>
               <span>
-                从可用余额扣除 {formatAmount(venue.intel_price, decimals)}, 带入资金不能用来买情报; 流拍不退, 对局取消时退还
+                从可用余额扣除 {formatAmount(lot.intel_price, decimals)}, 带入资金不能用来买情报; 流拍不退, 对局取消时退还
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>

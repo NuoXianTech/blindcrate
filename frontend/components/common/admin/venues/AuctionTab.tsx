@@ -15,13 +15,15 @@ const MIN_ROUNDS = 4;
 /**
  * 拍卖: 轮数和时长、速胜倍率和加轮; 金额和结算比例由后端按模拟的价值分布推导, 这里只展示
  */
-export function AuctionTab({form, onChange, disabled, currency, derived, stale}: FormTabProps & {
+export function AuctionTab({form, onChange, disabled, currency, derived, stale, lots}: FormTabProps & {
   /** 出价货币, 金额按它的小数位展示 */
   currency?: Currency;
   /** 最近一次模拟或保存时推导出的参数, 还没有时为空 */
   derived: AuctionRule | null;
   /** 推导之后表单有改动 */
   stale: boolean;
+  /** 配置了档次, 一局多个拍品 */
+  lots: boolean;
 }) {
   const changeRounds = (rounds: string) => {
     const value = Number(rounds);
@@ -114,7 +116,7 @@ export function AuctionTab({form, onChange, disabled, currency, derived, stale}:
         )}
       </FieldGroup>
 
-      <DerivedRule derived={derived} currency={currency} stale={stale} />
+      <DerivedRule derived={derived} currency={currency} stale={stale} lots={lots} />
     </div>
   );
 }
@@ -122,7 +124,14 @@ export function AuctionTab({form, onChange, disabled, currency, derived, stale}:
 /**
  * 推导出的金额和结算比例, 只读
  */
-function DerivedRule({derived, currency, stale}: { derived: AuctionRule | null; currency?: Currency; stale: boolean }) {
+function DerivedRule({derived, currency, stale, lots}: {
+  derived: AuctionRule | null;
+  currency?: Currency;
+  stale: boolean;
+  lots: boolean;
+}) {
+  // 多拍品时每个拍品的起拍价、速胜下限和情报价格按档次, 见拍场页
+  const perTier = lots ? '; 每个拍品按档次的, 见拍场页' : '';
   const amount = (value: number) => `${formatAmount(value, currency?.decimals ?? 0)} ${currency?.name ?? ''}`.trim();
   // 旧数据中推导的字段都是 0
   const ready = derived && derived.start_price > 0;
@@ -133,14 +142,24 @@ function DerivedRule({derived, currency, stale}: { derived: AuctionRule | null; 
         value: amount(derived.entry_fee),
         help: '开局时与入场代价一起扣除, 练习局不扣, 流拍时退还; 按对局验算求出, 让 4 个真人时每人每局的盈亏等于玩法平衡设置的目标',
       },
-      {label: '起拍价', value: amount(derived.start_price), help: '出价不能低于它'},
-      {label: '带入资金上限', value: amount(derived.max_carry), help: '开局时冻结 min(可用余额, 上限)'},
+      {
+        label: '起拍价',
+        value: amount(derived.start_price),
+        help: lots ? '各档次中最低的起拍价, 也是最低带入' + perTier : '出价不能低于它, 也是最低带入',
+      },
+      {
+        label: '带入资金上限',
+        value: amount(derived.max_carry),
+        help: lots ?
+          '玩家在 [起拍价, 上限] 内自选带入金额, 整个拍场共用; 按拍场期望总价值 × 带入覆盖率推导' :
+          '玩家在 [起拍价, 上限] 内自选带入金额',
+      },
       {
         label: '人机带入资金',
         value: amount(derived.bot_carry || derived.max_carry),
         help: '人机的出价不超过它; 人机的钱不来自真人, 价值远高于平均的仓库留给真人去争',
       },
-      {label: '速胜下限', value: amount(derived.speed_floor), help: '速胜时第一名的出价不能低于它'},
+      {label: '速胜下限', value: amount(derived.speed_floor), help: '速胜时第一名的出价不能低于它' + perTier},
       {
         label: '领先折让',
         value: formatRate(derived.lead_discount),
@@ -154,7 +173,7 @@ function DerivedRule({derived, currency, stale}: { derived: AuctionRule | null; 
       {
         label: '情报价格',
         value: derived.intel_price > 0 ? amount(derived.intel_price) : '不卖',
-        help: '向主持人买一次情报的价格, 从可用余额扣除; 每局次数见主持人页',
+        help: '向主持人买一次情报的价格, 从可用余额扣除; 每局次数见主持人页' + perTier,
       },
     ] :
     [];

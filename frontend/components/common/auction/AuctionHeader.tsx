@@ -14,7 +14,7 @@ import {MATCH_STATUS} from '@/lib/services/match';
 const URGENT_MS = 5000;
 
 /**
- * 拍卖桌顶部: 返回大厅、地图和模式、当前轮次、阶段倒计时
+ * 拍卖桌顶部: 返回大厅、地图和模式、当前拍品和它的轮次、阶段倒计时
  */
 export function AuctionHeader({view, finished, remaining}: {
   view: AuctionView;
@@ -24,17 +24,18 @@ export function AuctionHeader({view, finished, remaining}: {
   remaining: number | null;
 }) {
   const {venue} = view;
-  const extra = view.round - venue.rounds;
+  const extra = view.lot_round - venue.rounds;
+  const lot = `拍品 ${view.lot}/${view.lot_count}`;
 
   let stage: string;
   if (finished) {
     stage = view.status === MATCH_STATUS.cancelled ? '已取消' : '已结束';
   } else if (view.phase === AUCTION_PHASE.reveal) {
-    stage = '开箱';
+    stage = `${lot} · 开箱`;
   } else if (extra > 0) {
-    stage = `加轮 ${extra}`;
+    stage = `${lot} · 加轮 ${extra}`;
   } else {
-    stage = `第 ${view.round}/${venue.rounds} 轮`;
+    stage = `${lot} · 第 ${view.lot_round}/${venue.rounds} 轮`;
   }
 
   const showTimer = !finished && remaining !== null;

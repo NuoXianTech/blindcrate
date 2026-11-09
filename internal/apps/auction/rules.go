@@ -135,76 +135,35 @@ func previewPieces(n int, rate int32, randN func(n int64) int64) []bool {
 	return picked
 }
 
-// rankSeats 成交后的名次, 从 1 开始且不重复
-//
-// 盈利(仓库价值 > 成交价)的成交者第 1; 其他出过价的人按出价与仓库价值的差距从小到大, 差距相同时先出价的在前;
-// 之后是没出过价的人; 亏本的成交者最后。
-func rankSeats(bidders []bidder, winner int16, price, value int64) map[int16]int16 {
-	var (
-		winnerBidder bidder
-		bid, noBid   []bidder
-	)
-	for _, b := range sortBidders(bidders) {
-		switch {
-		case b.Seat == winner:
-			winnerBidder = b
-		case b.Bid > 0:
-			bid = append(bid, b)
-		default:
-			noBid = append(noBid, b)
-		}
-	}
-	slices.SortStableFunc(bid, func(a, b bidder) int {
-		return cmp.Compare(absInt64(a.Bid-value), absInt64(b.Bid-value))
-	})
-
-	order := make([]bidder, 0, len(bidders))
-	if value > price {
-		order = append(order, winnerBidder)
-	}
-	order = append(order, bid...)
-	order = append(order, noBid...)
-	if value <= price {
-		order = append(order, winnerBidder)
-	}
-	ranks := make(map[int16]int16, len(order))
-	for i, b := range order {
-		ranks[b.Seat] = int16(i + 1)
-	}
-	return ranks
+// seatTotal 拍场结算时一个座位的成绩
+type seatTotal struct {
+	Seat   int16
+	Profit int64   // 拿下的拍品的价值 - 成交价之和, 不含买情报的钱
+	Gap    float64 // 出过价的拍品中 |最后的出价 - 仓库价值| ÷ 仓库价值的平均值, 没出过价时为 -1
 }
 
-// feedbackFor 第 round 轮结束后 seat 看到的反馈, bids 为座位 -> 当前出价
-func feedbackFor(round int32, seat int16, bids map[int16]int64) Feedback {
-	own := bids[seat]
-	feedback := Feedback{Round: round, Hint: HintNoBid}
-	if own == 0 {
-		return feedback
-	}
-	var best int64
-	feedback.Rank = 1
-	for other, amount := range bids {
-		if other == seat {
-			continue
+// rankSession 拍场的名次, 从 1 开始且不重复: 盈亏从高到低; 相同时出过价的在前, 出价离仓库价值越近越前; 再相同时按座位
+//
+// 一个拍品时与之前的规则一致: 赚钱的成交者第 1, 其他出过价的人按差距排, 之后是没出过价的人, 亏本的成交者最后。
+func rankSession(totals []seatTotal) map[int16]int16 {
+	order := slices.Clone(totals)
+	slices.SortFunc(order, func(a, b seatTotal) int {
+		if c := cmp.Compare(b.Profit, a.Profit); c != 0 {
+			return c
 		}
-		best = max(best, amount)
-		if amount > own {
-			feedback.Rank++
+		if (a.Gap < 0) != (b.Gap < 0) {
+			if a.Gap < 0 {
+				return 1
+			}
+			return -1
 		}
+		return cmp.Or(cmp.Compare(a.Gap, b.Gap), cmp.Compare(a.Seat, b.Seat))
+	})
+	ranks := make(map[int16]int16, len(order))
+	for i, t := range order {
+		ranks[t.Seat] = int16(i + 1)
 	}
-	switch {
-	case own > best && (best == 0 || own*venue.BasisPoints >= best*hintFarRatio):
-		feedback.Hint = HintFarAhead
-	case own > best:
-		feedback.Hint = HintAhead
-	case own == best:
-		feedback.Hint = HintTied
-	case best*venue.BasisPoints >= own*hintFarRatio:
-		feedback.Hint = HintFarBehind
-	default:
-		feedback.Hint = HintClose
-	}
-	return feedback
+	return ranks
 }
 
 // botBidAt 人机的出价时间, 只用于并列时比较先后: 在从 start 开始、时长为 length 的一轮内均匀随机, 时间还没到时取 now; length 为 0 时为 now
@@ -235,11 +194,4 @@ func scanOrders(pieces []venue.Piece) []int32 {
 		orders[i] = int32(order + 1)
 	}
 	return orders
-}
-
-func absInt64(v int64) int64 {
-	if v < 0 {
-		return -v
-	}
-	return v
 }

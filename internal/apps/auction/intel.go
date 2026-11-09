@@ -43,9 +43,9 @@ type IntelRequest struct {
 	Round   int32  `json:"round"` // 购买时的轮次, 与当前轮次不一致时拒绝
 }
 
-// BuyIntel 真人在出价阶段向主持人买一次情报: 从可用余额扣除地图的情报价格, 按轮次给出情报并保存, 返回购买后自己的视角
+// BuyIntel 真人在出价阶段向主持人买一次当前拍品的情报: 从可用余额扣除拍品的情报价格, 按拍品的轮次给出情报并保存, 返回购买后自己的视角
 //
-// 每轮最多买一次, 每局最多 HostRule.IntelLimit 次; 情报的种类随轮次升级, 见 intelFor。带入资金已冻结, 不能用来买情报。
+// 每轮最多买一次, 每局(整个拍场)最多 HostRule.IntelLimit 次; 情报的种类随轮次升级, 见 intelFor。带入资金已冻结, 不能用来买情报。
 // 对局被取消时退还, 流拍不退; 结算时计入盈亏。不满足规则时返回 *bidError, 原因可以直接展示。
 func BuyIntel(ctx context.Context, userID uint64, req *IntelRequest) (*AuctionView, error) {
 	_, err := match.Advance(ctx, req.MatchID, func(tx *gorm.DB, m *match.Match, players []match.Player) (*match.Phase, error) {
@@ -73,12 +73,12 @@ func BuyIntel(ctx context.Context, userID uint64, req *IntelRequest) (*AuctionVi
 		}
 
 		p := st.player(seat)
-		a := &st.auction
-		price, limit := a.Venue.Auction.IntelPrice, a.Venue.Host.IntelLimit
+		a, lot := &st.auction, st.lot
+		price, limit := lot.IntelPrice, a.Venue.Host.IntelLimit
 		switch {
 		case p.IsPractice:
 			return nil, rejectBid(IntelPractice)
-		case !a.CanBid(seat):
+		case !lot.CanBid(seat):
 			return nil, rejectBid(NotContender)
 		case price <= 0 || limit <= 0:
 			return nil, rejectBid(IntelDisabled)
@@ -118,17 +118,18 @@ func BuyIntel(ctx context.Context, userID uint64, req *IntelRequest) (*AuctionVi
 		}
 		pushTransaction(tx, txn, replayed)
 
-		items, err := loadItems(tx, m.ID)
+		items, err := loadItems(tx, m.ID, lot.LotNo)
 		if err != nil {
 			return nil, err
 		}
-		useCtx := newUseContext(a.Value, items, uses, rand.Int64N)
-		code, intel, err := intelFor(m.Round, a.Venue.Auction.Rounds, a.Venue.Host.IntelPrecision, useCtx)
+		useCtx := newUseContext(lot.Value, items, lotUses(uses, lot.LotNo), rand.Int64N)
+		code, intel, err := intelFor(lot.Round(m.Round), a.Venue.Auction.Rounds, a.Venue.Host.IntelPrecision, useCtx)
 		if err != nil {
 			return nil, err
 		}
 		return nil, tx.Create(&Use{
 			MatchID: m.ID,
+			LotNo:   lot.LotNo,
 			Seat:    seat,
 			Round:   m.Round,
 			Name:    intelName,
@@ -148,7 +149,7 @@ func BuyIntel(ctx context.Context, userID uint64, req *IntelRequest) (*AuctionVi
 	return QueryAuction(ctx, userID, req.MatchID)
 }
 
-// intelFor 第 round 轮(共 rounds 轮)买到的情报, 返回效果代码和情报, 随轮次升级:
+// intelFor 拍品的第 round 轮(共 rounds 轮)买到的情报, 返回效果代码和情报, 随轮次升级:
 // 前三分之一的轮次看一件还不知道品质的藏品的品质, 中间三分之一看一件还不知道名称的藏品的名称和外观, 之后为仓库价值的区间(误差 precision);
 // 看到的藏品同时扫出轮廓;
 // 这一档已经没有可以看的藏品时升到下一档。加轮按最后一档。
@@ -177,7 +178,7 @@ func randomQuality(ctx *UseContext) Intel {
 	return intel
 }
 
-// intelCost p 在这局买情报付的出价货币
+// intelCost 座位 seat 在 uses 中买情报付的出价货币
 func intelCost(uses []Use, seat int16) int64 {
 	var total int64
 	for _, use := range uses {
@@ -188,7 +189,7 @@ func intelCost(uses []Use, seat int16) int64 {
 	return total
 }
 
-// refundIntel 对局被取消时退还 p 买情报付的出价货币
+// refundIntel 对局被取消时退还 p 在 uses 中买情报付的出价货币
 func (st *state) refundIntel(tx *gorm.DB, p *Player, uses []Use) error {
 	cost := intelCost(uses, p.Seat)
 	if cost <= 0 {

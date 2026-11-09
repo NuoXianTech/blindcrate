@@ -39,24 +39,27 @@ import (
 
 // suspectPairsSQL 最近若干天已结束的排位中每一对真人的同局统计, 只统计暗拍的座位
 //
-// 成交者是两人之一时算作其中一人成交, 成交价低于仓库价值的 @rate 基点时算作低价成交。
+// 拍品的成交者是两人之一时算作其中一人成交, 成交价低于仓库价值的 @rate 基点时算作低价成交; 一局有多个拍品时按拍品计。
 const suspectPairsSQL = `
 WITH humans AS (
 	SELECT ap.match_id, ap.user_id, ap.seat
 	FROM auction_players ap
 	JOIN matches m ON m.id = ap.match_id
 	WHERE m.mode LIKE @mode AND m.status = @status AND m.created_at >= @since AND ap.user_id <> 0
-), pairs AS (
-	SELECT a.user_id AS user_a, b.user_id AS user_b,
-		COUNT(*) AS matches,
-		COUNT(*) FILTER (WHERE am.outcome = @sold AND am.winner_seat IN (a.seat, b.seat)) AS wins,
-		COUNT(*) FILTER (WHERE am.outcome = @sold AND am.winner_seat IN (a.seat, b.seat) AND am.price * 10000 < am.value * @rate) AS low_wins,
-		COALESCE(AVG(am.price * 10000 / NULLIF(am.value, 0)) FILTER (WHERE am.outcome = @sold AND am.winner_seat IN (a.seat, b.seat)), 0)::BIGINT AS price_rate,
-		MAX(a.match_id) AS last_match_id
+), together AS (
+	SELECT a.user_id AS user_a, b.user_id AS user_b, a.match_id, a.seat AS seat_a, b.seat AS seat_b
 	FROM humans a
 	JOIN humans b ON b.match_id = a.match_id AND b.user_id > a.user_id
-	JOIN auction_matches am ON am.match_id = a.match_id
-	GROUP BY a.user_id, b.user_id
+), pairs AS (
+	SELECT t.user_a, t.user_b,
+		COUNT(DISTINCT t.match_id) AS matches,
+		COUNT(al.id) AS wins,
+		COUNT(al.id) FILTER (WHERE al.price * 10000 < al.value * @rate) AS low_wins,
+		COALESCE(AVG(al.price * 10000 / NULLIF(al.value, 0)), 0)::BIGINT AS price_rate,
+		MAX(t.match_id) AS last_match_id
+	FROM together t
+	LEFT JOIN auction_lots al ON al.match_id = t.match_id AND al.outcome = @sold AND al.winner_seat IN (t.seat_a, t.seat_b)
+	GROUP BY t.user_a, t.user_b
 )
 SELECT p.*, m.created_at AS last_match_at
 FROM pairs p
@@ -78,8 +81,8 @@ type Suspect struct {
 	UserA       SuspectUser    `json:"user_a"` // 用户 ID 较小的一个
 	UserB       SuspectUser    `json:"user_b"`
 	Matches     int64          `json:"matches"`    // 一起打的排位局数
-	Wins        int64          `json:"wins"`       // 其中一人成交的局数
-	LowWins     int64          `json:"low_wins"`   // 其中一人低价成交的局数
+	Wins        int64          `json:"wins"`       // 其中一人成交的拍品数
+	LowWins     int64          `json:"low_wins"`   // 其中一人低价成交的拍品数
 	PriceRate   int64          `json:"price_rate"` // 其中一人成交时成交价占仓库价值的平均比例, 基点; 没有成交时为 0
 	LastMatchID uint64         `json:"last_match_id"`
 	LastMatchAt time.Time      `json:"last_match_at"`

@@ -70,8 +70,23 @@ type standardWarehouses struct {
 	rng *rand.Rand
 }
 
-func newStandardWarehouses(seed uint64) warehouses {
+func newStandardWarehouses(seed uint64) *standardWarehouses {
 	return &standardWarehouses{rng: rand.New(rand.NewPCG(seed, 7))}
+}
+
+// standardLineup 标准图一局一个拍品, 只有一种档次
+type standardLineup struct{ *standardWarehouses }
+
+func newStandardLineup(seed uint64) lineup { return standardLineup{newStandardWarehouses(seed)} }
+
+func (standardLineup) Count() int { return 1 }
+func (standardLineup) Pick() int  { return 0 }
+func (standardLineup) Tiers() int { return 1 }
+func (s standardLineup) Generate(_ int, valueFactor int32) (*venue.Warehouse, error) {
+	return s.standardWarehouses.Generate(valueFactor)
+}
+func (s standardLineup) PieceOdds(_ int, valueFactor int32) []venue.PieceOdds {
+	return s.standardWarehouses.PieceOdds(valueFactor)
 }
 
 func (s *standardWarehouses) Generate(valueFactor int32) (*venue.Warehouse, error) {
@@ -271,7 +286,7 @@ const maxDiscount = 3000
 func TestSimulateStandardMap(t *testing.T) {
 	v := standardVenue()
 	seatEV := scale(v.Simulation.Ranked.Mean, int64(settings.Balance.Default().TargetSeatEV))
-	b, err := simulate(v, newStandardWarehouses, standardSquads(t), 200, maxDiscount, seatEV)
+	b, err := simulate(v, newStandardLineup, standardSquads(t), simConfig{sellFee: 200, maxDiscount: maxDiscount, seatEV: seatEV, carryFloor: venue.BasisPoints})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -312,7 +327,7 @@ func TestSimulateStandardMap(t *testing.T) {
 	}
 
 	again := standardVenue()
-	replay, err := simulate(again, newStandardWarehouses, standardSquads(t), 200, maxDiscount, seatEV)
+	replay, err := simulate(again, newStandardLineup, standardSquads(t), simConfig{sellFee: 200, maxDiscount: maxDiscount, seatEV: seatEV, carryFloor: venue.BasisPoints})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,9 +340,8 @@ func TestSimulateStandardMap(t *testing.T) {
 func TestSolveDiscount(t *testing.T) {
 	rule := venue.AuctionRule{StartPrice: 10}
 	matches := []matchSim{
-		{value: 1000, sold: true, top: 1200, second: 800},
-		{value: 1000, sold: true, top: 900, second: 0},
-		{value: 500, sold: false},
+		{lots: []lotSim{{value: 1000, sold: true, top: 1200, second: 800}, {value: 1000, sold: true, top: 900, second: 0}}},
+		{lots: []lotSim{{value: 500, sold: false}}},
 	}
 	// 不打折时为 (1200 + 900) / 2000 = 10500; 折让 11% 时为 (800 + 356 + 10 + 792) / 2000 = 9790, 最接近 9800
 	if got := solveDiscount(matches, rule, 9800, maxDiscount); got != 1100 {
@@ -342,7 +356,7 @@ func TestSolveDiscount(t *testing.T) {
 	if got := solveDiscount(matches, rule, 9800, 0); got != 0 {
 		t.Errorf("discount turned off: got %d, want 0", got)
 	}
-	if got := solveDiscount([]matchSim{{value: 100}}, rule, 9800, maxDiscount); got != 0 {
+	if got := solveDiscount([]matchSim{{lots: []lotSim{{value: 100}}}}, rule, 9800, maxDiscount); got != 0 {
 		t.Errorf("nothing sold: got %d, want 0", got)
 	}
 }
@@ -352,8 +366,8 @@ func TestSolveEntryFee(t *testing.T) {
 	sq := &squad{code: venue.SquadRanked, humans: 2}
 	rule := venue.AuctionRule{StartPrice: 10, EntryFee: 999}
 	matches := []matchSim{
-		{value: 1000, sold: true, top: 900, second: 800, winner: 1},
-		{value: 500, sold: false},
+		{lots: []lotSim{{value: 1000, sold: true, top: 900, second: 800, winner: 1}}, carry: make([]int64, 4), planner: make([]bool, 4)},
+		{lots: []lotSim{{value: 500, sold: false}}, carry: make([]int64, 4), planner: make([]bool, 4)},
 	}
 	// 不收入场费时成交者赚 980 - 900 = 80, 平均到 2 局 × 2 个真人为 20; 只有一半的局收入场费,
 	// 要平均每人亏 10 需要 (20 + 10) ÷ 50% = 60
@@ -377,18 +391,25 @@ func TestHumanModelBid(t *testing.T) {
 	model := newHumanModel(settings.Balance.Default())
 	model.JumpChance = 0
 	rng := rand.New(rand.NewPCG(1, 1))
-	if got := model.bid(rule, 1, 10000, 1, 100000, 0, nil, rng); got != rule.StartPrice {
+	if got := model.bid(rule, 1, 10000, 1, humanView{carry: 100000, future: -1}, rng); got != rule.StartPrice {
 		t.Errorf("round 1 without jump: got %d, want the start price", got)
 	}
 	// 第 1 轮偏高的估值在 [11470, 14200] 内, 抢拍按估值的 95%
 	model.JumpChance = 1
-	if got := model.bid(rule, 1, 10000, 1, 100000, 0, nil, rng); got < 10896 || got > 13490 {
+	if got := model.bid(rule, 1, 10000, 1, humanView{carry: 100000, future: -1}, rng); got < 10896 || got > 13490 {
 		t.Errorf("round 1 jump: got %d, want [10896, 13490]", got)
 	}
-	if got := model.bid(rule, 2, 10000, 1, 500, 0, nil, rng); got != 500 {
+	if got := model.bid(rule, 2, 10000, 1, humanView{carry: 500, future: -1}, rng); got != 500 {
 		t.Errorf("capped by carry: got %d, want 500", got)
 	}
-	if got := model.bid(rule, 2, 10000, -1, 100000, 20000, nil, rng); got != 0 {
+	if got := model.bid(rule, 2, 10000, -1, humanView{carry: 100000, previous: 20000, future: -1}, rng); got != 0 {
 		t.Errorf("already above the estimate: got %d, want 0", got)
+	}
+	if got := model.bid(rule, 2, 10000, 1, humanView{carry: 100000, best: 100000, future: -1}, rng); got != 0 {
+		t.Errorf("outbid beyond the limit: got %d, want 0", got)
+	}
+	// 规划预算: 剩余资金 1000, 后面拍品的期望是这个拍品的 9 倍左右, 偏高的估值不超过 1.42 倍, 最多花 1000 × 1.42 ÷ 10.42 × 预算系数
+	if got := model.bid(rule, 2, 10000, 1, humanView{carry: 1000, future: 90000}, rng); got > 1000*142/1042*model.BudgetPace/venue.BasisPoints {
+		t.Errorf("planner budget: got %d, want at most %d", got, 1000*142/1042*model.BudgetPace/venue.BasisPoints)
 	}
 }

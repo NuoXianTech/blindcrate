@@ -239,6 +239,8 @@ func userRoutes(r *gin.RouterGroup) {
 	// Auction
 	auctionRouter := r.Group("/auctions")
 	{
+		auctionRouter.GET("/carry", auction.ListCarry)
+		auctionRouter.PUT("/carry", auction.PutCarry)
 		auctionRouter.GET("/:match_id", auction.GetAuction)
 		auctionRouter.GET("/:match_id/items", auction.ListUsableItems)
 	}

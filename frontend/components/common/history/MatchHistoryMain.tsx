@@ -149,13 +149,15 @@ export function MatchHistoryMain() {
   );
 }
 
-/** 对局的结果, 如 "我拍下"、"流拍" */
+/** 对局的结果, 如 "拍下 2/3"、"流拍" */
 function resultOf(m: MatchView): { label: string; className?: string } {
   const s = m.summary;
   if (m.status === MATCH_STATUS.playing && !s?.outcome) return {label: '进行中', className: 'text-primary'};
   if (!s?.outcome) return {label: m.status === MATCH_STATUS.cancelled ? '已取消' : '-'};
   if (s.outcome === AUCTION_OUTCOME.sold) {
-    return s.won ? {label: '我拍下', className: 'font-medium text-quality-gold'} : {label: '他人拍下'};
+    return s.won_lots > 0 ?
+      {label: `拍下 ${s.won_lots}/${s.lot_count}`, className: 'font-medium text-quality-gold'} :
+      {label: `0/${s.lot_count} 未拍下`};
   }
   return {label: OUTCOMES[s.outcome] ?? s.outcome, className: 'text-muted-foreground'};
 }

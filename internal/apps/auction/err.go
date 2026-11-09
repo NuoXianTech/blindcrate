@@ -27,14 +27,15 @@ package auction
 const (
 	RequirementUnmet = "未满足入场条件: %s"
 	EntryCostShort   = "入场代价不足"
-	CarryShort       = "可用余额不足起拍价 %d"
+	CarryShort       = "可用余额不足带入资金 %d 和入场费, 可以调低带入金额"
+	RemainingShort   = "剩余资金不足这个拍品的起拍价 %d"
 	NotBidding       = "当前不能出价"
 	RoundClosed      = "本轮出价已结束"
 	NotContender     = "加轮只有出价并列最高的人可以出价"
 	AlreadyBid       = "本轮已经出过价"
 	BidTooLow        = "出价不能低于起拍价 %d"
 	BidBelowPrevious = "出价不能低于你之前的出价 %d"
-	BidOverCarry     = "出价不能超过带入资金 %d"
+	BidOverCarry     = "出价不能超过剩余资金 %d"
 
 	UsePractice      = "练习局不能使用道具"
 	UseDisabled      = "这张地图的这个模式不能使用道具"

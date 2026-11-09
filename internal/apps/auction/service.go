@@ -28,6 +28,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"slices"
 	"strconv"
@@ -42,6 +43,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
+	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
@@ -49,6 +51,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/ws"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func init() {
@@ -85,19 +88,21 @@ type Summary struct {
 	Venue       string `json:"venue"`      // 地图代码
 	VenueName   string `json:"venue_name"` // 开局时的地图名称
 	BidCurrency string `json:"bid_currency"`
-	Outcome     string `json:"outcome"`      // 结算前为空, 之后为 sold、unsold 或 cancelled
-	Price       int64  `json:"price"`        // 成交价, 没有成交时为 0
-	Won         bool   `json:"won"`          // 是否由自己成交
+	Outcome     string `json:"outcome"`      // 拍场结算前为空, 之后为 sold(至少成交一个拍品)、unsold 或 cancelled
+	LotCount    int32  `json:"lot_count"`    // 拍品数
+	WonLots     int32  `json:"won_lots"`     // 自己拿下的拍品数
+	Spent       int64  `json:"spent"`        // 自己拿下的拍品的成交价之和
 	Profit      int64  `json:"profit"`       // 自己的盈亏, 结算前为 0
+	Rank        int16  `json:"rank"`         // 自己的名次, 全部流拍时为 0
 	IsPractice  bool   `json:"is_practice"`  // 自己打的是否为练习局
-	RatingDelta int32  `json:"rating_delta"` // 自己段位分的变化, 只有排位成交时有
+	RatingDelta int32  `json:"rating_delta"` // 自己段位分的变化, 只有排位且至少成交一个拍品时有
 }
 
-// Summaries 实现 match.Summarizer, 为对局记录附带地图、成交结果和自己的盈亏
+// Summaries 实现 match.Summarizer, 为对局记录附带地图、拍品数、自己拿下的拍品数和盈亏
 func (p *provider) Summaries(ctx context.Context, viewerID uint64, matchIDs []uint64) (map[uint64]any, error) {
 	tx := db.DB(ctx)
 	var matches []Match
-	if err := tx.Select("match_id, venue, outcome, winner_seat, price").Where("match_id IN ?", matchIDs).Find(&matches).Error; err != nil {
+	if err := tx.Select("match_id, venue, outcome, lot_count").Where("match_id IN ?", matchIDs).Find(&matches).Error; err != nil {
 		return nil, err
 	}
 	var players []Player
@@ -108,6 +113,20 @@ func (p *provider) Summaries(ctx context.Context, viewerID uint64, matchIDs []ui
 	for i := range players {
 		mine[players[i].MatchID] = &players[i]
 	}
+	var won []struct {
+		MatchID uint64
+		Lots    int32
+	}
+	if err := tx.Model(&Lot{}).Select("auction_lots.match_id, COUNT(*) AS lots").
+		Joins("JOIN auction_players ap ON ap.match_id = auction_lots.match_id AND ap.seat = auction_lots.winner_seat").
+		Where("auction_lots.match_id IN ? AND auction_lots.outcome = ? AND ap.user_id = ?", matchIDs, OutcomeSold, viewerID).
+		Group("auction_lots.match_id").Scan(&won).Error; err != nil {
+		return nil, err
+	}
+	wonLots := make(map[uint64]int32, len(won))
+	for _, w := range won {
+		wonLots[w.MatchID] = w.Lots
+	}
 	summaries := make(map[uint64]any, len(matches))
 	for _, m := range matches {
 		summary := Summary{
@@ -115,11 +134,13 @@ func (p *provider) Summaries(ctx context.Context, viewerID uint64, matchIDs []ui
 			VenueName:   m.Venue.Name,
 			BidCurrency: m.Venue.BidCurrency,
 			Outcome:     m.Outcome,
-			Price:       m.Price,
+			LotCount:    m.LotCount,
 		}
 		if player := mine[m.MatchID]; player != nil {
-			summary.Won = m.WinnerSeat != 0 && m.WinnerSeat == player.Seat
+			summary.WonLots = wonLots[m.MatchID]
+			summary.Spent = player.Spent
 			summary.Profit = player.Profit
+			summary.Rank = player.Rank
 			summary.IsPractice = player.IsPractice
 			summary.RatingDelta = player.RatingDelta
 		}
@@ -130,7 +151,7 @@ func (p *provider) Summaries(ctx context.Context, viewerID uint64, matchIDs []ui
 
 // venueMode 一张地图的一种模式, 每次查找玩法时按地图的当前配置创建
 //
-// 准入和开局使用地图的当前配置, 开局后只使用 Match.Venue 中的快照。
+// 准入和开局使用地图的当前配置, 开局后只使用 Match.Venue 和 Lot 中的快照。
 type venueMode struct {
 	kind  string
 	venue *venue.Venue
@@ -194,13 +215,18 @@ func (vm *venueMode) checkEntry(tx *gorm.DB, userID uint64) error {
 	return nil
 }
 
-// Admit 检查入场; 正式局扣入场费和入场代价, 再冻结 min(可用余额, 带入资金上限), 不够起拍价时拒绝; 练习局的带入资金为上限且不冻结
+// Admit 检查入场; 带入资金为玩家在这张地图选的金额(见 SetCarry), 没选过时为上限, 限制在 [起拍价, 上限] 内;
+// 正式局扣入场费和入场代价, 再冻结带入资金, 可用余额不够时拒绝; 练习局不冻结
 func (vm *venueMode) Admit(tx *gorm.DB, m *match.Match, userID uint64) error {
 	if err := vm.checkEntry(tx, userID); err != nil {
 		return err
 	}
 	v := vm.venue
-	player := &Player{MatchID: m.ID, UserID: userID, Carry: v.Auction.MaxCarry, Feedback: []Feedback{}}
+	carry, err := carryOf(tx, userID, v)
+	if err != nil {
+		return err
+	}
+	player := &Player{MatchID: m.ID, UserID: userID, Carry: carry}
 	practice, err := vm.practice(tx, userID)
 	if err != nil {
 		return err
@@ -210,6 +236,14 @@ func (vm *venueMode) Admit(tx *gorm.DB, m *match.Match, userID uint64) error {
 		return tx.Create(player).Error
 	}
 
+	var balance wallet.Balance
+	if err := tx.Where("user_id = ? AND currency = ?", userID, v.BidCurrency).Limit(1).Find(&balance).Error; err != nil {
+		return err
+	}
+	// 先检查带入资金, 不够时不扣入场费
+	if balance.Balance < carry+v.Auction.EntryFee {
+		return match.Reject(fmt.Sprintf(CarryShort, carry))
+	}
 	bizID := strconv.FormatUint(m.ID, 10)
 	remark := remarkOf(v.Name, vm.kind)
 	entry := v.Entry()
@@ -230,14 +264,6 @@ func (vm *venueMode) Admit(tx *gorm.DB, m *match.Match, userID uint64) error {
 	}
 	pushResult(tx, result, replayed)
 
-	var balance wallet.Balance
-	if err := tx.Where("user_id = ? AND currency = ?", userID, v.BidCurrency).Limit(1).Find(&balance).Error; err != nil {
-		return err
-	}
-	carry := min(balance.Balance, v.Auction.MaxCarry)
-	if carry < v.Auction.StartPrice {
-		return match.Reject(fmt.Sprintf(CarryShort, v.Auction.StartPrice))
-	}
 	txn, replayed, err := wallet.Change(tx, &wallet.ChangeRequest{
 		UserID:         userID,
 		Currency:       v.BidCurrency,
@@ -251,14 +277,58 @@ func (vm *venueMode) Admit(tx *gorm.DB, m *match.Match, userID uint64) error {
 	if err != nil {
 		// 读余额之后被并发的出售等扣走了
 		if err.Error() == wallet.InsufficientBalance {
-			return match.Reject(fmt.Sprintf(CarryShort, v.Auction.StartPrice))
+			return match.Reject(fmt.Sprintf(CarryShort, carry))
 		}
 		return err
 	}
 	pushTransaction(tx, txn, replayed)
 
-	player.EntryCost, player.Carry, player.Frozen = entry, carry, carry
+	player.EntryCost, player.Frozen = entry, carry
 	return tx.Create(player).Error
+}
+
+// carryOf 玩家在地图 v 的带入资金: 选过的金额, 没选过时为上限, 限制在 [起拍价, 上限] 内
+func carryOf(tx *gorm.DB, userID uint64, v *venue.Venue) (int64, error) {
+	rule := &v.Auction
+	var prefs []CarryPreference
+	if err := tx.Where("user_id = ? AND venue = ?", userID, v.Code).Limit(1).Find(&prefs).Error; err != nil {
+		return 0, err
+	}
+	if len(prefs) == 0 {
+		return rule.MaxCarry, nil
+	}
+	return min(max(prefs[0].Amount, rule.StartPrice), rule.MaxCarry), nil
+}
+
+// CarryRequest 选择在一张地图的带入金额
+type CarryRequest struct {
+	Venue  string `json:"venue" binding:"required,max=32"` // 地图代码
+	Amount int64  `json:"amount" binding:"min=0"`          // 超出 [起拍价, 带入资金上限] 时按边界
+}
+
+// SetCarry 保存玩家在一张地图的带入金额, 之后准入时按它冻结; 地图之后调整了上限时按新的上限截断
+//
+// 地图不存在或已关闭时返回 venue.VenueDisabled。
+func SetCarry(ctx context.Context, userID uint64, req *CarryRequest) (*CarryPreference, error) {
+	tx := db.DB(ctx)
+	var v venue.Venue
+	if err := v.ExactCode(tx, req.Venue); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New(venue.VenueDisabled)
+		}
+		return nil, err
+	}
+	if !v.IsEnabled {
+		return nil, errors.New(venue.VenueDisabled)
+	}
+	pref := &CarryPreference{UserID: userID, Venue: v.Code, Amount: min(max(req.Amount, v.Auction.StartPrice), v.Auction.MaxCarry)}
+	if err := tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "user_id"}, {Name: "venue"}},
+		DoUpdates: clause.AssignmentColumns([]string{"amount", "updated_at"}),
+	}).Create(pref).Error; err != nil {
+		return nil, err
+	}
+	return pref, nil
 }
 
 // practice 是否改为练习局: 人机模式下地图只能练习, 或当天人机模式的净收益达到全局上限, 或在这张地图的净收益达到地图的上限
@@ -282,25 +352,16 @@ func (vm *venueMode) practice(tx *gorm.DB, userID uint64) (bool, error) {
 	return false, nil
 }
 
-// Start 快照地图配置和藏品分布, 生成仓库并按首轮扫描比例抽出第 1 轮扫出轮廓的藏品(见 previewPieces), 按位置排出扫描顺序并快照扫描时长,
-// 按地图配置的权重为人机选出风格, 进入第 1 轮出价
+// Start 快照地图配置, 抽出拍品数并逐个生成拍品(见 newLots), 按地图配置的权重为人机选出风格, 进入第 1 个拍品的第 1 轮出价
 //
-// 人机模式按地图的仓库价值系数缩放抽取次数; 掉落池已不可用或摆不下、人机风格已不可用时开局失败。
+// 人机模式按地图的仓库价值系数缩放抽取次数; 配置了档次时人机的带入资金在 BotCarry × [人机带入下限, 100%] 内随机。
+// 掉落池已不可用或摆不下、人机风格已不可用时开局失败。
 func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) (*match.Phase, error) {
 	v := vm.venue
-	valueFactor := int32(venue.BasisPoints)
-	if vm.kind == venue.ModePve {
-		valueFactor = v.Pve.ValueFactor
-	}
-	generator, err := venue.NewGenerator(tx, v.Warehouse, v.BidCurrency)
+	balance, err := settings.Balance.Get(tx.Statement.Context)
 	if err != nil {
-		return nil, fmt.Errorf("auction: load warehouse rule of venue %s failed: %w", v.Code, err)
+		return nil, err
 	}
-	warehouse, err := generator.Generate(valueFactor)
-	if err != nil {
-		return nil, fmt.Errorf("auction: generate warehouse of venue %s failed: %w", v.Code, err)
-	}
-
 	a := &Match{
 		MatchID: m.ID,
 		VenueID: v.ID,
@@ -309,58 +370,33 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 			Name:        v.Name,
 			BidCurrency: v.BidCurrency,
 			EntryCost:   v.Entry(),
-			Grid:        v.Warehouse.Grid,
 			Auction:     v.Auction,
 			Consumables: v.Consumables,
 			Host:        v.Host,
-			Odds:        generator.PieceOdds(valueFactor),
+			GapSeconds:  v.Lots.GapSeconds,
+			HypeDecay:   int32(balance.HypeLotDecay),
+			TierNames:   map[string]string{},
 		},
-		Value:      warehouse.Value,
-		PieceCount: int32(len(warehouse.Pieces)),
-		Contenders: []int16{},
+		Lot: 1,
 	}
+	for _, t := range v.LotTiers() {
+		a.Venue.TierNames[t.Code] = t.Name
+	}
+	lots, items, err := vm.newLots(tx, m.ID)
+	if err != nil {
+		return nil, err
+	}
+	a.LotCount = int32(len(lots))
 	if err := tx.Create(a).Error; err != nil {
 		return nil, err
 	}
-
-	itemIDs := make([]uint64, len(warehouse.Pieces))
-	for i, piece := range warehouse.Pieces {
-		itemIDs[i] = piece.ItemID
-	}
-	items, err := item.Resolve(tx, itemIDs)
-	if err != nil {
+	if err := tx.Create(&lots).Error; err != nil {
 		return nil, err
 	}
-	scanDurations, err := item.ScanDurations(tx)
-	if err != nil {
+	if err := tx.Create(&items).Error; err != nil {
 		return nil, err
 	}
-	preview := previewPieces(len(warehouse.Pieces), v.Auction.PreviewRate, rand.Int64N)
-	scanOrder := scanOrders(warehouse.Pieces)
-	rows := make([]WarehouseItem, len(warehouse.Pieces))
-	for i, piece := range warehouse.Pieces {
-		target := items[piece.ItemID]
-		rows[i] = WarehouseItem{
-			MatchID:      m.ID,
-			Preview:      preview[i],
-			ScanOrder:    scanOrder[i],
-			ScanMs:       scanDurations[piece.Quality],
-			ItemID:       piece.ItemID,
-			Name:         target.Name,
-			ImageURL:     target.ImageURL,
-			Quality:      piece.Quality,
-			Width:        piece.Width,
-			Height:       piece.Height,
-			X:            piece.X,
-			Y:            piece.Y,
-			SellCurrency: piece.SellCurrency,
-			SellPrice:    piece.SellPrice,
-		}
-	}
-	if err := tx.Create(&rows).Error; err != nil {
-		return nil, err
-	}
-	if err := startHost(tx, a, rows); err != nil {
+	if err := startHost(tx, a, &lots[0], lotItems(items, 1)); err != nil {
 		return nil, err
 	}
 
@@ -382,13 +418,17 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 			}
 			continue
 		}
+		carry := v.Auction.BotBudget()
+		if v.Lots.Enabled() {
+			floor := int64(balance.BotCarryFloor)
+			carry = max(carry*(floor+rand.Int64N(venue.BasisPoints-floor+1))/venue.BasisPoints, v.Auction.StartPrice)
+		}
 		bots = append(bots, Player{
-			MatchID:  m.ID,
-			Seat:     player.Seat,
-			Persona:  personas[len(bots)],
-			Seed:     rand.Int64(),
-			Carry:    v.Auction.BotBudget(),
-			Feedback: []Feedback{},
+			MatchID: m.ID,
+			Seat:    player.Seat,
+			Persona: personas[len(bots)],
+			Seed:    rand.Int64(),
+			Carry:   carry,
 		})
 	}
 	if len(bots) > 0 {
@@ -398,25 +438,110 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 	}
 
 	match.AfterCommit(tx, func(ctx context.Context) { pushViews(ctx, m.ID) })
-	return biddingPhase(&v.Auction, 1), nil
+	rule := lots[0].Rule(&v.Auction)
+	return biddingPhase(&rule, 1), nil
 }
 
-// OnTimeout 出价阶段到期时没提交的真人视为不加价, 判定本轮; 开箱阶段(扫描完并停留后)到期时对局结束
+// newLots 生成拍场的全部拍品和藏品: 抽出拍品数, 每个拍品按权重抽一种档次生成仓库, 公示概率按格子大小推断(见 publicLots),
+// 金额取档次按格子大小推导的; 每个拍品按首轮扫描比例抽出第 1 轮扫出轮廓的藏品(见 previewPieces), 按位置排出扫描顺序并快照扫描时长
+func (vm *venueMode) newLots(tx *gorm.DB, matchID uint64) ([]Lot, []WarehouseItem, error) {
+	v := vm.venue
+	valueFactor := int32(venue.BasisPoints)
+	if vm.kind == venue.ModePve {
+		valueFactor = v.Pve.ValueFactor
+	}
+	lineup, err := venue.NewLineup(tx, v)
+	if err != nil {
+		return nil, nil, fmt.Errorf("auction: load warehouse rules of venue %s failed: %w", v.Code, err)
+	}
+	tiers := v.LotTiers()
+	public := publicLots(tiers, venueLineup{lineup}, valueFactor)
+	scanDurations, err := item.ScanDurations(tx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	count := lineup.Count()
+	lots := make([]Lot, count)
+	var rows []WarehouseItem
+	for i := range lots {
+		k := lineup.Pick()
+		warehouse, err := lineup.Tier(k).Generate(valueFactor)
+		if err != nil {
+			return nil, nil, fmt.Errorf("auction: generate warehouse of venue %s failed: %w", v.Code, err)
+		}
+		t := &tiers[k].Auction
+		lots[i] = Lot{
+			MatchID:    matchID,
+			LotNo:      int32(i + 1),
+			Tier:       tiers[k].Code,
+			Grid:       tiers[k].Warehouse.Grid,
+			Odds:       public[k].odds,
+			StartPrice: t.StartPrice,
+			SpeedFloor: t.SpeedFloor,
+			IntelPrice: t.IntelPrice,
+			Value:      warehouse.Value,
+			PieceCount: int32(len(warehouse.Pieces)),
+			Contenders: []int16{},
+		}
+		if i == 0 {
+			lots[i].FirstRound = 1
+		}
+
+		itemIDs := make([]uint64, len(warehouse.Pieces))
+		for j, piece := range warehouse.Pieces {
+			itemIDs[j] = piece.ItemID
+		}
+		items, err := item.Resolve(tx, itemIDs)
+		if err != nil {
+			return nil, nil, err
+		}
+		preview := previewPieces(len(warehouse.Pieces), v.Auction.PreviewRate, rand.Int64N)
+		scanOrder := scanOrders(warehouse.Pieces)
+		for j, piece := range warehouse.Pieces {
+			target := items[piece.ItemID]
+			rows = append(rows, WarehouseItem{
+				MatchID:      matchID,
+				LotNo:        int32(i + 1),
+				Preview:      preview[j],
+				ScanOrder:    scanOrder[j],
+				ScanMs:       scanDurations[piece.Quality],
+				ItemID:       piece.ItemID,
+				Name:         target.Name,
+				ImageURL:     target.ImageURL,
+				Quality:      piece.Quality,
+				Width:        piece.Width,
+				Height:       piece.Height,
+				X:            piece.X,
+				Y:            piece.Y,
+				SellCurrency: piece.SellCurrency,
+				SellPrice:    piece.SellPrice,
+			})
+		}
+	}
+	return lots, rows, nil
+}
+
+// OnTimeout 出价阶段到期时没提交的真人视为不加价, 判定本轮; 开箱阶段到期时拍场已结算则对局结束, 否则开拍下一个拍品
 func (vm *venueMode) OnTimeout(tx *gorm.DB, m *match.Match, _ []match.Player) (*match.Phase, error) {
+	st, err := loadState(tx, m)
+	if err != nil {
+		return nil, err
+	}
 	switch m.Phase {
 	case PhaseBidding:
-		st, err := loadState(tx, m)
-		if err != nil {
-			return nil, err
-		}
-		return st.resolveRound(tx)
+		return st.resolveRound(tx, true)
 	case PhaseReveal:
-		return &match.Phase{Finish: true}, nil
+		if st.auction.Outcome != "" {
+			return &match.Phase{Finish: true}, nil
+		}
+		return st.startLot(tx)
 	}
 	return nil, fmt.Errorf("auction: unknown phase %s of match %d", m.Phase, m.ID)
 }
 
-// OnCancel 还没结算时退还正式局真人的入场代价和用掉的道具, 并解冻带入资金; 已结算(开箱阶段)时什么都不做
+// OnCancel 拍场还没结算时取消: 已结算的拍品不变; 还没有拍品成交时退还正式局真人的入场代价;
+// 退还还没结算的拍品上用掉的道具和买情报的钱, 解冻剩余的带入资金。拍场已结算(最后的开箱阶段)时什么都不做
 func (vm *venueMode) OnCancel(tx *gorm.DB, m *match.Match, _ []match.Player) error {
 	st, err := loadState(tx, m)
 	if err != nil {
@@ -430,30 +555,44 @@ func (vm *venueMode) OnCancel(tx *gorm.DB, m *match.Match, _ []match.Player) err
 	if err != nil {
 		return err
 	}
+	open := slices.DeleteFunc(slices.Clone(uses), func(u Use) bool { return st.lots[u.LotNo-1].Outcome != "" })
+	sold := st.soldLots()
 	for i := range st.players {
 		p := &st.players[i]
+		p.Profit = st.wonProfit(p.Seat) - intelCost(uses, p.Seat) + intelCost(open, p.Seat)
+		if err := tx.Model(p).Select("profit").Updates(p).Error; err != nil {
+			return err
+		}
 		if p.UserID == 0 || p.IsPractice {
 			continue
 		}
-		if err := st.refund(tx, p); err != nil {
+		if sold == 0 {
+			if err := st.refund(tx, p); err != nil {
+				return err
+			}
+		}
+		if err := st.refundUses(tx, p, open); err != nil {
 			return err
 		}
-		if err := st.refundUses(tx, p, uses); err != nil {
+		if err := st.refundIntel(tx, p, open); err != nil {
 			return err
 		}
-		if err := st.refundIntel(tx, p, uses); err != nil {
-			return err
-		}
-		if err := st.release(tx, p, p.Frozen); err != nil {
+		if err := st.release(tx, p, p.Frozen-p.Spent); err != nil {
 			return err
 		}
 	}
 	now := time.Now()
-	a.Outcome, a.SettledAt, a.Contenders = OutcomeCancelled, &now, []int16{}
-	return tx.Model(a).Select("outcome", "settled_at", "contenders").Updates(a).Error
+	if lot := st.lot; lot.Outcome == "" {
+		lot.Outcome, lot.SettledAt, lot.Contenders = OutcomeCancelled, &now, []int16{}
+		if err := tx.Model(lot).Select("outcome", "settled_at", "contenders").Updates(lot).Error; err != nil {
+			return err
+		}
+	}
+	a.Outcome, a.SettledAt = OutcomeCancelled, &now
+	return tx.Model(a).Select("outcome", "settled_at").Updates(a).Error
 }
 
-// biddingPhase 第 round 轮出价
+// biddingPhase 第 round 轮出价, round 为拍场内的轮次
 func biddingPhase(rule *venue.AuctionRule, round int32) *match.Phase {
 	return &match.Phase{Name: PhaseBidding, Round: round, Duration: time.Duration(rule.RoundSeconds) * time.Second}
 }
@@ -462,10 +601,13 @@ func biddingPhase(rule *venue.AuctionRule, round int32) *match.Phase {
 type state struct {
 	match     *match.Match
 	auction   Match
+	lots      []Lot          // 按序号排序
+	lot       *Lot           // 当前拍品, lots 中的一个
 	players   []Player       // 按座位号排序
 	submitted map[int16]bool // 本轮已出价的座位
-	hints     []HostHint     // 主持人的提示, 只有展示时读出, 见 loadHost
+	hints     []HostHint     // 主持人的提示, 只有展示时读出, 见 loadDetails
 	hypes     []HypeEvent    // 热度的变动, 同上
+	bids      []Bid          // 全部出价记录, 同上
 }
 
 // loadState 读出对局的暗拍状态, 不是暗拍的对局返回 gorm.ErrRecordNotFound
@@ -474,6 +616,13 @@ func loadState(tx *gorm.DB, m *match.Match) (*state, error) {
 	if err := tx.Where("match_id = ?", m.ID).First(&st.auction).Error; err != nil {
 		return nil, err
 	}
+	if err := tx.Where("match_id = ?", m.ID).Order("lot_no").Find(&st.lots).Error; err != nil {
+		return nil, err
+	}
+	if int(st.auction.Lot) > len(st.lots) || st.auction.Lot < 1 {
+		return nil, fmt.Errorf("auction: lot %d of match %d not found", st.auction.Lot, m.ID)
+	}
+	st.lot = &st.lots[st.auction.Lot-1]
 	if err := tx.Where("match_id = ?", m.ID).Order("seat").Find(&st.players).Error; err != nil {
 		return nil, err
 	}
@@ -499,6 +648,16 @@ func (st *state) player(seat int16) *Player {
 	return nil
 }
 
+// rule 当前拍品的拍卖参数
+func (st *state) rule() venue.AuctionRule {
+	return st.lot.Rule(&st.auction.Venue.Auction)
+}
+
+// canBid p 在本轮是否可以出价: 加轮时只有并列最高的人可以, 剩余资金不够当前拍品的起拍价时不能出价
+func (st *state) canBid(p *Player) bool {
+	return st.lot.CanBid(p.Seat) && p.Remaining() >= st.lot.StartPrice
+}
+
 // bidders 判定用的出价者
 func (st *state) bidders() []bidder {
 	bidders := make([]bidder, len(st.players))
@@ -513,17 +672,28 @@ func (st *state) bidders() []bidder {
 
 // allSubmitted 本轮可以出价的真人是否都已出价
 func (st *state) allSubmitted() bool {
-	for _, p := range st.players {
-		if p.UserID != 0 && st.auction.CanBid(p.Seat) && !st.submitted[p.Seat] {
+	for i := range st.players {
+		p := &st.players[i]
+		if p.UserID != 0 && st.canBid(p) && !st.submitted[p.Seat] {
 			return false
 		}
 	}
 	return true
 }
 
+// humanCanBid 本轮是否有真人可以出价
+func (st *state) humanCanBid() bool {
+	for i := range st.players {
+		if p := &st.players[i]; p.UserID != 0 && st.canBid(p) {
+			return true
+		}
+	}
+	return false
+}
+
 // placeBid 记录 p 本轮的出价, 高于当前出价时更新当前出价和提交时间
 func (st *state) placeBid(tx *gorm.DB, p *Player, amount int64, at time.Time) error {
-	if err := tx.Create(&Bid{MatchID: st.match.ID, Round: st.match.Round, Seat: p.Seat, Amount: amount}).Error; err != nil {
+	if err := tx.Create(&Bid{MatchID: st.match.ID, LotNo: st.lot.LotNo, Round: st.match.Round, Seat: p.Seat, Amount: amount}).Error; err != nil {
 		return err
 	}
 	st.submitted[p.Seat] = true
@@ -539,8 +709,8 @@ func (st *state) placeBid(tx *gorm.DB, p *Player, amount int64, at time.Time) er
 // 人机看到的与真人在这一轮出价时相同, 见 Observation; 决策出错时记录日志并视为不加价, 不影响对局。
 // waited 为本轮是否等待过真人出价: 是时出价时间见 botBidAt; 否则没有真人可比, 为现在。
 func (st *state) botBids(tx *gorm.DB, waited bool) error {
-	m, a := st.match, &st.auction
-	rule := &a.Venue.Auction
+	m, lot := st.match, st.lot
+	rule := st.rule()
 	now := time.Now()
 	var start time.Time
 	var length time.Duration
@@ -548,28 +718,45 @@ func (st *state) botBids(tx *gorm.DB, waited bool) error {
 		length = time.Duration(rule.RoundSeconds) * time.Second
 		start = m.PhaseEndsAt.Add(-length)
 	}
+	var future int64
+	for _, l := range st.lots[lot.LotNo:] {
+		future += expectedValue(l.Odds)
+	}
 	var prints []Footprint
+	var shown map[int16]int64
 	for i := range st.players {
 		p := &st.players[i]
-		if p.UserID != 0 || !a.CanBid(p.Seat) {
+		if p.UserID != 0 || !st.canBid(p) {
 			continue
 		}
-		if prints == nil {
-			items, err := loadItems(tx, m.ID)
+		if shown == nil {
+			var err error
+			if shown, err = shownBids(tx, lot, m.Round, rule.Rounds); err != nil {
+				return err
+			}
+			items, err := loadItems(tx, m.ID, lot.LotNo)
 			if err != nil {
 				return err
 			}
 			prints = footprints(items)
 		}
+		others := make([]int64, 0, len(st.players)-1)
+		for _, other := range st.players {
+			if other.Seat != p.Seat {
+				others = append(others, shown[other.Seat])
+			}
+		}
 		obs := Observation{
-			Round:      m.Round,
-			Rules:      *rule,
-			Grid:       a.Venue.Grid,
+			Round:      lot.Round(m.Round),
+			Rules:      rule,
+			Grid:       lot.Grid,
 			Footprints: prints,
-			Odds:       a.Venue.Odds,
-			Carry:      p.Carry,
+			Odds:       lot.Odds,
+			Carry:      p.Remaining(),
 			Bid:        p.Bid,
-			Feedback:   p.Feedback,
+			Others:     others,
+			Future:     future,
+			LotsLeft:   st.auction.LotCount - lot.LotNo,
 			Seed:       p.Seed,
 		}
 		var amount int64
@@ -577,7 +764,7 @@ func (st *state) botBids(tx *gorm.DB, waited bool) error {
 		if err != nil {
 			logger.ErrorF(tx.Statement.Context, "[Auction] bot of seat %d in match %d failed to decide: %v", p.Seat, m.ID, err)
 		} else {
-			if amount = min(decision.Bid, p.Carry); amount < rule.StartPrice || amount <= p.Bid {
+			if amount = min(decision.Bid, p.Remaining()); amount < rule.StartPrice || amount <= p.Bid {
 				amount = 0
 			}
 			if decision.Estimate != p.Estimate {
@@ -594,97 +781,184 @@ func (st *state) botBids(tx *gorm.DB, waited bool) error {
 	return nil
 }
 
-// resolveRound 人机出价后判定本轮: 成交或流拍时结算并进入开箱, 否则给每个人反馈并进入下一轮
+// shownBids 拍场的第 round 轮出价时已公开的拍品 lot 上每个座位的出价: 拍品的前 N-1 轮(N 为规则的轮数)结束后公开,
+// 取 round 之前的公开轮次中每个座位的最高出价
+func shownBids(tx *gorm.DB, lot *Lot, round, rounds int32) (map[int16]int64, error) {
+	var rows []Bid
+	if err := tx.Where("match_id = ? AND lot_no = ? AND round < ? AND round < ?", lot.MatchID, lot.LotNo, round, lot.FirstRound+rounds-1).
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	shown := map[int16]int64{}
+	for _, b := range rows {
+		shown[b.Seat] = max(shown[b.Seat], b.Amount)
+	}
+	return shown, nil
+}
+
+// resolveRound 人机出价后判定本轮: 当前拍品成交或流拍时结算并进入开箱, 否则进入下一轮
 //
-// 开箱阶段的时长为全部藏品的扫描时长之和加上停留时长; 进入开箱时已结算, 对局随即释放, 玩家可以离开去排下一局。
-//
-// 加轮只有人机并列时没有真人可以出价, 不等待超时, 直接判定下一轮。
-func (st *state) resolveRound(tx *gorm.DB) (*match.Phase, error) {
-	a := &st.auction
-	rule := &a.Venue.Auction
+// 开箱阶段的时长为这个拍品的扫描时长之和加上停留时长, 还有下一个拍品时再加上拍品间隔; 最后一个拍品开箱时拍场已结算, 对局随即释放,
+// 玩家可以离开去排下一局。没有真人可以出价的轮次(只有人机并列的加轮、真人的剩余资金都不够起拍价)不等待超时, 直接判定下一轮。
+// waited 见 botBids。
+func (st *state) resolveRound(tx *gorm.DB, waited bool) (*match.Phase, error) {
+	a, lot := &st.auction, st.lot
+	rule := st.rule()
 	match.AfterCommit(tx, func(ctx context.Context) { pushViews(ctx, st.match.ID) })
-	for waited := true; ; waited = false {
+	for ; ; waited = false {
 		round := st.match.Round
 		if err := st.botBids(tx, waited); err != nil {
 			return nil, err
 		}
 
-		result := judge(rule, round, a.ExtraRounds, st.bidders())
+		result := judge(&rule, lot.Round(round), lot.ExtraRounds, st.bidders())
 		if result.Outcome != "" {
-			if err := st.settle(tx, result); err != nil {
+			if err := st.settleLot(tx, result); err != nil {
 				return nil, err
 			}
-			scan, err := scanDuration(tx, st.match.ID)
+			scan, err := scanDuration(tx, st.match.ID, lot.LotNo)
 			if err != nil {
 				return nil, err
 			}
-			return &match.Phase{Name: PhaseReveal, Round: round, Duration: scan + time.Duration(rule.RevealSeconds)*time.Second, Release: true}, nil
-		}
-
-		bids := make(map[int16]int64, len(st.players))
-		for _, p := range st.players {
-			bids[p.Seat] = p.Bid
-		}
-		for i := range st.players {
-			p := &st.players[i]
-			p.Feedback = append(p.Feedback, feedbackFor(round, p.Seat, bids))
-			if err := tx.Model(p).Select("feedback").Updates(p).Error; err != nil {
+			phase := &match.Phase{Name: PhaseReveal, Round: round, Duration: scan + time.Duration(rule.RevealSeconds)*time.Second}
+			if lot.LotNo < a.LotCount {
+				phase.Duration += time.Duration(a.Venue.GapSeconds) * time.Second
+				return phase, nil
+			}
+			if err := st.settleSession(tx); err != nil {
 				return nil, err
 			}
+			phase.Release = true
+			return phase, nil
 		}
-		if round >= rule.Rounds {
-			a.ExtraRounds++
+
+		if lot.Round(round) >= rule.Rounds {
+			lot.ExtraRounds++
 		}
-		a.Contenders = result.Contenders
-		if a.Contenders == nil {
-			a.Contenders = []int16{}
+		lot.Contenders = result.Contenders
+		if lot.Contenders == nil {
+			lot.Contenders = []int16{}
 		}
-		if err := tx.Model(a).Select("contenders", "extra_rounds").Updates(a).Error; err != nil {
+		if err := tx.Model(lot).Select("contenders", "extra_rounds").Updates(lot).Error; err != nil {
 			return nil, err
 		}
 		if err := st.advanceHost(tx, round); err != nil {
 			return nil, err
 		}
-		if st.humanCanBid() {
-			return biddingPhase(rule, round+1), nil
-		}
 		// 出价记录按 match.Round 写入, 阶段最终由 Advance 按返回值写入
 		st.match.Round = round + 1
 		clear(st.submitted)
+		if st.humanCanBid() {
+			return biddingPhase(&rule, round+1), nil
+		}
 	}
 }
 
-// scanDuration 开箱时扫描全部藏品的时长
-func scanDuration(tx *gorm.DB, matchID uint64) (time.Duration, error) {
+// startLot 开拍下一个拍品: 从上一个拍品的最后一轮之后开始, 清空每个人的出价和估值, 热度回落并给出第 1 轮的提示
+func (st *state) startLot(tx *gorm.DB) (*match.Phase, error) {
+	a := &st.auction
+	a.Lot++
+	if int(a.Lot) > len(st.lots) {
+		return nil, fmt.Errorf("auction: lot %d of match %d not found", a.Lot, a.MatchID)
+	}
+	st.lot = &st.lots[a.Lot-1]
+	round := st.match.Round + 1
+	st.lot.FirstRound = round
+	if err := tx.Model(st.lot).Select("first_round").Updates(st.lot).Error; err != nil {
+		return nil, err
+	}
+	if err := tx.Model(a).Select("lot").Updates(a).Error; err != nil {
+		return nil, err
+	}
+	if err := tx.Model(&Player{}).Where("match_id = ?", a.MatchID).
+		Updates(map[string]any{"bid": 0, "bid_at": nil, "estimate": 0}).Error; err != nil {
+		return nil, err
+	}
+	for i := range st.players {
+		st.players[i].Bid, st.players[i].BidAt, st.players[i].Estimate = 0, nil, 0
+	}
+	if err := st.lotHost(tx); err != nil {
+		return nil, err
+	}
+
+	st.match.Round = round
+	clear(st.submitted)
+	rule := st.rule()
+	if !st.humanCanBid() {
+		return st.resolveRound(tx, false)
+	}
+	match.AfterCommit(tx, func(ctx context.Context) { pushViews(ctx, st.match.ID) })
+	return biddingPhase(&rule, round), nil
+}
+
+// scanDuration 开箱时扫描一个拍品的全部藏品的时长
+func scanDuration(tx *gorm.DB, matchID uint64, lotNo int32) (time.Duration, error) {
 	var total int64
-	if err := tx.Model(&WarehouseItem{}).Where("match_id = ?", matchID).Select("COALESCE(SUM(scan_ms), 0)").Scan(&total).Error; err != nil {
+	if err := tx.Model(&WarehouseItem{}).Where("match_id = ? AND lot_no = ?", matchID, lotNo).
+		Select("COALESCE(SUM(scan_ms), 0)").Scan(&total).Error; err != nil {
 		return 0, err
 	}
 	return time.Duration(total) * time.Millisecond, nil
 }
 
-// humanCanBid 本轮是否有真人可以出价
-func (st *state) humanCanBid() bool {
-	for _, p := range st.players {
-		if p.UserID != 0 && st.auction.CanBid(p.Seat) {
-			return true
-		}
-	}
-	return false
+// lotAction 拍品上资金变动的幂等键中的动作, 如 settle_2
+func lotAction(action string, lotNo int32) string {
+	return fmt.Sprintf("%s_%d", action, lotNo)
 }
 
-// settle 结算: 成交时扣除成交价并发放藏品, 入场费和入场代价不退; 流拍时退还入场费和入场代价;
-// 解冻剩余的带入资金, 写入盈亏、名次和统计; 排位成交时结算段位分
+// settleLot 结算当前拍品: 成交时从成交者冻结的带入资金中扣除成交价并发放藏品, 计入已花的资金; 练习局和人机只计入已花的资金
+func (st *state) settleLot(tx *gorm.DB, result verdict) error {
+	lot := st.lot
+	now := time.Now()
+	if result.Outcome == OutcomeSold {
+		p := st.player(result.Winner)
+		p.Spent += result.Price
+		if err := tx.Model(p).Select("spent").Updates(p).Error; err != nil {
+			return err
+		}
+		if p.UserID != 0 && !p.IsPractice {
+			if err := st.changeWallet(tx, p, 0, -result.Price, wallet.BizMatchBidSettle, lotAction("settle", lot.LotNo)); err != nil {
+				return err
+			}
+			if err := st.grantWarehouse(tx, p, lot.LotNo); err != nil {
+				return err
+			}
+		}
+	}
+	lot.Outcome, lot.WinnerSeat, lot.Price, lot.SettledAt, lot.Contenders = result.Outcome, result.Winner, result.Price, &now, []int16{}
+	return tx.Model(lot).Select("outcome", "winner_seat", "price", "settled_at", "contenders").Updates(lot).Error
+}
+
+// soldLots 已成交的拍品数
+func (st *state) soldLots() int32 {
+	var n int32
+	for _, l := range st.lots {
+		if l.Outcome == OutcomeSold {
+			n++
+		}
+	}
+	return n
+}
+
+// wonProfit 座位 seat 拿下的拍品的价值 - 成交价之和
+func (st *state) wonProfit(seat int16) int64 {
+	var total int64
+	for _, l := range st.lots {
+		if l.Outcome == OutcomeSold && l.WinnerSeat == seat {
+			total += l.Value - l.Price
+		}
+	}
+	return total
+}
+
+// settleSession 最后一个拍品结算后结算拍场: 写入盈亏和名次, 全部流拍时退还入场费和入场代价, 解冻剩余的带入资金, 写入统计;
+// 排位至少成交一个拍品时结算段位分
 //
-// 练习局只计算盈亏, 不变动资金也不写统计; 人机只计算盈亏。排位中挂机的真人计入统计, 提交后记录挂机次数。
-func (st *state) settle(tx *gorm.DB, result verdict) error {
+// 练习局只计算盈亏和名次, 不变动资金也不写统计; 人机同。排位中挂机的真人计入统计, 提交后记录挂机次数。
+func (st *state) settleSession(tx *gorm.DB) error {
 	a := &st.auction
 	now := time.Now()
-	sold := result.Outcome == OutcomeSold
-	var ranks map[int16]int16
-	if sold {
-		ranks = rankSeats(st.bidders(), result.Winner, result.Price, a.Value)
-	}
+	sold := st.soldLots()
 	afk, err := st.afkUsers(tx)
 	if err != nil {
 		return err
@@ -693,47 +967,69 @@ func (st *state) settle(tx *gorm.DB, result verdict) error {
 	if err != nil {
 		return err
 	}
+	var finals []struct {
+		LotNo  int32
+		Seat   int16
+		Amount int64
+	}
+	if err := tx.Model(&Bid{}).Where("match_id = ?", st.match.ID).
+		Select("lot_no, seat, MAX(amount) AS amount").Group("lot_no, seat").Scan(&finals).Error; err != nil {
+		return err
+	}
+
+	totals := make([]seatTotal, len(st.players))
+	for i := range st.players {
+		p := &st.players[i]
+		// 入场费和入场代价在准入时已扣除, 不计入盈亏; 买情报的钱流拍也不退, 计入盈亏, 但不影响名次
+		p.Profit = st.wonProfit(p.Seat) - intelCost(uses, p.Seat)
+		totals[i] = seatTotal{Seat: p.Seat, Profit: st.wonProfit(p.Seat), Gap: -1}
+		var gap float64
+		var n int
+		for _, f := range finals {
+			if value := st.lots[f.LotNo-1].Value; f.Seat == p.Seat && f.Amount > 0 && value > 0 {
+				gap += math.Abs(float64(f.Amount-value)) / float64(value)
+				n++
+			}
+		}
+		if n > 0 {
+			totals[i].Gap = gap / float64(n)
+		}
+	}
+	var ranks map[int16]int16
+	if sold > 0 {
+		ranks = rankSession(totals)
+	}
 
 	for i := range st.players {
 		p := &st.players[i]
-		won := sold && p.Seat == result.Winner
-		// 入场费和入场代价在准入时已扣除, 不计入盈亏; 买情报的钱流拍也不退, 计入盈亏
-		p.Profit = -intelCost(uses, p.Seat)
-		if won {
-			p.Profit += a.Value - result.Price
-		}
-		if err := tx.Model(p).Select("profit").Updates(p).Error; err != nil {
+		p.Rank = ranks[p.Seat]
+		if err := tx.Model(p).Select("profit", "rank").Updates(p).Error; err != nil {
 			return err
 		}
 		if p.UserID == 0 || p.IsPractice {
 			continue
 		}
-
-		release := p.Frozen
-		if won {
-			if err := st.changeWallet(tx, p, 0, -result.Price, wallet.BizMatchBidSettle, "settle"); err != nil {
-				return err
-			}
-			release -= result.Price
-			if err := st.grantWarehouse(tx, p); err != nil {
-				return err
-			}
-		}
-		if !sold {
+		if sold == 0 {
 			if err := st.refund(tx, p); err != nil {
 				return err
 			}
 		}
-		if err := st.release(tx, p, release); err != nil {
+		if err := st.release(tx, p, p.Frozen-p.Spent); err != nil {
 			return err
 		}
 
 		values := stats.Values{stats.MetricMatches: 1, stats.MetricProfit(a.Venue.BidCurrency): p.Profit}
-		if ranks[p.Seat] == 1 {
+		if p.Rank == 1 {
 			values[stats.MetricWins] = 1
 		}
-		if won {
-			values[MetricBidWon] = 1
+		var won int64
+		for _, l := range st.lots {
+			if l.Outcome == OutcomeSold && l.WinnerSeat == p.Seat {
+				won++
+			}
+		}
+		if won > 0 {
+			values[MetricBidWon] = won
 		}
 		if slices.Contains(afk, p.UserID) {
 			values[ranked.MetricAfk] = 1
@@ -742,7 +1038,7 @@ func (st *state) settle(tx *gorm.DB, result verdict) error {
 			return err
 		}
 	}
-	if sold && st.kind() == venue.ModeRanked {
+	if sold > 0 && st.kind() == venue.ModeRanked {
 		if err := st.settleRatings(tx, ranks, now); err != nil {
 			return err
 		}
@@ -755,11 +1051,14 @@ func (st *state) settle(tx *gorm.DB, result verdict) error {
 		return err
 	}
 
-	a.Outcome, a.WinnerSeat, a.Price, a.SettledAt, a.Contenders = result.Outcome, result.Winner, result.Price, &now, []int16{}
-	return tx.Model(a).Select("outcome", "winner_seat", "price", "settled_at", "contenders").Updates(a).Error
+	a.Outcome, a.SettledAt = OutcomeUnsold, &now
+	if sold > 0 {
+		a.Outcome = OutcomeSold
+	}
+	return tx.Model(a).Select("outcome", "settled_at").Updates(a).Error
 }
 
-// afkUsers 排位中所有轮次都没有提交出价的真人, 练习局和其他模式不算
+// afkUsers 排位中整个拍场都没有提交出价的真人, 练习局和其他模式不算
 //
 // 每轮都可以提交"不加价", 一次都没有提交说明人不在; 轮次到期时没提交的人没有出价记录。
 func (st *state) afkUsers(tx *gorm.DB) ([]uint64, error) {
@@ -819,10 +1118,10 @@ func (st *state) settleRatings(tx *gorm.DB, ranks map[int16]int16, now time.Time
 	return nil
 }
 
-// grantWarehouse 把仓库里的藏品发给成交者, 已下架或已删除的藏品按开局时的回收价折成货币
-func (st *state) grantWarehouse(tx *gorm.DB, p *Player) error {
-	var items []WarehouseItem
-	if err := tx.Where("match_id = ?", st.match.ID).Find(&items).Error; err != nil {
+// grantWarehouse 把拍品 lotNo 里的藏品发给成交者, 已下架或已删除的藏品按开局时的回收价折成货币
+func (st *state) grantWarehouse(tx *gorm.DB, p *Player, lotNo int32) error {
+	items, err := loadItems(tx, st.match.ID, lotNo)
+	if err != nil {
 		return err
 	}
 	var bundle reward.Bundle
@@ -831,11 +1130,11 @@ func (st *state) grantWarehouse(tx *gorm.DB, p *Player) error {
 		bundle.Items = append(bundle.Items, reward.ItemLine{ItemID: it.ItemID, Quantity: 1})
 		prices[it.ItemID] = reward.CurrencyLine{Currency: it.SellCurrency, Amount: it.SellPrice}
 	}
-	bundle, err := reward.Deliverable(tx, bundle, prices)
+	bundle, err = reward.Deliverable(tx, bundle, prices)
 	if err != nil {
 		return err
 	}
-	return st.applyReward(tx, p, bundle, wallet.BizMatchReward, "reward")
+	return st.applyReward(tx, p, bundle, wallet.BizMatchReward, lotAction("reward", lotNo))
 }
 
 // refund 退还 p 的入场代价, 已下架或已删除的物品按当前回收价折成货币
@@ -850,7 +1149,7 @@ func (st *state) refund(tx *gorm.DB, p *Player) error {
 	return st.applyReward(tx, p, bundle, wallet.BizMatchRefund, "refund")
 }
 
-// refundUses 退还 p 在这局用掉的道具, 已下架或已删除的按当前回收价折成货币
+// refundUses 退还 p 在 uses 中用掉的道具, 已下架或已删除的按当前回收价折成货币
 func (st *state) refundUses(tx *gorm.DB, p *Player, uses []Use) error {
 	items := map[uint64]int64{}
 	for _, use := range uses {
@@ -968,7 +1267,7 @@ func rejectBid(format string, args ...any) error {
 type BidRequest struct {
 	MatchID uint64 `json:"match_id"`
 	Round   int32  `json:"round"`  // 出价的轮次, 与当前轮次不一致时拒绝, 避免上一轮的出价落到下一轮
-	Amount  int64  `json:"amount"` // 0 表示不加价; 否则不低于起拍价和自己之前的出价, 不超过带入资金
+	Amount  int64  `json:"amount"` // 0 表示不加价; 否则不低于当前拍品的起拍价和自己之前的出价, 不超过剩余资金
 }
 
 // PlaceBid 真人出价, 本轮可以出价的真人都提交后立即判定本轮, 返回出价后自己的视角
@@ -1000,19 +1299,21 @@ func PlaceBid(ctx context.Context, userID uint64, req *BidRequest) (*AuctionView
 		}
 
 		p := st.player(seat)
-		rule := &st.auction.Venue.Auction
+		lot := st.lot
 		switch {
-		case !st.auction.CanBid(seat):
+		case !lot.CanBid(seat):
 			return nil, rejectBid(NotContender)
+		case p.Remaining() < lot.StartPrice:
+			return nil, rejectBid(RemainingShort, lot.StartPrice)
 		case st.submitted[seat]:
 			return nil, rejectBid(AlreadyBid)
 		case req.Amount == 0:
-		case req.Amount < rule.StartPrice:
-			return nil, rejectBid(BidTooLow, rule.StartPrice)
+		case req.Amount < lot.StartPrice:
+			return nil, rejectBid(BidTooLow, lot.StartPrice)
 		case req.Amount < p.Bid:
 			return nil, rejectBid(BidBelowPrevious, p.Bid)
-		case req.Amount > p.Carry:
-			return nil, rejectBid(BidOverCarry, p.Carry)
+		case req.Amount > p.Remaining():
+			return nil, rejectBid(BidOverCarry, p.Remaining())
 		}
 		if err := st.placeBid(tx, p, req.Amount, time.Now()); err != nil {
 			return nil, err
@@ -1020,7 +1321,7 @@ func PlaceBid(ctx context.Context, userID uint64, req *BidRequest) (*AuctionView
 		if !st.allSubmitted() {
 			return nil, nil
 		}
-		return st.resolveRound(tx)
+		return st.resolveRound(tx, true)
 	})
 	if err != nil {
 		switch err.Error() {
@@ -1039,9 +1340,9 @@ type UseRequest struct {
 	ItemID  uint64 `json:"item_id"` // 效果属于对局场景的物品
 }
 
-// UseItem 真人在出价阶段使用一个道具: 扣除一个, 按效果算出情报并保存, 返回使用后自己的视角; 不影响出价和本轮的判定
+// UseItem 真人在出价阶段对当前拍品使用一个道具: 扣除一个, 按效果算出情报并保存, 返回使用后自己的视角; 不影响出价和本轮的判定
 //
-// 本轮已出过价也可以用, 情报留到之后几轮; 不满足使用规则时返回 *bidError, 原因可以直接展示。
+// 本轮已出过价也可以用, 情报留到这个拍品之后几轮; 次数上限按整个拍场计。不满足使用规则时返回 *bidError, 原因可以直接展示。
 func UseItem(ctx context.Context, userID uint64, req *UseRequest) (*AuctionView, error) {
 	_, err := match.Advance(ctx, req.MatchID, func(tx *gorm.DB, m *match.Match, players []match.Player) (*match.Phase, error) {
 		var seat int16
@@ -1074,7 +1375,7 @@ func UseItem(ctx context.Context, userID uint64, req *UseRequest) (*AuctionView,
 		switch {
 		case p.IsPractice:
 			return nil, rejectBid(UsePractice)
-		case !a.CanBid(seat):
+		case !st.lot.CanBid(seat):
 			return nil, rejectBid(NotContender)
 		case limit == 0:
 			return nil, rejectBid(UseDisabled)
@@ -1117,17 +1418,18 @@ func UseItem(ctx context.Context, userID uint64, req *UseRequest) (*AuctionView,
 		}
 		pushResult(tx, result, replayed)
 
-		items, err := loadItems(tx, m.ID)
+		items, err := loadItems(tx, m.ID, st.lot.LotNo)
 		if err != nil {
 			return nil, err
 		}
-		useCtx := newUseContext(a.Value, items, uses, rand.Int64N)
+		useCtx := newUseContext(st.lot.Value, items, lotUses(uses, st.lot.LotNo), rand.Int64N)
 		intel, err := effect.Apply[*UseContext, Intel](effect.SceneMatch, target.Effect, useCtx, target.EffectParams)
 		if err != nil {
 			return nil, err
 		}
 		return nil, tx.Create(&Use{
 			MatchID: m.ID,
+			LotNo:   st.lot.LotNo,
 			Seat:    seat,
 			ItemID:  target.ID,
 			Round:   m.Round,
@@ -1225,370 +1527,11 @@ func QueryUsableItems(ctx context.Context, userID, matchID uint64) ([]UsableItem
 	return usable, nil
 }
 
-// VenueInfo 对局中展示的地图参数, 来自开局时的快照
-type VenueInfo struct {
-	Code           string     `json:"code"`
-	Name           string     `json:"name"`
-	BidCurrency    string     `json:"bid_currency"`
-	Grid           venue.Grid `json:"grid"`
-	StartPrice     int64      `json:"start_price"`
-	Rounds         int32      `json:"rounds"`
-	QuickWin       []int32    `json:"quick_win"` // 前 Rounds-1 轮的速胜倍率, 基点
-	MaxExtraRounds int32      `json:"max_extra_rounds"`
-	EntryFee       int64      `json:"entry_fee"`     // 入场费等以下字段见 venue.AuctionRule, 旧对局为 0
-	SpeedFloor     int64      `json:"speed_floor"`   // 速胜下限
-	LeadDiscount   int32      `json:"lead_discount"` // 领先折让, 基点
-	PreviewRate    int32      `json:"preview_rate"`  // 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件
-	MaxUses        int32      `json:"max_uses"`      // 这个模式每局最多使用几个道具, 0 表示不能用
-	AllowedItems   []uint64   `json:"allowed_items"` // 可以用的道具, 为空表示所有对局中可用的道具
-	IntelPrice     int64      `json:"intel_price"`   // 向主持人买一次情报的价格, 0 表示不卖情报
-	IntelLimit     int32      `json:"intel_limit"`   // 每人每局最多买几次情报, 每轮最多一次
-}
-
-// Footprint 第 1 轮扫出轮廓的一件藏品占的格子, 不包含品质、名称、回收价和扫描顺序, 以位置(X, Y)区分
-type Footprint struct {
-	X      int16 `json:"x"`
-	Y      int16 `json:"y"`
-	Width  int16 `json:"width"`
-	Height int16 `json:"height"`
-}
-
-// SelfView 自己在这局中的状态
-type SelfView struct {
-	Seat        int16         `json:"seat"`
-	IsPractice  bool          `json:"is_practice"`
-	EntryCost   reward.Bundle `json:"entry_cost"`   // 实际扣除的入场代价
-	Carry       int64         `json:"carry"`        // 带入资金, 出价的上限
-	Bid         int64         `json:"bid"`          // 当前出价, 0 表示还没出过价
-	Submitted   bool          `json:"submitted"`    // 本轮是否已出价
-	CanBid      bool          `json:"can_bid"`      // 现在是否可以出价
-	Feedback    []Feedback    `json:"feedback"`     // 每轮结束后的反馈
-	Uses        []UseView     `json:"uses"`         // 自己用过的道具和得到的情报, 按使用顺序
-	UsesLeft    int32         `json:"uses_left"`    // 本局还能用几个道具, 练习局为 0; 不考虑阶段和轮次
-	IntelLeft   int32         `json:"intel_left"`   // 本局还能买几次情报, 练习局为 0; 本轮买过时仍计入, 见 IntelBought
-	IntelBought bool          `json:"intel_bought"` // 本轮是否已买过情报
-}
-
-// UseView 自己用过的一个道具
-type UseView struct {
-	Round     int32     `json:"round"`
-	ItemID    uint64    `json:"item_id"`
-	Name      string    `json:"name"`   // 使用时的物品名称
-	Effect    string    `json:"effect"` // 效果代码, 前端按它展示 Result
-	Result    Intel     `json:"result"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-// UseCount 开箱后公开的一个座位用某种道具的个数
-type UseCount struct {
-	ItemID uint64 `json:"item_id"`
-	Name   string `json:"name"`
-	Count  int32  `json:"count"`
-}
-
-// SeatResult 开箱后公开的一个座位的出价
-type SeatResult struct {
-	Seat int16      `json:"seat"`
-	Bid  int64      `json:"bid"`  // 最后的出价, 0 表示没出过价
-	Uses []UseCount `json:"uses"` // 用过的道具, 按第一次使用的顺序, 不公开得到的情报
-}
-
-// PieceView 开箱后公开的一件藏品
-type PieceView struct {
-	ItemID       uint64 `json:"item_id"`
-	Name         string `json:"name"`
-	ImageURL     string `json:"image_url"`
-	Quality      int16  `json:"quality"`
-	Width        int16  `json:"width"`
-	Height       int16  `json:"height"`
-	X            int16  `json:"x"`
-	Y            int16  `json:"y"`
-	SellCurrency string `json:"sell_currency"`
-	SellPrice    int64  `json:"sell_price"` // 开局时的回收价
-	ScanOrder    int32  `json:"scan_order"` // 开箱时扫描的顺序, 从 1 开始
-	ScanMs       int32  `json:"scan_ms"`    // 扫描这件的时长, 毫秒
-}
-
-// ResultView 结算结果
-type ResultView struct {
-	Outcome     string       `json:"outcome"`     // sold、unsold 或 cancelled
-	WinnerSeat  int16        `json:"winner_seat"` // 没有成交时为 0
-	Price       int64        `json:"price"`
-	Value       int64        `json:"value"`        // 仓库价值
-	Profit      int64        `json:"profit"`       // 自己的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算; 管理员查看时为 0
-	RatingDelta int32        `json:"rating_delta"` // 自己段位分的变化, 只有排位成交时有; 管理员查看时为 0
-	Rating      int32        `json:"rating"`       // 自己结算后的段位分, 只有排位成交时有; 管理员查看时为 0
-	Pieces      []PieceView  `json:"pieces"`       // 按扫描顺序
-	Seats       []SeatResult `json:"seats"`        // 按座位号排序
-	ScanFrom    *time.Time   `json:"scan_from"`    // 开始扫描的时间, 即结算时间; 按已过去的时间和每件的扫描时长算出扫描进度
-}
-
-// PublicView 一局暗拍中所有人都看得到的部分
-type PublicView struct {
-	MatchID     uint64      `json:"match_id"`
-	Mode        string      `json:"mode"`
-	Status      string      `json:"status"`
-	Phase       string      `json:"phase"`
-	Round       int32       `json:"round"`
-	PhaseEndsAt *time.Time  `json:"phase_ends_at"`
-	Version     int64       `json:"version"` // 与对局的 version 一致, 客户端只采用 version 更大的推送
-	Venue       VenueInfo   `json:"venue"`
-	Footprints  []Footprint `json:"footprints"`  // 第 1 轮扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开
-	Contenders  []int16     `json:"contenders"`  // 加轮时可以出价的座位, 为空表示所有人
-	Host        *HostView   `json:"host"`        // 主持人, 没有主持人提示时为空
-	IntelSeats  []SeatIntel `json:"intel_seats"` // 买过情报的座位, 按座位号; 只公开次数, 不公开内容
-	Result      *ResultView `json:"result"`      // 结算后才有
-}
-
-// SeatIntel 一个座位买情报的次数
-type SeatIntel struct {
-	Seat  int16 `json:"seat"`
-	Count int32 `json:"count"`
-	Round int32 `json:"round"` // 最近一次买的轮次
-}
-
-// AuctionView 玩家看到的一局暗拍
-type AuctionView struct {
-	PublicView
-	Self SelfView `json:"self"`
-}
-
-// AdminView 管理员看到的一局暗拍: 公开部分和每个座位的暗拍数据, 结算结果中的 profit 为 0, 以 players 中的为准
-type AdminView struct {
-	PublicView
-	PieceCount int32    `json:"piece_count"` // 藏品件数
-	Players    []Player `json:"players"`     // 按座位号排序
-	Uses       []Use    `json:"uses"`        // 全部座位用过的道具和得到的情报, 按使用顺序
-}
-
-// view 以 viewerID 的视角查看, 不是这局的真人玩家时返回 nil
-func (st *state) view(viewerID uint64, items []WarehouseItem, uses []Use) *AuctionView {
-	var self *Player
-	for i := range st.players {
-		if viewerID != 0 && st.players[i].UserID == viewerID {
-			self = &st.players[i]
-		}
-	}
-	if self == nil {
-		return nil
-	}
-	m, a := st.match, &st.auction
-	submitted := st.submitted[self.Seat]
-	view := &AuctionView{
-		PublicView: st.publicView(items, uses),
-		Self: SelfView{
-			Seat:       self.Seat,
-			IsPractice: self.IsPractice,
-			EntryCost:  self.EntryCost,
-			Carry:      self.Carry,
-			Bid:        self.Bid,
-			Submitted:  submitted,
-			CanBid:     m.Status == match.StatusPlaying && m.Phase == PhaseBidding && a.CanBid(self.Seat) && !submitted,
-			Feedback:   self.Feedback,
-			Uses:       []UseView{},
-		},
-	}
-	for _, use := range uses {
-		if use.Seat == self.Seat {
-			view.Self.Uses = append(view.Self.Uses, UseView{Round: use.Round, ItemID: use.ItemID, Name: use.Name, Effect: use.Effect, Result: use.Result, CreatedAt: use.CreatedAt})
-		}
-	}
-	if !self.IsPractice {
-		var bought int32
-		for _, use := range uses {
-			if use.Seat == self.Seat && use.IsIntel() {
-				bought++
-				view.Self.IntelBought = view.Self.IntelBought || use.Round == m.Round
-			}
-		}
-		view.Self.UsesLeft = max(view.Venue.MaxUses-(int32(len(view.Self.Uses))-bought), 0)
-		if view.Venue.IntelPrice > 0 {
-			view.Self.IntelLeft = max(view.Venue.IntelLimit-bought, 0)
-		}
-	}
-	if view.Result != nil {
-		view.Result.Profit, view.Result.RatingDelta, view.Result.Rating = self.Profit, self.RatingDelta, self.Rating
-	}
-	return view
-}
-
-// publicView 所有人都看得到的部分, 结算结果中不含盈亏
-func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
-	m, a := st.match, &st.auction
-	rule := &a.Venue.Auction
-	view := PublicView{
-		MatchID:     m.ID,
-		Mode:        m.Mode,
-		Status:      m.Status,
-		Phase:       m.Phase,
-		Round:       m.Round,
-		PhaseEndsAt: m.PhaseEndsAt,
-		Version:     m.Version,
-		Venue: VenueInfo{
-			Code:           a.Venue.Code,
-			Name:           a.Venue.Name,
-			BidCurrency:    a.Venue.BidCurrency,
-			Grid:           a.Venue.Grid,
-			StartPrice:     rule.StartPrice,
-			Rounds:         rule.Rounds,
-			QuickWin:       rule.QuickWin,
-			MaxExtraRounds: rule.MaxExtraRounds,
-			EntryFee:       rule.EntryFee,
-			SpeedFloor:     rule.SpeedFloor,
-			LeadDiscount:   rule.LeadDiscount,
-			PreviewRate:    rule.PreviewRate,
-			MaxUses:        a.Venue.Consumables.MaxPerMatch(st.kind()),
-			AllowedItems:   a.Venue.Consumables.Allowed,
-			IntelPrice:     rule.IntelPrice,
-			IntelLimit:     a.Venue.Host.IntelLimit,
-		},
-		Footprints: footprints(items),
-		Contenders: a.Contenders,
-		Host:       hostView(a, st.hints, st.hypes, a.Outcome != ""),
-		IntelSeats: intelSeats(st.players, uses),
-	}
-	if a.Outcome == "" {
-		return view
-	}
-
-	result := &ResultView{
-		Outcome:    a.Outcome,
-		WinnerSeat: a.WinnerSeat,
-		Price:      a.Price,
-		Value:      a.Value,
-		Pieces:     make([]PieceView, len(items)),
-		Seats:      make([]SeatResult, len(st.players)),
-		ScanFrom:   a.SettledAt,
-	}
-	for i, it := range items {
-		result.Pieces[i] = PieceView{
-			ItemID:       it.ItemID,
-			Name:         it.Name,
-			ImageURL:     it.ImageURL,
-			Quality:      it.Quality,
-			Width:        it.Width,
-			Height:       it.Height,
-			X:            it.X,
-			Y:            it.Y,
-			SellCurrency: it.SellCurrency,
-			SellPrice:    it.SellPrice,
-			ScanOrder:    it.ScanOrder,
-			ScanMs:       it.ScanMs,
-		}
-	}
-	for i, p := range st.players {
-		result.Seats[i] = SeatResult{Seat: p.Seat, Bid: p.Bid, Uses: useCounts(uses, p.Seat)}
-	}
-	view.Result = result
-	return view
-}
-
-// footprints 第 1 轮扫出轮廓的藏品占的格子, 与 items 的顺序相同
-func footprints(items []WarehouseItem) []Footprint {
-	prints := []Footprint{}
-	for _, it := range items {
-		if it.Preview {
-			prints = append(prints, Footprint{X: it.X, Y: it.Y, Width: it.Width, Height: it.Height})
-		}
-	}
-	return prints
-}
-
-// intelSeats 买过情报的座位, 按座位号
-func intelSeats(players []Player, uses []Use) []SeatIntel {
-	seats := []SeatIntel{}
-	for _, p := range players {
-		seat := SeatIntel{Seat: p.Seat}
-		for _, use := range uses {
-			if use.Seat == p.Seat && use.IsIntel() {
-				seat.Count++
-				seat.Round = max(seat.Round, use.Round)
-			}
-		}
-		if seat.Count > 0 {
-			seats = append(seats, seat)
-		}
-	}
-	return seats
-}
-
-// useCounts 座位 seat 用过的各种道具的个数, 按第一次使用的顺序
-func useCounts(uses []Use, seat int16) []UseCount {
-	counts := []UseCount{}
-	for _, use := range uses {
-		if use.Seat != seat {
-			continue
-		}
-		i := slices.IndexFunc(counts, func(c UseCount) bool { return c.ItemID == use.ItemID })
-		if i < 0 {
-			counts = append(counts, UseCount{ItemID: use.ItemID, Name: use.Name})
-			i = len(counts) - 1
-		}
-		counts[i].Count++
-	}
-	return counts
-}
-
-// loadItems 仓库里的藏品, 按扫描顺序
-func loadItems(tx *gorm.DB, matchID uint64) ([]WarehouseItem, error) {
-	var items []WarehouseItem
-	if err := tx.Where("match_id = ?", matchID).Order("scan_order").Find(&items).Error; err != nil {
+// QueryCarry 用户在各地图选的带入金额, 按地图代码
+func QueryCarry(ctx context.Context, userID uint64) ([]CarryPreference, error) {
+	prefs := []CarryPreference{}
+	if err := db.DB(ctx).Where("user_id = ?", userID).Order("venue").Find(&prefs).Error; err != nil {
 		return nil, err
 	}
-	return items, nil
-}
-
-// queryState 读出一局暗拍的状态、藏品和用掉的道具, 对局不存在或不是暗拍时返回 match.MatchNotFound
-func queryState(ctx context.Context, matchID uint64) (*state, []WarehouseItem, []Use, error) {
-	tx := db.DB(ctx)
-	var m match.Match
-	if err := m.Exact(tx, matchID); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil, nil, errors.New(match.MatchNotFound)
-		}
-		return nil, nil, nil, err
-	}
-	st, err := loadState(tx, &m)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil, nil, errors.New(match.MatchNotFound)
-	}
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	items, err := loadItems(tx, matchID)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	uses, err := loadUses(tx, matchID)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	if st.hints, st.hypes, err = loadHost(tx, matchID); err != nil {
-		return nil, nil, nil, err
-	}
-	return st, items, uses, nil
-}
-
-// QueryAuction 获取用户参与的一局暗拍, 对局不存在、不是暗拍或用户不是该局的真人玩家时返回 match.MatchNotFound
-func QueryAuction(ctx context.Context, userID, matchID uint64) (*AuctionView, error) {
-	st, items, uses, err := queryState(ctx, matchID)
-	if err != nil {
-		return nil, err
-	}
-	view := st.view(userID, items, uses)
-	if view == nil {
-		return nil, errors.New(match.MatchNotFound)
-	}
-	return view, nil
-}
-
-// QueryAdminAuction 管理员查看一局暗拍, 对局不存在或不是暗拍时返回 match.MatchNotFound
-func QueryAdminAuction(ctx context.Context, matchID uint64) (*AdminView, error) {
-	st, items, uses, err := queryState(ctx, matchID)
-	if err != nil {
-		return nil, err
-	}
-	view := &AdminView{PublicView: st.publicView(items, uses), PieceCount: st.auction.PieceCount, Players: st.players, Uses: uses}
-	view.Host = hostView(&st.auction, st.hints, st.hypes, true)
-	return view, nil
+	return prefs, nil
 }
