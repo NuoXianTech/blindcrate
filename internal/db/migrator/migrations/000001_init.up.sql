@@ -453,7 +453,7 @@ CREATE TABLE IF NOT EXISTS venues
     bots           JSONB         NOT NULL DEFAULT '{}',   -- 每个模式出场的人机风格和权重
     pve            JSONB         NOT NULL DEFAULT '{}',   -- 人机模式防刷参数
     consumables    JSONB         NOT NULL DEFAULT '{}',   -- 对局中使用道具的规则
-    host           JSONB         NOT NULL DEFAULT '{}',   -- 主持人的提示和情报
+    host           JSONB         NOT NULL DEFAULT '{}',   -- 主持人的提示
     simulation     JSONB         NOT NULL DEFAULT '{}',   -- 保存时的模拟结果
     created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
@@ -488,9 +488,8 @@ CREATE TABLE IF NOT EXISTS auction_lots
     tier         VARCHAR(32) NOT NULL DEFAULT '',   -- 档次代码, 拍场结束前不公开
     grid         JSONB       NOT NULL,              -- 格子大小, 开局时公开
     odds         JSONB       NOT NULL DEFAULT '[]', -- 按格子大小推断的公示分布
-    start_price  BIGINT      NOT NULL DEFAULT 0,    -- 起拍价、速胜下限和情报价格按格子大小推导
+    start_price  BIGINT      NOT NULL DEFAULT 0,    -- 起拍价和速胜下限按格子大小推导
     speed_floor  BIGINT      NOT NULL DEFAULT 0,
-    intel_price  BIGINT      NOT NULL DEFAULT 0,
     first_round  INTEGER     NOT NULL DEFAULT 0,    -- 开拍时的轮次, 还没开拍时为 0
     value        BIGINT      NOT NULL,              -- 仓库价值, 出价货币的回收价之和
     piece_count  INTEGER     NOT NULL,              -- 藏品件数
@@ -591,7 +590,6 @@ CREATE TABLE IF NOT EXISTS auction_uses
     effect     VARCHAR(32) NOT NULL,              -- 使用时的效果代码
     params     JSONB       NOT NULL DEFAULT '{}', -- 使用时的效果参数
     result     JSONB       NOT NULL DEFAULT '{}', -- 得到的情报, 只给使用者看
-    cost       BIGINT      NOT NULL DEFAULT 0,    -- 向主持人买情报(item_id 为 0)时付的出价货币
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

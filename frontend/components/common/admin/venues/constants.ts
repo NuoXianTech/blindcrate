@@ -32,10 +32,8 @@ export const MAX_GAP_SECONDS = 30;
 export const MAX_BOT_PERSONAS = 10;
 export const MAX_USES = 10;
 export const MAX_ALLOWED_ITEMS = 50;
-/** 主持人, 与后端 venue.HostRule 的校验一致: 撒谎率上限为基点, 估价情报误差下限为基点 */
+/** 主持人, 与后端 venue.HostRule 的校验一致: 撒谎率上限为基点 */
 export const MAX_LIE_RATE = 2500;
-export const MAX_INTEL = 10;
-export const MIN_INTEL_PRECISION = 500;
 /** 对局中使用的效果场景, 与后端 effect.SceneMatch 对应 */
 export const SCENE_MATCH = 'match';
 

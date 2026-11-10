@@ -173,7 +173,6 @@ var (
 				BotCarryRate:        12000,
 				SpeedFloorRate:      7500,
 				MaxLeadDiscount:     3000,
-				IntelRate:           50,
 				PreviewRate:         3000,
 				CarryCoverage:       3000,
 				BotCarryShare:       6000,
@@ -292,12 +291,11 @@ type BalanceSettings struct {
 	BotCarryRate    int `json:"bot_carry_rate" label:"人机带入资金比例" help:"人机的带入资金占期望价值的比例, 不超过带入资金上限; 人机的钱不来自真人钱包, 带得越多越容易高价抢走大仓库, 真人拍不到, 系统也替它买单" binding:"min=1000,max=100000" unit:"bp"`
 	SpeedFloorRate  int `json:"speed_floor_rate" label:"速胜下限比例" help:"速胜下限占期望价值的比例; 过低挡不住速胜, 过高基本只能打到最后一轮" binding:"min=0,max=30000" unit:"bp"`
 	MaxLeadDiscount int `json:"max_lead_discount" label:"领先折让上限" help:"折让越大成交价越低, 全折让(二价)时赢家白捡、系统净发放" binding:"min=0,max=9000" unit:"bp"`
-	IntelRate       int `json:"intel_rate" label:"情报价格比例" help:"向主持人买一次情报的价格占期望价值的比例, 0 表示不卖情报; 情报平均每局只值期望价值的 0.6%~2.4%, 定价要远低于它, 否则买情报稳赚, 不超过 0.7%" binding:"min=0,max=70" unit:"bp"`
 	CarryCoverage   int `json:"carry_coverage" label:"拍场: 带入覆盖率" help:"配置了档次的地图, 带入资金上限 = 每局拍品数的期望 × 单个拍品的期望价值 × 覆盖率; 地图可以单独设置; 越低越要挑着拍, 太低时后面的拍品没人出得起" binding:"min=1000,max=20000" unit:"bp"`
 	BotCarryShare   int `json:"bot_carry_share" label:"拍场: 人机带入比例" help:"配置了档次的地图, 人机带入资金的上限占带入资金上限的比例" binding:"min=1000,max=10000" unit:"bp"`
 	BotCarryFloor   int `json:"bot_carry_floor" label:"拍场: 人机带入下限" help:"每个人机的带入资金在人机带入资金 × [下限, 100%] 内随机, 真人不能从人机花掉的钱推出它还剩多少" binding:"min=1000,max=10000" unit:"bp"`
 	HypeLotDecay    int `json:"hype_lot_decay" label:"拍场: 热度回落" help:"每个拍品开场时热度向 50 回落的比例, 避免一个热门拍品把后面全部点燃" binding:"min=0,max=10000" unit:"bp"`
-	PreviewRate     int `json:"preview_rate" label:"首轮扫描比例" help:"第 1 轮每件藏品按这个概率扫出轮廓(只有占的格子, 没有品质和名称), 至少扫出一件; 其余的直到开箱都不公开, 件数也不公开, 只能靠道具和情报看到; 0 表示不扫" binding:"min=0,max=10000" unit:"bp"`
+	PreviewRate     int `json:"preview_rate" label:"首轮扫描比例" help:"第 1 轮每件藏品按这个概率扫出轮廓(只有占的格子, 没有品质和名称), 至少扫出一件; 其余的直到开箱都不公开, 件数也不公开, 只能靠道具看到; 0 表示不扫" binding:"min=0,max=10000" unit:"bp"`
 
 	MinRounds           int `json:"min_rounds" label:"轮数下限" help:"轮数太少时出价来不及拉开, 速胜和追价都没有余地" binding:"min=1,max=10,ltefield=MaxRounds"`
 	MaxRounds           int `json:"max_rounds" label:"轮数上限" binding:"min=1,max=10"`

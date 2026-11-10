@@ -85,8 +85,6 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
     }
   };
 
-  // 向主持人买情报的花费, 流拍也不退; 入场费在准入时已扣除, 不计入盈亏
-  const intel = self.uses.reduce((sum, u) => sum + (u.item_id === 0 ? view.lots[u.lot_no - 1].intel_price : 0), 0);
   const rows = [
     {label: '成交价', value: sold ? formatAmount(lot.price, decimals) : '-'},
     {label: scan.complete ? '仓库价值' : '仓库价值 (扫描中)', value: formatAmount(scan.complete ? lot.value : scan.value, decimals)},
@@ -138,9 +136,6 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
           >
             {formatAmount(self.profit, decimals, {signed: true})}
           </span>
-          {intel > 0 && (
-            <span className="text-xs text-muted-foreground">含情报 {formatAmount(-intel, decimals, {signed: true})}</span>
-          )}
         </div>
       )}
 

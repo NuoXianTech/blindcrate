@@ -72,24 +72,6 @@ func handleUse(ctx context.Context, client *ws.Client, data json.RawMessage) (in
 	return view, nil
 }
 
-// handleIntel 处理客户端的 auction:intel 消息, 回复购买后自己的视角
-func handleIntel(ctx context.Context, client *ws.Client, data json.RawMessage) (interface{}, error) {
-	var req IntelRequest
-	if err := json.Unmarshal(data, &req); err != nil || req.MatchID == 0 || req.Round < 1 {
-		return nil, errors.New(auth.InvalidParams)
-	}
-	view, err := BuyIntel(ctx, client.UserID(), &req)
-	if err != nil {
-		var rejected *bidError
-		if errors.As(err, &rejected) {
-			return nil, err
-		}
-		logger.ErrorF(ctx, "[Auction] buy intel of %d in match %d failed: %v", client.UserID(), req.MatchID, err)
-		return nil, errors.New(auth.InternalError)
-	}
-	return view, nil
-}
-
 // pushViews 把暗拍推送给对局中的每个真人, 每人看到自己的视角; 需要在事务提交后调用, 失败只记录日志
 func pushViews(ctx context.Context, matchID uint64) {
 	tx := db.DB(ctx)

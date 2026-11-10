@@ -75,9 +75,8 @@ type Lot struct {
 	Tier        string            `gorm:"size:32;not null;default:''" json:"tier"`                                         // 档次代码, 不公开
 	Grid        venue.Grid        `gorm:"type:jsonb;serializer:json;not null" json:"grid"`                                 // 格子大小, 开局时公开
 	Odds        []venue.PieceOdds `gorm:"type:jsonb;serializer:json;not null;default:'[]'" json:"odds"`                    // 按格子大小推断的公示分布, 人机估值和主持人用, 见 publicLots
-	StartPrice  int64             `gorm:"not null;default:0" json:"start_price"`                                           // 起拍价、速胜下限和情报价格按格子大小推导, 见 venue.Venue.Calibrate
+	StartPrice  int64             `gorm:"not null;default:0" json:"start_price"`                                           // 起拍价和速胜下限按格子大小推导, 见 venue.Venue.Calibrate
 	SpeedFloor  int64             `gorm:"not null;default:0" json:"speed_floor"`
-	IntelPrice  int64             `gorm:"not null;default:0" json:"intel_price"`
 	FirstRound  int32             `gorm:"not null;default:0" json:"first_round"`                              // 开拍时的轮次, 还没开拍时为 0
 	Value       int64             `gorm:"not null" json:"value"`                                              // 仓库价值, 出价货币的回收价之和
 	PieceCount  int32             `gorm:"not null" json:"piece_count"`                                        // 藏品件数, 开箱前不公开
@@ -102,9 +101,9 @@ func (l *Lot) Round(round int32) int32 {
 	return round - l.FirstRound + 1
 }
 
-// Rule 这个拍品的拍卖参数: 拍场的参数, 起拍价、速胜下限和情报价格换成拍品的
+// Rule 这个拍品的拍卖参数: 拍场的参数, 起拍价和速胜下限换成拍品的
 func (l *Lot) Rule(base *venue.AuctionRule) venue.AuctionRule {
-	return base.ForTier(&venue.TierAuction{StartPrice: l.StartPrice, SpeedFloor: l.SpeedFloor, IntelPrice: l.IntelPrice})
+	return base.ForTier(&venue.TierAuction{StartPrice: l.StartPrice, SpeedFloor: l.SpeedFloor})
 }
 
 // Player 一局暗拍中的一个座位
@@ -203,15 +202,11 @@ type Use struct {
 	Effect    string         `gorm:"size:32;not null" json:"effect"`                                 // 使用时的效果代码
 	Params    map[string]any `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"params"` // 使用时的效果参数
 	Result    Intel          `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"result"` // 得到的情报, 只给使用者看
-	Cost      int64          `gorm:"not null;default:0" json:"cost"`                                 // 向主持人买情报时付的出价货币, 用道具时为 0
 	CreatedAt time.Time      `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 }
 
 // TableName 自定义表名
 func (Use) TableName() string { return "auction_uses" }
-
-// IsIntel 是否为向主持人买的情报, 不是用掉的道具
-func (u *Use) IsIntel() bool { return u.ItemID == 0 }
 
 // HostHint 主持人在一轮开始时公开的关于当前拍品的提示, 只追加; 字段按类型使用其中的一部分, 见 constants.go 的 HostHint
 //

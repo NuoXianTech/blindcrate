@@ -40,17 +40,17 @@ func TestCalibrate(t *testing.T) {
 		{
 			"spread out values carry 1.5 times the P90",
 			ValueStats{Mean: 10000, P90: 20000, CV: 8900},
-			AuctionRule{StartPrice: 400, MaxCarry: 30000, BotCarry: 12000, SpeedFloor: 7500, IntelPrice: 50},
+			AuctionRule{StartPrice: 400, MaxCarry: 30000, BotCarry: 12000, SpeedFloor: 7500},
 		},
 		{
 			"flat values carry twice the mean",
 			ValueStats{Mean: 10000, P90: 12000, CV: 4000},
-			AuctionRule{StartPrice: 400, MaxCarry: 20000, BotCarry: 12000, SpeedFloor: 7500, IntelPrice: 50},
+			AuctionRule{StartPrice: 400, MaxCarry: 20000, BotCarry: 12000, SpeedFloor: 7500},
 		},
 		{
 			"tiny warehouses still start at 1",
 			ValueStats{Mean: 10, P90: 10, CV: 0},
-			AuctionRule{StartPrice: 1, MaxCarry: 20, BotCarry: 12, SpeedFloor: 7, IntelPrice: 1},
+			AuctionRule{StartPrice: 1, MaxCarry: 20, BotCarry: 12, SpeedFloor: 7},
 		},
 	}
 	for _, c := range cases {
@@ -60,7 +60,7 @@ func TestCalibrate(t *testing.T) {
 		c.want.Rounds, c.want.QuickWin = rule.Rounds, rule.QuickWin
 		if !slices.Equal(rule.QuickWin, []int32{23000, 18975, 18630, 17825}) || rule.EntryFee != 0 || rule.StartPrice != c.want.StartPrice ||
 			rule.MaxCarry != c.want.MaxCarry || rule.BotCarry != c.want.BotCarry || rule.SpeedFloor != c.want.SpeedFloor || rule.LeadDiscount != 0 ||
-			rule.IntelPrice != c.want.IntelPrice || rule.PreviewRate != 3000 {
+			rule.PreviewRate != 3000 {
 			t.Errorf("%s: got %+v, want %+v", c.name, rule, c.want)
 		}
 	}
@@ -131,10 +131,10 @@ func TestBalanceJudge(t *testing.T) {
 
 func TestCalibrateSwitches(t *testing.T) {
 	b := settings.Balance.Default()
-	b.SpeedFloorEnabled, b.IntelRate, b.PreviewRate = false, 0, 0
+	b.SpeedFloorEnabled, b.PreviewRate = false, 0
 	var rule AuctionRule
 	rule.Calibrate(ValueStats{Mean: 10000, P90: 20000, CV: 8900}, b)
-	if rule.SpeedFloor != 0 || rule.PreviewRate != 0 || rule.IntelPrice != 0 || rule.StartPrice != 400 {
+	if rule.SpeedFloor != 0 || rule.PreviewRate != 0 || rule.StartPrice != 400 {
 		t.Errorf("switches off: %+v", rule)
 	}
 }

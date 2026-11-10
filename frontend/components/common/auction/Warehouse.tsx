@@ -114,7 +114,7 @@ function NamedCell({intel, animate}: { intel: PieceIntel; animate: boolean }) {
   );
 }
 
-/** 出价时看到的一件藏品: 首轮公开的轮廓, 或道具和情报私下扫出的 */
+/** 出价时看到的一件藏品: 首轮公开的轮廓, 或道具私下扫出的 */
 interface SeenCell {
   key: string;
   x: number;
@@ -123,7 +123,7 @@ interface SeenCell {
   height: number;
   /** 首轮扫出的轮廓, 所有人都看得到 */
   public: boolean;
-  /** 自己用道具或情报看到的, 只有自己看得到 */
+  /** 自己用道具看到的, 只有自己看得到 */
   intel?: PieceIntel;
   /** 主持人指认这件时说的品质 */
   hint?: number;
@@ -149,7 +149,7 @@ function seenCells(view: AuctionPublicView, lot: LotView, intel?: Map<string, Pi
 
 /**
  * 一个拍品的仓库: 只公开仓库大小和第 1 轮扫出的几件藏品的轮廓, 件数、品质和名称直到开箱都不公开;
- * 道具和情报扫出的藏品只有自己看得到, 扫出名称和外观时播放金色扫描;
+ * 道具扫出的藏品只有自己看得到, 扫出名称和外观时播放金色扫描;
  * 开箱后按扫描顺序逐件扫描, 扫到时才显示轮廓、外观和回收价, 仓库价值随扫描累加
  */
 export function Warehouse({view, lot, decimals, scan, intel}: {
@@ -159,7 +159,7 @@ export function Warehouse({view, lot, decimals, scan, intel}: {
   decimals: number;
   /** 这个拍品的开箱扫描进度, 见 useScan */
   scan: Scan;
-  /** 自己在这个拍品上用道具和情报看到的藏品, 按位置索引, 见 cellKey */
+  /** 自己在这个拍品上用道具看到的藏品, 按位置索引, 见 cellKey */
   intel?: Map<string, PieceIntel>;
 }) {
   const reduced = useReducedMotion();
@@ -330,7 +330,7 @@ export function Warehouse({view, lot, decimals, scan, intel}: {
           {lot.footprints.length > 0 ?
             `首轮扫出 ${lot.footprints.length} 件藏品的轮廓, 每件有 ${formatRate(view.venue.preview_rate)} 的概率被扫出; ` :
             '首轮没有扫描; '}
-          件数、品质和名称开箱前都不公开, 道具和情报扫出的只有你看得到
+          件数、品质和名称开箱前都不公开, 道具扫出的只有你看得到
         </span>
       )}
     </div>

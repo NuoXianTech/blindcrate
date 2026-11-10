@@ -55,13 +55,9 @@ func (r *AuctionRule) Calibrate(stats ValueStats, b *settings.BalanceSettings) {
 		r.SpeedFloor = ofRate(stats.Mean, b.SpeedFloorRate)
 	}
 	r.PreviewRate = int32(b.PreviewRate)
-	r.IntelPrice = 0
-	if b.IntelRate > 0 {
-		r.IntelPrice = max(ofRate(stats.Mean, b.IntelRate), 1)
-	}
 }
 
-// Calibrate 推导地图的金额: 没有配置档次时同 AuctionRule.Calibrate; 配置了档次时起拍价、速胜下限和情报价格按格子大小推导,
+// Calibrate 推导地图的金额: 没有配置档次时同 AuctionRule.Calibrate; 配置了档次时起拍价和速胜下限按格子大小推导,
 // 带入资金上限按拍场期望总价值 × 覆盖率, 起拍价取各档次中最低的
 //
 // 拍品的起拍价等金额出价时公开, 档次不公开, 所以不能按档次的期望价值算: 格子大小相同的档次按权重混合期望价值, 用同一套金额。
@@ -82,7 +78,7 @@ func (v *Venue) Calibrate(b *settings.BalanceSettings) {
 		}
 		var t AuctionRule
 		t.Calibrate(ValueStats{Mean: int64(total / weight)}, b)
-		tiers[i].Auction = TierAuction{Mean: v.Simulation.Tiers[i].Ranked.Mean, StartPrice: t.StartPrice, SpeedFloor: t.SpeedFloor, IntelPrice: t.IntelPrice}
+		tiers[i].Auction = TierAuction{Mean: v.Simulation.Tiers[i].Ranked.Mean, StartPrice: t.StartPrice, SpeedFloor: t.SpeedFloor}
 	}
 	r.StartPrice = v.Lots.Tiers[0].Auction.StartPrice
 	for _, t := range v.Lots.Tiers {

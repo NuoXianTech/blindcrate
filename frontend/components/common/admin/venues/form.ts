@@ -21,7 +21,6 @@ import {
   MAX_BOT_PERSONAS,
   MAX_ENTRY_COST_LINES,
   MAX_GAP_SECONDS,
-  MAX_INTEL,
   MAX_LIE_RATE,
   MAX_LOTS,
   MAX_REQUIREMENTS,
@@ -29,7 +28,6 @@ import {
   MAX_SWINGS,
   MAX_TIERS,
   MAX_USES,
-  MIN_INTEL_PRECISION,
 } from './constants';
 
 /** 基点按倍数输入, 保留 4 位小数 */
@@ -127,9 +125,6 @@ export interface VenueForm {
   lieRate: string;
   /** 品质等级, 0 表示不区分 */
   highQuality: number;
-  intelLimit: string;
-  /** 百分比 */
-  intelPrecision: string;
 }
 
 /** 推荐的速胜倍率, 第 1 轮起, 更多轮次沿用最后一个; 在交接包的标准图上验算过的倍率 × 1.15 */
@@ -200,11 +195,11 @@ const DEFAULT_REQUEST: VenueRequest = {
   },
   pve: {practice_only: false, daily_profit_cap: 0, value_factor: 8000},
   consumables: {pve: {max_per_match: 0}, ranked: {max_per_match: 0}, allowed: []},
-  host: {enabled: true, personas: [], lie_rate: 1800, high_quality: 0, intel_limit: 2, intel_precision: 1500},
+  host: {enabled: true, personas: [], lie_rate: 1800, high_quality: 0},
 };
 
 /** 旧地图没有主持人配置时的表单值: 不开启 */
-const EMPTY_HOST = {enabled: false, personas: [], lie_rate: 1800, high_quality: 0, intel_limit: 0, intel_precision: 1500};
+const EMPTY_HOST = {enabled: false, personas: [], lie_rate: 1800, high_quality: 0};
 
 /** 出场的人机风格转为表单 */
 function toWeightDrafts(weights: BotWeight[]): WeightDraft[] {
@@ -275,9 +270,6 @@ export function toVenueForm(venue: VenueRequest | null, {currencies, types, pers
     hostPersonas: v.host?.personas ?? [],
     lieRate: ratioInput(v.host?.lie_rate ?? EMPTY_HOST.lie_rate, PERCENT_DECIMALS),
     highQuality: v.host?.high_quality ?? 0,
-    intelLimit: String(v.host?.intel_limit ?? 0),
-    // 旧地图没有配置误差时按默认值, 否则开启卖情报时提交 0 会被拒绝
-    intelPrecision: ratioInput(v.host?.intel_precision || EMPTY_HOST.intel_precision, PERCENT_DECIMALS),
   };
 }
 
@@ -464,8 +456,6 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
       personas: form.hostPersonas,
       lie_rate: percent(form.lieRate, '撒谎率', 0, MAX_LIE_RATE),
       high_quality: form.highQuality,
-      intel_limit: readNumber(form.intelLimit, {label: '每局情报上限', min: 0, max: MAX_INTEL}),
-      intel_precision: percent(form.intelPrecision, '估价情报误差', MIN_INTEL_PRECISION, 5000),
     },
   };
 }

@@ -5,7 +5,6 @@ import {
   type BidRequest,
   type CarryPreference,
   type CarryRequest,
-  type IntelRequest,
   type UsableItem,
   type UseRequest,
 } from './types';
@@ -31,11 +30,6 @@ export class AuctionService extends BaseService {
   /** 通过 WebSocket 使用道具, 返回使用后自己的视角; 被拒绝时抛出 ApiError, message 可以直接展示 */
   static use(body: UseRequest) {
     return wsClient.request<AuctionView>(AUCTION_MESSAGES.use, body);
-  }
-
-  /** 通过 WebSocket 向主持人买情报, 返回购买后自己的视角; 被拒绝时抛出 ApiError, message 可以直接展示 */
-  static buyIntel(body: IntelRequest) {
-    return wsClient.request<AuctionView>(AUCTION_MESSAGES.intel, body);
   }
 
   /** 自己在各地图选的带入金额; 没选过的地图不在列表中, 准入时按带入资金上限 */

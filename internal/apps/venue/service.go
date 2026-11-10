@@ -398,7 +398,7 @@ func validateConsumables(tx *gorm.DB, v *Venue) error {
 	return nil
 }
 
-// validateHost 高品质需存在, 卖情报时估价情报的误差不能太小; 校验后去掉重复的性格, 没有配置时写为空列表
+// validateHost 高品质需存在; 校验后去掉重复的性格, 没有配置时写为空列表
 func validateHost(tx *gorm.DB, v *Venue) error {
 	rule := &v.Host
 	personas := []string{}
@@ -408,9 +408,6 @@ func validateHost(tx *gorm.DB, v *Venue) error {
 		}
 	}
 	rule.Personas = personas
-	if rule.IntelLimit > 0 && rule.IntelPrecision < minIntelPrecision {
-		return invalid(IntelPrecisionLow)
-	}
 	if rule.HighQuality == 0 {
 		return nil
 	}
@@ -529,7 +526,7 @@ type VenueView struct {
 	Eligible      bool                 `json:"eligible"`     // 满足全部入场条件
 	Grid          Grid                 `json:"grid"`
 	Auction       AuctionRule          `json:"auction"`
-	Host          HostRule             `json:"host"`        // 主持人的提示和情报
+	Host          HostRule             `json:"host"`        // 主持人的提示
 	ValueRange    ValueRange           `json:"value_range"` // 排位模式的仓库价值区间, 保存地图时模拟; 拍场为单个拍品的
 	Pve           PveView              `json:"pve"`
 	Lots          *LotsView            `json:"lots"` // 拍场的拍品数和格子大小, 没有配置档次(一局一个仓库)时为空
@@ -549,7 +546,6 @@ type LotGrid struct {
 	Share      int32 `json:"share"` // 拍品是这种格子大小的概率, 基点
 	StartPrice int64 `json:"start_price"`
 	SpeedFloor int64 `json:"speed_floor"`
-	IntelPrice int64 `json:"intel_price"`
 }
 
 // newLotsView 按格子大小汇总档次, 没有配置档次时返回空
@@ -565,7 +561,7 @@ func newLotsView(v *Venue) *LotsView {
 	for _, t := range v.Lots.Tiers {
 		i := slices.IndexFunc(view.Grids, func(g LotGrid) bool { return g.Grid == t.Warehouse.Grid })
 		if i < 0 {
-			view.Grids = append(view.Grids, LotGrid{Grid: t.Warehouse.Grid, StartPrice: t.Auction.StartPrice, SpeedFloor: t.Auction.SpeedFloor, IntelPrice: t.Auction.IntelPrice})
+			view.Grids = append(view.Grids, LotGrid{Grid: t.Warehouse.Grid, StartPrice: t.Auction.StartPrice, SpeedFloor: t.Auction.SpeedFloor})
 			i = len(view.Grids) - 1
 		}
 		view.Grids[i].Share += int32(int64(t.Weight) * BasisPoints / max(total, 1))
