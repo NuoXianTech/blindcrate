@@ -1,6 +1,6 @@
 import {COLLECTIBLE} from '@/components/common/admin/items/constants';
-import type {AdminItem} from '@/lib/services/admin';
 import type {AdminCodexSet, CodexSetRequest} from '@/lib/services/codex';
+import type {AdminItem} from '@/lib/services/item';
 
 /** 收集组列表每页条数 */
 export const PAGE_SIZE = 20;

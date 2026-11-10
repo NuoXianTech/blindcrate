@@ -1,5 +1,5 @@
 import {ROUTES} from '@/lib/access';
-import type {Suspect} from '@/lib/services/admin';
+import type {Suspect} from '@/lib/services/ranked';
 
 /** 可疑名单每页条数 */
 export const PAGE_SIZE = 20;

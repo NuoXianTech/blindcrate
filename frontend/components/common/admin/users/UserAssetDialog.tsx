@@ -1,5 +1,5 @@
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from '@/components/ui/dialog';
-import type {AdminUser} from '@/lib/services/admin';
+import type {AdminUser} from '@/lib/services/auth';
 
 /**
  * 钱包、背包调整对话框的外壳

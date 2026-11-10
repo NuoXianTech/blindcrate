@@ -17,8 +17,10 @@ import {CurrencyIcon} from '@/components/common/wallet';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem, Currency, LootEntry, LootEntryRequest, LootPoolListItem} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {AdminItem} from '@/lib/services/item';
+import type {LootEntry, LootEntryRequest, LootPoolListItem} from '@/lib/services/loot';
+import type {Currency} from '@/lib/services/wallet';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {MAX_CURRENCY_AMOUNT, MAX_ENTRIES, MAX_ITEM_QUANTITY, MAX_WEIGHT} from './constants';
 
@@ -81,7 +83,7 @@ function EntriesEditor({pool, onClose, onSaved}: { pool: LootPoolListItem; onClo
   const [drafts, setDrafts] = useState<Draft[]>([]);
 
   useEffect(() => {
-    services.admin.listLootPoolEntries(pool.id)
+    services.lootAdmin.listLootPoolEntries(pool.id)
         .then((data) => setEntries(data.entries))
         .catch((err) => toast.error(toErrorMessage(err)));
   }, [pool.id]);
@@ -127,7 +129,7 @@ function EntriesEditor({pool, onClose, onSaved}: { pool: LootPoolListItem; onClo
       check(min > max ? `${row}: 最小数量不能大于最大数量` : null);
       return {item_id: d.itemID ?? 0, currency: d.currency, weight, min_quantity: min, max_quantity: max};
     });
-    const data = await services.admin.replaceLootPoolEntries(pool.id, body);
+    const data = await services.lootAdmin.replaceLootPoolEntries(pool.id, body);
     setEntries(data.entries);
     toast.success(`已保存 ${pool.name} 的 ${data.entries.length} 个条目`);
     onSaved();

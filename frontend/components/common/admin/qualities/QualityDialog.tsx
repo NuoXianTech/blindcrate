@@ -11,7 +11,7 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminQuality, QualityRequest} from '@/lib/services/admin';
+import type {AdminQuality, QualityRequest} from '@/lib/services/item';
 import {refreshQualities} from '@/lib/site-actions';
 import {parseAmount} from '@/lib/utils';
 import {
@@ -95,12 +95,12 @@ function QualityForm({quality, nextLevel, onClose, onSaved}: Omit<QualityDialogP
     check(body.name.length === 0 || [...body.name].length > 32 ? '名称需为 1-32 个字符' : null);
     check(COLOR_PATTERN.test(body.color) ? null : '颜色需为 #RRGGBB 格式');
     if (quality) {
-      await services.admin.updateQuality(quality.level, body);
+      await services.itemAdmin.updateQuality(quality.level, body);
       toast.success(`已保存 ${body.name}`);
     } else {
       const created = {...body, level: readInteger(level, '等级', 1, MAX_LEVEL), code: code.trim()};
       check(CODE_PATTERN.test(created.code) ? null : '代码需为 1-32 个小写字母、数字或下划线');
-      await services.admin.createQuality(created);
+      await services.itemAdmin.createQuality(created);
       toast.success(`已新建 ${body.name}`);
     }
     // 刷新服务端缓存的品质, 全站的名称和颜色随即更新; 刷新失败不算保存失败, 缓存过一会儿也会自动更新

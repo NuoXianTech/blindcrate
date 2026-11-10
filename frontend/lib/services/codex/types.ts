@@ -1,6 +1,5 @@
-import type {Bundle} from '../auction';
+import type {Bundle, RewardLine} from '../reward';
 import type {PageParams} from '../core';
-import type {RewardLine} from '../reward';
 
 /** 图鉴中的一种藏品, 对应后端 codex.EntryView; 没有收集时只返回品质和图片 */
 export interface CodexEntry {

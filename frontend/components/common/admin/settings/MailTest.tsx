@@ -21,7 +21,7 @@ export function MailTest({dirty}: { dirty: boolean }) {
 
   const handleSubmit = submit(async () => {
     check(to.trim() ? null : '请填写收件人');
-    await services.admin.testMail(to.trim());
+    await services.settingsAdmin.testMail(to.trim());
     toast.success(`测试邮件已发送到 ${to.trim()}`);
   });
 

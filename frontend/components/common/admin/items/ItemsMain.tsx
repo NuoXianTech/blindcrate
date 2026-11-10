@@ -11,8 +11,9 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useQualities} from '@/components/common/site';
 import services from '@/lib/services';
-import type {AdminItem, Currency, ItemCategory, ItemEffect} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {AdminItem, ItemCategory, ItemEffect} from '@/lib/services/item';
+import type {Currency} from '@/lib/services/wallet';
 import {DeleteItemDialog} from './DeleteItemDialog';
 import {ItemDialog} from './ItemDialog';
 import {ItemRow} from './ItemRow';
@@ -43,7 +44,7 @@ export function ItemsMain() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    Promise.all([services.admin.listCurrencies(), services.admin.listItemCategories(), services.admin.listItemEffects()])
+    Promise.all([services.walletAdmin.listCurrencies(), services.itemAdmin.listItemCategories(), services.itemAdmin.listItemEffects()])
         .then(([currencyData, categoryData, effectData]) => {
           setCurrencies(currencyData.currencies);
           setCategories(categoryData.categories);
@@ -58,7 +59,7 @@ export function ItemsMain() {
     setLoading(true);
     try {
       setData(
-          await services.admin.listItems({
+          await services.itemAdmin.listItems({
             current,
             size: PAGE_SIZE,
             keyword: keyword || undefined,
@@ -88,7 +89,7 @@ export function ItemsMain() {
   // 上下架也走修改接口, 需提交全部字段
   const toggleEnabled = async (item: AdminItem) => {
     try {
-      await services.admin.updateItem(item.id, {...toRequest(item), is_enabled: !item.is_enabled});
+      await services.itemAdmin.updateItem(item.id, {...toRequest(item), is_enabled: !item.is_enabled});
       toast.success(item.is_enabled ? `已下架 ${item.name}` : `已上架 ${item.name}`);
       await load();
     } catch (err) {

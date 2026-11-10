@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminShopItem} from '@/lib/services/admin';
+import type {AdminShopItem} from '@/lib/services/shop';
 
 /**
  * 删除商品的二次确认
@@ -28,7 +28,7 @@ export function DeleteShopItemDialog({item, onClose, onSaved}: {
 
   const handleConfirm = submit(async () => {
     if (!item) return;
-    await services.admin.deleteShopItem(item.id);
+    await services.shopAdmin.deleteShopItem(item.id);
     toast.success(`已删除 ${item.name}`);
     onSaved();
     onClose();

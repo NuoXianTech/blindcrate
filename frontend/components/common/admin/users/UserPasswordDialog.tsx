@@ -10,7 +10,7 @@ import {useAuth} from '@/components/common/auth';
 import {SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminUser} from '@/lib/services/admin';
+import type {AdminUser} from '@/lib/services/auth';
 import {checkPassword, checkPasswordConfirm} from '@/lib/validation';
 
 /**
@@ -51,7 +51,7 @@ function PasswordForm({user, self, onClose}: { user: AdminUser; self: boolean; o
       await services.auth.changePassword({old_password: oldPassword, new_password: password});
       toast.success('密码已修改, 其他设备已下线');
     } else {
-      await services.admin.setUserPassword(user.id, password);
+      await services.authAdmin.setUserPassword(user.id, password);
       toast.success(`已修改 ${user.username} 的密码, 其所有设备已下线`);
     }
     onClose();

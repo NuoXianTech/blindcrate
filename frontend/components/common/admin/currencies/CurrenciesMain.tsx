@@ -11,8 +11,8 @@ import {TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useSite} from '@/components/common/site';
 import {CurrencyIcon} from '@/components/common/wallet';
 import services from '@/lib/services';
-import type {Currency} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {Currency} from '@/lib/services/wallet';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 import {toRequest} from './constants';
 import {CurrencyDialog} from './CurrencyDialog';
@@ -32,7 +32,7 @@ export function CurrenciesMain() {
     // 确认是管理员后再拉取, 否则 AdminGuard 会跳走
     if (!isAdmin) return;
     try {
-      setCurrencies((await services.admin.listCurrencies()).currencies);
+      setCurrencies((await services.walletAdmin.listCurrencies()).currencies);
     } catch (err) {
       toast.error(toErrorMessage(err));
     }
@@ -46,7 +46,7 @@ export function CurrenciesMain() {
   // 启用和停用也走修改接口, 需提交全部字段
   const toggleEnabled = async (currency: Currency) => {
     try {
-      await services.admin.updateCurrency(currency.code, {...toRequest(currency), is_enabled: !currency.is_enabled});
+      await services.walletAdmin.updateCurrency(currency.code, {...toRequest(currency), is_enabled: !currency.is_enabled});
       toast.success(currency.is_enabled ? `已停用 ${currency.name}` : `已启用 ${currency.name}`);
       await load();
     } catch (err) {

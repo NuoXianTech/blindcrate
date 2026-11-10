@@ -11,8 +11,10 @@ import {
   type ConditionDraft,
 } from '@/components/common/admin/editors';
 import {check} from '@/hooks/use-submit';
-import type {BotWeight, ConditionType, Currency, VenueRequest, WarehouseRule} from '@/lib/services/admin';
 import type {BotPersona} from '@/lib/services/bot';
+import type {ConditionType} from '@/lib/services/condition';
+import type {BotWeight, VenueRequest, WarehouseRule} from '@/lib/services/venue';
+import type {Currency} from '@/lib/services/wallet';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {checkImageURL} from '@/lib/validation';
 import {

@@ -11,7 +11,7 @@ import {Table, TableBody, TableHead, TableHeader, TableRow} from '@/components/u
 import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import services from '@/lib/services';
-import type {AdminUser} from '@/lib/services/admin';
+import type {AdminUser} from '@/lib/services/auth';
 import {toErrorMessage} from '@/lib/services/core';
 import {BanUserDialog} from './BanUserDialog';
 import {DisableUserDialog} from './DisableUserDialog';
@@ -49,7 +49,7 @@ export function UsersMain() {
     if (!isAdmin) return;
     setLoading(true);
     try {
-      setData(await services.admin.listUsers({current, size: PAGE_SIZE, keyword: keyword || undefined, ...statusParams(status)}));
+      setData(await services.authAdmin.listUsers({current, size: PAGE_SIZE, keyword: keyword || undefined, ...statusParams(status)}));
     } catch (err) {
       toast.error(toErrorMessage(err));
     } finally {
@@ -141,9 +141,9 @@ export function UsersMain() {
                   onWallet={() => setWallet(u)}
                   onInventory={() => setInventory(u)}
                   onBan={() => setBanning(u)}
-                  onUnban={() => runAction(() => services.admin.unbanUser(u.id), `已解除 ${u.username} 的封禁`)}
+                  onUnban={() => runAction(() => services.authAdmin.unbanUser(u.id), `已解除 ${u.username} 的封禁`)}
                   onDisable={() => setDisabling(u)}
-                  onEnable={() => runAction(() => services.admin.setUserDisabled(u.id, false), `已启用 ${u.username}`)}
+                  onEnable={() => runAction(() => services.authAdmin.setUserDisabled(u.id, false), `已启用 ${u.username}`)}
                 />
               ))
             ) : (

@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminLeaderboard} from '@/lib/services/admin';
+import type {AdminLeaderboard} from '@/lib/services/leaderboard';
 
 /**
  * 删除榜单的二次确认, 统计数据不受影响
@@ -28,7 +28,7 @@ export function DeleteLeaderboardDialog({board, onClose, onSaved}: {
 
   const handleConfirm = submit(async () => {
     if (!board) return;
-    await services.admin.deleteLeaderboard(board.id);
+    await services.leaderboardAdmin.deleteLeaderboard(board.id);
     toast.success(`已删除 ${board.name}`);
     onSaved();
     onClose();

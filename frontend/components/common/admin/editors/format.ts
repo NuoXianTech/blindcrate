@@ -1,6 +1,7 @@
 import {MODES, type ModeKind} from '@/lib/auction';
-import type {AdminItem, Currency} from '@/lib/services/admin';
-import type {Bundle} from '@/lib/services/auction';
+import type {AdminItem} from '@/lib/services/item';
+import type {Bundle} from '@/lib/services/reward';
+import type {Currency} from '@/lib/services/wallet';
 import {formatAmount} from '@/lib/utils';
 import type {ScopeOption} from './ConditionEditor';
 

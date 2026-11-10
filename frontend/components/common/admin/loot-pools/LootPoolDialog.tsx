@@ -11,7 +11,7 @@ import {Textarea} from '@/components/ui/textarea';
 import {SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {LootPoolListItem, LootPoolRequest} from '@/lib/services/admin';
+import type {LootPoolListItem, LootPoolRequest} from '@/lib/services/loot';
 import {CODE_PATTERN} from './constants';
 
 /**
@@ -67,10 +67,10 @@ function LootPoolForm({pool, onClose, onSaved}: Omit<LootPoolDialogProps, 'pool'
     check(body.name.length === 0 || [...body.name].length > 64 ? '名称需为 1-64 个字符' : null);
     check([...body.description].length > 255 ? '描述最多 255 个字符' : null);
     if (pool) {
-      await services.admin.updateLootPool(pool.id, body);
+      await services.lootAdmin.updateLootPool(pool.id, body);
       toast.success(`已保存 ${body.name}`);
     } else {
-      await services.admin.createLootPool(body);
+      await services.lootAdmin.createLootPool(body);
       toast.success(`已新建 ${body.name}`);
     }
     onSaved();

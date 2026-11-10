@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminShopOrder} from '@/lib/services/admin';
+import type {AdminShopOrder} from '@/lib/services/shop';
 
 /**
  * 订单退款的二次确认
@@ -31,7 +31,7 @@ export function RefundOrderDialog({order, price, goods, onClose, onSaved}: {
 
   const handleConfirm = submit(async () => {
     if (!order) return;
-    await services.admin.refundShopOrder(order.id);
+    await services.shopAdmin.refundShopOrder(order.id);
     toast.success(`已退款订单 #${order.id}`);
     onSaved();
     onClose();

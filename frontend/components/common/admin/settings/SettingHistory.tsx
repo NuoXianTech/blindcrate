@@ -20,8 +20,8 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {Pagination} from '@/components/common/layout';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {ListSettingRevisionsData, SettingGroup, SettingRevision} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {ListSettingRevisionsData, SettingGroup, SettingRevision} from '@/lib/services/settings';
 import {formatDateTime} from '@/lib/utils';
 import {formatChange, REVISION_ACTIONS, REVISION_PAGE_SIZE} from './constants';
 
@@ -49,7 +49,7 @@ export function SettingHistory({group, open, onClose, onRolledBack, onConflict}:
 
   const load = useCallback(async () => {
     try {
-      setData(await services.admin.listSettingRevisions(group.key, {current, size: REVISION_PAGE_SIZE}));
+      setData(await services.settingsAdmin.listSettingRevisions(group.key, {current, size: REVISION_PAGE_SIZE}));
     } catch (err) {
       toast.error(toErrorMessage(err));
     }
@@ -65,7 +65,7 @@ export function SettingHistory({group, open, onClose, onRolledBack, onConflict}:
   const handleRollback = submit(async () => {
     if (!target) return;
     try {
-      const updated = await services.admin.rollbackSetting(group.key, {version: group.version, target: target.version});
+      const updated = await services.settingsAdmin.rollbackSetting(group.key, {version: group.version, target: target.version});
       toast.success(updated.version === group.version ? '内容与当前版本相同, 没有变化' : `已回滚到版本 ${target.version}`);
       onRolledBack(updated);
       setCurrent(1);

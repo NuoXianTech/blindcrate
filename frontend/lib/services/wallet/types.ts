@@ -1,3 +1,4 @@
+import type {TransactionActors, TransactionFilters} from '../ledger';
 import type {PageParams} from '../core';
 
 /** 某种货币的余额, 对应后端 wallet.BalanceItem */
@@ -61,4 +62,44 @@ export interface ListWalletTransactionsParams extends PageParams {
 export interface ListWalletTransactionsData {
   total: number;
   transactions: WalletTransaction[];
+}
+
+/** 货币定义, 对应后端 wallet.Currency */
+export interface Currency {
+  code: string;
+  name: string;
+  /** 展示用小数位, 金额统一按最小单位的整数存储 */
+  decimals: number;
+  sort_order: number;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 修改货币, 代码创建后不能修改; 已被使用的货币不能修改小数位, 基础货币不能停用 */
+export type CurrencyRequest = Pick<Currency, 'name' | 'decimals' | 'sort_order' | 'is_enabled'>;
+
+/** 新建货币 */
+export type CreateCurrencyRequest = CurrencyRequest & Pick<Currency, 'code'>;
+
+export interface AdjustBalanceRequest {
+  currency: string;
+  /** 最小单位, 正数加款, 负数扣款, 扣款后余额不能为负 */
+  amount: number;
+  /** 调账原因, 可以为空, 用户可在流水中看到 */
+  remark: string;
+  /** 每次打开表单生成一个, 重复提交只生效一次 */
+  idempotency_key: string;
+}
+
+/** 全部用户的余额流水, 对应后端 admin.WalletTransactionItem */
+export type AdminWalletTransaction = WalletTransaction & TransactionActors;
+
+export interface ListAdminWalletTransactionsParams extends TransactionFilters {
+  currency?: string;
+}
+
+export interface ListAdminWalletTransactionsData {
+  total: number;
+  transactions: AdminWalletTransaction[];
 }

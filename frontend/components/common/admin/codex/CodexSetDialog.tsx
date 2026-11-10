@@ -12,8 +12,10 @@ import {FieldGroup, InputField, SwitchField} from '@/components/common/admin/ven
 import {SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem, Currency, LootPoolListItem} from '@/lib/services/admin';
 import type {AdminCodexSet, CodexSetRequest} from '@/lib/services/codex';
+import type {AdminItem} from '@/lib/services/item';
+import type {LootPoolListItem} from '@/lib/services/loot';
+import type {Currency} from '@/lib/services/wallet';
 import {parseAmount} from '@/lib/utils';
 import {SetItemsEditor} from './SetItemsEditor';
 import {CODE_PATTERN, MAX_BUNDLE_LINES, MAX_SET_ITEMS, MAX_SORT_ORDER} from './constants';

@@ -2,7 +2,7 @@ import {Pencil, Power, Trash2} from 'lucide-react';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {TableCell, TableRow} from '@/components/ui/table';
-import type {AdminLeaderboard} from '@/lib/services/admin';
+import type {AdminLeaderboard} from '@/lib/services/leaderboard';
 import {formatDateTime} from '@/lib/utils';
 import {PERIODS} from './constants';
 

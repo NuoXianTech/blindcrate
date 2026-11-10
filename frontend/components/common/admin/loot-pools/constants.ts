@@ -1,4 +1,4 @@
-import type {LootPool, LootPoolRequest} from '@/lib/services/admin';
+import type {LootPool, LootPoolRequest} from '@/lib/services/loot';
 
 /** 掉落池列表每页条数 */
 export const PAGE_SIZE = 20;

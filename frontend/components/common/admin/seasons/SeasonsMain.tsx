@@ -11,10 +11,9 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import services from '@/lib/services';
-import type {ListSeasonsData} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
 import type {Tier} from '@/lib/services/ranked';
-import type {Season} from '@/lib/services/season';
+import type {ListSeasonsData, Season} from '@/lib/services/season';
 import {SeasonActionDialog, type SeasonAction} from './SeasonActionDialog';
 import {SeasonDialog, type SeasonOptions} from './SeasonDialog';
 import {SeasonRow} from './SeasonRow';
@@ -46,7 +45,7 @@ export function SeasonsMain() {
     setLoading(true);
     try {
       setData(
-          await services.admin.listSeasons({
+          await services.seasonAdmin.listSeasons({
             current,
             size: PAGE_SIZE,
             keyword: keyword || undefined,
@@ -68,7 +67,7 @@ export function SeasonsMain() {
   // 段位只在编辑奖励时用到, 挂载时拉取一次
   useEffect(() => {
     if (!isAdmin) return;
-    services.admin.listTiers()
+    services.rankedAdmin.listTiers()
         .then((data) => setTiers(data.tiers))
         .catch((err) => toast.error(toErrorMessage(err)));
   }, [isAdmin]);

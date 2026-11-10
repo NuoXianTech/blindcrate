@@ -1,3 +1,5 @@
+import type {PageParams} from '../core';
+
 /** 榜单的统计周期 */
 export const LEADERBOARD_PERIOD = {
   total: 'total',
@@ -59,3 +61,40 @@ export interface LeaderboardDetail extends Leaderboard {
   entries: LeaderboardEntry[];
   mine: LeaderboardMine;
 }
+
+/** 榜单, 对应后端 leaderboard.Board */
+export interface AdminLeaderboard {
+  id: number;
+  /** 自然键, 小写字母、数字和下划线 */
+  code: string;
+  name: string;
+  description: string;
+  /** 排名的指标, 如 wins、profit:chip */
+  metric: string;
+  /** 统计范围, 如 all、mode:ranked */
+  scope: string;
+  period: LeaderboardPeriod;
+  /** 展示前多少名, 10-500 */
+  size: number;
+  /** 同一范围和周期内至少完成多少局才上榜 */
+  min_matches: number;
+  sort_order: number;
+  /** 停用后玩家看不到 */
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ListLeaderboardsParams extends PageParams {
+  /** 按代码或名称搜索, 不区分大小写 */
+  keyword?: string;
+  is_enabled?: boolean;
+}
+
+export interface ListLeaderboardsData {
+  total: number;
+  boards: AdminLeaderboard[];
+}
+
+/** 新建或修改榜单, 修改时也需提交全部字段 */
+export type LeaderboardRequest = Omit<AdminLeaderboard, 'id' | 'created_at' | 'updated_at'>;

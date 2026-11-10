@@ -1,4 +1,4 @@
-import type {AdminShopItem, ShopItemRequest} from '@/lib/services/admin';
+import type {AdminShopItem, ShopItemRequest} from '@/lib/services/shop';
 
 /** 商品列表每页条数 */
 export const PAGE_SIZE = 20;

@@ -1,7 +1,6 @@
 import {PHASES} from '@/lib/auction';
-import type {AdminMatch} from '@/lib/services/admin';
 import {AUCTION_PHASE} from '@/lib/services/auction';
-import {MATCH_STATUS} from '@/lib/services/match';
+import {MATCH_STATUS, type AdminMatch} from '@/lib/services/match';
 
 /** 对局列表每页条数 */
 export const PAGE_SIZE = 20;

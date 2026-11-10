@@ -12,9 +12,9 @@ import {SubmitButton} from '@/components/common/form';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {Currency} from '@/lib/services/admin';
 import type {AdminCheckinDay} from '@/lib/services/checkin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {Currency} from '@/lib/services/wallet';
 
 /** 一天的奖励最多的行数, 与后端 reward.MaxLines 一致 */
 const MAX_BUNDLE_LINES = 8;

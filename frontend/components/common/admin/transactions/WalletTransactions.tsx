@@ -9,8 +9,8 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {CurrencyIcon} from '@/components/common/wallet';
 import services from '@/lib/services';
-import type {AdminWalletTransaction, Currency} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {AdminWalletTransaction, Currency} from '@/lib/services/wallet';
 import {useLabels} from '@/hooks/use-labels';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 import {Actor, BizTypeSelect, IDFilterForm} from './TransactionFilters';
@@ -32,7 +32,7 @@ export function WalletTransactions({initialUserID}: { initialUserID?: number }) 
 
   useEffect(() => {
     if (!isAdmin) return;
-    services.admin.listCurrencies()
+    services.walletAdmin.listCurrencies()
         .then((data) => setCurrencies(data.currencies))
         .catch(() => {
         // 只影响货币名称和小数位, 失败时显示货币代码
@@ -45,7 +45,7 @@ export function WalletTransactions({initialUserID}: { initialUserID?: number }) 
     setLoading(true);
     try {
       setData(
-          await services.admin.listWalletTransactions({
+          await services.walletAdmin.listWalletTransactions({
             current,
             size: PAGE_SIZE,
             ...ids,

@@ -18,7 +18,7 @@ import {Textarea} from '@/components/ui/textarea';
 import {check, useSubmit} from '@/hooks/use-submit';
 import {modeLabel} from '@/lib/auction';
 import services from '@/lib/services';
-import type {AdminMatch} from '@/lib/services/admin';
+import type {AdminMatch} from '@/lib/services/match';
 
 /**
  * 取消进行中的对局的二次确认, 需要填写原因
@@ -50,7 +50,7 @@ function CancelMatchForm({match, onClose, onSaved}: {
 
   const handleConfirm = submit(async () => {
     check(reason.trim() ? null : '请填写取消原因');
-    await services.admin.cancelMatch(match.id, reason.trim());
+    await services.matchAdmin.cancelMatch(match.id, reason.trim());
     toast.success(`已取消对局 #${match.id}`);
     onSaved();
     onClose();

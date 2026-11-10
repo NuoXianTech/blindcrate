@@ -28,7 +28,7 @@ export function DeleteTierDialog({tier, onClose, onSaved}: {
 
   const handleConfirm = submit(async () => {
     if (!tier) return;
-    await services.admin.deleteTier(tier.id);
+    await services.rankedAdmin.deleteTier(tier.id);
     toast.success(`已删除 ${tier.name}`);
     onSaved();
     onClose();

@@ -10,8 +10,7 @@ import {SubmitButton} from '@/components/common/form';
 import {TierName} from '@/components/common/ranked';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {TierRequest} from '@/lib/services/admin';
-import type {Tier} from '@/lib/services/ranked';
+import type {Tier, TierRequest} from '@/lib/services/ranked';
 import {parseAmount} from '@/lib/utils';
 import {COLOR_PATTERN, DEFAULT_COLOR, MAX_TIER_RATING} from './constants';
 
@@ -61,10 +60,10 @@ function TierForm({tier, onClose, onSaved}: Omit<TierDialogProps, 'tier'> & { ti
     check(body.name.length === 0 || [...body.name].length > 32 ? '段位名称需为 1-32 个字符' : null);
     check(COLOR_PATTERN.test(body.color) ? null : '颜色需为 #RRGGBB 格式');
     if (tier) {
-      await services.admin.updateTier(tier.id, body);
+      await services.rankedAdmin.updateTier(tier.id, body);
       toast.success(`已保存 ${body.name}`);
     } else {
-      await services.admin.createTier(body);
+      await services.rankedAdmin.createTier(body);
       toast.success(`已新建 ${body.name}`);
     }
     onSaved();

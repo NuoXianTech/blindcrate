@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminVenue} from '@/lib/services/admin';
+import type {AdminVenue} from '@/lib/services/venue';
 
 /**
  * 删除地图的二次确认
@@ -28,7 +28,7 @@ export function DeleteVenueDialog({venue, onClose, onSaved}: {
 
   const handleConfirm = submit(async () => {
     if (!venue) return;
-    await services.admin.deleteVenue(venue.id);
+    await services.venueAdmin.deleteVenue(venue.id);
     toast.success(`已删除 ${venue.name}`);
     onSaved();
     onClose();

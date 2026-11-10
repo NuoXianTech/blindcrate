@@ -11,9 +11,9 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import services from '@/lib/services';
-import type {LootPoolListItem} from '@/lib/services/admin';
 import type {AdminCodexSet, ListCodexSetsData} from '@/lib/services/codex';
 import {toErrorMessage} from '@/lib/services/core';
+import type {LootPoolListItem} from '@/lib/services/loot';
 import {CodexSetDialog, type CodexSetFormOptions, type CodexSetTarget} from './CodexSetDialog';
 import {CodexSetRow} from './CodexSetRow';
 import {DeleteCodexSetDialog} from './DeleteCodexSetDialog';
@@ -67,7 +67,7 @@ export function CodexSetsMain() {
   // 掉落池只在编辑时用于批量添加藏品, 挂载时拉取一次
   useEffect(() => {
     if (!isAdmin) return;
-    services.admin.listLootPools({current: 1, size: POOL_LIMIT})
+    services.lootAdmin.listLootPools({current: 1, size: POOL_LIMIT})
         .then((poolData) => setPools(poolData.pools))
         .catch((err) => toast.error(toErrorMessage(err)));
   }, [isAdmin]);

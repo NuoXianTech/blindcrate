@@ -1,7 +1,8 @@
 import {nanoid} from 'nanoid';
 import {check} from '@/hooks/use-submit';
-import type {Condition, ConditionField, ConditionType, Currency} from '@/lib/services/admin';
-import type {Bundle} from '@/lib/services/auction';
+import type {Condition, ConditionField, ConditionType} from '@/lib/services/condition';
+import type {Bundle} from '@/lib/services/reward';
+import type {Currency} from '@/lib/services/wallet';
 import {amountInput, parseAmount} from '@/lib/utils';
 
 /** 物品的数量上限, 与后端 reward 的校验一致 */

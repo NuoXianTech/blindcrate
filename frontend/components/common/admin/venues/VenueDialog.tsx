@@ -12,17 +12,12 @@ import {SubmitButton} from '@/components/common/form';
 import {useSite} from '@/components/common/site';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {
-  AdminItem,
-  AdminVenue,
-  ConditionType,
-  Currency,
-  ItemEffect,
-  LootPoolListItem,
-  Simulation,
-} from '@/lib/services/admin';
 import type {BotPersona} from '@/lib/services/bot';
-import type {AuctionRule} from '@/lib/services/venue';
+import type {ConditionType} from '@/lib/services/condition';
+import type {AdminItem, ItemEffect} from '@/lib/services/item';
+import type {LootPoolListItem} from '@/lib/services/loot';
+import type {AdminVenue, AuctionRule, Simulation} from '@/lib/services/venue';
+import type {Currency} from '@/lib/services/wallet';
 import {AuctionTab} from './AuctionTab';
 import {BasicTab} from './BasicTab';
 import {BotTab} from './BotTab';
@@ -122,7 +117,7 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
   const handleSimulate = simulate.submit(async () => {
     const body = toVenueRequest(form, currencies, types);
     setTab('simulation');
-    const result = await services.admin.simulateVenue(body);
+    const result = await services.venueAdmin.simulateVenue(body);
     setSimulation(result.simulation);
     setDerived(result.auction);
     setStale(false);
@@ -131,10 +126,10 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
   const handleSubmit = save.submit(async () => {
     const body = toVenueRequest(form, currencies, types);
     if (venue) {
-      await services.admin.updateVenue(venue.id, body);
+      await services.venueAdmin.updateVenue(venue.id, body);
       toast.success(`已保存 ${body.name}`);
     } else {
-      await services.admin.createVenue(body);
+      await services.venueAdmin.createVenue(body);
       toast.success(`已新建 ${body.name}`);
     }
     onSaved();

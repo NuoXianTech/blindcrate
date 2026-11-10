@@ -1,4 +1,8 @@
-export type {Bundle} from '../auction';
+/** 一组货币和物品, 对应后端 reward.Bundle */
+export interface Bundle {
+  currencies?: { currency: string; amount: number }[];
+  items?: { item_id: number; quantity: number }[];
+}
 
 /** 奖励、价格或附件中的一种货币或物品, 带名称便于展示, 对应后端 reward.Line */
 export interface RewardLine {

@@ -16,7 +16,8 @@ import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities, useSite} from '@/components/common/site';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem, Currency, ItemCategory, ItemEffect, ItemRequest} from '@/lib/services/admin';
+import type {AdminItem, ItemCategory, ItemEffect, ItemRequest} from '@/lib/services/item';
+import type {Currency} from '@/lib/services/wallet';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {checkImageURL} from '@/lib/validation';
 import {CODE_PATTERN, COLLECTIBLE, MAX_SELL_PRICE, MAX_SIZE, NO_EFFECT} from './constants';
@@ -124,10 +125,10 @@ function ItemForm({item, currencies, categories, effects, onClose, onSaved}: Omi
         null,
     );
     if (item) {
-      await services.admin.updateItem(item.id, body);
+      await services.itemAdmin.updateItem(item.id, body);
       toast.success(`已保存 ${body.name}`);
     } else {
-      await services.admin.createItem(body);
+      await services.itemAdmin.createItem(body);
       toast.success(`已新建 ${body.name}`);
     }
     onSaved();

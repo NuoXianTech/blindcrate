@@ -6,7 +6,8 @@ import {TableCell, TableRow} from '@/components/ui/table';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
-import type {AdminItem, Currency, ItemCategory, ItemEffect} from '@/lib/services/admin';
+import type {AdminItem, ItemCategory, ItemEffect} from '@/lib/services/item';
+import type {Currency} from '@/lib/services/wallet';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 
 /**

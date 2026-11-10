@@ -15,9 +15,8 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import services from '@/lib/services';
-import type {AdminShopItem, AdminShopOrder, ListShopOrdersData} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
-import {SHOP_ORDER_STATUS} from '@/lib/services/shop';
+import {SHOP_ORDER_STATUS, type AdminShopItem, type AdminShopOrder, type ListAdminShopOrdersData} from '@/lib/services/shop';
 import {formatDateTime} from '@/lib/utils';
 import {RefundOrderDialog} from './RefundOrderDialog';
 import {ALL, PAGE_SIZE, SHOP_ITEM_LIMIT, STATUS_LABELS, dayStart} from './constants';
@@ -33,7 +32,7 @@ export function ShopOrdersMain() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [current, setCurrent] = useState(1);
-  const [data, setData] = useState<ListShopOrdersData | null>(null);
+  const [data, setData] = useState<ListAdminShopOrdersData | null>(null);
   const [loading, setLoading] = useState(true);
   const [shopItems, setShopItems] = useState<AdminShopItem[]>([]);
   const [refunding, setRefunding] = useState<AdminShopOrder | null>(null);
@@ -41,7 +40,7 @@ export function ShopOrdersMain() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    services.admin.listShopItems({current: 1, size: SHOP_ITEM_LIMIT})
+    services.shopAdmin.listShopItems({current: 1, size: SHOP_ITEM_LIMIT})
         .then((res) => setShopItems(res.items))
         .catch(() => {
           // 只影响商品筛选的选项
@@ -53,7 +52,7 @@ export function ShopOrdersMain() {
     if (!isAdmin) return;
     setLoading(true);
     try {
-      setData(await services.admin.listShopOrders({
+      setData(await services.shopAdmin.listShopOrders({
         current,
         size: PAGE_SIZE,
         user_id: ids.user_id,

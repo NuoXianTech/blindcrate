@@ -1,4 +1,4 @@
-import type {PackActionType, PackEntryResult, PackStatus} from '@/lib/services/admin';
+import type {PackActionType, PackEntryResult, PackStatus} from '@/lib/services/pack';
 
 /** 导入记录每页条数 */
 export const PAGE_SIZE = 20;

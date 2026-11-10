@@ -12,9 +12,12 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import services from '@/lib/services';
-import type {AdminVenue, ConditionType, ItemEffect, ListVenuesData, LootPoolListItem} from '@/lib/services/admin';
 import type {BotPersona} from '@/lib/services/bot';
+import type {ConditionType} from '@/lib/services/condition';
 import {toErrorMessage} from '@/lib/services/core';
+import type {ItemEffect} from '@/lib/services/item';
+import type {LootPoolListItem} from '@/lib/services/loot';
+import type {AdminVenue, ListVenuesData} from '@/lib/services/venue';
 import {DeleteVenueDialog} from './DeleteVenueDialog';
 import {RecalibrateDialog} from './RecalibrateDialog';
 import {VenueDialog, type VenueOptions} from './VenueDialog';
@@ -54,7 +57,7 @@ export function VenuesMain() {
     setLoading(true);
     try {
       setData(
-          await services.admin.listVenues({
+          await services.venueAdmin.listVenues({
             current,
             size: PAGE_SIZE,
             keyword: keyword || undefined,
@@ -77,9 +80,9 @@ export function VenuesMain() {
   useEffect(() => {
     if (!isAdmin) return;
     Promise.all([
-      services.admin.listLootPools({current: 1, size: OPTION_LIMIT}),
-      services.admin.listConditionTypes(),
-      services.admin.listItemEffects(),
+      services.lootAdmin.listLootPools({current: 1, size: OPTION_LIMIT}),
+      services.conditionAdmin.listConditionTypes(),
+      services.itemAdmin.listItemEffects(),
       services.botAdmin.listPersonas({current: 1, size: OPTION_LIMIT}),
     ])
         .then(([poolData, typeData, effectData, personaData]) => {
@@ -114,7 +117,7 @@ export function VenuesMain() {
   // 启停也走修改接口, 需提交全部字段, 后端会重新模拟
   const toggleEnabled = async (venue: AdminVenue) => {
     try {
-      await services.admin.updateVenue(venue.id, {...toRequest(venue), is_enabled: !venue.is_enabled});
+      await services.venueAdmin.updateVenue(venue.id, {...toRequest(venue), is_enabled: !venue.is_enabled});
       toast.success(venue.is_enabled ? `已停用 ${venue.name}` : `已启用 ${venue.name}`);
       await load();
     } catch (err) {

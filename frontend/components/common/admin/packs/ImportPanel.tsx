@@ -20,8 +20,8 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {Switch} from '@/components/ui/switch';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {PackAction, PackActionType, PackEntryResult, PackImport, PackPreview, PackStatus} from '@/lib/services/admin';
 import {ApiError} from '@/lib/services/core';
+import type {PackAction, PackActionType, PackEntryResult, PackImport, PackPreview, PackStatus} from '@/lib/services/pack';
 import {formatDateTime} from '@/lib/utils';
 import {PackEntriesTable} from './PackEntriesTable';
 import {ACTION_LABELS, MAX_PACK_SIZE, STATUS_LABELS, entryID, formatSize} from './constants';
@@ -59,7 +59,7 @@ export function ImportPanel({onImported}: { onImported: (record: PackImport) => 
         .map((e) => ({section: e.section, key: e.key, action: next[entryID(e)].action, code: next[entryID(e)].code.trim()}));
 
   const runPreview = (target: File, next: Record<string, Choice>) => previewing.submit(async () => {
-    const result = await services.admin.previewPack(target, actionsOf(next));
+    const result = await services.packAdmin.previewPack(target, actionsOf(next));
     setPreview(result);
     setDirty(false);
   });
@@ -89,7 +89,7 @@ export function ImportPanel({onImported}: { onImported: (record: PackImport) => 
   const handleImport = importing.submit(async () => {
     if (!file) return;
     try {
-      const record = await services.admin.importPack(file, actionsOf(choices));
+      const record = await services.packAdmin.importPack(file, actionsOf(choices));
       toast.success(`已导入 ${record.name}: 新增 ${record.created} 项, 覆盖 ${record.updated} 项, 跳过 ${record.skipped} 项`);
       setConfirming(false);
       setFile(null);

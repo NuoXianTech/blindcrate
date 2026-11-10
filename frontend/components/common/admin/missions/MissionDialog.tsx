@@ -22,9 +22,12 @@ import {FieldGroup, InputField, SwitchField} from '@/components/common/admin/ven
 import {SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem, ConditionType, Currency, StatMetric} from '@/lib/services/admin';
+import type {ConditionType} from '@/lib/services/condition';
 import type {CodeLabel} from '@/lib/services/core';
+import type {AdminItem} from '@/lib/services/item';
 import type {AdminMission, MissionCycle, MissionRequest} from '@/lib/services/mission';
+import type {StatMetric} from '@/lib/services/stats';
+import type {Currency} from '@/lib/services/wallet';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {
   CODE_PATTERN,

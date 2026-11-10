@@ -1,7 +1,9 @@
 'use client';
 
 import {BundleEditor, ConditionEditor, type ScopeOption} from '@/components/common/admin/editors';
-import type {AdminItem, ConditionType, Currency} from '@/lib/services/admin';
+import type {ConditionType} from '@/lib/services/condition';
+import type {AdminItem} from '@/lib/services/item';
+import type {Currency} from '@/lib/services/wallet';
 import {FieldGroup} from './Fields';
 import {MAX_ENTRY_COST_LINES, MAX_REQUIREMENTS} from './constants';
 import type {FormTabProps} from './form';

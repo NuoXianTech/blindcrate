@@ -3,7 +3,9 @@ import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {TableCell, TableRow} from '@/components/ui/table';
 import {bundleText} from '@/components/common/admin/editors';
-import type {AdminItem, AdminVenue, Currency} from '@/lib/services/admin';
+import type {AdminItem} from '@/lib/services/item';
+import type {AdminVenue} from '@/lib/services/venue';
+import type {Currency} from '@/lib/services/wallet';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 import {MODES} from './constants';
 

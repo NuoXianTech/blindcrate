@@ -9,8 +9,8 @@ import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/c
 import {useAuth} from '@/components/common/auth';
 import {TableEmpty, TableSkeleton} from '@/components/common/layout';
 import services from '@/lib/services';
-import type {AdminQuality} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {AdminQuality} from '@/lib/services/item';
 import {EFFECTS} from './constants';
 import {DeleteQualityDialog} from './DeleteQualityDialog';
 import {QualityDialog} from './QualityDialog';
@@ -31,7 +31,7 @@ export function QualitiesMain() {
     // 确认是管理员后再拉取, 否则 AdminGuard 会跳走
     if (!isAdmin) return;
     try {
-      setQualities((await services.admin.listQualities()).qualities);
+      setQualities((await services.itemAdmin.listQualities()).qualities);
     } catch (err) {
       toast.error(toErrorMessage(err));
     }

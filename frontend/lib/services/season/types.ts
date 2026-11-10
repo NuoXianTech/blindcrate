@@ -1,4 +1,5 @@
-import type {Bundle} from '../auction';
+import type {PageParams} from '../core';
+import type {Bundle} from '../reward';
 
 /** 赛季的状态, 由时间推算 */
 export const SEASON_STATUS = {
@@ -65,3 +66,20 @@ export interface CurrentSeasonData {
   /** 进行中的赛季的奖励, 没有进行中的赛季时为空 */
   rewards: SeasonRewardView[];
 }
+
+export interface ListSeasonsParams extends PageParams {
+  /** 按代码或名称搜索, 不区分大小写 */
+  keyword?: string;
+  status?: SeasonStatus;
+}
+
+export interface ListSeasonsData {
+  total: number;
+  seasons: Season[];
+}
+
+/** 修改赛季, 需提交全部字段; 时间精确到分钟, 开始后不能修改开始时间和段位分继承比例, 结束后只能修改名称 */
+export type SeasonRequest = Pick<Season, 'name' | 'starts_at' | 'ends_at' | 'rating_carry' | 'rewards'>;
+
+/** 新建赛季 */
+export type CreateSeasonRequest = SeasonRequest & Pick<Season, 'code'>;

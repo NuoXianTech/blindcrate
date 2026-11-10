@@ -10,7 +10,7 @@ import {Switch} from '@/components/ui/switch';
 import {SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {Currency, CurrencyRequest} from '@/lib/services/admin';
+import type {Currency, CurrencyRequest} from '@/lib/services/wallet';
 import {formatAmount, parseAmount} from '@/lib/utils';
 import {CODE_PATTERN, MAX_DECIMALS, MAX_SORT_ORDER} from './constants';
 
@@ -80,12 +80,12 @@ function CurrencyForm({currency, isBase, nextSortOrder, onClose, onSaved}: Omit<
     };
     check(body.name.length === 0 || [...body.name].length > 32 ? '名称需为 1-32 个字符' : null);
     if (currency) {
-      await services.admin.updateCurrency(currency.code, body);
+      await services.walletAdmin.updateCurrency(currency.code, body);
       toast.success(`已保存 ${body.name}`);
     } else {
       const created = {...body, code: code.trim()};
       check(CODE_PATTERN.test(created.code) ? null : '代码需为 1-32 个小写字母、数字或下划线');
-      await services.admin.createCurrency(created);
+      await services.walletAdmin.createCurrency(created);
       toast.success(`已新建 ${body.name}`);
     }
     onSaved();

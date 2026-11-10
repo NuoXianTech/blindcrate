@@ -1,5 +1,4 @@
-import type {Bundle} from '../auction';
-import type {RewardLine} from '../reward';
+import type {Bundle, RewardLine} from '../reward';
 
 /** 签到周期中的一天, 对应后端 checkin.DayView */
 export interface CheckinDay {

@@ -1,3 +1,4 @@
+import type {TransactionActors, TransactionFilters} from '../ledger';
 import type {PageParams} from '../core';
 
 /** 背包中的一种物品, 对应后端 inventory.UserItemDetail */
@@ -149,4 +150,24 @@ export interface ListSellOrdersParams extends PageParams {
 export interface ListSellOrdersData {
   total: number;
   orders: SellOrder[];
+}
+
+export interface AdjustInventoryRequest {
+  item_id: number;
+  /** 正数发放, 负数扣除, 扣除后数量不能为负 */
+  quantity: number;
+  remark: string;
+  idempotency_key: string;
+}
+
+/** 全部用户的背包流水, 对应后端 admin.InventoryTransactionItem */
+export type AdminInventoryTransaction = InventoryTransaction & TransactionActors;
+
+export interface ListAdminInventoryTransactionsParams extends TransactionFilters {
+  item_id?: number;
+}
+
+export interface ListAdminInventoryTransactionsData {
+  total: number;
+  transactions: AdminInventoryTransaction[];
 }

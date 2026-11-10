@@ -6,7 +6,7 @@ import {Textarea} from '@/components/ui/textarea';
 import {ImageUploadField} from '@/components/common/form';
 import {ItemImage} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
-import type {Currency} from '@/lib/services/admin';
+import type {Currency} from '@/lib/services/wallet';
 import {InputField, SwitchField} from './Fields';
 import type {FormTabProps} from './form';
 

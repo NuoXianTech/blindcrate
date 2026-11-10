@@ -1,8 +1,8 @@
 import {nanoid} from 'nanoid';
 import {fromBundleDrafts, toBundleDrafts, type BundleDraft} from '@/components/common/admin/editors';
 import {check} from '@/hooks/use-submit';
-import type {Currency} from '@/lib/services/admin';
 import type {SeasonReward} from '@/lib/services/season';
+import type {Currency} from '@/lib/services/wallet';
 import {parseAmount} from '@/lib/utils';
 import {MAX_REWARD_RATING} from './constants';
 

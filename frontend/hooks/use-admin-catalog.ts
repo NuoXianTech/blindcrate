@@ -3,8 +3,9 @@
 import {useEffect, useState} from 'react';
 import {toast} from 'sonner';
 import services from '@/lib/services';
-import type {AdminItem, Currency} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {AdminItem} from '@/lib/services/item';
+import type {Currency} from '@/lib/services/wallet';
 
 /** 物品列表接口的分页上限 */
 const ITEM_PAGE_SIZE = 100;
@@ -15,7 +16,7 @@ const MAX_ITEM_PAGES = 20;
 async function listAllItems() {
   const items: AdminItem[] = [];
   for (let current = 1; current <= MAX_ITEM_PAGES; current++) {
-    const data = await services.admin.listItems({current, size: ITEM_PAGE_SIZE});
+    const data = await services.itemAdmin.listItems({current, size: ITEM_PAGE_SIZE});
     items.push(...data.items);
     if (items.length >= data.total || data.items.length < ITEM_PAGE_SIZE) break;
   }
@@ -32,7 +33,7 @@ export function useAdminCatalog() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    Promise.all([listAllItems(), services.admin.listCurrencies()])
+    Promise.all([listAllItems(), services.walletAdmin.listCurrencies()])
         .then(([items, data]) => {
           setItems(items);
           setCurrencies(data.currencies);

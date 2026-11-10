@@ -1,4 +1,4 @@
-import type {Currency, CurrencyRequest} from '@/lib/services/admin';
+import type {Currency, CurrencyRequest} from '@/lib/services/wallet';
 
 /** 与后端 wallet.ValidateCurrency 和请求的校验一致 */
 export const CODE_PATTERN = /^[a-z0-9_]{1,32}$/;

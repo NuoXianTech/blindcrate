@@ -3,8 +3,9 @@ import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {TableCell, TableRow} from '@/components/ui/table';
 import {bundleText} from '@/components/common/admin/editors';
-import type {AdminItem, Currency} from '@/lib/services/admin';
 import type {AdminCodexSet} from '@/lib/services/codex';
+import type {AdminItem} from '@/lib/services/item';
+import type {Currency} from '@/lib/services/wallet';
 
 /**
  * 收集组行的Props接口

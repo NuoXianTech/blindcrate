@@ -5,8 +5,9 @@ import {Textarea} from '@/components/ui/textarea';
 import {BundleEditor, fromBundleDrafts, type BundleDraft} from '@/components/common/admin/editors';
 import {FieldGroup, InputField} from '@/components/common/admin/venues/Fields';
 import {check} from '@/hooks/use-submit';
-import type {AdminItem, Currency} from '@/lib/services/admin';
-import type {Bundle} from '@/lib/services/auction';
+import type {AdminItem} from '@/lib/services/item';
+import type {Bundle} from '@/lib/services/reward';
+import type {Currency} from '@/lib/services/wallet';
 import {parseAmount} from '@/lib/utils';
 import {MAX_ATTACHMENT_LINES, MAX_CONTENT, MAX_EXPIRE_DAYS, MAX_SENDER, MAX_TITLE} from './constants';
 

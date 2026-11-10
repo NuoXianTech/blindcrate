@@ -1,22 +1,26 @@
-import {AdminService} from './admin';
-import {AuctionService} from './auction';
-import {AuthService} from './auth';
+import {AuctionAdminService, AuctionService} from './auction';
+import {AuditAdminService} from './audit';
+import {AuthAdminService, AuthService} from './auth';
 import {BotAdminService} from './bot';
 import {CheckinAdminService, CheckinService} from './checkin';
 import {CodexAdminService, CodexService} from './codex';
-import {InventoryService} from './inventory';
-import {LeaderboardService} from './leaderboard';
+import {ConditionAdminService} from './condition';
+import {InventoryAdminService, InventoryService} from './inventory';
+import {ItemAdminService} from './item';
+import {LeaderboardAdminService, LeaderboardService} from './leaderboard';
+import {LootAdminService} from './loot';
 import {MailboxAdminService, MailboxService} from './mailbox';
-import {MatchService} from './match';
+import {MatchAdminService, MatchService} from './match';
 import {MissionAdminService, MissionService} from './mission';
-import {RankedService} from './ranked';
-import {SeasonService} from './season';
-import {SettingsService} from './settings';
-import {ShopService} from './shop';
+import {PackAdminService} from './pack';
+import {RankedAdminService, RankedService} from './ranked';
+import {SeasonAdminService, SeasonService} from './season';
+import {SettingsAdminService, SettingsService} from './settings';
+import {ShopAdminService, ShopService} from './shop';
 import {StatsService} from './stats';
 import {UploadService} from './upload';
-import {VenueService} from './venue';
-import {WalletService} from './wallet';
+import {VenueAdminService, VenueService} from './venue';
+import {WalletAdminService, WalletService} from './wallet';
 
 /**
  * 服务层统一入口, 组件通过 services.xxx 调用接口
@@ -28,7 +32,8 @@ import {WalletService} from './wallet';
  *     - types.ts - 通用类型
  *     - ws-client.ts - WebSocket 长连接, 订阅推送和发送请求
  *   /<模块> - 每个后端模块一个目录
- *     - xxx.service.ts - 服务实现, 继承 BaseService 并设置 basePath
+ *     - xxx.service.ts - 玩家端接口, 继承 BaseService 并设置 basePath
+ *     - xxx-admin.service.ts - 管理端接口, 沿用相同的业务归属
  *     - types.ts - 请求和响应类型
  *     - index.ts - 导出服务和类型
  *
@@ -73,18 +78,48 @@ const services = {
   upload: UploadService,
   /** 仓库暗拍 */
   auction: AuctionService,
-  /** 管理后台 */
-  admin: AdminService,
-  /** 后台: 游戏邮件 */
-  mailboxAdmin: MailboxAdminService,
-  /** 后台: 任务 */
-  missionAdmin: MissionAdminService,
+  /** 后台: 暗拍详情 */
+  auctionAdmin: AuctionAdminService,
+  /** 后台: 操作日志 */
+  auditAdmin: AuditAdminService,
+  /** 后台: 用户 */
+  authAdmin: AuthAdminService,
+  /** 后台: 人机昵称和风格 */
+  botAdmin: BotAdminService,
   /** 后台: 签到 */
   checkinAdmin: CheckinAdminService,
   /** 后台: 图鉴 */
   codexAdmin: CodexAdminService,
-  /** 后台: 人机昵称和风格 */
-  botAdmin: BotAdminService,
+  /** 后台: 条件类型 */
+  conditionAdmin: ConditionAdminService,
+  /** 后台: 背包和流水 */
+  inventoryAdmin: InventoryAdminService,
+  /** 后台: 物品和品质 */
+  itemAdmin: ItemAdminService,
+  /** 后台: 榜单 */
+  leaderboardAdmin: LeaderboardAdminService,
+  /** 后台: 掉落池 */
+  lootAdmin: LootAdminService,
+  /** 后台: 游戏邮件 */
+  mailboxAdmin: MailboxAdminService,
+  /** 后台: 对局 */
+  matchAdmin: MatchAdminService,
+  /** 后台: 任务 */
+  missionAdmin: MissionAdminService,
+  /** 后台: 配置包 */
+  packAdmin: PackAdminService,
+  /** 后台: 段位和可疑名单 */
+  rankedAdmin: RankedAdminService,
+  /** 后台: 赛季 */
+  seasonAdmin: SeasonAdminService,
+  /** 后台: 系统设置 */
+  settingsAdmin: SettingsAdminService,
+  /** 后台: 商品和订单 */
+  shopAdmin: ShopAdminService,
+  /** 后台: 地图 */
+  venueAdmin: VenueAdminService,
+  /** 后台: 货币、余额和流水 */
+  walletAdmin: WalletAdminService,
 };
 
 export default services;

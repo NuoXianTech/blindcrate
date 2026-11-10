@@ -11,7 +11,9 @@ import {FieldGroup, SwitchField} from '@/components/common/admin/venues/Fields';
 import {SubmitButton} from '@/components/common/form';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem, ConditionType, Currency} from '@/lib/services/admin';
+import type {ConditionType} from '@/lib/services/condition';
+import type {AdminItem} from '@/lib/services/item';
+import type {Currency} from '@/lib/services/wallet';
 import {EMPTY_LETTER, LetterFields, fromLetterDraft, type LetterDraft} from './LetterFields';
 import {MAX_REQUIREMENTS} from './constants';
 
