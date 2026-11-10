@@ -13,9 +13,9 @@ import services from '@/lib/services';
 import type {AdminItem, Currency, SeasonRequest} from '@/lib/services/admin';
 import type {Tier} from '@/lib/services/ranked';
 import {SEASON_STATUS, type Season} from '@/lib/services/season';
-import {parseAmount} from '@/lib/utils';
+import {fromLocalInput, parseAmount, toLocalInput} from '@/lib/utils';
 import {RewardsEditor} from './RewardsEditor';
-import {CODE_PATTERN, DEFAULT_DAYS, DEFAULT_RATING_CARRY, MAX_REWARDS, fromLocalInput, toLocalInput} from './constants';
+import {CODE_PATTERN, DEFAULT_DAYS, DEFAULT_RATING_CARRY, MAX_REWARDS} from './constants';
 import {fromRewardDrafts, toRewardDrafts} from './rewards';
 
 /** 编辑赛季奖励用到的物品、货币和段位 */

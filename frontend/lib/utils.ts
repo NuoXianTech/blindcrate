@@ -13,6 +13,19 @@ export function formatDateTime(value: string | null | undefined): string {
   return value ? dateTimeFormat.format(new Date(value)) : '-';
 }
 
+/** 时间转为 datetime-local 输入框的值, 按本地时区, 精确到分钟 */
+export function toLocalInput(value: string | Date): string {
+  const d = new Date(value);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** datetime-local 输入框的值转为 RFC3339, 格式不对时返回 null */
+export function fromLocalInput(value: string): string | null {
+  const d = new Date(value);
+  return value && !Number.isNaN(d.getTime()) ? d.toISOString() : null;
+}
+
 /**
  * 格式化金额, 后端按最小单位的整数返回, decimals 为货币的展示小数位
  * signed: 正数带 + 号, 用于流水; compact: 大数缩写为 万/亿, 用于空间有限的地方
@@ -37,4 +50,9 @@ export function parseAmount(input: string, decimals = 0): number | null {
 /** 最小单位的整数转成表单里的金额, 不带千分位 */
 export function amountInput(amount: number, decimals = 0): string {
   return (amount / 10 ** decimals).toFixed(decimals);
+}
+
+/** 解析数字 ID, 不是纯数字时返回 undefined */
+export function parseID(value: string | null | undefined) {
+  return value && /^\d+$/.test(value) ? Number(value) : undefined;
 }

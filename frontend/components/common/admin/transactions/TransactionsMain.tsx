@@ -4,9 +4,9 @@ import {useState} from 'react';
 import {useSearchParams} from 'next/navigation';
 import {Backpack, Wallet} from 'lucide-react';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
+import {parseID} from '@/lib/utils';
 import {InventoryTransactions} from './InventoryTransactions';
 import {WalletTransactions} from './WalletTransactions';
-import {parseID} from './constants';
 
 /**
  * 流水查询: 全部用户的余额流水和背包流水, 可从用户管理带 ?tab=&user_id= 跳转过来

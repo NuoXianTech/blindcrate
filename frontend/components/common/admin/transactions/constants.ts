@@ -6,8 +6,3 @@ export const ALL = 'all';
 
 /** 数字 ID 筛选, 空表示不筛选 */
 export type IDFilters = Record<string, number | undefined>;
-
-/** 解析数字 ID, 不是纯数字时返回 undefined */
-export function parseID(value: string | null | undefined) {
-  return value && /^\d+$/.test(value) ? Number(value) : undefined;
-}
