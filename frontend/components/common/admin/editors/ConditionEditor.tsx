@@ -4,7 +4,9 @@ import {useId} from 'react';
 import {Plus, Trash2} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
-import type {AdminItem, ConditionType, Currency} from '@/lib/services/admin';
+import type {ConditionType} from '@/lib/services/condition';
+import type {AdminItem} from '@/lib/services/item';
+import type {Currency} from '@/lib/services/wallet';
 import {newConditionDraft, type ConditionDraft} from './drafts';
 import {ParamField} from './ParamField';
 

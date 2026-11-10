@@ -10,8 +10,8 @@ import {Table, TableBody, TableHead, TableHeader, TableRow} from '@/components/u
 import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import services from '@/lib/services';
-import type {ListLootPoolsData, LootPoolListItem} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {ListLootPoolsData, LootPoolListItem} from '@/lib/services/loot';
 import {DeleteLootPoolDialog} from './DeleteLootPoolDialog';
 import {EntriesDialog} from './EntriesDialog';
 import {LootPoolDialog} from './LootPoolDialog';
@@ -42,7 +42,7 @@ export function LootPoolsMain() {
     setLoading(true);
     try {
       setData(
-          await services.admin.listLootPools({
+          await services.lootAdmin.listLootPools({
             current,
             size: PAGE_SIZE,
             keyword: keyword || undefined,
@@ -70,7 +70,7 @@ export function LootPoolsMain() {
   // 启停也走修改接口, 需提交全部字段
   const toggleEnabled = async (pool: LootPoolListItem) => {
     try {
-      await services.admin.updateLootPool(pool.id, {...toRequest(pool), is_enabled: !pool.is_enabled});
+      await services.lootAdmin.updateLootPool(pool.id, {...toRequest(pool), is_enabled: !pool.is_enabled});
       toast.success(pool.is_enabled ? `已停用 ${pool.name}` : `已启用 ${pool.name}`);
       await load();
     } catch (err) {

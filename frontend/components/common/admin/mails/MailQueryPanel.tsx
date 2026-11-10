@@ -11,9 +11,10 @@ import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/c
 import {bundleText} from '@/components/common/admin/editors';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import services from '@/lib/services';
-import type {AdminItem, Currency} from '@/lib/services/admin';
 import {toErrorMessage, type CodeLabel} from '@/lib/services/core';
+import type {AdminItem} from '@/lib/services/item';
 import type {ListAdminMailsData} from '@/lib/services/mailbox';
+import type {Currency} from '@/lib/services/wallet';
 import {formatDateTime} from '@/lib/utils';
 import {ALL, PAGE_SIZE, mailStatus} from './constants';
 

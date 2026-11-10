@@ -3,7 +3,9 @@
 import {ChevronRight, Plus, Trash2} from 'lucide-react';
 import {nanoid} from 'nanoid';
 import {Button} from '@/components/ui/button';
-import type {Currency, LootPoolListItem, LotTier, TierStats} from '@/lib/services/admin';
+import type {LootPoolListItem} from '@/lib/services/loot';
+import type {LotTier, TierStats} from '@/lib/services/venue';
+import type {Currency} from '@/lib/services/wallet';
 import {formatAmount} from '@/lib/utils';
 import {FieldGroup, InputField} from './Fields';
 import {WarehouseEditor} from './WarehouseTab';

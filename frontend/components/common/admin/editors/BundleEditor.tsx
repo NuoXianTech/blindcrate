@@ -8,7 +8,8 @@ import {Input} from '@/components/ui/input';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {ItemCombobox} from '@/components/common/item';
 import {CurrencyIcon} from '@/components/common/wallet';
-import type {AdminItem, Currency} from '@/lib/services/admin';
+import type {AdminItem} from '@/lib/services/item';
+import type {Currency} from '@/lib/services/wallet';
 import {decimalsOf, type BundleDraft} from './drafts';
 
 /**

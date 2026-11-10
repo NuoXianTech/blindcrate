@@ -1,4 +1,4 @@
-import type {AdminQuality, QualityRequest} from '@/lib/services/admin';
+import type {AdminQuality, QualityRequest} from '@/lib/services/item';
 import {QUALITY_EFFECT} from '@/lib/quality';
 
 /** 与后端 item.ValidateQuality 和请求的校验一致 */

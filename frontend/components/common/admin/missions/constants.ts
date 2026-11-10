@@ -1,6 +1,6 @@
-import type {Currency} from '@/lib/services/admin';
 import type {AdminMission, MissionCycle, MissionRequest} from '@/lib/services/mission';
 import {PROFIT_METRIC_PREFIX} from '@/lib/services/stats';
+import type {Currency} from '@/lib/services/wallet';
 
 /** 任务列表每页条数 */
 export const PAGE_SIZE = 20;

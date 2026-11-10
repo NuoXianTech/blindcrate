@@ -8,8 +8,8 @@ import {Button} from '@/components/ui/button';
 import {SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {SettingGroup, UpdateSettingRequest} from '@/lib/services/admin';
 import {ApiError} from '@/lib/services/core';
+import type {SettingGroup, UpdateSettingRequest} from '@/lib/services/settings';
 import {refreshPublicSettings} from '@/lib/site-actions';
 import {formatDateTime} from '@/lib/utils';
 import {MailTest} from './MailTest';
@@ -57,7 +57,7 @@ export function SettingGroupCard({group, onSaved}: { group: SettingGroup; onSave
   // 已被别人修改: 加载最新的已保存值, 保留填写的内容, 改动按最新的值重新比较
   const handleConflict = async (err: unknown) => {
     if (!(err instanceof ApiError && err.status === 409)) return false;
-    onSaved(await services.admin.getSetting(group.key));
+    onSaved(await services.settingsAdmin.getSetting(group.key));
     toast.error('设置已被其他人修改, 已加载最新内容, 请检查后重新操作');
     return true;
   };
@@ -82,7 +82,7 @@ export function SettingGroupCard({group, onSaved}: { group: SettingGroup; onSave
       }
     }
     try {
-      const updated = await services.admin.updateSetting(group.key, body);
+      const updated = await services.settingsAdmin.updateSetting(group.key, body);
       toast.success(`已保存${group.label}设置`);
       await applySaved(updated);
     } catch (err) {

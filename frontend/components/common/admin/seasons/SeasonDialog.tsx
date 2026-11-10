@@ -10,9 +10,10 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem, Currency, SeasonRequest} from '@/lib/services/admin';
+import type {AdminItem} from '@/lib/services/item';
 import type {Tier} from '@/lib/services/ranked';
-import {SEASON_STATUS, type Season} from '@/lib/services/season';
+import {SEASON_STATUS, type Season, type SeasonRequest} from '@/lib/services/season';
+import type {Currency} from '@/lib/services/wallet';
 import {fromLocalInput, parseAmount, toLocalInput} from '@/lib/utils';
 import {RewardsEditor} from './RewardsEditor';
 import {CODE_PATTERN, DEFAULT_DAYS, DEFAULT_RATING_CARRY, MAX_REWARDS} from './constants';
@@ -110,12 +111,12 @@ function SeasonForm({season, options, onClose, onSaved}: Omit<SeasonDialogProps,
     check(body.name.length === 0 || [...body.name].length > 64 ? '名称需为 1-64 个字符' : null);
     check(new Date(body.ends_at) <= new Date(body.starts_at) ? '结束时间需晚于开始时间' : null);
     if (season) {
-      await services.admin.updateSeason(season.id, body);
+      await services.seasonAdmin.updateSeason(season.id, body);
       toast.success(`已保存 ${body.name}`);
     } else {
       const created = {...body, code: code.trim()};
       check(CODE_PATTERN.test(created.code) ? null : '代码需为 1-24 个小写字母、数字或下划线');
-      await services.admin.createSeason(created);
+      await services.seasonAdmin.createSeason(created);
       toast.success(`已新建 ${body.name}`);
     }
     onSaved();

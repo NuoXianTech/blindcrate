@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {LootPoolListItem} from '@/lib/services/admin';
+import type {LootPoolListItem} from '@/lib/services/loot';
 
 /**
  * 删除掉落池的二次确认, 条目一同删除
@@ -28,7 +28,7 @@ export function DeleteLootPoolDialog({pool, onClose, onSaved}: {
 
   const handleConfirm = submit(async () => {
     if (!pool) return;
-    const {entry_count: entries} = await services.admin.deleteLootPool(pool.id);
+    const {entry_count: entries} = await services.lootAdmin.deleteLootPool(pool.id);
     toast.success(entries > 0 ? `已删除 ${pool.name} 和 ${entries} 个条目` : `已删除 ${pool.name}`);
     onSaved();
     onClose();

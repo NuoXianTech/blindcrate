@@ -8,8 +8,9 @@ import {scopeOptions} from '@/components/common/admin/editors';
 import {useAuth} from '@/components/common/auth';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import services from '@/lib/services';
-import type {AdminVenue, ConditionType} from '@/lib/services/admin';
+import type {ConditionType} from '@/lib/services/condition';
 import {toErrorMessage, type CodeLabel} from '@/lib/services/core';
+import type {AdminVenue} from '@/lib/services/venue';
 import type {BroadcastOptions} from './BroadcastDialog';
 import {BroadcastsPanel} from './BroadcastsPanel';
 import {MailQueryPanel} from './MailQueryPanel';
@@ -31,8 +32,8 @@ export function MailsMain() {
   useEffect(() => {
     if (!isAdmin) return;
     Promise.all([
-      services.admin.listConditionTypes(),
-      services.admin.listVenues({current: 1, size: VENUE_LIMIT}),
+      services.conditionAdmin.listConditionTypes(),
+      services.venueAdmin.listVenues({current: 1, size: VENUE_LIMIT}),
       services.mailboxAdmin.listSources(),
     ])
         .then(([typeData, venueData, sourceData]) => {

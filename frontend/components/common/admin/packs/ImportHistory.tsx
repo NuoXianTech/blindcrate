@@ -9,8 +9,8 @@ import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/c
 import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import services from '@/lib/services';
-import type {ListPackImportsData, PackImport} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {ListPackImportsData, PackImport} from '@/lib/services/pack';
 import {formatDateTime} from '@/lib/utils';
 import {PackEntriesTable} from './PackEntriesTable';
 import {PAGE_SIZE, formatSize} from './constants';
@@ -30,7 +30,7 @@ export function ImportHistory() {
     if (!isAdmin) return;
     setLoading(true);
     try {
-      setData(await services.admin.listPackImports({current, size: PAGE_SIZE}));
+      setData(await services.packAdmin.listPackImports({current, size: PAGE_SIZE}));
     } catch (err) {
       toast.error(toErrorMessage(err));
     } finally {
@@ -111,7 +111,7 @@ function ImportDetail({record}: { record: PackImport }) {
   const [entries, setEntries] = useState<PackImport['entries']>();
 
   useEffect(() => {
-    services.admin.getPackImport(record.id)
+    services.packAdmin.getPackImport(record.id)
         .then((res) => setEntries(res.entries ?? []))
         .catch((err) => toast.error(toErrorMessage(err)));
   }, [record.id]);

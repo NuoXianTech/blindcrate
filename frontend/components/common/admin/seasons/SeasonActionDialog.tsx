@@ -44,10 +44,10 @@ export function SeasonActionDialog({target, onClose, onSaved}: {
   const handleConfirm = submit(async () => {
     if (!target) return;
     if (target.action === 'delete') {
-      await services.admin.deleteSeason(target.season.id);
+      await services.seasonAdmin.deleteSeason(target.season.id);
       toast.success(`已删除 ${target.season.name}`);
     } else {
-      await services.admin.endSeason(target.season.id);
+      await services.seasonAdmin.endSeason(target.season.id);
       toast.success(`已结束 ${target.season.name}`);
     }
     onSaved();

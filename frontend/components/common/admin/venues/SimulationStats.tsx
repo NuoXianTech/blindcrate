@@ -1,6 +1,7 @@
 import {CircleCheck, CircleX} from 'lucide-react';
 import {cn} from 'cn';
-import type {Balance, BalanceCheck, CheckCode, Currency, Simulation, Squad, SquadStats, ValueStats} from '@/lib/services/admin';
+import type {Balance, BalanceCheck, CheckCode, Simulation, Squad, SquadStats, ValueStats} from '@/lib/services/venue';
+import type {Currency} from '@/lib/services/wallet';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 
 /** 摆放失败率的上限, 基点, 与后端 venue.maxFailureRate 一致 */

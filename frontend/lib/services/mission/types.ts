@@ -1,7 +1,7 @@
-import type {Condition, StatMetric} from '../admin';
-import type {Bundle} from '../auction';
+import type {Condition} from '../condition';
+import type {StatMetric} from '../stats';
+import type {Bundle, RewardLine} from '../reward';
 import type {CodeLabel, PageParams} from '../core';
-import type {RewardLine} from '../reward';
 import type {RequirementProgress} from '../venue';
 
 /** 任务的周期, 对应后端 mission.CycleDaily 等 */

@@ -7,8 +7,8 @@ import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/c
 import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import services from '@/lib/services';
-import type {AdminInventoryTransaction} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {AdminInventoryTransaction} from '@/lib/services/inventory';
 import {useLabels} from '@/hooks/use-labels';
 import {formatDateTime} from '@/lib/utils';
 import {Actor, BizTypeSelect, IDFilterForm} from './TransactionFilters';
@@ -31,7 +31,7 @@ export function InventoryTransactions({initialUserID}: { initialUserID?: number 
     setLoading(true);
     try {
       setData(
-          await services.admin.listInventoryTransactions({
+          await services.inventoryAdmin.listInventoryTransactions({
             current,
             size: PAGE_SIZE,
             ...ids,

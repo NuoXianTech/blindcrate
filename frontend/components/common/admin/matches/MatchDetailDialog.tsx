@@ -12,10 +12,9 @@ import {IntelResult, Warehouse} from '@/components/common/auction';
 import {useScan} from '@/hooks/use-scan';
 import {OUTCOMES, modeLabel, parseMode} from '@/lib/auction';
 import services from '@/lib/services';
-import type {AdminMatch, AdminMatchPlayer} from '@/lib/services/admin';
 import {AUCTION_OUTCOME, type AuctionAdminView, type AuctionPlayer, type LotView} from '@/lib/services/auction';
 import {toErrorMessage} from '@/lib/services/core';
-import {MATCH_STATUS} from '@/lib/services/match';
+import {MATCH_STATUS, type AdminMatch, type AdminMatchPlayer} from '@/lib/services/match';
 import {formatAmount, formatDateTime} from '@/lib/utils';
 import {STATUS_LABELS, phaseLabel} from './constants';
 
@@ -58,7 +57,7 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
 
   useEffect(() => {
     if (!isAuction) return;
-    services.admin.getAuction(m.id)
+    services.auctionAdmin.getAuction(m.id)
         .then(setAuction)
         .catch((err) => toast.error(toErrorMessage(err)))
         .finally(() => setLoading(false));

@@ -1,5 +1,4 @@
-import type {AdminLeaderboard, LeaderboardRequest} from '@/lib/services/admin';
-import {LEADERBOARD_PERIOD, type LeaderboardPeriod} from '@/lib/services/leaderboard';
+import {LEADERBOARD_PERIOD, type AdminLeaderboard, type LeaderboardPeriod, type LeaderboardRequest} from '@/lib/services/leaderboard';
 
 /** 榜单列表每页条数 */
 export const PAGE_SIZE = 20;

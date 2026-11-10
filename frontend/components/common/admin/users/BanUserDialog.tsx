@@ -10,7 +10,7 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {SubmitButton} from '@/components/common/form';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminUser} from '@/lib/services/admin';
+import type {AdminUser} from '@/lib/services/auth';
 import {BAN_DURATIONS, banUntil} from './constants';
 import type {UserDialogProps} from './EditUserDialog';
 
@@ -41,7 +41,7 @@ function BanUserForm({user, onClose, onSaved}: UserDialogProps & { user: AdminUs
 
   const handleSubmit = submit(async () => {
     const ms = BAN_DURATIONS.find((d) => d.value === duration)!.ms;
-    await services.admin.banUser(user.id, banUntil(ms), reason.trim());
+    await services.authAdmin.banUser(user.id, banUntil(ms), reason.trim());
     toast.success(`已封禁 ${user.username}`);
     onSaved();
     onClose();

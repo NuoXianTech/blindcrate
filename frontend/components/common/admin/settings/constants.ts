@@ -1,4 +1,4 @@
-import type {SettingChange, SettingField, SettingGroup, SettingRevisionAction, SettingValue} from '@/lib/services/admin';
+import type {SettingChange, SettingField, SettingGroup, SettingRevisionAction, SettingValue} from '@/lib/services/settings';
 
 /** 表单里的值: 开关为布尔, 整数列表为每一项的输入, 其余都按字符串编辑 */
 export type FormValue = string | boolean | string[];

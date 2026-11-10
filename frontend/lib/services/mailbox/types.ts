@@ -1,7 +1,6 @@
-import type {Condition} from '../admin';
-import type {Bundle} from '../auction';
+import type {Condition} from '../condition';
+import type {Bundle, RewardLine} from '../reward';
 import type {CodeLabel, PageParams} from '../core';
-import type {RewardLine} from '../reward';
 
 /** 邮件相关的 ws 推送 */
 export const MAILBOX_MESSAGES = {

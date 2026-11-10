@@ -3,7 +3,7 @@
 import {Badge} from '@/components/ui/badge';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {TableEmpty} from '@/components/common/layout';
-import type {PackEntryResult} from '@/lib/services/admin';
+import type {PackEntryResult} from '@/lib/services/pack';
 import {ACTION_LABELS, STATUS_LABELS, entryID} from './constants';
 import {sectionLabel, usePackSections} from './use-pack-sections';
 

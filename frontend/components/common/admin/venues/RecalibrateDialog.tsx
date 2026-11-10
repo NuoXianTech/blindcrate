@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {RecalibrateData} from '@/lib/services/admin';
+import type {RecalibrateData} from '@/lib/services/venue';
 
 /**
  * 重新推导全部地图: 确认后按当前的玩法平衡设置逐个推导, 完成后在对话框中列出每个地图的结果
@@ -34,7 +34,7 @@ export function RecalibrateDialog({open, onClose, onSaved}: {
   };
 
   const handleConfirm = submit(async () => {
-    const result = await services.admin.recalibrateVenues();
+    const result = await services.venueAdmin.recalibrateVenues();
     const updated = result.results.filter((r) => r.updated).length;
     toast.success(`已按玩法平衡设置 v${result.version} 重新推导 ${updated}/${result.results.length} 个地图`);
     setData(result);

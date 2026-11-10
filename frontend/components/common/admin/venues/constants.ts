@@ -1,4 +1,4 @@
-import type {AdminVenue, VenueRequest} from '@/lib/services/admin';
+import type {AdminVenue, VenueRequest} from '@/lib/services/venue';
 
 /** 地图列表每页条数 */
 export const PAGE_SIZE = 20;

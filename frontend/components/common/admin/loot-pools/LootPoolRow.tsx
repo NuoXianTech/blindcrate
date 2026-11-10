@@ -2,7 +2,7 @@ import {ListTree, Pencil, Power, Trash2} from 'lucide-react';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {TableCell, TableRow} from '@/components/ui/table';
-import type {LootPoolListItem} from '@/lib/services/admin';
+import type {LootPoolListItem} from '@/lib/services/loot';
 import {formatDateTime} from '@/lib/utils';
 
 /**

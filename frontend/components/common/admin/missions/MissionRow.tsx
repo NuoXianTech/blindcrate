@@ -3,8 +3,9 @@ import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {TableCell, TableRow} from '@/components/ui/table';
 import {bundleText} from '@/components/common/admin/editors';
-import type {AdminItem, Currency} from '@/lib/services/admin';
+import type {AdminItem} from '@/lib/services/item';
 import type {AdminMission} from '@/lib/services/mission';
+import type {Currency} from '@/lib/services/wallet';
 import {formatAmount} from '@/lib/utils';
 import {metricCurrency} from './constants';
 

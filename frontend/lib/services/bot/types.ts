@@ -1,4 +1,4 @@
-import type {ConditionField} from '../admin';
+import type {ConditionField} from '../condition';
 import type {PageParams} from '../core';
 
 /** 策略参数, 结构由决策策略决定; 基点参数为整数 */

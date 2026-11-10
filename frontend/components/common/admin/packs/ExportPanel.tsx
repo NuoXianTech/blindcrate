@@ -10,7 +10,7 @@ import {Switch} from '@/components/ui/switch';
 import {SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {PackSection} from '@/lib/services/admin';
+import type {PackSection} from '@/lib/services/pack';
 import {MAX_NAME_LENGTH, formatSize} from './constants';
 import {usePackSections} from './use-pack-sections';
 
@@ -35,7 +35,7 @@ export function ExportPanel() {
   const handleSubmit = submit(async () => {
     check(name.trim() ? null : '请填写配置包名称');
     check(sections.length ? null : '请至少选择一种配置');
-    const {blob, filename} = await services.admin.exportPack({name: name.trim(), author: author.trim(), sections});
+    const {blob, filename} = await services.packAdmin.exportPack({name: name.trim(), author: author.trim(), sections});
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

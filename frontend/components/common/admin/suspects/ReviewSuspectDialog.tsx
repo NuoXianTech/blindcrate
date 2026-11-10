@@ -17,7 +17,7 @@ import {Label} from '@/components/ui/label';
 import {Textarea} from '@/components/ui/textarea';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {Suspect} from '@/lib/services/admin';
+import type {Suspect} from '@/lib/services/ranked';
 
 /**
  * 把一对可疑账号标记为已处理, 可以填写处理结果
@@ -55,7 +55,7 @@ function ReviewSuspectForm({suspect: s, onClose, onSaved}: {
   const [note, setNote] = useState(s.review?.note ?? '');
 
   const handleConfirm = submit(async () => {
-    await services.admin.reviewSuspect({
+    await services.rankedAdmin.reviewSuspect({
       user_a: s.user_a.id,
       user_b: s.user_b.id,
       last_match_id: s.last_match_id,

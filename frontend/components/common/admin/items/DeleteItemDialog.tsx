@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem} from '@/lib/services/admin';
+import type {AdminItem} from '@/lib/services/item';
 
 /**
  * 删除物品的二次确认, 玩家已有的保留为未知物品
@@ -24,7 +24,7 @@ export function DeleteItemDialog({item, onClose, onSaved}: { item: AdminItem | n
 
   const handleConfirm = submit(async () => {
     if (!item) return;
-    const {holder_count: holders} = await services.admin.deleteItem(item.id);
+    const {holder_count: holders} = await services.itemAdmin.deleteItem(item.id);
     toast.success(holders > 0 ? `已删除 ${item.name}, ${holders} 名玩家的背包中保留为未知物品` : `已删除 ${item.name}`);
     onSaved();
     onClose();

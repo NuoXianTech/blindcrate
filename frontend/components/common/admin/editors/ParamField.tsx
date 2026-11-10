@@ -7,7 +7,9 @@ import {Switch} from '@/components/ui/switch';
 import {ItemCombobox} from '@/components/common/item';
 import {useQualities} from '@/components/common/site';
 import {CurrencyIcon} from '@/components/common/wallet';
-import type {AdminItem, ConditionField, Currency} from '@/lib/services/admin';
+import type {ConditionField} from '@/lib/services/condition';
+import type {AdminItem} from '@/lib/services/item';
+import type {Currency} from '@/lib/services/wallet';
 
 /**
  * 参数字段的Props接口

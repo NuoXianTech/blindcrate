@@ -12,8 +12,10 @@ import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout'
 import type {ScopeOption} from '@/components/common/admin/editors';
 import {MODES} from '@/components/common/admin/venues/constants';
 import services from '@/lib/services';
-import type {AdminLeaderboard, AdminVenue, ListLeaderboardsData, StatMetric} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {AdminLeaderboard, ListLeaderboardsData} from '@/lib/services/leaderboard';
+import type {StatMetric} from '@/lib/services/stats';
+import type {AdminVenue} from '@/lib/services/venue';
 import {DeleteLeaderboardDialog} from './DeleteLeaderboardDialog';
 import {LeaderboardDialog} from './LeaderboardDialog';
 import {LeaderboardRow} from './LeaderboardRow';
@@ -47,7 +49,7 @@ export function LeaderboardsMain() {
     setLoading(true);
     try {
       setData(
-          await services.admin.listLeaderboards({
+          await services.leaderboardAdmin.listLeaderboards({
             current,
             size: PAGE_SIZE,
             keyword: keyword || undefined,
@@ -69,7 +71,7 @@ export function LeaderboardsMain() {
   // 指标和地图用于展示名称和编辑时的候选项, 挂载时拉取一次
   useEffect(() => {
     if (!isAdmin) return;
-    Promise.all([services.admin.listLeaderboardMetrics(), services.admin.listVenues({current: 1, size: VENUE_LIMIT})])
+    Promise.all([services.leaderboardAdmin.listLeaderboardMetrics(), services.venueAdmin.listVenues({current: 1, size: VENUE_LIMIT})])
         .then(([metricData, venueData]) => {
           setMetrics(metricData.metrics);
           setVenues(venueData.venues);
@@ -95,7 +97,7 @@ export function LeaderboardsMain() {
   // 启停也走修改接口, 需提交全部字段
   const toggleEnabled = async (board: AdminLeaderboard) => {
     try {
-      await services.admin.updateLeaderboard(board.id, {...toRequest(board), is_enabled: !board.is_enabled});
+      await services.leaderboardAdmin.updateLeaderboard(board.id, {...toRequest(board), is_enabled: !board.is_enabled});
       toast.success(board.is_enabled ? `已停用 ${board.name}` : `已启用 ${board.name}`);
       await load();
     } catch (err) {

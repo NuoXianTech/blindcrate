@@ -3,7 +3,7 @@ import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {TableCell, TableRow} from '@/components/ui/table';
 import {UserAvatar} from '@/components/common/user';
-import type {AdminUser} from '@/lib/services/admin';
+import type {AdminUser} from '@/lib/services/auth';
 import {formatDateTime} from '@/lib/utils';
 import {isBanned} from './constants';
 

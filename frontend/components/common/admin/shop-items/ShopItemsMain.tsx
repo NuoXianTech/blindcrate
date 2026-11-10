@@ -12,8 +12,10 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import services from '@/lib/services';
-import type {AdminShopItem, AdminVenue, ConditionType, ListShopItemsData} from '@/lib/services/admin';
+import type {ConditionType} from '@/lib/services/condition';
 import {toErrorMessage} from '@/lib/services/core';
+import type {AdminShopItem, ListAdminShopItemsData} from '@/lib/services/shop';
+import type {AdminVenue} from '@/lib/services/venue';
 import {DeleteShopItemDialog} from './DeleteShopItemDialog';
 import {ShopItemDialog, type ShopItemOptions, type ShopItemTarget} from './ShopItemDialog';
 import {ShopItemRow} from './ShopItemRow';
@@ -30,7 +32,7 @@ export function ShopItemsMain() {
   const [tab, setTab] = useState(ALL);
   const [status, setStatus] = useState<StatusFilter>('all');
   const [current, setCurrent] = useState(1);
-  const [data, setData] = useState<ListShopItemsData | null>(null);
+  const [data, setData] = useState<ListAdminShopItemsData | null>(null);
   // 列表加载的时间, 用于判断销售状态
   const [loadedAt, setLoadedAt] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -48,7 +50,7 @@ export function ShopItemsMain() {
     setLoading(true);
     try {
       setData(
-          await services.admin.listShopItems({
+          await services.shopAdmin.listShopItems({
             current,
             size: PAGE_SIZE,
             keyword: keyword || undefined,
@@ -72,7 +74,7 @@ export function ShopItemsMain() {
   // 条件类型和地图只在编辑购买条件时用到, 挂载时拉取一次
   useEffect(() => {
     if (!isAdmin) return;
-    Promise.all([services.admin.listConditionTypes(), services.admin.listVenues({current: 1, size: VENUE_LIMIT})])
+    Promise.all([services.conditionAdmin.listConditionTypes(), services.venueAdmin.listVenues({current: 1, size: VENUE_LIMIT})])
         .then(([typeData, venueData]) => {
           setTypes(typeData.types);
           setVenues(venueData.venues);
@@ -99,7 +101,7 @@ export function ShopItemsMain() {
   // 上下架也走修改接口, 需提交全部字段
   const toggleEnabled = async (item: AdminShopItem) => {
     try {
-      await services.admin.updateShopItem(item.id, {...toRequest(item), is_enabled: !item.is_enabled});
+      await services.shopAdmin.updateShopItem(item.id, {...toRequest(item), is_enabled: !item.is_enabled});
       toast.success(item.is_enabled ? `已下架 ${item.name}` : `已上架 ${item.name}`);
       await load();
     } catch (err) {

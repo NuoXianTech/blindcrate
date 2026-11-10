@@ -1,4 +1,4 @@
-import type {AdminUser, ListUsersParams} from '@/lib/services/admin';
+import type {AdminUser, ListUsersParams} from '@/lib/services/auth';
 import {ROUTES} from '@/lib/access';
 
 /** 用户列表每页条数 */

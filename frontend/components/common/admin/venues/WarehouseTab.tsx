@@ -6,7 +6,7 @@ import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
-import type {LootPoolListItem} from '@/lib/services/admin';
+import type {LootPoolListItem} from '@/lib/services/loot';
 import {FieldGroup, InputField} from './Fields';
 import {MAX_SLOTS, MAX_SWINGS} from './constants';
 import type {FormTabProps, SlotDraft, SwingDraft, WarehouseDraft} from './form';

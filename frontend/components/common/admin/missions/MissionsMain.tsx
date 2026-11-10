@@ -12,9 +12,10 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import services from '@/lib/services';
-import type {AdminVenue, ConditionType} from '@/lib/services/admin';
+import type {ConditionType} from '@/lib/services/condition';
 import {toErrorMessage} from '@/lib/services/core';
 import type {AdminMission, ListMissionsData, MissionCycle, MissionOptions} from '@/lib/services/mission';
+import type {AdminVenue} from '@/lib/services/venue';
 import {DeleteMissionDialog} from './DeleteMissionDialog';
 import {MissionDialog, type MissionFormOptions, type MissionTarget} from './MissionDialog';
 import {MissionRow} from './MissionRow';
@@ -73,8 +74,8 @@ export function MissionsMain() {
     if (!isAdmin) return;
     Promise.all([
       services.missionAdmin.listOptions(),
-      services.admin.listConditionTypes(),
-      services.admin.listVenues({current: 1, size: VENUE_LIMIT}),
+      services.conditionAdmin.listConditionTypes(),
+      services.venueAdmin.listVenues({current: 1, size: VENUE_LIMIT}),
     ])
         .then(([optionData, typeData, venueData]) => {
           setChoices(optionData);

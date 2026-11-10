@@ -11,7 +11,7 @@ import {ImageUploadField, SubmitButton} from '@/components/common/form';
 import {UserAvatar} from '@/components/common/user';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminUser, UpdateUserRequest} from '@/lib/services/admin';
+import type {AdminUser, UpdateUserRequest} from '@/lib/services/auth';
 import {checkImageURL, checkNickname} from '@/lib/validation';
 
 /**
@@ -60,7 +60,7 @@ function EditUserForm({user, onClose, onSaved}: UserDialogProps & { user: AdminU
     check(Object.keys(body).length === 0 ? '资料没有变化, 无需保存' : null);
     if (body.nickname !== undefined) check(checkNickname(body.nickname));
     if (body.avatar_url !== undefined) check(checkImageURL(body.avatar_url));
-    await services.admin.updateUser(user.id, body);
+    await services.authAdmin.updateUser(user.id, body);
     toast.success(`已保存 ${user.username} 的资料`);
     // 改的是自己时同步 dock 上的信息
     if (user.id === me?.id) await refresh();

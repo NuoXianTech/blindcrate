@@ -24,7 +24,7 @@ export function DisableUserDialog({user, onClose, onSaved}: UserDialogProps) {
 
   const handleConfirm = submit(async () => {
     if (!user) return;
-    await services.admin.setUserDisabled(user.id, true);
+    await services.authAdmin.setUserDisabled(user.id, true);
     toast.success(`已停用 ${user.username}`);
     onSaved();
     onClose();

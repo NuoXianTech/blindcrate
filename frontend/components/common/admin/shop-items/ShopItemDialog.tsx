@@ -22,7 +22,10 @@ import {ImageUploadField, SubmitButton} from '@/components/common/form';
 import {ItemImage} from '@/components/common/item';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem, AdminShopItem, ConditionType, Currency, ShopItemRequest} from '@/lib/services/admin';
+import type {ConditionType} from '@/lib/services/condition';
+import type {AdminItem} from '@/lib/services/item';
+import type {AdminShopItem, ShopItemRequest} from '@/lib/services/shop';
+import type {Currency} from '@/lib/services/wallet';
 import {fromLocalInput, parseAmount, toLocalInput} from '@/lib/utils';
 import {checkImageURL} from '@/lib/validation';
 import {CODE_PATTERN, MAX_BUNDLE_LINES, MAX_LIMIT, MAX_REQUIREMENTS, MAX_TAB_LENGTH} from './constants';
@@ -162,10 +165,10 @@ function ShopItemForm({target, options, onClose, onSaved}: Omit<ShopItemDialogPr
     check(goods.length === 0 ? '商品不能为空' : null);
     check(body.starts_at && body.ends_at && new Date(body.ends_at) <= new Date(body.starts_at) ? '下架时间需晚于上架时间' : null);
     if (editing) {
-      await services.admin.updateShopItem(editing.id, body);
+      await services.shopAdmin.updateShopItem(editing.id, body);
       toast.success(`已保存 ${body.name}`);
     } else {
-      await services.admin.createShopItem(body);
+      await services.shopAdmin.createShopItem(body);
       toast.success(`已新建 ${body.name}`);
     }
     onSaved();

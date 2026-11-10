@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {SettingGroup} from '@/lib/services/admin';
+import type {SettingGroup} from '@/lib/services/settings';
 
 /**
  * 恢复默认值的Props接口
@@ -40,7 +40,7 @@ export function ResetSettingDialog({group, open, dirty, onClose, onReset, onConf
 
   const handleConfirm = submit(async () => {
     try {
-      const updated = await services.admin.resetSetting(group.key, {version: group.version});
+      const updated = await services.settingsAdmin.resetSetting(group.key, {version: group.version});
       toast.success(updated.version === group.version ? '已经是默认值, 没有变化' : `已恢复${group.label}的默认值`);
       onReset(updated);
       onClose();

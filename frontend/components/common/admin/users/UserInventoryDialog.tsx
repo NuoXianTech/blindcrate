@@ -17,9 +17,10 @@ import {ItemCombobox, ItemImage} from '@/components/common/item';
 import {useQualities} from '@/components/common/site';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem, AdminUser} from '@/lib/services/admin';
+import type {AdminUser} from '@/lib/services/auth';
 import {toErrorMessage} from '@/lib/services/core';
 import type {UserItem} from '@/lib/services/inventory';
+import type {AdminItem} from '@/lib/services/item';
 import {parseAmount} from '@/lib/utils';
 import {DirectionToggle} from './DirectionToggle';
 import {UserAssetDialog} from './UserAssetDialog';
@@ -55,7 +56,7 @@ function InventoryPanel({user}: { user: AdminUser }) {
 
   const load = useCallback(async () => {
     try {
-      setOwned(await services.admin.listUserInventory(user.id, {current: 1, size: ITEM_LIMIT}));
+      setOwned(await services.inventoryAdmin.listUserInventory(user.id, {current: 1, size: ITEM_LIMIT}));
     } catch (err) {
       toast.error(toErrorMessage(err));
     }
@@ -67,7 +68,7 @@ function InventoryPanel({user}: { user: AdminUser }) {
   }, [load]);
 
   useEffect(() => {
-    services.admin.listItems({current: 1, size: ITEM_LIMIT, is_enabled: true})
+    services.itemAdmin.listItems({current: 1, size: ITEM_LIMIT, is_enabled: true})
         .then((data) => setGrantable(data.items))
         .catch((err) => toast.error(toErrorMessage(err)));
   }, []);
@@ -98,7 +99,7 @@ function InventoryPanel({user}: { user: AdminUser }) {
     check(itemID !== null ? null : '请选择物品');
     check(parsed !== null && parsed > 0 && parsed <= MAX_QUANTITY ? null : `数量需为 1-${MAX_QUANTITY} 的整数`);
     check(after !== null && after < 0 ? '扣除后数量不能为负' : null);
-    await services.admin.adjustUserInventory(user.id, {
+    await services.inventoryAdmin.adjustUserInventory(user.id, {
       item_id: itemID!,
       quantity: delta!,
       remark: remark.trim(),

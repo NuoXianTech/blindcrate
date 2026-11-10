@@ -6,8 +6,8 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {useAuth} from '@/components/common/auth';
 import services from '@/lib/services';
-import type {ListSettingsData, SettingGroup} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {ListSettingsData, SettingGroup} from '@/lib/services/settings';
 import {SettingGroupCard} from './SettingGroupCard';
 
 /**
@@ -21,7 +21,7 @@ export function SettingsMain() {
   useEffect(() => {
     // 确认是管理员后再拉取, 否则 AdminGuard 会跳走
     if (!isAdmin) return;
-    services.admin.listSettings()
+    services.settingsAdmin.listSettings()
         .then(setData)
         .catch((err) => toast.error(toErrorMessage(err)));
   }, [isAdmin]);

@@ -11,7 +11,7 @@ import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/c
 import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import services from '@/lib/services';
-import type {AuditLog, AuditScope} from '@/lib/services/admin';
+import type {AuditLog, AuditScope} from '@/lib/services/audit';
 import {toErrorMessage} from '@/lib/services/core';
 import {formatDateTime} from '@/lib/utils';
 import {useLabels} from '@/hooks/use-labels';
@@ -37,7 +37,7 @@ export function AuditLogsMain() {
     setLoading(true);
     try {
       setData(
-          await services.admin.listAuditLogs({
+          await services.auditAdmin.listAuditLogs({
             current,
             size: PAGE_SIZE,
             scope: scope === ALL ? undefined : (scope as AuditScope),

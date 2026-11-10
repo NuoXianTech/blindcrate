@@ -1,4 +1,4 @@
-import type {AuditScope} from '@/lib/services/admin';
+import type {AuditScope} from '@/lib/services/audit';
 
 /** 日志每页条数 */
 export const PAGE_SIZE = 20;

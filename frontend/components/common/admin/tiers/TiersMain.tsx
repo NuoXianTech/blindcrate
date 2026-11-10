@@ -29,7 +29,7 @@ export function TiersMain() {
     // 确认是管理员后再拉取, 否则 AdminGuard 会跳走
     if (!isAdmin) return;
     try {
-      setTiers((await services.admin.listTiers()).tiers);
+      setTiers((await services.rankedAdmin.listTiers()).tiers);
     } catch (err) {
       toast.error(toErrorMessage(err));
     }

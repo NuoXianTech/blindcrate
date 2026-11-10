@@ -17,7 +17,7 @@ import {SubmitButton} from '@/components/common/form';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminUser} from '@/lib/services/admin';
+import type {AdminUser} from '@/lib/services/auth';
 import {toErrorMessage} from '@/lib/services/core';
 import type {BalanceItem} from '@/lib/services/wallet';
 import {formatAmount, parseAmount} from '@/lib/utils';
@@ -52,7 +52,7 @@ function WalletPanel({user}: { user: AdminUser }) {
 
   const load = useCallback(async () => {
     try {
-      const data = await services.admin.listUserBalances(user.id);
+      const data = await services.walletAdmin.listUserBalances(user.id);
       setBalances(data.balances);
       // 默认选第一个可用货币
       setCurrency((prev) => prev || (data.balances.find((b) => b.is_enabled)?.currency ?? ''));
@@ -76,7 +76,7 @@ function WalletPanel({user}: { user: AdminUser }) {
     check(selected ? null : '请选择货币');
     check(parsed !== null && parsed > 0 && parsed <= MAX_AMOUNT ? null : '金额格式不正确');
     check(after !== null && after < 0 ? '扣款后余额不能为负' : null);
-    await services.admin.adjustUserBalance(user.id, {
+    await services.walletAdmin.adjustUserBalance(user.id, {
       currency,
       amount: delta!,
       remark: remark.trim(),

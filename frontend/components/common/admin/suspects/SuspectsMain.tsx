@@ -10,8 +10,8 @@ import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/c
 import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import services from '@/lib/services';
-import type {ListSuspectsData, Suspect, SuspectUser} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {ListSuspectsData, Suspect, SuspectUser} from '@/lib/services/ranked';
 import {formatDateTime} from '@/lib/utils';
 import {
   PAGE_SIZE,
@@ -41,7 +41,7 @@ export function SuspectsMain() {
     if (!isAdmin) return;
     setLoading(true);
     try {
-      setData(await services.admin.listSuspects({current, size: PAGE_SIZE, reviewed: reviewedParam(filter)}));
+      setData(await services.rankedAdmin.listSuspects({current, size: PAGE_SIZE, reviewed: reviewedParam(filter)}));
     } catch (err) {
       toast.error(toErrorMessage(err));
     } finally {

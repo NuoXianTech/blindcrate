@@ -10,8 +10,9 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {ItemCombobox, ItemImage} from '@/components/common/item';
 import {useQualities} from '@/components/common/site';
 import services from '@/lib/services';
-import type {AdminItem, LootPoolListItem} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
+import type {AdminItem} from '@/lib/services/item';
+import type {LootPoolListItem} from '@/lib/services/loot';
 import {memberStatus} from './constants';
 
 /**
@@ -86,7 +87,7 @@ export function SetItemsEditor({value, onChange, items, pools, max, disabled}: S
   const addPool = async (poolID: string) => {
     setLoadingPool(true);
     try {
-      const data = await services.admin.listLootPoolEntries(Number(poolID));
+      const data = await services.lootAdmin.listLootPoolEntries(Number(poolID));
       const ids = new Set(data.entries.map((e) => e.item_id).filter((id) => memberStatus(itemMap.get(id)) === 'counted'));
       addMany([...ids]);
     } catch (err) {

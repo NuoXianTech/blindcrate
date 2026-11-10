@@ -5,7 +5,7 @@ import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
 import {ItemCombobox} from '@/components/common/item';
 import {useQualities} from '@/components/common/site';
-import type {AdminItem, ItemEffect} from '@/lib/services/admin';
+import type {AdminItem, ItemEffect} from '@/lib/services/item';
 import {FieldGroup, InputField} from './Fields';
 import {MAX_ALLOWED_ITEMS, MAX_USES, SCENE_MATCH} from './constants';
 import type {FormTabProps} from './form';

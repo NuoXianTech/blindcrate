@@ -1,5 +1,4 @@
-import type {Bundle} from '@/lib/services/auction';
-import type {RewardLine} from '@/lib/services/reward';
+import type {Bundle, RewardLine} from '@/lib/services/reward';
 import type {ShopItem, ShopLimitType} from '@/lib/services/shop';
 
 /** 一次最多购买的份数, 与后端 shop.MaxQuantity 一致 */

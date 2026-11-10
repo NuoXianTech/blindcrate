@@ -3,8 +3,8 @@
 import {Sparkles} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {formatRate} from '@/lib/auction';
-import type {Currency} from '@/lib/services/admin';
 import type {AuctionRule} from '@/lib/services/venue';
+import type {Currency} from '@/lib/services/wallet';
 import {formatAmount} from '@/lib/utils';
 import {FieldGroup, InputField} from './Fields';
 import {recommendedQuickWin, resizeQuickWin, type FormTabProps} from './form';

@@ -13,9 +13,10 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {MODES, modeLabel, parseMode, type ModeKind} from '@/lib/auction';
 import services from '@/lib/services';
-import type {AdminMatch, AdminVenue, Currency, ListAdminMatchesData} from '@/lib/services/admin';
 import {toErrorMessage} from '@/lib/services/core';
-import {MATCH_STATUS} from '@/lib/services/match';
+import {MATCH_STATUS, type AdminMatch, type ListAdminMatchesData} from '@/lib/services/match';
+import type {AdminVenue} from '@/lib/services/venue';
+import type {Currency} from '@/lib/services/wallet';
 import {formatDateTime, parseID} from '@/lib/utils';
 import {CancelMatchDialog} from './CancelMatchDialog';
 import {ALL, PAGE_SIZE, STATUS_LABELS, phaseLabel} from './constants';
@@ -47,12 +48,12 @@ export function MatchesMain() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    services.admin.listVenues({current: 1, size: VENUE_LIMIT})
+    services.venueAdmin.listVenues({current: 1, size: VENUE_LIMIT})
         .then((res) => setVenues(res.venues))
         .catch(() => {
           // 只影响地图筛选的选项和地图名称
         });
-    services.admin.listCurrencies()
+    services.walletAdmin.listCurrencies()
         .then((res) => setCurrencies(res.currencies))
         .catch(() => {
           // 只影响金额的小数位, 失败时按整数展示
@@ -64,7 +65,7 @@ export function MatchesMain() {
     if (!isAdmin) return;
     setLoading(true);
     try {
-      setData(await services.admin.listMatches({
+      setData(await services.matchAdmin.listMatches({
         current,
         size: PAGE_SIZE,
         status: status === ALL ? undefined : status,

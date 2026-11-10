@@ -1,3 +1,4 @@
+import type {Bundle} from '../reward';
 import type {BotSnapshot} from '../bot';
 import type {Grid} from '../venue';
 
@@ -127,12 +128,6 @@ export interface HostView {
   hints: HostHint[];
   /** 按时间 */
   hypes: HypeEvent[];
-}
-
-/** 一组货币和物品, 对应后端 reward.Bundle */
-export interface Bundle {
-  currencies?: { currency: string; amount: number }[];
-  items?: { item_id: number; quantity: number }[];
 }
 
 /** 自己在这局中的状态 */

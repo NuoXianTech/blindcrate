@@ -13,8 +13,14 @@ import {SubmitButton} from '@/components/common/form';
 import type {ScopeOption} from '@/components/common/admin/editors';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminLeaderboard, LeaderboardRequest, StatMetric} from '@/lib/services/admin';
-import {LEADERBOARD_PERIOD, METRIC_RATING, type LeaderboardPeriod} from '@/lib/services/leaderboard';
+import {
+  LEADERBOARD_PERIOD,
+  METRIC_RATING,
+  type AdminLeaderboard,
+  type LeaderboardPeriod,
+  type LeaderboardRequest,
+} from '@/lib/services/leaderboard';
+import type {StatMetric} from '@/lib/services/stats';
 import {parseAmount} from '@/lib/utils';
 import {CODE_PATTERN, DEFAULT_SIZE, MAX_SIZE, MIN_SIZE, PERIODS} from './constants';
 
@@ -102,10 +108,10 @@ function LeaderboardForm({board, metrics, scopes, onClose, onSaved}: Omit<Leader
     check(!body.metric ? '请选择指标' : null);
     check(!body.scope ? '请填写统计范围' : null);
     if (board) {
-      await services.admin.updateLeaderboard(board.id, body);
+      await services.leaderboardAdmin.updateLeaderboard(board.id, body);
       toast.success(`已保存 ${body.name}`);
     } else {
-      await services.admin.createLeaderboard(body);
+      await services.leaderboardAdmin.createLeaderboard(body);
       toast.success(`已新建 ${body.name}`);
     }
     onSaved();

@@ -9,7 +9,8 @@ import {FieldGroup} from '@/components/common/admin/venues/Fields';
 import {SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminItem, Currency} from '@/lib/services/admin';
+import type {AdminItem} from '@/lib/services/item';
+import type {Currency} from '@/lib/services/wallet';
 import {EMPTY_LETTER, LetterFields, fromLetterDraft, type LetterDraft} from './LetterFields';
 import {MAX_RECIPIENTS, parseUserIDs} from './constants';
 

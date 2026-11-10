@@ -2,14 +2,14 @@
 
 import {useEffect, useState} from 'react';
 import services from '@/lib/services';
-import type {PackSectionInfo} from '@/lib/services/admin';
+import type {PackSectionInfo} from '@/lib/services/pack';
 
 /** 配置种类在页面会话中只拉取一次, 失败时下次使用再重试 */
 let cache: Promise<PackSectionInfo[]> | null = null;
 
 function load() {
   if (!cache) {
-    cache = services.admin.listPackSections();
+    cache = services.packAdmin.listPackSections();
     cache.catch(() => {
       cache = null;
     });

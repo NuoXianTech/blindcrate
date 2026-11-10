@@ -14,7 +14,7 @@ const loaders = {
   /** 背包流水的业务类型 */
   inventoryBiz: () => services.inventory.listBizTypes().then((d) => d.biz_types),
   /** 操作日志的操作类型, 只有管理员可以读取 */
-  auditActions: () => services.admin.listAuditActions().then((d) => d.actions),
+  auditActions: () => services.auditAdmin.listAuditActions().then((d) => d.actions),
 } satisfies Record<string, () => Promise<CodeLabel[]>>;
 
 export type LabelSource = keyof typeof loaders;

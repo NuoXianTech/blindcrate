@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import type {AdminQuality} from '@/lib/services/admin';
+import type {AdminQuality} from '@/lib/services/item';
 import {refreshQualities} from '@/lib/site-actions';
 
 /**
@@ -32,7 +32,7 @@ export function DeleteQualityDialog({quality, onClose, onSaved}: {
 
   const handleConfirm = submit(async () => {
     if (!quality) return;
-    await services.admin.deleteQuality(quality.level);
+    await services.itemAdmin.deleteQuality(quality.level);
     toast.success(`已删除 ${quality.name}`);
     // 已经删除, 刷新缓存失败不算删除失败, 缓存过一会儿也会自动更新
     await refreshQualities().catch(() => undefined);

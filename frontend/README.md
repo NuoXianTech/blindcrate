@@ -88,7 +88,7 @@ frontend/
 ├── app/                    # Next.js App Router
 │   ├── (auth)/            # 认证相关路由组
 │   ├── (game)/            # 游戏相关路由组
-│   ├── (main)/            # 界面相关路由组
+│   └── (main)/            # 界面相关路由组
 ├── components/            # React 组件
 │   ├── common/           # 业务通用组件
 │   │   ├── layout/       # 布局组件
