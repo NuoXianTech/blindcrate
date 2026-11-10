@@ -6,7 +6,8 @@ import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
-import {ALL, parseID, type IDFilters} from './constants';
+import {parseID} from '@/lib/utils';
+import {ALL, type IDFilters} from './constants';
 
 /**
  * 用户、操作人等数字 ID 的筛选表单, 提交时才生效
