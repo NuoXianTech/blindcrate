@@ -46,8 +46,6 @@ const (
 	maxFailureRate = 100
 	// maxEntryCostLines 入场代价最多的行数
 	maxEntryCostLines = 8
-	// minIntelPrecision 估价情报的最小误差, 基点; 更准的区间几乎等于直接告诉价值
-	minIntelPrecision = 500
 )
 
 // 主持人的性格, 决定提示说错时往哪边错

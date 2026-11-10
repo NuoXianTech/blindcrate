@@ -6,14 +6,13 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {useQualities} from '@/components/common/site';
 import {HOST_PERSONAS} from '@/lib/auction';
 import {FieldGroup, InputField, SwitchField} from './Fields';
-import {MAX_INTEL} from './constants';
 import type {FormTabProps} from './form';
 
 /** 不区分高品质时的选项值 */
 const NO_QUALITY = '0';
 
 /**
- * 主持人: 每轮的提示、性格和撒谎率, 以及向主持人买情报的次数和估价情报的误差; 情报的价格按期望价值推导, 见拍卖页
+ * 主持人: 每轮的提示、性格和撒谎率
  */
 export function HostTab({form, onChange, disabled}: FormTabProps) {
   const {qualities} = useQualities();
@@ -93,34 +92,6 @@ export function HostTab({form, onChange, disabled}: FormTabProps) {
             </Select>
             <span className="text-xs text-muted-foreground">也是&ldquo;高品质件数&rdquo;提示统计的最低品质, 不区分时取中间的品质</span>
           </div>
-        </div>
-      </FieldGroup>
-
-      <FieldGroup
-        title="情报"
-        help="出价阶段向主持人买只有自己看得到的情报, 每轮最多一次: 前三分之一的轮次看一件藏品的品质, 中间看一件藏品的名称, 之后看仓库价值的区间; 价格见拍卖页, 从可用余额扣除"
-      >
-        <div className="grid grid-cols-2 gap-3">
-          <InputField
-            id="venue-intel-limit"
-            label="每局上限"
-            suffix="次"
-            inputMode="numeric"
-            help={`0 表示不卖情报, 最多 ${MAX_INTEL} 次`}
-            value={form.intelLimit}
-            onChange={(intelLimit) => onChange({intelLimit})}
-            disabled={disabled}
-          />
-          <InputField
-            id="venue-intel-precision"
-            label="估价情报误差"
-            suffix="%"
-            inputMode="decimal"
-            help="区间宽度为价值 × 误差 × 2, 5%-50%"
-            value={form.intelPrecision}
-            onChange={(intelPrecision) => onChange({intelPrecision})}
-            disabled={disabled}
-          />
         </div>
       </FieldGroup>
     </div>

@@ -60,7 +60,6 @@ func init() {
 	stats.RegisterMetric(MetricBidWon, "成交次数")
 	ws.Handle(MessageBid, handleBid)
 	ws.Handle(MessageUse, handleUse)
-	ws.Handle(MessageIntel, handleIntel)
 	registerEffects()
 	registerStrategies()
 	venue.RegisterBalancer(balance)
@@ -479,7 +478,6 @@ func (vm *venueMode) newLots(tx *gorm.DB, matchID uint64) ([]Lot, []WarehouseIte
 			Odds:       public[k].odds,
 			StartPrice: t.StartPrice,
 			SpeedFloor: t.SpeedFloor,
-			IntelPrice: t.IntelPrice,
 			Value:      warehouse.Value,
 			PieceCount: int32(len(warehouse.Pieces)),
 			Contenders: []int16{},
@@ -541,7 +539,7 @@ func (vm *venueMode) OnTimeout(tx *gorm.DB, m *match.Match, _ []match.Player) (*
 }
 
 // OnCancel 拍场还没结算时取消: 已结算的拍品不变; 还没有拍品成交时退还正式局真人的入场代价;
-// 退还还没结算的拍品上用掉的道具和买情报的钱, 解冻剩余的带入资金。拍场已结算(最后的开箱阶段)时什么都不做
+// 退还还没结算的拍品上用掉的道具, 解冻剩余的带入资金。拍场已结算(最后的开箱阶段)时什么都不做
 func (vm *venueMode) OnCancel(tx *gorm.DB, m *match.Match, _ []match.Player) error {
 	st, err := loadState(tx, m)
 	if err != nil {
@@ -559,7 +557,7 @@ func (vm *venueMode) OnCancel(tx *gorm.DB, m *match.Match, _ []match.Player) err
 	sold := st.soldLots()
 	for i := range st.players {
 		p := &st.players[i]
-		p.Profit = st.wonProfit(p.Seat) - intelCost(uses, p.Seat) + intelCost(open, p.Seat)
+		p.Profit = st.wonProfit(p.Seat)
 		if err := tx.Model(p).Select("profit").Updates(p).Error; err != nil {
 			return err
 		}
@@ -572,9 +570,6 @@ func (vm *venueMode) OnCancel(tx *gorm.DB, m *match.Match, _ []match.Player) err
 			}
 		}
 		if err := st.refundUses(tx, p, open); err != nil {
-			return err
-		}
-		if err := st.refundIntel(tx, p, open); err != nil {
 			return err
 		}
 		if err := st.release(tx, p, p.Frozen-p.Spent); err != nil {
@@ -963,10 +958,6 @@ func (st *state) settleSession(tx *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	uses, err := loadUses(tx, st.match.ID)
-	if err != nil {
-		return err
-	}
 	var finals []struct {
 		LotNo  int32
 		Seat   int16
@@ -980,9 +971,9 @@ func (st *state) settleSession(tx *gorm.DB) error {
 	totals := make([]seatTotal, len(st.players))
 	for i := range st.players {
 		p := &st.players[i]
-		// 入场费和入场代价在准入时已扣除, 不计入盈亏; 买情报的钱流拍也不退, 计入盈亏, 但不影响名次
-		p.Profit = st.wonProfit(p.Seat) - intelCost(uses, p.Seat)
-		totals[i] = seatTotal{Seat: p.Seat, Profit: st.wonProfit(p.Seat), Gap: -1}
+		// 入场费和入场代价在准入时已扣除, 不计入盈亏
+		p.Profit = st.wonProfit(p.Seat)
+		totals[i] = seatTotal{Seat: p.Seat, Profit: p.Profit, Gap: -1}
 		var gap float64
 		var n int
 		for _, f := range finals {
@@ -1153,7 +1144,7 @@ func (st *state) refund(tx *gorm.DB, p *Player) error {
 func (st *state) refundUses(tx *gorm.DB, p *Player, uses []Use) error {
 	items := map[uint64]int64{}
 	for _, use := range uses {
-		if use.Seat == p.Seat && !use.IsIntel() {
+		if use.Seat == p.Seat {
 			items[use.ItemID]++
 		}
 	}
@@ -1393,7 +1384,7 @@ func UseItem(ctx context.Context, userID uint64, req *UseRequest) (*AuctionView,
 		if err := tx.Where("match_id = ? AND seat = ?", m.ID, seat).Order("id").Find(&uses).Error; err != nil {
 			return nil, err
 		}
-		if itemUses(uses) >= limit {
+		if int32(len(uses)) >= limit {
 			return nil, rejectBid(UseLimitReached, limit)
 		}
 		for _, use := range uses {
@@ -1406,7 +1397,7 @@ func UseItem(ctx context.Context, userID uint64, req *UseRequest) (*AuctionView,
 			UserID:         userID,
 			ItemID:         req.ItemID,
 			BizID:          strconv.FormatUint(m.ID, 10),
-			IdempotencyKey: fmt.Sprintf("%s:%d", matchKey(m.ID, "use", userID), itemUses(uses)+1),
+			IdempotencyKey: fmt.Sprintf("%s:%d", matchKey(m.ID, "use", userID), len(uses)+1),
 			Remark:         remarkOf(a.Venue.Name, st.kind()),
 			Scopes:         stats.MatchScopes(a.Venue.Code, st.kind()),
 		})
@@ -1449,18 +1440,7 @@ func UseItem(ctx context.Context, userID uint64, req *UseRequest) (*AuctionView,
 	return QueryAuction(ctx, userID, req.MatchID)
 }
 
-// itemUses 用掉的道具个数, 不含向主持人买的情报
-func itemUses(uses []Use) int32 {
-	var n int32
-	for _, use := range uses {
-		if !use.IsIntel() {
-			n++
-		}
-	}
-	return n
-}
-
-// loadUses 一局中用掉的全部道具和买的情报, 按使用顺序
+// loadUses 一局中用掉的全部道具, 按使用顺序
 func loadUses(tx *gorm.DB, matchID uint64) ([]Use, error) {
 	var uses []Use
 	if err := tx.Where("match_id = ?", matchID).Order("id").Find(&uses).Error; err != nil {

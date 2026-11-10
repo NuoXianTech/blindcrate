@@ -63,8 +63,6 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
   }
 
   const v = detail;
-  // 拍场的情报价格按拍品的格子大小
-  const intelPrices = [...new Set(v.lots ? v.lots.grids.map((g) => g.intel_price) : [v.auction.intel_price])].filter((x) => x > 0);
   const ranges = [
     {kind: 'pve', enabled: v.pve_enabled, range: v.pve.value_range},
     {kind: 'ranked', enabled: v.ranked_enabled, range: v.value_range},
@@ -142,7 +140,7 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
               `第 1 轮每件藏品有 ${formatRate(v.auction.preview_rate)} 的概率扫出轮廓, 至少一件` :
               '开局不扫描, 只知道仓库大小'}
             <p className="text-xs text-muted-foreground">
-              只看得到占的格子; 件数、品质和名称直到开箱都不公开, 只能靠道具和情报看到
+              只看得到占的格子; 件数、品质和名称直到开箱都不公开, 只能靠道具看到
             </p>
           </dd>
           {v.host?.enabled && (
@@ -153,15 +151,6 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
                 <p className="text-xs text-muted-foreground">
                   性格拍场结束后才公开: 稳重的很少说错, 煽动的错时往高了吹, 狡黠的错时往低了压
                 </p>
-              </dd>
-            </>
-          )}
-          {intelPrices.length > 0 && (v.host?.intel_limit ?? 0) > 0 && (
-            <>
-              <dt className="text-muted-foreground">情报</dt>
-              <dd>
-                每次 {intelPrices.map((x) => formatAmount(x, decimals)).join(' / ')}, 每局最多 {v.host.intel_limit} 次, 每轮一次
-                <p className="text-xs text-muted-foreground">从可用余额扣除, 只有自己看得到, 其他人会看到你买了情报</p>
               </dd>
             </>
           )}

@@ -494,7 +494,6 @@ export interface TierAuction {
   mean: number;
   start_price: number;
   speed_floor: number;
-  intel_price: number;
 }
 
 /** 拍品的一种档次, 对应后端 venue.Tier */
@@ -728,7 +727,7 @@ export interface AdminVenue {
   pve: PveRule;
   /** 对局中使用道具的规则 */
   consumables: ConsumableRule;
-  /** 主持人的提示和情报 */
+  /** 主持人的提示 */
   host: HostRule;
   /** 保存时的模拟结果 */
   simulation: Simulation;

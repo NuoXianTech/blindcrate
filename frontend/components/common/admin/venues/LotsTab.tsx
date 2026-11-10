@@ -203,7 +203,7 @@ function TierCard({index, tier, pools, saved, stats, currency, stale, onChange, 
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 rounded-md bg-muted/50 px-3 py-2 text-xs sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 rounded-md bg-muted/50 px-3 py-2 text-xs sm:grid-cols-3">
         <span className="text-muted-foreground">
           期望价值
           <span className="ml-1.5 font-mono text-foreground tabular-nums">
@@ -217,12 +217,6 @@ function TierCard({index, tier, pools, saved, stats, currency, stale, onChange, 
         <span className="text-muted-foreground">
           速胜下限
           <span className="ml-1.5 font-mono text-foreground tabular-nums">{derived ? amount(derived.speed_floor) : '-'}</span>
-        </span>
-        <span className="text-muted-foreground">
-          情报价格
-          <span className="ml-1.5 font-mono text-foreground tabular-nums">
-            {derived ? (derived.intel_price > 0 ? amount(derived.intel_price) : '不卖') : '-'}
-          </span>
         </span>
         <span className="col-span-full text-muted-foreground">
           {derived ?

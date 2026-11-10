@@ -23,7 +23,6 @@ export function SeatList({view, lot, players, decimals, revealed}: {
   const settled = lot.outcome !== '';
   const seats = new Map(lot.seats?.map((s) => [s.seat, s]));
   const extra = lot.contenders.length > 0;
-  const intel = new Map(view.intel_seats.map((s) => [s.seat, s]));
 
   return (
     <ul className="grid grid-cols-2 gap-2">
@@ -34,7 +33,6 @@ export function SeatList({view, lot, players, decimals, revealed}: {
         const shown = lot.bids.reduce((best, b) => (b.seat === p.seat ? Math.max(best, b.amount) : best), 0);
         const spent = seatSpent(view.lots, p.seat);
         const uses = seats.get(p.seat)?.uses ?? [];
-        const bought = intel.get(p.seat);
         let note = `${p.seat} 号位`;
         if (settled) {
           note = bid ? formatAmount(bid, decimals) : '未出价';
@@ -61,15 +59,6 @@ export function SeatList({view, lot, players, decimals, revealed}: {
               <span className="flex items-center gap-1.5">
                 <span className="truncate text-sm font-medium" title={p.nickname}>{p.nickname}</span>
                 {p.is_self && <Badge variant="outline" className="px-1.5">我</Badge>}
-                {!settled && bought && (
-                  <Badge
-                    variant="outline"
-                    className={cn('px-1.5', bought.round === view.round && 'border-quality-gold text-quality-gold')}
-                    title={`买过 ${bought.count} 次情报, 最近一次在第 ${bought.round} 轮`}
-                  >
-                    情报 ×{bought.count}
-                  </Badge>
-                )}
               </span>
               <span className="font-mono text-xs text-muted-foreground tabular-nums">
                 {note}

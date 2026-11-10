@@ -138,7 +138,7 @@ func previewPieces(n int, rate int32, randN func(n int64) int64) []bool {
 // seatTotal 拍场结算时一个座位的成绩
 type seatTotal struct {
 	Seat   int16
-	Profit int64   // 拿下的拍品的价值 - 成交价之和, 不含买情报的钱
+	Profit int64   // 拿下的拍品的价值 - 成交价之和
 	Gap    float64 // 出过价的拍品中 |最后的出价 - 仓库价值| ÷ 仓库价值的平均值, 没出过价时为 -1
 }
 

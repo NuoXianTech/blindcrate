@@ -51,7 +51,6 @@ type VenueInfo struct {
 	PreviewRate    int32    `json:"preview_rate"`  // 首轮扫描比例, 基点: 每个拍品的第 1 轮每件藏品按这个概率扫出轮廓, 至少一件
 	MaxUses        int32    `json:"max_uses"`      // 这个模式每局(整个拍场)最多使用几个道具, 0 表示不能用
 	AllowedItems   []uint64 `json:"allowed_items"` // 可以用的道具, 为空表示所有对局中可用的道具
-	IntelLimit     int32    `json:"intel_limit"`   // 每人每局(整个拍场)最多买几次情报, 每轮最多一次
 	GapSeconds     int32    `json:"gap_seconds"`   // 拍品开箱后停留多久进入下一个
 }
 
@@ -76,8 +75,6 @@ type SelfView struct {
 	CanBid      bool          `json:"can_bid"`      // 现在是否可以出价; 剩余资金不够当前拍品的起拍价时不能
 	Uses        []UseView     `json:"uses"`         // 自己用过的道具和得到的情报, 按使用顺序, 含之前的拍品
 	UsesLeft    int32         `json:"uses_left"`    // 本局还能用几个道具, 练习局为 0; 不考虑阶段和轮次
-	IntelLeft   int32         `json:"intel_left"`   // 本局还能买几次情报, 练习局为 0; 本轮买过时仍计入, 见 IntelBought
-	IntelBought bool          `json:"intel_bought"` // 本轮是否已买过情报
 	Profit      int64         `json:"profit"`       // 拍场结算后的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算
 	Rank        int16         `json:"rank"`         // 拍场结算后的名次, 全部流拍时为 0
 	RatingDelta int32         `json:"rating_delta"` // 段位分的变化, 只有排位且至少成交一个拍品时有
@@ -138,7 +135,6 @@ type LotView struct {
 	Grid       venue.Grid   `json:"grid"`
 	StartPrice int64        `json:"start_price"`
 	SpeedFloor int64        `json:"speed_floor"` // 速胜下限
-	IntelPrice int64        `json:"intel_price"` // 向主持人买一次情报的价格, 0 表示不卖情报
 	FirstRound int32        `json:"first_round"` // 开拍时的轮次, 还没开拍时为 0
 	Footprints []Footprint  `json:"footprints"`  // 第 1 轮扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开
 	Contenders []int16      `json:"contenders"`  // 加轮时可以出价的座位, 为空表示所有人
@@ -158,7 +154,7 @@ type SessionSeat struct {
 	Seat   int16 `json:"seat"`
 	Carry  int64 `json:"carry"`
 	Spent  int64 `json:"spent"`
-	Profit int64 `json:"profit"` // 拿下的拍品的价值 - 成交价, 不含买情报的钱
+	Profit int64 `json:"profit"` // 拿下的拍品的价值 - 成交价
 	Rank   int16 `json:"rank"`
 }
 
@@ -180,18 +176,10 @@ type PublicView struct {
 	Version     int64        `json:"version"` // 与对局的 version 一致, 客户端只采用 version 更大的推送
 	Venue       VenueInfo    `json:"venue"`
 	LotCount    int32        `json:"lot_count"`
-	Lot         int32        `json:"lot"`         // 当前拍品的序号, 从 1 开始
-	Lots        []LotView    `json:"lots"`        // 按序号
-	Host        *HostView    `json:"host"`        // 主持人, 没有主持人提示时为空
-	IntelSeats  []SeatIntel  `json:"intel_seats"` // 在当前拍品上买过情报的座位, 按座位号; 只公开次数, 不公开内容
-	Session     *SessionView `json:"session"`     // 拍场结束后才有
-}
-
-// SeatIntel 一个座位买情报的次数
-type SeatIntel struct {
-	Seat  int16 `json:"seat"`
-	Count int32 `json:"count"`
-	Round int32 `json:"round"` // 最近一次买的轮次
+	Lot         int32        `json:"lot"`     // 当前拍品的序号, 从 1 开始
+	Lots        []LotView    `json:"lots"`    // 按序号
+	Host        *HostView    `json:"host"`    // 主持人, 没有主持人提示时为空
+	Session     *SessionView `json:"session"` // 拍场结束后才有
 }
 
 // AuctionView 玩家看到的一局暗拍
@@ -242,17 +230,7 @@ func (st *state) view(viewerID uint64, items []WarehouseItem, uses []Use) *Aucti
 		}
 	}
 	if !self.IsPractice {
-		var bought int32
-		for _, use := range uses {
-			if use.Seat == self.Seat && use.IsIntel() {
-				bought++
-				view.Self.IntelBought = view.Self.IntelBought || use.Round == m.Round
-			}
-		}
-		view.Self.UsesLeft = max(view.Venue.MaxUses-(int32(len(view.Self.Uses))-bought), 0)
-		if st.lot.IntelPrice > 0 {
-			view.Self.IntelLeft = max(view.Venue.IntelLimit-bought, 0)
-		}
+		view.Self.UsesLeft = max(view.Venue.MaxUses-int32(len(view.Self.Uses)), 0)
 	}
 	if st.auction.Outcome != "" {
 		view.Self.Profit, view.Self.Rank, view.Self.RatingDelta, view.Self.Rating = self.Profit, self.Rank, self.RatingDelta, self.Rating
@@ -287,14 +265,12 @@ func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
 			PreviewRate:    rule.PreviewRate,
 			MaxUses:        a.Venue.Consumables.MaxPerMatch(st.kind()),
 			AllowedItems:   a.Venue.Consumables.Allowed,
-			IntelLimit:     a.Venue.Host.IntelLimit,
 			GapSeconds:     a.Venue.GapSeconds,
 		},
-		LotCount:   a.LotCount,
-		Lot:        a.Lot,
-		Lots:       make([]LotView, len(st.lots)),
-		Host:       hostView(a, st.hints, st.hypes, ended),
-		IntelSeats: intelSeats(st.players, lotUses(uses, a.Lot)),
+		LotCount: a.LotCount,
+		Lot:      a.Lot,
+		Lots:     make([]LotView, len(st.lots)),
+		Host:     hostView(a, st.hints, st.hypes, ended),
 	}
 	for i := range st.lots {
 		view.Lots[i] = st.lotView(&st.lots[i], lotItems(items, st.lots[i].LotNo), lotUses(uses, st.lots[i].LotNo), ended)
@@ -316,7 +292,6 @@ func (st *state) lotView(lot *Lot, items []WarehouseItem, uses []Use, ended bool
 		Grid:       lot.Grid,
 		StartPrice: lot.StartPrice,
 		SpeedFloor: lot.SpeedFloor,
-		IntelPrice: lot.IntelPrice,
 		FirstRound: lot.FirstRound,
 		Footprints: []Footprint{},
 		Contenders: lot.Contenders,
@@ -383,24 +358,6 @@ func footprints(items []WarehouseItem) []Footprint {
 		}
 	}
 	return prints
-}
-
-// intelSeats 买过情报的座位, 按座位号
-func intelSeats(players []Player, uses []Use) []SeatIntel {
-	seats := []SeatIntel{}
-	for _, p := range players {
-		seat := SeatIntel{Seat: p.Seat}
-		for _, use := range uses {
-			if use.Seat == p.Seat && use.IsIntel() {
-				seat.Count++
-				seat.Round = max(seat.Round, use.Round)
-			}
-		}
-		if seat.Count > 0 {
-			seats = append(seats, seat)
-		}
-	}
-	return seats
 }
 
 // useCounts 座位 seat 用过的各种道具的个数, 按第一次使用的顺序

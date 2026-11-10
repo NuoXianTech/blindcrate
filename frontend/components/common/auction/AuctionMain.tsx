@@ -142,7 +142,7 @@ function AuctionTable({view, match, decimals, remaining, onView}: {
   match: MatchView;
   decimals: number;
   remaining: number | null;
-  /** 出价、用道具和买情报后返回的最新视角 */
+  /** 出价和用道具后返回的最新视角 */
   onView: (view: AuctionView) => void;
 }) {
   const lot = currentLot(view);
@@ -177,7 +177,7 @@ function AuctionTable({view, match, decimals, remaining, onView}: {
                 <BidPanel key={`bid:${view.round}`} view={view} lot={lot} decimals={decimals} onBid={onView} />
               )}
               <BidHistory view={view} lot={lot} players={match.players} decimals={decimals} />
-              <HostPanel view={view} lot={lot} decimals={decimals} onBuy={onView} />
+              <HostPanel view={view} lot={lot} />
               {!settled && view.venue.max_uses > 0 && <ItemBar key={`items:${view.match_id}`} view={view} lot={lot} onUse={onView} />}
               {uses.length > 0 && (
                 <section className="flex flex-col gap-2">

@@ -11275,13 +11275,6 @@ const docTemplate = `{
                         }
                     ]
                 },
-                "intel_seats": {
-                    "description": "在当前拍品上买过情报的座位, 按座位号; 只公开次数, 不公开内容",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auction.SeatIntel"
-                    }
-                },
                 "lot": {
                     "description": "当前拍品的序号, 从 1 开始",
                     "type": "integer"
@@ -11367,13 +11360,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/auction.HostView"
                         }
                     ]
-                },
-                "intel_seats": {
-                    "description": "在当前拍品上买过情报的座位, 按座位号; 只公开次数, 不公开内容",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auction.SeatIntel"
-                    }
                 },
                 "lot": {
                     "description": "当前拍品的序号, 从 1 开始",
@@ -11650,9 +11636,6 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
-                "intel_price": {
-                    "type": "integer"
-                },
                 "lot_no": {
                     "description": "出场顺序, 从 1 开始",
                     "type": "integer"
@@ -11687,7 +11670,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "start_price": {
-                    "description": "起拍价、速胜下限和情报价格按格子大小推导, 见 venue.Venue.Calibrate",
+                    "description": "起拍价和速胜下限按格子大小推导, 见 venue.Venue.Calibrate",
                     "type": "integer"
                 },
                 "tier": {
@@ -11734,10 +11717,6 @@ const docTemplate = `{
                 },
                 "grid": {
                     "$ref": "#/definitions/venue.Grid"
-                },
-                "intel_price": {
-                    "description": "向主持人买一次情报的价格, 0 表示不卖情报",
-                    "type": "integer"
                 },
                 "lot_no": {
                     "type": "integer"
@@ -11981,21 +11960,6 @@ const docTemplate = `{
                 }
             }
         },
-        "auction.SeatIntel": {
-            "type": "object",
-            "properties": {
-                "count": {
-                    "type": "integer"
-                },
-                "round": {
-                    "description": "最近一次买的轮次",
-                    "type": "integer"
-                },
-                "seat": {
-                    "type": "integer"
-                }
-            }
-        },
         "auction.SeatResult": {
             "type": "object",
             "properties": {
@@ -12037,14 +12001,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/reward.Bundle"
                         }
                     ]
-                },
-                "intel_bought": {
-                    "description": "本轮是否已买过情报",
-                    "type": "boolean"
-                },
-                "intel_left": {
-                    "description": "本局还能买几次情报, 练习局为 0; 本轮买过时仍计入, 见 IntelBought",
-                    "type": "integer"
                 },
                 "is_practice": {
                     "type": "boolean"
@@ -12100,7 +12056,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "profit": {
-                    "description": "拿下的拍品的价值 - 成交价, 不含买情报的钱",
+                    "description": "拿下的拍品的价值 - 成交价",
                     "type": "integer"
                 },
                 "rank": {
@@ -12254,10 +12210,6 @@ const docTemplate = `{
         "auction.Use": {
             "type": "object",
             "properties": {
-                "cost": {
-                    "description": "向主持人买情报时付的出价货币, 用道具时为 0",
-                    "type": "integer"
-                },
                 "created_at": {
                     "type": "string"
                 },
@@ -12366,10 +12318,6 @@ const docTemplate = `{
                 },
                 "gap_seconds": {
                     "description": "拍品开箱后停留多久进入下一个",
-                    "type": "integer"
-                },
-                "intel_limit": {
-                    "description": "每人每局(整个拍场)最多买几次情报, 每轮最多一次",
                     "type": "integer"
                 },
                 "lead_discount": {
@@ -17741,10 +17689,6 @@ const docTemplate = `{
                     "description": "出价货币的入场费, 开局时与入场代价一起扣除, 成交时销毁, 流拍时退还",
                     "type": "integer"
                 },
-                "intel_price": {
-                    "description": "向主持人买一次情报的价格, 从可用余额扣除; 0 表示不卖情报",
-                    "type": "integer"
-                },
                 "lead_discount": {
                     "description": "领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 不低于起拍价",
                     "type": "integer"
@@ -17967,24 +17911,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "enabled": {
-                    "description": "关闭时没有提示和热度, 情报商店仍按 IntelLimit 开放",
+                    "description": "关闭时没有提示和热度",
                     "type": "boolean"
                 },
                 "high_quality": {
                     "description": "提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; 也是\"高品质件数\"提示统计的最低品质",
                     "type": "integer",
-                    "minimum": 0
-                },
-                "intel_limit": {
-                    "description": "每人每局最多买几次情报, 每轮最多一次, 0 表示不卖情报",
-                    "type": "integer",
-                    "maximum": 10,
-                    "minimum": 0
-                },
-                "intel_precision": {
-                    "description": "后几轮的情报为仓库价值的区间, 宽度为价值 × 误差 × 2, 基点",
-                    "type": "integer",
-                    "maximum": 5000,
                     "minimum": 0
                 },
                 "lie_rate": {
@@ -18019,9 +17951,6 @@ const docTemplate = `{
             "properties": {
                 "grid": {
                     "$ref": "#/definitions/venue.Grid"
-                },
-                "intel_price": {
-                    "type": "integer"
                 },
                 "share": {
                     "description": "拍品是这种格子大小的概率, 基点",
@@ -18424,9 +18353,6 @@ const docTemplate = `{
         "venue.TierAuction": {
             "type": "object",
             "properties": {
-                "intel_price": {
-                    "type": "integer"
-                },
                 "mean": {
                     "description": "这个档次的期望价值, 排位模式, 不公开",
                     "type": "integer"
@@ -18564,7 +18490,7 @@ const docTemplate = `{
                     ]
                 },
                 "host": {
-                    "description": "主持人的提示和情报",
+                    "description": "主持人的提示",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.HostRule"
@@ -18668,7 +18594,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/venue.Grid"
                 },
                 "host": {
-                    "description": "主持人的提示和情报",
+                    "description": "主持人的提示",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.HostRule"
@@ -18759,7 +18685,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/venue.Grid"
                 },
                 "host": {
-                    "description": "主持人的提示和情报",
+                    "description": "主持人的提示",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.HostRule"
@@ -18960,7 +18886,7 @@ const docTemplate = `{
                     ]
                 },
                 "host": {
-                    "description": "主持人的提示和情报",
+                    "description": "主持人的提示",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.HostRule"

@@ -38,13 +38,6 @@ export function hypeLevel(hype: number) {
   return {label: '平稳', className: 'text-muted-foreground'};
 }
 
-/** 拍品的第 round 轮(共 rounds 轮)向主持人买到的情报, 与后端 auction.intelFor 对应 */
-export function intelTier(round: number, rounds: number) {
-  if (round * 3 <= rounds) return '一件还不知道品质的藏品的品质';
-  if (round * 3 <= rounds * 2) return '一件藏品的名称和品质';
-  return '仓库价值的大致区间';
-}
-
 /** 暗拍阶段的名称 */
 export const PHASES: Record<string, string> = {
   bidding: '出价',

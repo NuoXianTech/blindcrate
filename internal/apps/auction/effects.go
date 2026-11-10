@@ -65,8 +65,8 @@ type cell struct{ x, y int16 }
 type UseContext struct {
 	Pieces     []WarehouseItem     // 仓库里的全部藏品, 按扫描顺序
 	Value      int64               // 仓库价值
-	Outlined   map[cell]bool       // 使用者已知轮廓的藏品, 按位置; 第 1 轮扫出的和之前用道具或买情报看到的
-	Known      map[cell]bool       // 使用者已知品质的藏品, 按位置; 品质从不公开, 只有之前用道具或买情报看到的
+	Outlined   map[cell]bool       // 使用者已知轮廓的藏品, 按位置; 第 1 轮扫出的和之前用道具看到的
+	Known      map[cell]bool       // 使用者已知品质的藏品, 按位置; 品质从不公开, 只有之前用道具看到的
 	KnownNames map[cell]bool       // 使用者已知名称的藏品, 按位置
 	Rand       func(n int64) int64 // 返回 [0, n) 的随机数, 测试时可以替换
 }

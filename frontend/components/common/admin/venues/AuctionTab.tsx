@@ -130,7 +130,7 @@ function DerivedRule({derived, currency, stale, lots}: {
   stale: boolean;
   lots: boolean;
 }) {
-  // 多拍品时每个拍品的起拍价、速胜下限和情报价格按档次, 见拍场页
+  // 多拍品时每个拍品的起拍价和速胜下限按档次, 见拍场页
   const perTier = lots ? '; 每个拍品按档次的, 见拍场页' : '';
   const amount = (value: number) => `${formatAmount(value, currency?.decimals ?? 0)} ${currency?.name ?? ''}`.trim();
   // 旧数据中推导的字段都是 0
@@ -169,11 +169,6 @@ function DerivedRule({derived, currency, stale, lots}: {
         label: '首轮扫描比例',
         value: derived.preview_rate > 0 ? formatRate(derived.preview_rate) : '不扫',
         help: '第 1 轮每件藏品按这个概率扫出轮廓, 至少一件; 其余藏品直到开箱都不公开, 件数也不公开',
-      },
-      {
-        label: '情报价格',
-        value: derived.intel_price > 0 ? amount(derived.intel_price) : '不卖',
-        help: '向主持人买一次情报的价格, 从可用余额扣除; 每局次数见主持人页' + perTier,
       },
     ] :
     [];
