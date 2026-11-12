@@ -1,4 +1,5 @@
 import type {PageParams} from '../core';
+import type {RewardLine} from '../reward';
 
 /** 对局状态, 与后端 internal/apps/match/constants.go 对应 */
 export const MATCH_STATUS = {
@@ -63,8 +64,12 @@ export interface MatchSummary {
   won_lots: number;
   /** 自己拿下的拍品的成交价之和 */
   spent: number;
-  /** 自己的盈亏, 结算前为 0 */
+  /** 自己拿下的拍品的盈亏, 不含入场费和入场代价, 结算前为 0 */
   profit: number;
+  /** 自己实际扣除的出价货币的入场费, 练习局和已退还时为 0 */
+  entry_fee: number;
+  /** 自己实际扣除的其余入场代价, 同上为空 */
+  entry_cost: RewardLine[];
   /** 自己的名次, 全部流拍时为 0 */
   rank: number;
   /** 自己打的是否为练习局 */

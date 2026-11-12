@@ -11920,7 +11920,7 @@
                     "type": "string"
                 },
                 "entry_cost": {
-                    "description": "实际扣除的入场费和入场代价, 练习局和人机为空",
+                    "description": "实际扣除的入场费和入场代价, 练习局和人机为空, 退还后清空",
                     "allOf": [
                         {
                             "$ref": "#/definitions/reward.Bundle"
@@ -12056,18 +12056,21 @@
                     "type": "integer"
                 },
                 "entry_cost": {
-                    "description": "实际扣除的入场代价",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/reward.Bundle"
-                        }
-                    ]
+                    "description": "实际扣除的其余入场代价, 同上为空",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                },
+                "entry_fee": {
+                    "description": "实际扣除的出价货币的入场费, 练习局和已退还时为 0",
+                    "type": "integer"
                 },
                 "is_practice": {
                     "type": "boolean"
                 },
                 "profit": {
-                    "description": "拍场结算后的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算",
+                    "description": "拍场结算后拿下的拍品的盈亏, 出价货币, 名次按它排; 整场的盈亏还要减去 EntryFee; 练习局按正式局计算",
                     "type": "integer"
                 },
                 "rank": {

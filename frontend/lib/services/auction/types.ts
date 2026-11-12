@@ -1,4 +1,4 @@
-import type {Bundle} from '../reward';
+import type {Bundle, RewardLine} from '../reward';
 import type {BotSnapshot} from '../bot';
 import type {Grid} from '../venue';
 
@@ -134,8 +134,10 @@ export interface HostView {
 export interface AuctionSelf {
   seat: number;
   is_practice: boolean;
-  /** 实际扣除的入场费和入场代价, 练习局为空 */
-  entry_cost: Bundle;
+  /** 实际扣除的出价货币的入场费, 练习局和已退还时为 0 */
+  entry_fee: number;
+  /** 实际扣除的其余入场代价, 同上为空 */
+  entry_cost: RewardLine[];
   /** 带入资金, 整个拍场共用 */
   carry: number;
   /** 已拿下的拍品的成交价之和 */
@@ -152,7 +154,7 @@ export interface AuctionSelf {
   uses: UseView[];
   /** 本局还能用几个道具, 练习局为 0; 不考虑阶段和轮次 */
   uses_left: number;
-  /** 拍场结算后的盈亏, 不含准入时扣除的入场费和入场代价; 练习局按正式局计算 */
+  /** 拍场结算后拿下的拍品的盈亏, 名次按它排; 整场的盈亏还要减去 entry_fee; 练习局按正式局计算 */
   profit: number;
   /** 拍场结算后的名次, 全部流拍时为 0 */
   rank: number;
@@ -353,7 +355,7 @@ export interface AuctionPlayer {
   /** 人机的风格, 开局时的快照; 真人为空对象 */
   persona: BotSnapshot;
   is_practice: boolean;
-  /** 实际扣除的入场代价, 练习局和人机为空 */
+  /** 实际扣除的入场费和入场代价, 练习局和人机为空, 退还后清空 */
   entry_cost: Bundle;
   /** 带入资金, 整个拍场共用 */
   carry: number;

@@ -26,10 +26,12 @@ package auction
 
 import (
 	"math/rand/v2"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 )
 
@@ -137,6 +139,24 @@ func TestScanOrders(t *testing.T) {
 	want := []int32{4, 1, 2, 3}
 	if got := scanOrders(pieces); !slices.Equal(got, want) {
 		t.Fatalf("scanOrders = %v, want %v", got, want)
+	}
+}
+
+func TestSplitEntry(t *testing.T) {
+	cost := reward.Bundle{
+		Currencies: []reward.CurrencyLine{{Currency: "chip", Amount: 78}, {Currency: "gem", Amount: 2}},
+		Items:      []reward.ItemLine{{ItemID: 7, Quantity: 1}},
+	}
+	fee, rest := splitEntry(cost, "chip")
+	want := reward.Bundle{Currencies: []reward.CurrencyLine{{Currency: "gem", Amount: 2}}, Items: cost.Items}
+	if fee != 78 || !reflect.DeepEqual(rest, want) {
+		t.Errorf("fee = %d, rest = %+v", fee, rest)
+	}
+	if fee, rest := splitEntry(reward.Bundle{}, "chip"); fee != 0 || !rest.IsEmpty() {
+		t.Errorf("empty: fee = %d, rest = %+v", fee, rest)
+	}
+	if lines, err := entryLines(nil, []reward.Bundle{{}, {}}); err != nil || len(lines) != 2 || lines[0] == nil {
+		t.Errorf("empty lines = %v, %v", lines, err)
 	}
 }
 
