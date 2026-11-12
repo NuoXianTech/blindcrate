@@ -16,6 +16,7 @@ import services from '@/lib/services';
 import {AUCTION_MESSAGES, type AuctionView} from '@/lib/services/auction';
 import {ApiError, toErrorMessage} from '@/lib/services/core';
 import {MATCH_MESSAGES, MATCH_STATUS, type MatchView} from '@/lib/services/match';
+import {formatAmount} from '@/lib/utils';
 import {AuctionHeader} from './AuctionHeader';
 import {BidHistory} from './BidHistory';
 import {BidPanel} from './BidPanel';
@@ -36,7 +37,7 @@ function newer<T extends { version: number }>(prev: T | null, next: T): T {
 }
 
 /**
- * 拍卖桌: 拍品进度、当前拍品的仓库、座位、出价和结算
+ * 拍卖桌: 拍品进度、当前拍品(或点开查看的其他拍品)的仓库、座位、出价和结算
  * 以 auction:updated 和 match:updated 推送为准; 推送不保证送达, 连上 WebSocket 后和阶段到期后迟迟没有推送时重新拉取
  */
 export function AuctionMain({matchId}: { matchId: number }) {
@@ -145,12 +146,19 @@ function AuctionTable({view, match, decimals, remaining, onView}: {
   /** 出价和用道具后返回的最新视角 */
   onView: (view: AuctionView) => void;
 }) {
-  const lot = currentLot(view);
-  // 情报只对用在的拍品有意义, 只看当前拍品的
+  const current = currentLot(view);
+  // 点开查看的其他拍品; 开拍下一个拍品时回到当前拍品, 免得错过出价
+  const [picked, setPicked] = useState<{ lot: number; during: number } | null>(null);
+  const lot = (picked && picked.during === view.lot && view.lots[picked.lot - 1]) || current;
+  const viewing = lot.lot_no !== current.lot_no;
+  // 情报只对用在的拍品有意义, 只看查看的拍品的
   const uses = useMemo(() => view.self.uses.filter((u) => u.lot_no === lot.lot_no), [view.self.uses, lot.lot_no]);
   const intel = useMemo(() => intelPieces(uses.map((u) => u.result)), [uses]);
   const finished = match.status !== MATCH_STATUS.playing;
-  const scan = useScan(lot, view.venue.bid_currency, finished);
+  const currentScan = useScan(current, view.venue.bid_currency, finished);
+  // 其他拍品不播放扫描: 之前的早已扫完, 之后的还没开拍
+  const otherScan = useScan(lot, view.venue.bid_currency, true);
+  const scan = viewing ? otherScan : currentScan;
   const settled = lot.outcome !== '';
 
   return (
@@ -158,10 +166,30 @@ function AuctionTable({view, match, decimals, remaining, onView}: {
       <AuctionHeader view={view} finished={finished} remaining={remaining} />
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4">
-          <LotStrip view={view} players={match.players} decimals={decimals} scan={scan} />
+          {view.lot_count > 1 && (
+            <LotStrip
+              view={view}
+              players={match.players}
+              decimals={decimals}
+              scan={currentScan}
+              shown={lot.lot_no}
+              onSelect={(lotNo) => setPicked(lotNo === view.lot ? null : {lot: lotNo, during: view.lot})}
+            />
+          )}
           <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
             <Warehouse key={`lot:${lot.lot_no}`} view={view} lot={lot} decimals={decimals} scan={scan} intel={intel} />
             <div className="flex flex-col gap-4">
+              {viewing && (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/60 bg-card px-3 py-2 text-sm">
+                  <span>
+                    正在查看拍品 {lot.lot_no}
+                    <span className="text-muted-foreground">
+                      {finished ? ` · 最后一个是拍品 ${current.lot_no}` : ` · 拍品 ${current.lot_no} ${current.outcome ? '开箱中' : '竞拍中'}`}
+                    </span>
+                  </span>
+                  <Button size="sm" onClick={() => setPicked(null)}>回到拍品 {current.lot_no}</Button>
+                </div>
+              )}
               <SeatList view={view} lot={lot} players={match.players} decimals={decimals} revealed={scan.complete} />
               {settled ? (
                 <ResultPanel
@@ -173,12 +201,16 @@ function AuctionTable({view, match, decimals, remaining, onView}: {
                   finished={finished}
                   released={finished || !!match.released_at}
                 />
+              ) : viewing ? (
+                <p className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
+                  这个拍品还没开拍, 起拍价 {formatAmount(lot.start_price, decimals)}; 轮到它时会自动回到出价
+                </p>
               ) : (
                 <BidPanel key={`bid:${view.round}`} view={view} lot={lot} decimals={decimals} onBid={onView} />
               )}
               <BidHistory view={view} lot={lot} players={match.players} decimals={decimals} />
               <HostPanel view={view} lot={lot} />
-              {!settled && view.venue.max_uses > 0 && <ItemBar key={`items:${view.match_id}`} view={view} lot={lot} onUse={onView} />}
+              {!settled && !viewing && view.venue.max_uses > 0 && <ItemBar key={`items:${view.match_id}`} view={view} lot={lot} onUse={onView} />}
               {uses.length > 0 && (
                 <section className="flex flex-col gap-2">
                   <h2 className="flex items-center justify-between text-sm font-medium">
