@@ -22,7 +22,7 @@ export function AuctionTab({form, onChange, disabled, currency, derived, stale, 
   derived: AuctionRule | null;
   /** 推导之后表单有改动 */
   stale: boolean;
-  /** 配置了档次, 一局多个拍品 */
+  /** 一局多个拍品 */
   lots: boolean;
 }) {
   const changeRounds = (rounds: string) => {
@@ -130,8 +130,8 @@ function DerivedRule({derived, currency, stale, lots}: {
   stale: boolean;
   lots: boolean;
 }) {
-  // 多拍品时每个拍品的起拍价和速胜下限按档次, 见拍场页
-  const perTier = lots ? '; 每个拍品按档次的, 见拍场页' : '';
+  // 每个拍品的起拍价和速胜下限按档次, 见拍场页
+  const perTier = '; 每个拍品按档次的, 见拍场页';
   const amount = (value: number) => `${formatAmount(value, currency?.decimals ?? 0)} ${currency?.name ?? ''}`.trim();
   // 旧数据中推导的字段都是 0
   const ready = derived && derived.start_price > 0;
@@ -145,14 +145,14 @@ function DerivedRule({derived, currency, stale, lots}: {
       {
         label: '起拍价',
         value: amount(derived.start_price),
-        help: lots ? '各档次中最低的起拍价, 也是最低带入' + perTier : '出价不能低于它, 也是最低带入',
+        help: '各档次中最低的起拍价, 也是最低带入' + perTier,
       },
       {
         label: '带入资金上限',
         value: amount(derived.max_carry),
         help: lots ?
           '玩家在 [起拍价, 上限] 内自选带入金额, 整个拍场共用; 按拍场期望总价值 × 带入覆盖率推导' :
-          '玩家在 [起拍价, 上限] 内自选带入金额',
+          '玩家在 [起拍价, 上限] 内自选带入金额; 按单个仓库的价值分布推导',
       },
       {
         label: '人机带入资金',

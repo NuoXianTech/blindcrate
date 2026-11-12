@@ -56,7 +56,7 @@ const (
 type lineup interface {
 	Count() int // 抽一个拍场的拍品数
 	Pick() int  // 按权重抽一种档次
-	Tiers() int // 档次的个数, 同 venue.Venue.LotTiers
+	Tiers() int // 档次的个数, 同 venue.Venue.Lots.Tiers
 	Generate(tier int, valueFactor int32) (*venue.Warehouse, error)
 	PieceOdds(tier int, valueFactor int32) []venue.PieceOdds
 }
@@ -258,7 +258,7 @@ func balance(tx *gorm.DB, v *venue.Venue, l *venue.Lineup, b *settings.BalanceSe
 	// 真人盈亏的目标按一个拍场的期望总价值算, 一局一个拍品时就是一个仓库的期望价值
 	seatEV := scale(v.SessionMean(), int64(b.TargetSeatEV))
 	carryFloor := int64(venue.BasisPoints)
-	if v.Lots.Enabled() {
+	if !v.Lots.Single() {
 		carryFloor = int64(b.BotCarryFloor)
 	}
 	return simulate(v, func(seed uint64) lineup { return venueLineup{l.Seeded(seed)} }, squads, simConfig{
@@ -281,7 +281,7 @@ type simConfig struct {
 // 多拍品时成交价决定了后面拍品的剩余资金, 出价和折让有关: 先按折让上限的一半模拟一遍求出折让, 再按它重新模拟、重新求, 共三遍;
 // 一局一个拍品时出价与折让无关, 每遍的结果相同。source 按种子生成拍品, 每种阵容用不同的种子; 相同的输入得到相同的结果。
 func simulate(v *venue.Venue, source func(seed uint64) lineup, squads []squad, cfg simConfig) (*venue.Balance, error) {
-	tiers := v.LotTiers()
+	tiers := v.Lots.Tiers
 	target := venue.BasisPoints - cfg.sellFee
 	discount := cfg.maxDiscount / 2 / discountStep * discountStep
 	var results [][]matchSim

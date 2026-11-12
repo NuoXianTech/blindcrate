@@ -229,12 +229,13 @@ func standardVenue() *venue.Venue {
 		BidCurrency:   "chip",
 		PveEnabled:    true,
 		RankedEnabled: true,
-		Warehouse:     venue.WarehouseRule{Grid: venue.Grid{Width: 6, Height: 6}},
+		Lots:          venue.LotRule{Min: 1, Max: 1, Tiers: []venue.Tier{{Code: "standard", Name: "标准", Weight: 1, Warehouse: venue.WarehouseRule{Grid: venue.Grid{Width: 6, Height: 6}}}}},
 		Auction:       venue.AuctionRule{Rounds: 5, RoundSeconds: 20, RevealSeconds: 5, QuickWin: []int32{23000, 18975, 18630, 17825}, MaxExtraRounds: 1},
 		Pve:           venue.PveRule{ValueFactor: venue.BasisPoints},
 	}
 	v.Simulation.Ranked = standardStats()
-	v.Auction.Calibrate(v.Simulation.Ranked, settings.Balance.Default())
+	v.Simulation.Tiers = []venue.TierStats{{Code: "standard", Ranked: v.Simulation.Ranked}}
+	v.Calibrate(settings.Balance.Default())
 	return v
 }
 

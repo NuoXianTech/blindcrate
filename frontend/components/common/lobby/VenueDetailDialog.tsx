@@ -63,6 +63,8 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
   }
 
   const v = detail;
+  // 一局一个仓库
+  const single = v.lots.max === 1;
   const ranges = [
     {kind: 'pve', enabled: v.pve_enabled, range: v.pve.value_range},
     {kind: 'ranked', enabled: v.ranked_enabled, range: v.value_range},
@@ -72,11 +74,13 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
     <div className="flex flex-col gap-6">
       <Section title="拍卖规则">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-          {v.lots ? (
+          {!single || v.lots.grids.length > 1 ? (
             <>
               <dt className="text-muted-foreground">拍品</dt>
               <dd>
-                每局 {v.lots.min === v.lots.max ? v.lots.min : `${v.lots.min}-${v.lots.max}`} 个仓库, 依次开拍, 开局时公开数量和格子大小
+                {single ?
+                  '每局 1 个仓库, 开局时公开格子大小' :
+                  `每局 ${v.lots.min === v.lots.max ? v.lots.min : `${v.lots.min}-${v.lots.max}`} 个仓库, 依次开拍, 开局时公开数量和格子大小`}
                 <ul className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground">
                   {v.lots.grids.map((g) => (
                     <li key={`${g.grid.width}x${g.grid.height}`} className="font-mono tabular-nums">
@@ -107,7 +111,7 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
           </dd>
           <dt className="text-muted-foreground">轮数</dt>
           <dd>
-            {v.lots && '每个拍品 '}{v.auction.rounds} 轮, 每轮 {v.auction.round_seconds} 秒
+            {!single && '每个拍品 '}{v.auction.rounds} 轮, 每轮 {v.auction.round_seconds} 秒
             <p className="text-xs text-muted-foreground">每轮结束后公开所有人的出价, 最后一轮是暗标, 开箱后才公开</p>
           </dd>
           <dt className="text-muted-foreground">速胜</dt>
@@ -160,11 +164,11 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
               `最后一轮最高价并列时加轮, 最多 ${v.auction.max_extra_rounds} 轮, 之后按先出价的人成交` :
               '最后一轮最高价并列时按先出价的人成交'}
           </dd>
-          {!v.lots && (
+          {single && v.lots.grids.length === 1 && (
             <>
               <dt className="text-muted-foreground">仓库</dt>
               <dd>
-                {v.grid.width} × {v.grid.height} 格
+                {v.lots.grids[0].grid.width} × {v.lots.grids[0].grid.height} 格
               </dd>
             </>
           )}
@@ -185,7 +189,7 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
         </div>
       </Section>
 
-      <Section title={v.lots ? '单个仓库的价值' : '仓库价值'} hint="模拟的仓库价值, 八成的仓库在低和高之间">
+      <Section title={single ? '仓库价值' : '单个仓库的价值'} hint="模拟的仓库价值, 八成的仓库在低和高之间">
         <div className="grid grid-cols-4 gap-x-4 gap-y-1.5 text-sm">
           <span className="text-muted-foreground">模式</span>
           <span className="text-right text-muted-foreground">低</span>
@@ -199,12 +203,11 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
 
       <Section title="掉落概率" hint="仓库由各档位抽到的藏品组成, 概率为每次抽取抽中该藏品的概率">
         <div className="flex flex-col gap-3">
-          {v.slots.map((slot, i) => (
-            <SlotCard key={i} index={i} slot={slot} />
-          ))}
           {v.lot_slots.map((g) => (
             <div key={`${g.grid.width}x${g.grid.height}`} className="flex flex-col gap-3">
-              <h4 className="font-mono text-sm font-medium tabular-nums">{g.grid.width}×{g.grid.height} 的仓库</h4>
+              {v.lot_slots.length > 1 && (
+                <h4 className="font-mono text-sm font-medium tabular-nums">{g.grid.width}×{g.grid.height} 的仓库</h4>
+              )}
               {g.variants.map((variant, i) => (
                 <div key={i} className="flex flex-col gap-2">
                   {g.variants.length > 1 && (

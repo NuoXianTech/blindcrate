@@ -26,7 +26,6 @@ import {EntryTab} from './EntryTab';
 import {HostTab} from './HostTab';
 import {LotsTab} from './LotsTab';
 import {SimulationStats} from './SimulationStats';
-import {WarehouseTab} from './WarehouseTab';
 import {toRequest} from './constants';
 import {toVenueForm, toVenueRequest, type VenueForm} from './form';
 
@@ -113,6 +112,8 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
     setStale(true);
   };
   const tabProps = {form, onChange, disabled: pending};
+  // 一局多个拍品, 带入资金和验算的闸门与一局一个仓库时不同
+  const multiLot = form.lotMax.trim() !== '1';
 
   const handleSimulate = simulate.submit(async () => {
     const body = toVenueRequest(form, currencies, types);
@@ -142,7 +143,6 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
         <TabsList className="w-full">
           <TabsTrigger value="basic">基本</TabsTrigger>
           <TabsTrigger value="entry">入场</TabsTrigger>
-          <TabsTrigger value="warehouse">仓库</TabsTrigger>
           <TabsTrigger value="lots">拍场</TabsTrigger>
           <TabsTrigger value="auction">拍卖</TabsTrigger>
           <TabsTrigger value="bots">人机</TabsTrigger>
@@ -157,21 +157,18 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
           <TabsContent value="entry">
             <EntryTab {...tabProps} items={items} currencies={currencies} types={types} scopes={scopes} />
           </TabsContent>
-          <TabsContent value="warehouse">
-            <WarehouseTab {...tabProps} pools={pools} />
-          </TabsContent>
           <TabsContent value="lots">
             <LotsTab
               {...tabProps}
               pools={pools}
               currency={currency}
-              savedTiers={venue?.lots?.tiers ?? []}
+              savedTiers={venue?.lots.tiers ?? []}
               tierStats={simulation?.tiers ?? []}
               stale={stale}
             />
           </TabsContent>
           <TabsContent value="auction">
-            <AuctionTab {...tabProps} currency={currency} derived={derived} stale={stale} lots={form.tiers.length > 0} />
+            <AuctionTab {...tabProps} currency={currency} derived={derived} stale={stale} lots={multiLot} />
           </TabsContent>
           <TabsContent value="bots">
             <BotTab {...tabProps} currency={currency} personas={personas} />
@@ -194,6 +191,7 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
                 simulation={simulation}
                 currency={currency}
                 stale={stale}
+                lots={multiLot}
                 tierNames={Object.fromEntries(form.tiers.map((t) => [t.code.trim(), t.name]))}
               />
             ) : (

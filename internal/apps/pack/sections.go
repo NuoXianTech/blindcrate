@@ -208,14 +208,11 @@ func init() {
 func venueRenamed(req *venueadmin.VenueRequest, section, old, next string) {
 	switch section {
 	case PackLootPools:
-		rules := []*venue.WarehouseRule{&req.Warehouse}
-		for i := range req.Lots.Tiers {
-			rules = append(rules, &req.Lots.Tiers[i].Warehouse)
-		}
-		for _, rule := range rules {
-			for i := range rule.Slots {
-				if slot := &rule.Slots[i]; slot.Pool == old {
-					slot.Pool = next
+		for t := range req.Lots.Tiers {
+			slots := req.Lots.Tiers[t].Warehouse.Slots
+			for i := range slots {
+				if slots[i].Pool == old {
+					slots[i].Pool = next
 				}
 			}
 		}
@@ -344,7 +341,6 @@ func venuePack(v *venue.Venue, image func(string) string) venueadmin.VenueReques
 		BidCurrency:   v.BidCurrency,
 		EntryCost:     v.EntryCost,
 		Requirements:  v.Requirements,
-		Warehouse:     v.Warehouse,
 		Lots:          v.Lots,
 		Auction:       v.Auction,
 		Bots:          v.Bots,

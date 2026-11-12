@@ -126,18 +126,17 @@ func Validate(tx *gorm.DB, v *Venue) error {
 		Runs:        SimulationRuns,
 		Ranked:      lineup.Simulate(SimulationRuns, BasisPoints),
 		Pve:         lineup.Simulate(SimulationRuns, v.Pve.ValueFactor),
-		Tiers:       []TierStats{},
+		Tiers:       make([]TierStats, len(v.Lots.Tiers)),
 		SimulatedAt: time.Now(),
 	}
-	if v.Lots.Enabled() {
-		for i := range v.Lots.Tiers {
+	for i := range v.Lots.Tiers {
+		// 只有一个档次时就是整体的分布, 不重复模拟
+		stats := TierStats{Code: v.Lots.Tiers[i].Code, Ranked: v.Simulation.Ranked, Pve: v.Simulation.Pve}
+		if len(v.Lots.Tiers) > 1 {
 			g := lineup.Tier(i)
-			v.Simulation.Tiers = append(v.Simulation.Tiers, TierStats{
-				Code:   v.Lots.Tiers[i].Code,
-				Ranked: g.Simulate(SimulationRuns, BasisPoints),
-				Pve:    g.Simulate(SimulationRuns, v.Pve.ValueFactor),
-			})
+			stats.Ranked, stats.Pve = g.Simulate(SimulationRuns, BasisPoints), g.Simulate(SimulationRuns, v.Pve.ValueFactor)
 		}
+		v.Simulation.Tiers[i] = stats
 	}
 	rates := []int32{v.Simulation.Ranked.FailureRate, v.Simulation.Pve.FailureRate}
 	for _, t := range v.Simulation.Tiers {
@@ -246,30 +245,19 @@ func validateRules(v *Venue) error {
 		name  string
 		value any
 	}
-	// 配置了档次时不用 Warehouse, 不校验
-	var sections []section
-	if !v.Lots.Enabled() {
-		sections = append(sections, section{"仓库规则", &v.Warehouse})
-	}
-	sections = append(sections, []section{
+	for _, section := range []section{
 		{"拍场", &v.Lots},
 		{"拍卖参数", &v.Auction},
 		{"人机风格", &v.Bots},
 		{"人机模式", &v.Pve},
 		{"道具规则", &v.Consumables},
 		{"主持人", &v.Host},
-	}...)
-	for _, section := range sections {
+	} {
 		if err := settings.ValidateStruct(section.value); err != nil {
 			return invalid(RuleInvalid, section.name, err.Error())
 		}
 	}
 
-	if !v.Lots.Enabled() {
-		if err := validateWarehouse(&v.Warehouse); err != nil {
-			return err
-		}
-	}
 	if err := validateLots(&v.Lots); err != nil {
 		return err
 	}
@@ -279,7 +267,7 @@ func validateRules(v *Venue) error {
 	return nil
 }
 
-// validateWarehouse 档位的次数范围需合法, 至少能抽到一件; 旧数据和没有提交时为 null 的数量波动统一写为空列表
+// validateWarehouse 档位的次数范围需合法, 至少能抽到一件; 没有提交时为 null 的数量波动写为空列表
 func validateWarehouse(w *WarehouseRule) error {
 	if w.Swings == nil {
 		w.Swings = []Swing{}
@@ -297,15 +285,9 @@ func validateWarehouse(w *WarehouseRule) error {
 	return nil
 }
 
-// validateLots 配置了档次时拍品数需在 [1, 8] 且最少不超过最多, 档次代码不能重复; 每个档次的仓库规则同 Warehouse 校验
+// validateLots 最少拍品数不能超过最多, 档次代码不能重复; 每个档次的仓库规则见 validateWarehouse
 func validateLots(r *LotRule) error {
-	if r.Tiers == nil {
-		r.Tiers = []Tier{}
-	}
-	if !r.Enabled() {
-		return nil
-	}
-	if r.Min < 1 || r.Min > r.Max {
+	if r.Min > r.Max {
 		return invalid(LotRangeInvalid)
 	}
 	codes := map[string]bool{}
@@ -524,12 +506,11 @@ type VenueView struct {
 	EntryCost     []CostLine           `json:"entry_cost"`   // 开局时扣除的全部代价, 出价货币的入场费在前
 	Requirements  []condition.Progress `json:"requirements"` // 每个入场条件的达成情况
 	Eligible      bool                 `json:"eligible"`     // 满足全部入场条件
-	Grid          Grid                 `json:"grid"`
 	Auction       AuctionRule          `json:"auction"`
 	Host          HostRule             `json:"host"`        // 主持人的提示
-	ValueRange    ValueRange           `json:"value_range"` // 排位模式的仓库价值区间, 保存地图时模拟; 拍场为单个拍品的
+	ValueRange    ValueRange           `json:"value_range"` // 排位模式单个拍品的价值区间, 保存地图时模拟
 	Pve           PveView              `json:"pve"`
-	Lots          *LotsView            `json:"lots"` // 拍场的拍品数和格子大小, 没有配置档次(一局一个仓库)时为空
+	Lots          LotsView             `json:"lots"` // 拍场的拍品数和格子大小
 }
 
 // LotsView 玩家看到的拍场: 拍品数和每种格子大小的出现比例、起拍价; 档次不公开, 只按格子大小汇总
@@ -548,12 +529,9 @@ type LotGrid struct {
 	SpeedFloor int64 `json:"speed_floor"`
 }
 
-// newLotsView 按格子大小汇总档次, 没有配置档次时返回空
-func newLotsView(v *Venue) *LotsView {
-	if !v.Lots.Enabled() {
-		return nil
-	}
-	view := &LotsView{Min: v.Lots.Min, Max: v.Lots.Max, GapSeconds: v.Lots.GapSeconds, Grids: []LotGrid{}}
+// newLotsView 按格子大小汇总档次
+func newLotsView(v *Venue) LotsView {
+	view := LotsView{Min: v.Lots.Min, Max: v.Lots.Max, GapSeconds: v.Lots.GapSeconds, Grids: []LotGrid{}}
 	var total int64
 	for _, t := range v.Lots.Tiers {
 		total += int64(t.Weight)
@@ -578,8 +556,7 @@ type SlotOdds struct {
 // VenueDetail 玩家看到的地图详情
 type VenueDetail struct {
 	VenueView
-	Slots    []SlotOdds `json:"slots"`     // 没有配置档次时仓库的档位; 拍场为空, 见 LotSlots
-	LotSlots []GridOdds `json:"lot_slots"` // 拍场每种格子大小的仓库, 没有配置档次时为空
+	LotSlots []GridOdds `json:"lot_slots"` // 拍场每种格子大小的仓库
 }
 
 // GridOdds 拍场中一种格子大小的仓库: 同一格子大小的各档次不公开名称, 按权重给出概率和档位
@@ -638,13 +615,7 @@ func QueryVenue(ctx context.Context, userID uint64, code string) (*VenueDetail, 
 		return nil, err
 	}
 
-	detail := &VenueDetail{VenueView: *view, Slots: []SlotOdds{}, LotSlots: []GridOdds{}}
-	if !v.Lots.Enabled() {
-		if detail.Slots, err = slotOdds(ctx, v.Warehouse.Slots); err != nil {
-			return nil, err
-		}
-		return detail, nil
-	}
+	detail := &VenueDetail{VenueView: *view, LotSlots: []GridOdds{}}
 	weights := map[Grid]int64{}
 	for _, t := range v.Lots.Tiers {
 		weights[t.Warehouse.Grid] += int64(t.Weight)
@@ -743,7 +714,6 @@ func newView(tx *gorm.DB, userID uint64, v *Venue, names *costNames) (*VenueView
 		EntryCost:     make([]CostLine, 0, len(entry.Currencies)+len(entry.Items)),
 		Requirements:  progress,
 		Eligible:      true,
-		Grid:          v.Warehouse.Grid,
 		Auction:       v.Auction,
 		Host:          v.Host,
 		ValueRange:    newValueRange(v.Simulation.Ranked),

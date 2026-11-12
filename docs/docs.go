@@ -17825,7 +17825,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "start_price": {
-                    "description": "起拍价; 配置了档次时为各档次中最低的, 也是最低带入, 每个拍品按档次的起拍价",
+                    "description": "各档次中最低的起拍价, 也是最低带入; 每个拍品按档次的起拍价",
                     "type": "integer"
                 }
             }
@@ -18057,7 +18057,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "coverage": {
-                    "description": "基点, 带入资金上限 = 拍场期望总价值 × 覆盖率; 0 表示用玩法平衡设置的默认值",
+                    "description": "基点, 多拍品时带入资金上限 = 拍场期望总价值 × 覆盖率; 0 表示用玩法平衡设置的默认值",
                     "type": "integer",
                     "maximum": 20000,
                     "minimum": 0
@@ -18071,17 +18071,17 @@ const docTemplate = `{
                 "max": {
                     "type": "integer",
                     "maximum": 8,
-                    "minimum": 0
+                    "minimum": 1
                 },
                 "min": {
-                    "description": "没有配置档次时忽略, 按 1 个",
                     "type": "integer",
                     "maximum": 8,
-                    "minimum": 0
+                    "minimum": 1
                 },
                 "tiers": {
                     "type": "array",
                     "maxItems": 6,
+                    "minItems": 1,
                     "items": {
                         "$ref": "#/definitions/venue.Tier"
                     }
@@ -18219,7 +18219,7 @@ const docTemplate = `{
                     ]
                 },
                 "ranked": {
-                    "description": "排位模式, 不缩放抽取次数; 配置了档次时为单个拍品(按权重混合各档次)的分布",
+                    "description": "排位模式, 不缩放抽取次数; 单个拍品(按权重混合各档次)的分布",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.ValueStats"
@@ -18233,7 +18233,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tiers": {
-                    "description": "各档次的价值分布, 没有配置档次时为空",
+                    "description": "各档次的价值分布, 同 Lots.Tiers 的顺序",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/venue.TierStats"
@@ -18642,14 +18642,6 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
-                },
-                "warehouse": {
-                    "description": "仓库生成规则, 没有配置档次时是唯一的档次",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/venue.WarehouseRule"
-                        }
-                    ]
                 }
             }
         },
@@ -18679,9 +18671,6 @@ const docTemplate = `{
                         "$ref": "#/definitions/venue.CostLine"
                     }
                 },
-                "grid": {
-                    "$ref": "#/definitions/venue.Grid"
-                },
                 "host": {
                     "description": "主持人的提示",
                     "allOf": [
@@ -18694,14 +18683,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "lot_slots": {
-                    "description": "拍场每种格子大小的仓库, 没有配置档次时为空",
+                    "description": "拍场每种格子大小的仓库",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/venue.GridOdds"
                     }
                 },
                 "lots": {
-                    "description": "拍场的拍品数和格子大小, 没有配置档次(一局一个仓库)时为空",
+                    "description": "拍场的拍品数和格子大小",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.LotsView"
@@ -18727,15 +18716,8 @@ const docTemplate = `{
                         "$ref": "#/definitions/condition.Progress"
                     }
                 },
-                "slots": {
-                    "description": "没有配置档次时仓库的档位; 拍场为空, 见 LotSlots",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/venue.SlotOdds"
-                    }
-                },
                 "value_range": {
-                    "description": "排位模式的仓库价值区间, 保存地图时模拟; 拍场为单个拍品的",
+                    "description": "排位模式单个拍品的价值区间, 保存地图时模拟",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.ValueRange"
@@ -18770,9 +18752,6 @@ const docTemplate = `{
                         "$ref": "#/definitions/venue.CostLine"
                     }
                 },
-                "grid": {
-                    "$ref": "#/definitions/venue.Grid"
-                },
                 "host": {
                     "description": "主持人的提示",
                     "allOf": [
@@ -18785,7 +18764,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "lots": {
-                    "description": "拍场的拍品数和格子大小, 没有配置档次(一局一个仓库)时为空",
+                    "description": "拍场的拍品数和格子大小",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.LotsView"
@@ -18812,7 +18791,7 @@ const docTemplate = `{
                     }
                 },
                 "value_range": {
-                    "description": "排位模式的仓库价值区间, 保存地图时模拟; 拍场为单个拍品的",
+                    "description": "排位模式单个拍品的价值区间, 保存地图时模拟",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.ValueRange"
@@ -18990,7 +18969,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "lots": {
-                    "description": "拍场的拍品数和档次, 不配置档次时一局一个仓库",
+                    "description": "拍场的拍品数和档次, 最多 1 个拍品时一局一个仓库",
                     "allOf": [
                         {
                             "$ref": "#/definitions/venue.LotRule"
@@ -19021,9 +19000,6 @@ const docTemplate = `{
                     "type": "integer",
                     "maximum": 1000000,
                     "minimum": -1000000
-                },
-                "warehouse": {
-                    "$ref": "#/definitions/venue.WarehouseRule"
                 }
             }
         },
