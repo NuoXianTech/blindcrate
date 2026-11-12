@@ -31,6 +31,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
+	"gorm.io/gorm"
 )
 
 // Match 一局暗拍(拍场)的对局级数据, 与 match.Match 一一对应, 开局时创建; 拍场依次开拍 LotCount 个拍品, 见 Lot
@@ -117,7 +118,7 @@ type Player struct {
 	Persona     bot.Snapshot  `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"persona"`    // 人机的风格, 开局时快照, 真人为空
 	Seed        int64         `gorm:"not null;default:0" json:"-"`                                        // 人机在这一局的随机种子, 开局时生成, 真人为 0
 	IsPractice  bool          `gorm:"not null;default:false" json:"is_practice"`                          // 练习局, 准入时决定, 之后不再变化
-	EntryCost   reward.Bundle `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"entry_cost"` // 实际扣除的入场费和入场代价, 练习局和人机为空
+	EntryCost   reward.Bundle `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"entry_cost"` // 实际扣除的入场费和入场代价, 练习局和人机为空, 退还后清空
 	Carry       int64         `gorm:"not null;default:0" json:"carry"`                                    // 带入资金, 整个拍场共用; 真人在准入时自选, 见 CarryPreference
 	Frozen      int64         `gorm:"not null;default:0" json:"frozen"`                                   // 冻结的带入资金, 练习局和人机为 0
 	Spent       int64         `gorm:"not null;default:0" json:"spent"`                                    // 已成交的拍品的成交价之和, 剩余资金为 Carry - Spent
@@ -130,6 +131,32 @@ type Player struct {
 	Rating      int32         `gorm:"not null;default:0" json:"rating"`                                   // 结算后的段位分, 同上
 	CreatedAt   time.Time     `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time     `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
+}
+
+// splitEntry 把入场代价 cost 拆成出价货币 currency 的入场费和其余的代价
+func splitEntry(cost reward.Bundle, currency string) (int64, reward.Bundle) {
+	var fee int64
+	rest := reward.Bundle{Items: cost.Items}
+	for _, line := range cost.Currencies {
+		if line.Currency == currency {
+			fee += line.Amount
+		} else {
+			rest.Currencies = append(rest.Currencies, line)
+		}
+	}
+	return fee, rest
+}
+
+// entryLines 把每个 Bundle 换成带名称的行, 同 reward.Lines; 全部为空时不查询
+func entryLines(tx *gorm.DB, bundles []reward.Bundle) ([][]reward.Line, error) {
+	if slices.ContainsFunc(bundles, func(b reward.Bundle) bool { return !b.IsEmpty() }) {
+		return reward.Lines(tx, bundles...)
+	}
+	lines := make([][]reward.Line, len(bundles))
+	for i := range lines {
+		lines[i] = []reward.Line{}
+	}
+	return lines, nil
 }
 
 // TableName 自定义表名

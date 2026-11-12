@@ -84,17 +84,19 @@ func (p *provider) Mode(ctx context.Context, code string) (match.Mode, error) {
 
 // Summary 对局记录中暗拍的摘要, 金额为出价货币的最小单位
 type Summary struct {
-	Venue       string `json:"venue"`      // 地图代码
-	VenueName   string `json:"venue_name"` // 开局时的地图名称
-	BidCurrency string `json:"bid_currency"`
-	Outcome     string `json:"outcome"`      // 拍场结算前为空, 之后为 sold(至少成交一个拍品)、unsold 或 cancelled
-	LotCount    int32  `json:"lot_count"`    // 拍品数
-	WonLots     int32  `json:"won_lots"`     // 自己拿下的拍品数
-	Spent       int64  `json:"spent"`        // 自己拿下的拍品的成交价之和
-	Profit      int64  `json:"profit"`       // 自己的盈亏, 结算前为 0
-	Rank        int16  `json:"rank"`         // 自己的名次, 全部流拍时为 0
-	IsPractice  bool   `json:"is_practice"`  // 自己打的是否为练习局
-	RatingDelta int32  `json:"rating_delta"` // 自己段位分的变化, 只有排位且至少成交一个拍品时有
+	Venue       string        `json:"venue"`      // 地图代码
+	VenueName   string        `json:"venue_name"` // 开局时的地图名称
+	BidCurrency string        `json:"bid_currency"`
+	Outcome     string        `json:"outcome"`      // 拍场结算前为空, 之后为 sold(至少成交一个拍品)、unsold 或 cancelled
+	LotCount    int32         `json:"lot_count"`    // 拍品数
+	WonLots     int32         `json:"won_lots"`     // 自己拿下的拍品数
+	Spent       int64         `json:"spent"`        // 自己拿下的拍品的成交价之和
+	Profit      int64         `json:"profit"`       // 自己拿下的拍品的盈亏, 不含入场费和入场代价, 结算前为 0
+	EntryFee    int64         `json:"entry_fee"`    // 自己实际扣除的出价货币的入场费, 练习局和已退还时为 0
+	EntryCost   []reward.Line `json:"entry_cost"`   // 自己实际扣除的其余入场代价, 同上为空
+	Rank        int16         `json:"rank"`         // 自己的名次, 全部流拍时为 0
+	IsPractice  bool          `json:"is_practice"`  // 自己打的是否为练习局
+	RatingDelta int32         `json:"rating_delta"` // 自己段位分的变化, 只有排位且至少成交一个拍品时有
 }
 
 // Summaries 实现 match.Summarizer, 为对局记录附带地图、拍品数、自己拿下的拍品数和盈亏
@@ -126,14 +128,27 @@ func (p *provider) Summaries(ctx context.Context, viewerID uint64, matchIDs []ui
 	for _, w := range won {
 		wonLots[w.MatchID] = w.Lots
 	}
+	rests := make([]reward.Bundle, len(matches))
+	fees := make([]int64, len(matches))
+	for i, m := range matches {
+		if player := mine[m.MatchID]; player != nil {
+			fees[i], rests[i] = splitEntry(player.EntryCost, m.Venue.BidCurrency)
+		}
+	}
+	lines, err := entryLines(tx, rests)
+	if err != nil {
+		return nil, err
+	}
 	summaries := make(map[uint64]any, len(matches))
-	for _, m := range matches {
+	for i, m := range matches {
 		summary := Summary{
 			Venue:       m.Venue.Code,
 			VenueName:   m.Venue.Name,
 			BidCurrency: m.Venue.BidCurrency,
 			Outcome:     m.Outcome,
 			LotCount:    m.LotCount,
+			EntryFee:    fees[i],
+			EntryCost:   lines[i],
 		}
 		if player := mine[m.MatchID]; player != nil {
 			summary.WonLots = wonLots[m.MatchID]
@@ -596,13 +611,14 @@ func biddingPhase(rule *venue.AuctionRule, round int32) *match.Phase {
 type state struct {
 	match     *match.Match
 	auction   Match
-	lots      []Lot          // 按序号排序
-	lot       *Lot           // 当前拍品, lots 中的一个
-	players   []Player       // 按座位号排序
-	submitted map[int16]bool // 本轮已出价的座位
-	hints     []HostHint     // 主持人的提示, 只有展示时读出, 见 loadDetails
-	hypes     []HypeEvent    // 热度的变动, 同上
-	bids      []Bid          // 全部出价记录, 同上
+	lots      []Lot           // 按序号排序
+	lot       *Lot            // 当前拍品, lots 中的一个
+	players   []Player        // 按座位号排序
+	submitted map[int16]bool  // 本轮已出价的座位
+	hints     []HostHint      // 主持人的提示, 只有展示时读出, 见 loadDetails
+	hypes     []HypeEvent     // 热度的变动, 同上
+	bids      []Bid           // 全部出价记录, 同上
+	entry     [][]reward.Line // 各座位出价货币以外的入场代价, 同 players 的顺序, 同上
 }
 
 // loadState 读出对局的暗拍状态, 不是暗拍的对局返回 gorm.ErrRecordNotFound
@@ -1128,7 +1144,7 @@ func (st *state) grantWarehouse(tx *gorm.DB, p *Player, lotNo int32) error {
 	return st.applyReward(tx, p, bundle, wallet.BizMatchReward, lotAction("reward", lotNo))
 }
 
-// refund 退还 p 的入场代价, 已下架或已删除的物品按当前回收价折成货币
+// refund 退还 p 的入场代价并清空 EntryCost, 已下架或已删除的物品按当前回收价折成货币
 func (st *state) refund(tx *gorm.DB, p *Player) error {
 	if p.EntryCost.IsEmpty() {
 		return nil
@@ -1137,7 +1153,11 @@ func (st *state) refund(tx *gorm.DB, p *Player) error {
 	if err != nil {
 		return err
 	}
-	return st.applyReward(tx, p, bundle, wallet.BizMatchRefund, "refund")
+	if err := st.applyReward(tx, p, bundle, wallet.BizMatchRefund, "refund"); err != nil {
+		return err
+	}
+	p.EntryCost = reward.Bundle{}
+	return tx.Model(p).Select("entry_cost").Updates(p).Error
 }
 
 // refundUses 退还 p 在 uses 中用掉的道具, 已下架或已删除的按当前回收价折成货币

@@ -408,7 +408,7 @@ definitions:
       entry_cost:
         allOf:
         - $ref: '#/definitions/reward.Bundle'
-        description: 实际扣除的入场费和入场代价, 练习局和人机为空
+        description: 实际扣除的入场费和入场代价, 练习局和人机为空, 退还后清空
       estimate:
         description: 人机对当前拍品按公开信息的最新估值, 真人为 0
         type: integer
@@ -498,13 +498,17 @@ definitions:
         description: 带入资金
         type: integer
       entry_cost:
-        allOf:
-        - $ref: '#/definitions/reward.Bundle'
-        description: 实际扣除的入场代价
+        description: 实际扣除的其余入场代价, 同上为空
+        items:
+          $ref: '#/definitions/reward.Line'
+        type: array
+      entry_fee:
+        description: 实际扣除的出价货币的入场费, 练习局和已退还时为 0
+        type: integer
       is_practice:
         type: boolean
       profit:
-        description: 拍场结算后的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算
+        description: 拍场结算后拿下的拍品的盈亏, 出价货币, 名次按它排; 整场的盈亏还要减去 EntryFee; 练习局按正式局计算
         type: integer
       rank:
         description: 拍场结算后的名次, 全部流拍时为 0

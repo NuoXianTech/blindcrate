@@ -8,6 +8,7 @@ import {toast} from 'sonner';
 import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
 import {TierName} from '@/components/common/ranked';
+import {PriceText} from '@/components/common/reward';
 import {CurrencyIcon} from '@/components/common/wallet';
 import type {Scan} from '@/hooks/use-scan';
 import {ROUTES, matchHref} from '@/lib/access';
@@ -21,7 +22,7 @@ import type {Tier} from '@/lib/services/ranked';
 import {formatAmount} from '@/lib/utils';
 
 /**
- * 当前拍品的结算结果: 成交价、仓库价值; 最后一个拍品开箱后还有整场的名次、自己的盈亏和排位的段位分、段位变化,
+ * 当前拍品的结算结果: 成交价、仓库价值; 最后一个拍品开箱后还有整场的名次、自己扣掉入场费的盈亏和排位的段位分、段位变化,
  * 此时拍场已结算, 对局随即释放, 开箱时就可以离开或再来一局
  * 仓库价值随开箱扫描累加, 盈亏、名次和段位分能推出仓库价值, 扫完才公开
  */
@@ -90,6 +91,8 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
     {label: scan.complete ? '仓库价值' : '仓库价值 (扫描中)', value: formatAmount(scan.complete ? lot.value : scan.value, decimals)},
     {label: '我的剩余资金', value: formatAmount(self.remaining, decimals)},
   ];
+  // 整场盈亏要扣掉入场费; 其余的入场代价不是出价货币, 单独列出
+  const net = self.profit - self.entry_fee;
   // 全部流拍时名次为 0, 按座位号
   const standings = session ? [...session.seats].sort((a, b) => a.rank - b.rank || a.seat - b.seat) : [];
 
@@ -130,12 +133,23 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
           <span
             className={cn(
                 'font-mono text-3xl font-bold tabular-nums',
-                self.profit > 0 && 'text-quality-green',
-                self.profit < 0 && 'text-quality-red',
+                net > 0 && 'text-quality-green',
+                net < 0 && 'text-quality-red',
             )}
           >
-            {formatAmount(self.profit, decimals, {signed: true})}
+            {formatAmount(net, decimals, {signed: true})}
           </span>
+          {self.entry_fee > 0 && (
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+              拍品 {formatAmount(self.profit, decimals, {signed: true})} · 入场费 {formatAmount(-self.entry_fee, decimals, {signed: true})}
+            </span>
+          )}
+          {self.entry_cost.length > 0 && (
+            <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+              另付入场代价
+              <PriceText lines={self.entry_cost} />
+            </span>
+          )}
         </div>
       )}
 
@@ -147,7 +161,7 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
               <li key={s.seat} className={cn('flex items-center gap-2', player?.is_self && 'font-medium')}>
                 <span className="w-6 font-mono tabular-nums text-muted-foreground">{s.rank > 0 ? `#${s.rank}` : '-'}</span>
                 <span className="min-w-0 flex-1 truncate">{player?.nickname ?? `${s.seat} 号位`}</span>
-                <span className="font-mono text-xs tabular-nums text-muted-foreground" title="花费 / 带入">
+                <span className="font-mono text-xs tabular-nums text-muted-foreground" title="花费 / 带入, 右侧为拍品的盈亏, 不含入场费">
                   {formatAmount(s.spent, decimals)} / {formatAmount(s.carry, decimals)}
                 </span>
                 <span

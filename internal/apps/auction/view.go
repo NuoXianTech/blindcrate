@@ -66,7 +66,8 @@ type Footprint struct {
 type SelfView struct {
 	Seat        int16         `json:"seat"`
 	IsPractice  bool          `json:"is_practice"`
-	EntryCost   reward.Bundle `json:"entry_cost"`   // 实际扣除的入场代价
+	EntryFee    int64         `json:"entry_fee"`    // 实际扣除的出价货币的入场费, 练习局和已退还时为 0
+	EntryCost   []reward.Line `json:"entry_cost"`   // 实际扣除的其余入场代价, 同上为空
 	Carry       int64         `json:"carry"`        // 带入资金
 	Spent       int64         `json:"spent"`        // 已拿下的拍品的成交价之和
 	Remaining   int64         `json:"remaining"`    // 剩余资金, 当前拍品出价的上限
@@ -75,7 +76,7 @@ type SelfView struct {
 	CanBid      bool          `json:"can_bid"`      // 现在是否可以出价; 剩余资金不够当前拍品的起拍价时不能
 	Uses        []UseView     `json:"uses"`         // 自己用过的道具和得到的情报, 按使用顺序, 含之前的拍品
 	UsesLeft    int32         `json:"uses_left"`    // 本局还能用几个道具, 练习局为 0; 不考虑阶段和轮次
-	Profit      int64         `json:"profit"`       // 拍场结算后的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算
+	Profit      int64         `json:"profit"`       // 拍场结算后拿下的拍品的盈亏, 出价货币, 名次按它排; 整场的盈亏还要减去 EntryFee; 练习局按正式局计算
 	Rank        int16         `json:"rank"`         // 拍场结算后的名次, 全部流拍时为 0
 	RatingDelta int32         `json:"rating_delta"` // 段位分的变化, 只有排位且至少成交一个拍品时有
 	Rating      int32         `json:"rating"`       // 结算后的段位分, 同上
@@ -199,9 +200,13 @@ type AdminView struct {
 // view 以 viewerID 的视角查看, 不是这局的真人玩家时返回 nil
 func (st *state) view(viewerID uint64, items []WarehouseItem, uses []Use) *AuctionView {
 	var self *Player
+	entry := []reward.Line{}
 	for i := range st.players {
 		if viewerID != 0 && st.players[i].UserID == viewerID {
 			self = &st.players[i]
+			if i < len(st.entry) {
+				entry = st.entry[i]
+			}
 		}
 	}
 	if self == nil {
@@ -209,12 +214,14 @@ func (st *state) view(viewerID uint64, items []WarehouseItem, uses []Use) *Aucti
 	}
 	m := st.match
 	submitted := st.submitted[self.Seat]
+	fee, _ := splitEntry(self.EntryCost, st.auction.Venue.BidCurrency)
 	view := &AuctionView{
 		PublicView: st.publicView(items, uses),
 		Self: SelfView{
 			Seat:       self.Seat,
 			IsPractice: self.IsPractice,
-			EntryCost:  self.EntryCost,
+			EntryFee:   fee,
+			EntryCost:  entry,
 			Carry:      self.Carry,
 			Spent:      self.Spent,
 			Remaining:  self.Remaining(),
@@ -412,7 +419,7 @@ func lotUses(uses []Use, lotNo int32) []Use {
 	return out
 }
 
-// loadDetails 读出展示用的全部藏品、用掉的道具、出价记录、提示和热度变动
+// loadDetails 读出展示用的全部藏品、用掉的道具、出价记录、提示、热度变动和入场代价的名称
 func (st *state) loadDetails(tx *gorm.DB) ([]WarehouseItem, []Use, error) {
 	items, err := loadItems(tx, st.match.ID, 0)
 	if err != nil {
@@ -426,6 +433,13 @@ func (st *state) loadDetails(tx *gorm.DB) ([]WarehouseItem, []Use, error) {
 		return nil, nil, err
 	}
 	if st.hints, st.hypes, err = loadHost(tx, st.match.ID); err != nil {
+		return nil, nil, err
+	}
+	rests := make([]reward.Bundle, len(st.players))
+	for i, p := range st.players {
+		_, rests[i] = splitEntry(p.EntryCost, st.auction.Venue.BidCurrency)
+	}
+	if st.entry, err = entryLines(tx, rests); err != nil {
 		return nil, nil, err
 	}
 	return items, uses, nil

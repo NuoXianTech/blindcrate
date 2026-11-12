@@ -170,6 +170,10 @@ function MatchRow({match: m, decimalsOf}: { match: MatchView; decimalsOf: (curre
   const self = m.players.find((p) => p.is_self);
   const result = resultOf(m);
   const settled = !!s?.outcome;
+  // 盈亏要扣掉入场费; 其余的入场代价不是出价货币, 单独列出
+  const net = s ? s.profit - s.entry_fee : 0;
+  const decimals = s ? decimalsOf(s.bid_currency) : 0;
+  const extra = s?.entry_cost.map((l) => (l.currency ? `${formatAmount(l.amount, l.decimals)} ${l.name}` : `${l.name} ×${l.amount}`)).join('、');
 
   return (
     <TableRow>
@@ -204,18 +208,25 @@ function MatchRow({match: m, decimalsOf}: { match: MatchView; decimalsOf: (curre
       <TableCell className={result.className}>{result.label}</TableCell>
       <TableCell className="text-right">
         {s && settled ? (
-          <span
-            className={cn(
-                'inline-flex items-center gap-1 font-mono tabular-nums',
-                s.profit > 0 && 'text-quality-green',
-                s.profit < 0 && 'text-quality-red',
-                s.is_practice && 'opacity-60',
-            )}
-            title={s.is_practice ? '练习局, 仅供参考' : undefined}
-          >
-            <CurrencyIcon currency={s.bid_currency} className="size-4" />
-            {formatAmount(s.profit, decimalsOf(s.bid_currency), {signed: true})}
-          </span>
+          <div className="flex flex-col items-end">
+            <span
+              className={cn(
+                  'inline-flex items-center gap-1 font-mono tabular-nums',
+                  net > 0 && 'text-quality-green',
+                  net < 0 && 'text-quality-red',
+                  s.is_practice && 'opacity-60',
+              )}
+              title={
+                s.is_practice ? '练习局, 仅供参考' :
+                s.entry_fee > 0 ? `拍品 ${formatAmount(s.profit, decimals, {signed: true})}, 入场费 ${formatAmount(-s.entry_fee, decimals, {signed: true})}` :
+                undefined
+              }
+            >
+              <CurrencyIcon currency={s.bid_currency} className="size-4" />
+              {formatAmount(net, decimals, {signed: true})}
+            </span>
+            {extra && <span className="text-xs text-muted-foreground">另付 {extra}</span>}
+          </div>
         ) : (
           <span className="text-muted-foreground">-</span>
         )}
