@@ -31,6 +31,7 @@ import (
 	netmail "net/mail"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/config"
@@ -59,6 +60,30 @@ func NormalizeAddress(address string) (string, error) {
 		return "", ErrInvalidAddress
 	}
 	return strings.ToLower(address), nil
+}
+
+// IsAlias 是否为别名地址, 即 @ 前带 + 的子地址(如 name+tag@example.com)
+//
+// 多数邮件服务会把它投递到 name@example.com, 一个信箱可以写出任意多个不同的地址。
+func IsAlias(address string) bool {
+	local, _, _ := strings.Cut(address, "@")
+	return strings.Contains(local, "+")
+}
+
+// InDomains 地址的后缀是否在列表中, 列表每行一个后缀(也接受逗号和空格分隔), 不区分大小写, 开头的 @ 和 *. 会被忽略
+//
+// 子域名一并匹配: 列表中有 example.com 时 name@mail.example.com 也算在内。
+func InDomains(address, domains string) bool {
+	_, domain, _ := strings.Cut(strings.ToLower(address), "@")
+	for _, entry := range strings.FieldsFunc(strings.ToLower(domains), func(r rune) bool {
+		return r == ',' || r == ';' || unicode.IsSpace(r)
+	}) {
+		entry = strings.TrimLeft(entry, "*@.")
+		if entry != "" && (domain == entry || strings.HasSuffix(domain, "."+entry)) {
+			return true
+		}
+	}
+	return false
 }
 
 // Send 按后台的邮件设置发送纯文本邮件

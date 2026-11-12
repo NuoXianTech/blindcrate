@@ -123,6 +123,16 @@ func emailCodeCooldownKey(userID uint64) string {
 	return emailCodeCooldownKeyPrefix + strconv.FormatUint(userID, 10)
 }
 
+// registerCodeKey 注册验证码的 key, email 为规范化后的邮箱
+func registerCodeKey(email string) string {
+	return registerCodeKeyPrefix + email
+}
+
+// registerCodeCooldownKey 注册验证码发送冷却的 key
+func registerCodeCooldownKey(email string) string {
+	return registerCodeCooldownKeyPrefix + email
+}
+
 // generateEmailCode 生成 6 位数字验证码
 func generateEmailCode() (string, error) {
 	n, err := rand.Int(rand.Reader, big.NewInt(1000000))

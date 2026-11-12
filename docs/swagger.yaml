@@ -841,6 +841,12 @@ definitions:
     type: object
   auth.RegisterRequest:
     properties:
+      code:
+        description: 发到邮箱的验证码, 见 /api/v1/auth/register/code
+        type: string
+      email:
+        description: 开启注册时验证邮箱后必填, 未开启时忽略
+        type: string
       password:
         type: string
       username:
@@ -856,6 +862,13 @@ definitions:
         type: string
     type: object
   auth.SendEmailCodeRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  auth.SendRegisterCodeRequest:
     properties:
       email:
         type: string
@@ -10772,7 +10785,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 注册成功后直接登录; 系统中第一个注册的用户自动成为管理员, 且不受注册开关限制
+      description: 注册成功后直接登录; 系统中第一个注册的用户自动成为管理员, 且不受注册开关和邮箱验证限制; 开启注册时验证邮箱后需要邮箱和验证码
       parameters:
       - description: request body
         in: body
@@ -10813,6 +10826,52 @@ paths:
           schema:
             $ref: '#/definitions/auth.Response'
       summary: 注册新用户
+      tags:
+      - auth
+  /api/v1/auth/register/code:
+    post:
+      consumes:
+      - application/json
+      description: 只在开启注册时验证邮箱后可用
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.SendRegisterCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/auth.Response'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/auth.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.Response'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/auth.Response'
+      summary: 向注册用的邮箱发送验证码
       tags:
       - auth
   /api/v1/auth/user-info:

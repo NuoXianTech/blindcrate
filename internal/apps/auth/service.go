@@ -106,7 +106,9 @@ func doLogin(ctx context.Context, identifier, password string) (*User, error) {
 }
 
 // doRegister 注册新用户, 系统中第一个注册的用户自动成为管理员
-func doRegister(ctx context.Context, username, password string) (*User, error) {
+//
+// 开启注册时验证邮箱后需要 doSendRegisterCode 发出的验证码, 通过后邮箱直接记为已验证; 未开启时忽略 rawEmail 和 code。
+func doRegister(ctx context.Context, username, password, rawEmail, code string) (*User, error) {
 	if err := validateUsername(username); err != nil {
 		return nil, err
 	}
@@ -121,6 +123,12 @@ func doRegister(ctx context.Context, username, password string) (*User, error) {
 	authSettings, err := settings.Auth.Get(ctx)
 	if err != nil {
 		return nil, err
+	}
+	var email string
+	if authSettings.RegisterEmailRequired && strings.TrimSpace(rawEmail) != "" {
+		if email, err = normalizeEmail(authSettings, rawEmail); err != nil {
+			return nil, err
+		}
 	}
 	user := User{Username: username, PasswordHash: hash, Nickname: username}
 	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
@@ -150,8 +158,31 @@ func doRegister(ctx context.Context, username, password string) (*User, error) {
 		// 注册成功后直接登录, 创建用户时一并记录首次登录时间
 		now := time.Now()
 		user.LastLoginAt = &now
+
+		// 系统中还没有用户时可以不填邮箱, 此时邮件通常还没有配置
+		if authSettings.RegisterEmailRequired && (hasUser || email != "") {
+			if email == "" {
+				return errors.New(EmailRequired)
+			}
+			if err := verifyRegisterCode(ctx, email, code); err != nil {
+				return err
+			}
+			if err := tx.Model(&User{}).Where("LOWER(email) = ?", email).Count(&count).Error; err != nil {
+				return err
+			}
+			if count > 0 {
+				return errors.New(EmailTaken)
+			}
+			user.Email = email
+			user.EmailVerifiedAt = &now
+		}
+
 		if err := tx.Create(&user).Error; err != nil {
 			if db.IsUniqueViolation(err) {
+				// 绑定邮箱不经过注册的咨询锁, 可能在上面的检查之后占用同一个邮箱
+				if strings.Contains(err.Error(), "uniq_users_email_lower") {
+					return errors.New(EmailTaken)
+				}
 				return errors.New(UsernameTaken)
 			}
 			return err
@@ -165,6 +196,9 @@ func doRegister(ctx context.Context, username, password string) (*User, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	if user.Email != "" {
+		db.Redis.Del(ctx, registerCodeKey(user.Email))
 	}
 
 	if user.IsAdmin {
@@ -248,14 +282,74 @@ func IsSessionActive(ctx context.Context, userID uint64, sessionID string) (bool
 	return tracked.Val() && exists.Val() > 0, nil
 }
 
+// normalizeEmail 校验并规范化邮箱, 并按设置检查别名地址和邮箱后缀
+func normalizeEmail(authSettings *settings.AuthSettings, rawEmail string) (string, error) {
+	email, err := mail.NormalizeAddress(rawEmail)
+	// 不接受 name@[1.2.3.4] 这样的地址, 它没有后缀, 会绕过邮箱后缀的黑名单
+	if err != nil || strings.Contains(email, "[") {
+		return "", errors.New(EmailInvalid)
+	}
+	if authSettings.BlockEmailAlias && mail.IsAlias(email) {
+		return "", errors.New(EmailAliasBlocked)
+	}
+	switch listed := mail.InDomains(email, authSettings.EmailDomains); {
+	case authSettings.EmailDomainMode == settings.EmailDomainAllow && !listed,
+		authSettings.EmailDomainMode == settings.EmailDomainDeny && listed:
+		return "", errors.New(EmailDomainBlocked)
+	}
+	return email, nil
+}
+
+// sendEmailCode 生成验证码存入 key 并发到邮箱, cooldownKey 用于发送冷却
+func sendEmailCode(ctx context.Context, key, cooldownKey, email string) error {
+	site, err := settings.Site.Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	// 发送冷却
+	ok, err := db.Redis.SetNX(ctx, cooldownKey, 1, emailCodeCooldown).Result()
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.New(CodeTooFrequent)
+	}
+
+	code, err := generateEmailCode()
+	if err != nil {
+		return err
+	}
+	pipe := db.Redis.TxPipeline()
+	pipe.Del(ctx, key)
+	pipe.HSet(ctx, key, "email", email, "code", code, "attempts", 0)
+	pipe.Expire(ctx, key, emailCodeTTL)
+	if _, err = pipe.Exec(ctx); err != nil {
+		return err
+	}
+
+	subject := fmt.Sprintf("%s 邮箱验证码", site.Name)
+	body := fmt.Sprintf("您的验证码是 %s, %d 分钟内有效。\n如非本人操作, 请忽略此邮件。", code, int(emailCodeTTL.Minutes()))
+	if err = mail.Send(ctx, email, subject, body); err != nil {
+		logger.ErrorF(ctx, "[EmailCode] send to %s failed: %v", email, err)
+		db.Redis.Del(ctx, key, cooldownKey)
+		return errors.New(MailUnavailable)
+	}
+	return nil
+}
+
 // doSendEmailCode 向待绑定的邮箱发送验证码
 //
 // 邮箱在验证通过前只暂存在 Redis, 不写入 users 表,
 // 避免他人先填写你的邮箱占住唯一索引。
 func doSendEmailCode(ctx context.Context, userID uint64, rawEmail string) error {
-	email, err := mail.NormalizeAddress(rawEmail)
+	authSettings, err := settings.Auth.Get(ctx)
 	if err != nil {
-		return errors.New(EmailInvalid)
+		return err
+	}
+	email, err := normalizeEmail(authSettings, rawEmail)
+	if err != nil {
+		return err
 	}
 
 	// 邮箱已被其他用户绑定
@@ -268,41 +362,62 @@ func doSendEmailCode(ctx context.Context, userID uint64, rawEmail string) error 
 	if count > 0 {
 		return errors.New(EmailTaken)
 	}
-	site, err := settings.Site.Get(ctx)
+	return sendEmailCode(ctx, emailCodeKey(userID), emailCodeCooldownKey(userID), email)
+}
+
+// doSendRegisterCode 向注册用的邮箱发送验证码, 只在开启注册时验证邮箱后可用
+//
+// 注册前还没有用户, 验证码和发送冷却都按邮箱存放。
+func doSendRegisterCode(ctx context.Context, rawEmail string) error {
+	authSettings, err := settings.Auth.Get(ctx)
+	if err != nil {
+		return err
+	}
+	if !authSettings.RegisterEnabled {
+		return errors.New(RegisterClosed)
+	}
+	if !authSettings.RegisterEmailRequired {
+		return errors.New(EmailNotRequired)
+	}
+	email, err := normalizeEmail(authSettings, rawEmail)
 	if err != nil {
 		return err
 	}
 
-	// 发送冷却
-	ok, err := db.Redis.SetNX(ctx, emailCodeCooldownKey(userID), 1, emailCodeCooldown).Result()
+	var count int64
+	if err = db.DB(ctx).Model(&User{}).Where("LOWER(email) = ?", email).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New(EmailTaken)
+	}
+	return sendEmailCode(ctx, registerCodeKey(email), registerCodeCooldownKey(email), email)
+}
+
+// verifyRegisterCode 校验注册验证码
+//
+// 只有验证码错误才计入尝试次数, 用户名被占用等原因注册失败后可以用同一个验证码重试; 注册成功后由调用方删除。
+func verifyRegisterCode(ctx context.Context, email, code string) error {
+	key := registerCodeKey(email)
+	stored, err := db.Redis.HGetAll(ctx, key).Result()
 	if err != nil {
 		return err
 	}
-	if !ok {
-		return errors.New(CodeTooFrequent)
+	if stored["code"] == "" {
+		return errors.New(CodeInvalid)
 	}
-
-	code, err := generateEmailCode()
+	if subtle.ConstantTimeCompare([]byte(stored["code"]), []byte(strings.TrimSpace(code))) == 1 {
+		return nil
+	}
+	// 超过尝试次数直接作废, 防止暴力枚举 6 位验证码
+	attempts, err := db.Redis.HIncrBy(ctx, key, "attempts", 1).Result()
 	if err != nil {
 		return err
 	}
-	key := emailCodeKey(userID)
-	pipe := db.Redis.TxPipeline()
-	pipe.Del(ctx, key)
-	pipe.HSet(ctx, key, "email", email, "code", code, "attempts", 0)
-	pipe.Expire(ctx, key, emailCodeTTL)
-	if _, err = pipe.Exec(ctx); err != nil {
-		return err
+	if attempts >= emailCodeMaxAttempts {
+		db.Redis.Del(ctx, key)
 	}
-
-	subject := fmt.Sprintf("%s 邮箱验证码", site.Name)
-	body := fmt.Sprintf("您的验证码是 %s, %d 分钟内有效。\n如非本人操作, 请忽略此邮件。", code, int(emailCodeTTL.Minutes()))
-	if err = mail.Send(ctx, email, subject, body); err != nil {
-		logger.ErrorF(ctx, "[EmailCode] send to user %d failed: %v", userID, err)
-		db.Redis.Del(ctx, key, emailCodeCooldownKey(userID))
-		return errors.New(MailUnavailable)
-	}
-	return nil
+	return errors.New(CodeInvalid)
 }
 
 // doVerifyEmail 校验验证码, 通过后把邮箱写入 users 并标记已验证

@@ -131,12 +131,62 @@ func Login(c *gin.Context) {
 type RegisterRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
+	Email    string `json:"email"` // 开启注册时验证邮箱后必填, 未开启时忽略
+	Code     string `json:"code"`  // 发到邮箱的验证码, 见 /api/v1/auth/register/code
+}
+
+// SendRegisterCodeRequest 发送注册验证码请求体
+type SendRegisterCodeRequest struct {
+	Email string `json:"email" binding:"required"`
+}
+
+// SendRegisterCode
+// @Tags auth
+// @Summary 向注册用的邮箱发送验证码
+// @Description 只在开启注册时验证邮箱后可用
+// @Accept json
+// @Produce json
+// @Param request body SendRegisterCodeRequest true "request body"
+// @Success 200 {object} Response
+// @Failure 400 {object} Response
+// @Failure 403 {object} Response
+// @Failure 409 {object} Response
+// @Failure 429 {object} Response
+// @Failure 500 {object} Response
+// @Failure 503 {object} Response
+// @Router /api/v1/auth/register/code [post]
+func SendRegisterCode(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req SendRegisterCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: InvalidParams})
+		return
+	}
+	if err := doSendRegisterCode(ctx, req.Email); err != nil {
+		switch err.Error() {
+		case EmailInvalid, EmailAliasBlocked, EmailDomainBlocked, EmailNotRequired:
+			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
+		case RegisterClosed:
+			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
+		case EmailTaken:
+			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
+		case CodeTooFrequent:
+			c.JSON(http.StatusTooManyRequests, Response{ErrorMsg: err.Error()})
+		case MailUnavailable:
+			c.JSON(http.StatusServiceUnavailable, Response{ErrorMsg: err.Error()})
+		default:
+			logger.ErrorF(ctx, "[SendRegisterCode] send failed: %v", err)
+			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, Response{})
 }
 
 // Register
 // @Tags auth
 // @Summary 注册新用户
-// @Description 注册成功后直接登录; 系统中第一个注册的用户自动成为管理员, 且不受注册开关限制
+// @Description 注册成功后直接登录; 系统中第一个注册的用户自动成为管理员, 且不受注册开关和邮箱验证限制; 开启注册时验证邮箱后需要邮箱和验证码
 // @Accept json
 // @Produce json
 // @Param request body RegisterRequest true "request body"
@@ -154,14 +204,14 @@ func Register(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, Response{ErrorMsg: InvalidParams})
 		return
 	}
-	user, err := doRegister(ctx, req.Username, req.Password)
+	user, err := doRegister(ctx, req.Username, req.Password, req.Email, req.Code)
 	if err != nil {
 		switch err.Error() {
-		case UsernameInvalid, PasswordInvalid:
+		case UsernameInvalid, PasswordInvalid, EmailInvalid, EmailAliasBlocked, EmailDomainBlocked, EmailRequired, CodeInvalid:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
 		case RegisterClosed:
 			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		case UsernameTaken:
+		case UsernameTaken, EmailTaken:
 			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
 		default:
 			logger.ErrorF(ctx, "[Register] register failed: %v", err)
@@ -181,7 +231,11 @@ func Register(c *gin.Context) {
 		logger.ErrorF(ctx, "[Register] track session failed: %v", err)
 	}
 	LogForAudit(ctx, user, c)
-	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionRegister, audit.TargetUser, user.ID, map[string]interface{}{"is_admin": user.IsAdmin})
+	changes := map[string]interface{}{"is_admin": user.IsAdmin}
+	if user.Email != "" {
+		changes["email"] = user.Email
+	}
+	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionRegister, audit.TargetUser, user.ID, changes)
 	logger.InfoF(ctx, "[Register] %d %s", user.ID, user.Username)
 	c.JSON(
 		http.StatusCreated,
@@ -312,7 +366,7 @@ func SendEmailCode(c *gin.Context) {
 	}
 	if err := doSendEmailCode(ctx, user.ID, req.Email); err != nil {
 		switch err.Error() {
-		case EmailInvalid:
+		case EmailInvalid, EmailAliasBlocked, EmailDomainBlocked:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
 		case EmailTaken:
 			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})

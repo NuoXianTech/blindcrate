@@ -8391,7 +8391,7 @@ const docTemplate = `{
         },
         "/api/v1/auth/register": {
             "post": {
-                "description": "注册成功后直接登录; 系统中第一个注册的用户自动成为管理员, 且不受注册开关限制",
+                "description": "注册成功后直接登录; 系统中第一个注册的用户自动成为管理员, 且不受注册开关和邮箱验证限制; 开启注册时验证邮箱后需要邮箱和验证码",
                 "consumes": [
                     "application/json"
                 ],
@@ -8458,6 +8458,76 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/register/code": {
+            "post": {
+                "description": "只在开启注册时验证邮箱后可用",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "向注册用的邮箱发送验证码",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.SendRegisterCodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/auth.Response"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/auth.Response"
                         }
@@ -12511,6 +12581,14 @@ const docTemplate = `{
                 "username"
             ],
             "properties": {
+                "code": {
+                    "description": "发到邮箱的验证码, 见 /api/v1/auth/register/code",
+                    "type": "string"
+                },
+                "email": {
+                    "description": "开启注册时验证邮箱后必填, 未开启时忽略",
+                    "type": "string"
+                },
                 "password": {
                     "type": "string"
                 },
@@ -12529,6 +12607,17 @@ const docTemplate = `{
             }
         },
         "auth.SendEmailCodeRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.SendRegisterCodeRequest": {
             "type": "object",
             "required": [
                 "email"

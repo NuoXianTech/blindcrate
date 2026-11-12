@@ -18,6 +18,10 @@ export interface PublicSettings {
   auth: {
     register_enabled: boolean;
     email_login_enabled: boolean;
+    /** 开启后注册时需要填写邮箱并通过验证码验证 */
+    register_email_required: boolean;
+    /** 开启后注册和绑定邮箱时不接受带 + 的别名地址 */
+    block_email_alias: boolean;
   };
   economy: {
     /** 基础货币的代码: 新手资金和已删除物品的回收价使用, 也是新建物品和地图时默认选中的货币 */
@@ -46,7 +50,7 @@ export const PUBLIC_SETTINGS_TAG = 'public-settings';
 /** 与后端设置的默认值一致, 后端不可用时使用 */
 const DEFAULT_SETTINGS: PublicSettings = {
   site: {name: 'BlindCrate', description: '', logo_url: '', announcement: '', icp: '', contact_email: ''},
-  auth: {register_enabled: true, email_login_enabled: true},
+  auth: {register_enabled: true, email_login_enabled: true, register_email_required: false, block_email_alias: false},
   economy: {base_currency: 'chip', sell_fee_rate: 200, signup_grant: 5000, pve_daily_profit_cap: 5000},
   upload: {max_size_kb: 5120, allow_png: true, allow_jpeg: true, allow_webp: true, avatar_enabled: true},
 };
@@ -60,13 +64,8 @@ async function fetchPublicSettings(): Promise<PublicSettings | null> {
   try {
     const res = await fetch(`${BACKEND_ORIGIN}/api/v1/settings/public`, {signal: AbortSignal.timeout(3000)});
     if (!res.ok) return null;
-    const {data} = (await res.json()) as { data: Partial<PublicSettings> | null };
-    return {
-      site: {...DEFAULT_SETTINGS.site, ...data?.site},
-      auth: {...DEFAULT_SETTINGS.auth, ...data?.auth},
-      economy: {...DEFAULT_SETTINGS.economy, ...data?.economy},
-      upload: {...DEFAULT_SETTINGS.upload, ...data?.upload},
-    };
+    const {data} = (await res.json()) as { data: PublicSettings | null };
+    return data;
   } catch {
     return null;
   }

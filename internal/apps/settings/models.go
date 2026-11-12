@@ -117,7 +117,9 @@ var (
 		Description: "控制新用户注册和登录方式",
 		Category:    CategorySystem,
 		Sort:        20,
-		Defaults:    func() *AuthSettings { return &AuthSettings{RegisterEnabled: true, EmailLoginEnabled: true} },
+		Defaults: func() *AuthSettings {
+			return &AuthSettings{RegisterEnabled: true, EmailLoginEnabled: true, EmailDomainMode: EmailDomainOff}
+		},
 	})
 	Mail = Register(Group[MailSettings]{
 		Key:         KeyMail,
@@ -236,10 +238,22 @@ type SiteSettings struct {
 	ContactEmail string `json:"contact_email" label:"联系邮箱" binding:"omitempty,max=255,email" public:"true"`
 }
 
+// 邮箱后缀的限制方式
+const (
+	EmailDomainOff   = "off"   // 不限制
+	EmailDomainAllow = "allow" // 白名单: 只接受列表中的后缀
+	EmailDomainDeny  = "deny"  // 黑名单: 不接受列表中的后缀
+)
+
 // AuthSettings 注册与登录
 type AuthSettings struct {
 	RegisterEnabled   bool `json:"register_enabled" label:"开放注册" help:"关闭后新用户无法注册, 系统中还没有用户时不受影响" public:"true"`
 	EmailLoginEnabled bool `json:"email_login_enabled" label:"允许邮箱登录" help:"开启后已验证邮箱的用户可以用邮箱代替用户名登录" public:"true"`
+
+	RegisterEmailRequired bool   `json:"register_email_required" label:"注册时验证邮箱" help:"开启后注册时需要填写邮箱并通过验证码验证; 需要先启用邮件发送, 否则新用户无法注册; 已注册的用户和系统中的第一个用户不受影响" public:"true"`
+	BlockEmailAlias       bool   `json:"block_email_alias" label:"屏蔽别名邮箱" help:"开启后注册和绑定邮箱时不接受带 + 的别名地址(如 name+tag@example.com), 已绑定的邮箱不受影响" public:"true"`
+	EmailDomainMode       string `json:"email_domain_mode" label:"邮箱后缀限制" help:"白名单只接受列表中的后缀, 黑名单不接受列表中的后缀; 注册和绑定邮箱时生效, 已绑定的邮箱不受影响" options:"off:不限制,allow:白名单,deny:黑名单" binding:"oneof=off allow deny"`
+	EmailDomains          string `json:"email_domains" label:"邮箱后缀列表" help:"每行一个后缀, 如 qq.com; 子域名一并匹配, 填 example.com 时 mail.example.com 也算; 白名单为空时所有邮箱都不能通过" binding:"max=4000" input:"textarea"`
 }
 
 // MailSettings 邮件(SMTP)配置

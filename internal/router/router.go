@@ -173,6 +173,7 @@ func publicRoutes(r *gin.RouterGroup) {
 	// Auth
 	r.POST("/auth/login", ratelimit.ByIP("auth:login", ratelimit.PerMinute(10)), auth.Login)
 	r.POST("/auth/register", ratelimit.ByIP("auth:register", ratelimit.PerHour(10)), auth.Register)
+	r.POST("/auth/register/code", ratelimit.ByIP("auth:send_register_code", ratelimit.PerHour(10)), auth.SendRegisterCode)
 	r.POST("/auth/logout", auth.Logout)
 
 	// Settings

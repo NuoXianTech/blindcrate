@@ -42,6 +42,10 @@ const (
 	emailCodeKeyPrefix = "blindcrate:email_code:"
 	// emailCodeCooldownKeyPrefix 邮箱验证码发送冷却
 	emailCodeCooldownKeyPrefix = "blindcrate:email_code_cooldown:"
+	// registerCodeKeyPrefix 注册时的邮箱验证码(email/code/attempts), 注册前还没有用户, 按邮箱存放
+	registerCodeKeyPrefix = "blindcrate:register_code:"
+	// registerCodeCooldownKeyPrefix 注册验证码发送冷却
+	registerCodeCooldownKeyPrefix = "blindcrate:register_code_cooldown:"
 )
 
 const (
