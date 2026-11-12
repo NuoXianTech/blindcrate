@@ -1,4 +1,4 @@
-import axios, {AxiosError} from 'axios';
+import axios, {AxiosError, type AxiosRequestConfig} from 'axios';
 import type {ApiResponse} from './types';
 
 /**
@@ -62,6 +62,11 @@ apiClient.interceptors.response.use(
       return Promise.reject(new ApiError(message, status, body?.data));
     },
 );
+
+/** 带上人机验证的令牌, 请求头与后端 captcha.TokenHeader 一致; 该场景没有开启人机验证时令牌为空 */
+export function captchaConfig(token?: string): AxiosRequestConfig | undefined {
+  return token ? {headers: {'X-Captcha-Token': token}} : undefined;
+}
 
 /** 把任意错误转成给用户看的提示 */
 export function toErrorMessage(err: unknown): string {

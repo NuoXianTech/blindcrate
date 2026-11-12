@@ -23,6 +23,15 @@ export interface PublicSettings {
     /** 开启后注册和绑定邮箱时不接受带 + 的别名地址 */
     block_email_alias: boolean;
   };
+  captcha: {
+    /** Cloudflare Turnstile 的站点密钥, 为空时各场景都不验证 */
+    site_key: string;
+    login_enabled: boolean;
+    /** 注册和发送注册验证码 */
+    register_enabled: boolean;
+    checkin_enabled: boolean;
+    shop_enabled: boolean;
+  };
   economy: {
     /** 基础货币的代码: 新手资金和已删除物品的回收价使用, 也是新建物品和地图时默认选中的货币 */
     base_currency: string;
@@ -51,6 +60,7 @@ export const PUBLIC_SETTINGS_TAG = 'public-settings';
 const DEFAULT_SETTINGS: PublicSettings = {
   site: {name: 'BlindCrate', description: '', logo_url: '', announcement: '', icp: '', contact_email: ''},
   auth: {register_enabled: true, email_login_enabled: true, register_email_required: false, block_email_alias: false},
+  captcha: {site_key: '', login_enabled: false, register_enabled: false, checkin_enabled: false, shop_enabled: false},
   economy: {base_currency: 'chip', sell_fee_rate: 200, signup_grant: 5000, pve_daily_profit_cap: 5000},
   upload: {max_size_kb: 5120, allow_png: true, allow_jpeg: true, allow_webp: true, avatar_enabled: true},
 };

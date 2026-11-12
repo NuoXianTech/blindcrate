@@ -2,17 +2,17 @@
 
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {CalendarCheck, Check, LoaderCircle} from 'lucide-react';
-import {toast} from 'sonner';
 import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
 import {Skeleton} from '@/components/ui/skeleton';
 import {useAuth} from '@/components/common/auth';
+import {useCaptcha} from '@/components/common/captcha';
 import {ItemImage} from '@/components/common/item';
 import {RewardResultDialog} from '@/components/common/reward';
 import {CurrencyIcon} from '@/components/common/wallet';
+import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {CheckinDay, CheckinResult, CheckinStatus} from '@/lib/services/checkin';
-import {toErrorMessage} from '@/lib/services/core';
 import type {RewardLine} from '@/lib/services/reward';
 import {formatAmount} from '@/lib/utils';
 
@@ -84,7 +84,8 @@ export function CheckinCard({onCheckedIn}: {
   const {user} = useAuth();
   const [status, setStatus] = useState<CheckinStatus | null>(null);
   const [failed, setFailed] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const {pending: submitting, submit} = useSubmit();
+  const captcha = useCaptcha('checkin', {appearance: 'interaction-only'});
   const [result, setResult] = useState<CheckinResult | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const todayRef = useRef<HTMLDivElement>(null);
@@ -118,24 +119,21 @@ export function CheckinCard({onCheckedIn}: {
     list.scrollLeft = cell.offsetLeft - (list.clientWidth - cell.clientWidth) / 2;
   }, [status?.today]);
 
-  const checkin = async () => {
-    setSubmitting(true);
+  const checkin = submit(async () => {
+    const token = captcha.take();
     try {
-      setResult(await services.checkin.checkin());
+      setResult(await services.checkin.checkin(token));
       onCheckedIn?.();
-    } catch (err) {
-      toast.error(toErrorMessage(err));
     } finally {
-      setSubmitting(false);
       void load();
     }
-  };
+  });
 
   if (failed && !status) return null;
   if (!status) return <Skeleton className="h-36 rounded-xl" />;
   if (!status.enabled || !status.days.length) return null;
 
-  const canCheckin = !status.checked_in && !submitting;
+  const canCheckin = !status.checked_in && !submitting && captcha.ready;
   return (
     <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -154,6 +152,9 @@ export function CheckinCard({onCheckedIn}: {
           {status.checked_in ? '今日已签到' : '签到'}
         </Button>
       </div>
+
+      {/* 已签到后不再需要验证 */}
+      {!status.checked_in && captcha.widget}
 
       <div ref={listRef} className="relative flex gap-2 overflow-x-auto pb-1">
         {status.days.map((d) => {

@@ -51,6 +51,7 @@ const anyVersion int64 = -1
 const (
 	KeySite    = "site"
 	KeyAuth    = "auth"
+	KeyCaptcha = "captcha"
 	KeyMail    = "mail"
 	KeyEconomy = "economy"
 	KeyStats   = "stats"
@@ -120,6 +121,14 @@ var (
 		Defaults: func() *AuthSettings {
 			return &AuthSettings{RegisterEnabled: true, EmailLoginEnabled: true, EmailDomainMode: EmailDomainOff}
 		},
+	})
+	Captcha = Register(Group[CaptchaSettings]{
+		Key:         KeyCaptcha,
+		Label:       "人机验证",
+		Description: "Cloudflare Turnstile 人机验证, 可以按场景单独开关; 密钥在 Cloudflare 控制台的 Turnstile 中创建",
+		Category:    CategorySystem,
+		Sort:        25,
+		Defaults:    func() *CaptchaSettings { return &CaptchaSettings{} },
 	})
 	Mail = Register(Group[MailSettings]{
 		Key:         KeyMail,
@@ -254,6 +263,17 @@ type AuthSettings struct {
 	BlockEmailAlias       bool   `json:"block_email_alias" label:"屏蔽别名邮箱" help:"开启后注册和绑定邮箱时不接受带 + 的别名地址(如 name+tag@example.com), 已绑定的邮箱不受影响" public:"true"`
 	EmailDomainMode       string `json:"email_domain_mode" label:"邮箱后缀限制" help:"白名单只接受列表中的后缀, 黑名单不接受列表中的后缀; 注册和绑定邮箱时生效, 已绑定的邮箱不受影响" options:"off:不限制,allow:白名单,deny:黑名单" binding:"oneof=off allow deny"`
 	EmailDomains          string `json:"email_domains" label:"邮箱后缀列表" help:"每行一个后缀, 如 qq.com; 子域名一并匹配, 填 example.com 时 mail.example.com 也算; 白名单为空时所有邮箱都不能通过" binding:"max=4000" input:"textarea"`
+}
+
+// CaptchaSettings 人机验证(Cloudflare Turnstile), 验证见 internal/captcha
+type CaptchaSettings struct {
+	SiteKey   string `json:"site_key" label:"站点密钥" help:"Turnstile 的 Site Key; 站点密钥和私钥都填写后下面的开关才生效" binding:"max=255" public:"true"`
+	SecretKey string `json:"secret_key" label:"私钥" help:"Turnstile 的 Secret Key; 填错或服务器连不上 Cloudflare 时不拦截请求, 只记录错误日志" binding:"max=255" secret:"true"`
+
+	LoginEnabled    bool `json:"login_enabled" label:"登录" help:"开启后登录时需要通过人机验证" public:"true"`
+	RegisterEnabled bool `json:"register_enabled" label:"注册" help:"开启后注册和发送注册验证码时需要通过人机验证" public:"true"`
+	CheckinEnabled  bool `json:"checkin_enabled" label:"签到" help:"开启后签到时需要通过人机验证" public:"true"`
+	ShopEnabled     bool `json:"shop_enabled" label:"商店购买" help:"开启后在商店购买商品时需要通过人机验证" public:"true"`
 }
 
 // MailSettings 邮件(SMTP)配置

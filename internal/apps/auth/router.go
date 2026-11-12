@@ -69,6 +69,7 @@ type LoginRequest struct {
 // @Failure 403 {object} Response
 // @Failure 429 {object} Response
 // @Failure 500 {object} Response
+// @Param X-Captcha-Token header string false "人机验证令牌, 该场景开启人机验证时必填"
 // @Router /api/v1/auth/login [post]
 func Login(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -154,6 +155,7 @@ type SendRegisterCodeRequest struct {
 // @Failure 429 {object} Response
 // @Failure 500 {object} Response
 // @Failure 503 {object} Response
+// @Param X-Captcha-Token header string false "人机验证令牌, 该场景开启人机验证时必填"
 // @Router /api/v1/auth/register/code [post]
 func SendRegisterCode(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -196,6 +198,7 @@ func SendRegisterCode(c *gin.Context) {
 // @Failure 409 {object} Response
 // @Failure 429 {object} Response
 // @Failure 500 {object} Response
+// @Param X-Captcha-Token header string false "人机验证令牌, 该场景开启人机验证时必填"
 // @Router /api/v1/auth/register [post]
 func Register(c *gin.Context) {
 	ctx := c.Request.Context()
