@@ -43,7 +43,7 @@ function HintText({hint}: { hint: HostHint }) {
  */
 export function HostPanel({view, lot}: {
   view: AuctionView;
-  /** 当前拍品, 提示都针对它 */
+  /** 查看的拍品, 只列出针对它的提示 */
   lot: LotView;
 }) {
   const {host} = view;
@@ -81,7 +81,8 @@ export function HostPanel({view, lot}: {
       {persona && <span className="text-xs text-muted-foreground">这局的主持人{persona.label}: {persona.description}</span>}
       {lastHype && lastHype.round > 0 && (
         <span className="text-xs text-muted-foreground">
-          第 {lotRound(lastHype.round)} 轮 {lastHype.raises > 0 ? `${lastHype.raises} 人加价` : '没人加价'}
+          {lastHype.lot_no !== lot.lot_no && `拍品 ${lastHype.lot_no} `}
+          第 {lastHype.round - (view.lots[lastHype.lot_no - 1]?.first_round ?? lot.first_round) + 1} 轮 {lastHype.raises > 0 ? `${lastHype.raises} 人加价` : '没人加价'}
         </span>
       )}
       {hints.length > 0 ? (

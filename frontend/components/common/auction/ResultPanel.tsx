@@ -203,7 +203,9 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
       )}
 
       {!session ? (
-        <span className="text-center text-xs text-muted-foreground">开箱后进入下一个拍品, 带入资金继续沿用</span>
+        lot.lot_no === view.lot && (
+          <span className="text-center text-xs text-muted-foreground">开箱后进入下一个拍品, 带入资金继续沿用</span>
+        )
       ) : released ? (
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-2 gap-2">

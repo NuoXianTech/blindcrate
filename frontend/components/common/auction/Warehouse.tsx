@@ -325,7 +325,10 @@ export function Warehouse({view, lot, decimals, scan, intel}: {
         )}
       </div>
 
-      {!result && (
+      {!result && lot.first_round === 0 && (
+        <span className="text-xs text-muted-foreground">还没开拍, 开拍后才扫描首轮轮廓</span>
+      )}
+      {!result && lot.first_round > 0 && (
         <span className="text-xs text-muted-foreground">
           {lot.footprints.length > 0 ?
             `首轮扫出 ${lot.footprints.length} 件藏品的轮廓, 每件有 ${formatRate(view.venue.preview_rate)} 的概率被扫出; ` :
