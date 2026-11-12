@@ -34,8 +34,10 @@ const percent = (bp: number) => `${(bp / 100).toFixed(1)}%`;
 /**
  * 仓库模拟结果: 排位和人机两种模式的价值分布, 以及对局验算
  */
-export function SimulationStats({simulation, currency, stale, tierNames}: {
+export function SimulationStats({simulation, currency, stale, lots, tierNames}: {
   simulation: Simulation;
+  /** 一局多个拍品 */
+  lots: boolean;
   /** 档次代码对应的名称, 找不到时显示代码 */
   tierNames: Record<string, string>;
   /** 出价货币, 价值按它的小数位展示 */
@@ -61,7 +63,8 @@ export function SimulationStats({simulation, currency, stale, tierNames}: {
     {label: '离散度', value: (s) => ((s.cv ?? 0) / 10000).toFixed(2)},
   ];
 
-  const tiers = simulation.tiers ?? [];
+  // 只有一种档次时和上表相同, 不再单独列出
+  const tiers = simulation.tiers.length > 1 ? simulation.tiers : [];
 
   return (
     <div className={cn('flex flex-col gap-3', stale && 'opacity-60')}>
@@ -72,7 +75,7 @@ export function SimulationStats({simulation, currency, stale, tierNames}: {
           </span>
           <span>{stale ? '配置已修改, 需要重新模拟' : formatDateTime(simulation.simulated_at)}</span>
         </div>
-        {tiers.length > 0 && <span className="text-xs text-muted-foreground">配置了档次, 下表为单个拍品按权重混合各档次的分布</span>}
+        {tiers.length > 0 && <span className="text-xs text-muted-foreground">下表为单个拍品按权重混合各档次的分布</span>}
         <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 gap-y-1">
           <span />
           <span className="text-right text-xs text-muted-foreground">排位</span>
@@ -121,7 +124,7 @@ export function SimulationStats({simulation, currency, stale, tierNames}: {
         </div>
       )}
       {simulation.balance ? (
-        <BalanceStats balance={simulation.balance} amount={amount} lots={tiers.length > 0} />
+        <BalanceStats balance={simulation.balance} amount={amount} lots={lots} />
       ) : (
         <p className="rounded-lg border p-3 text-sm text-muted-foreground">旧数据没有对局验算, 重新模拟或保存后生成</p>
       )}
@@ -135,7 +138,7 @@ export function SimulationStats({simulation, currency, stale, tierNames}: {
 function BalanceStats({balance, amount, lots}: {
   balance: Balance;
   amount: (value: number) => string;
-  /** 配置了档次, 一局多个拍品; 胜率闸门看拍场第 1 名的比例 */
+  /** 一局多个拍品; 胜率闸门看拍场第 1 名的比例 */
   lots: boolean;
 }) {
   const rows: { label: string; value: (s: SquadStats) => React.ReactNode }[] = [

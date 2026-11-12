@@ -112,8 +112,7 @@ type VenueRequest struct {
 	BidCurrency   string                `json:"bid_currency" binding:"required,max=32"`
 	EntryCost     reward.Bundle         `json:"entry_cost" binding:"-"` // 数量为正数, 开局时扣除
 	Requirements  []condition.Condition `json:"requirements" binding:"-"`
-	Warehouse     venue.WarehouseRule   `json:"warehouse" binding:"-"`
-	Lots          venue.LotRule         `json:"lots" binding:"-"` // 拍场的拍品数和档次, 不配置档次时一局一个仓库
+	Lots          venue.LotRule         `json:"lots" binding:"-"` // 拍场的拍品数和档次, 最多 1 个拍品时一局一个仓库
 	Auction       venue.AuctionRule     `json:"auction" binding:"-"`
 	Bots          venue.BotRule         `json:"bots" binding:"-"`
 	Pve           venue.PveRule         `json:"pve" binding:"-"`

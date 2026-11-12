@@ -2,14 +2,13 @@
 
 import {Plus, Trash2} from 'lucide-react';
 import {nanoid} from 'nanoid';
-import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import type {LootPoolListItem} from '@/lib/services/loot';
 import {FieldGroup, InputField} from './Fields';
 import {MAX_SLOTS, MAX_SWINGS} from './constants';
-import type {FormTabProps, SlotDraft, SwingDraft, WarehouseDraft} from './form';
+import type {SlotDraft, SwingDraft, WarehouseDraft} from './form';
 
 /** 档位的列宽, 表头和每行共用 */
 const SLOT_COLUMNS = 'grid grid-cols-[1fr_4.5rem_4.5rem_6rem_2.25rem] items-center gap-2';
@@ -17,35 +16,10 @@ const SLOT_COLUMNS = 'grid grid-cols-[1fr_4.5rem_4.5rem_6rem_2.25rem] items-cent
 const SWING_COLUMNS = 'grid grid-cols-[8rem_6rem_2.25rem] items-center gap-2';
 
 /**
- * 仓库: 没有配置档次时唯一的仓库; 配置了档次时不用, 只提示
- */
-export function WarehouseTab({form, onChange, disabled, pools}: FormTabProps & { pools: LootPoolListItem[] }) {
-  const unused = form.tiers.length > 0;
-  return (
-    <div className="flex flex-col gap-6">
-      {unused && (
-        <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-          已在拍场页配置了 {form.tiers.length} 种档次, 对局按档次生成仓库, 这里的配置不使用也不校验; 删除全部档次后恢复为单仓库玩法
-        </p>
-      )}
-      <div className={cn('flex flex-col gap-6', unused && 'opacity-60')}>
-        <WarehouseEditor
-          id="venue"
-          value={form.warehouse}
-          onChange={(patch) => onChange({warehouse: {...form.warehouse, ...patch}})}
-          disabled={disabled}
-          pools={pools}
-        />
-      </div>
-    </div>
-  );
-}
-
-/**
  * 仓库编辑器的Props接口
  */
 interface WarehouseEditorProps {
-  /** 输入框 id 的前缀, 同一页有多个仓库时区分 */
+  /** 输入框 id 的前缀, 每个档次一个仓库 */
   id: string;
   value: WarehouseDraft;
   onChange: (patch: Partial<WarehouseDraft>) => void;
@@ -54,7 +28,7 @@ interface WarehouseEditorProps {
 }
 
 /**
- * 一个仓库的生成规则: 格子大小、档位、数量波动和重抽次数; 地图的仓库和每个档次共用
+ * 一个仓库的生成规则: 格子大小、档位、数量波动和重抽次数
  */
 export function WarehouseEditor({id, value: form, onChange, disabled, pools}: WarehouseEditorProps) {
   const updateSlot = (key: string, patch: Partial<SlotDraft>) =>

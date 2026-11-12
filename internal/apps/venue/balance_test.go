@@ -68,7 +68,7 @@ func TestCalibrate(t *testing.T) {
 
 func TestBalanceJudge(t *testing.T) {
 	v := &Venue{
-		Warehouse:  WarehouseRule{Grid: Grid{Width: 8, Height: 3}},
+		Lots:       LotRule{Min: 1, Max: 1, Tiers: []Tier{{Warehouse: WarehouseRule{Grid: Grid{Width: 8, Height: 3}}}}},
 		Auction:    AuctionRule{Rounds: 5},
 		Pve:        PveRule{PracticeOnly: true},
 		Simulation: Simulation{Ranked: ValueStats{Mean: 10000}},
@@ -104,7 +104,7 @@ func TestBalanceJudge(t *testing.T) {
 		}
 	}
 
-	v.Warehouse.Grid.Height = 6
+	v.Lots.Tiers[0].Warehouse.Grid.Height = 6
 	b.Squads[0].SpeedWin, b.Squads[1].SeatEV = 2000, -400
 	b.judge(v, settings.Balance.Default())
 	if !b.Passed || b.failures() != "" {
@@ -126,6 +126,35 @@ func TestBalanceJudge(t *testing.T) {
 		if c.Code == CheckWinRate {
 			t.Errorf("win rate gates turned off should skip the check: %+v", c)
 		}
+	}
+}
+
+func TestCalibrateVenue(t *testing.T) {
+	v := &Venue{
+		Lots: LotRule{Min: 1, Max: 1, Tiers: []Tier{
+			{Code: "small", Weight: 1, Warehouse: WarehouseRule{Grid: Grid{Width: 4, Height: 4}}},
+			{Code: "big", Weight: 1, Warehouse: WarehouseRule{Grid: Grid{Width: 6, Height: 6}}},
+		}},
+		Simulation: Simulation{
+			Ranked: ValueStats{Mean: 10000, P90: 20000},
+			Tiers:  []TierStats{{Code: "small", Ranked: ValueStats{Mean: 5000}}, {Code: "big", Ranked: ValueStats{Mean: 15000}}},
+		},
+	}
+	// 单拍品: 带入资金按单个仓库的价值分布, 起拍价取各档次中最低的
+	v.Calibrate(settings.Balance.Default())
+	if r := v.Auction; r.StartPrice != 200 || r.MaxCarry != 30000 || r.BotCarry != 12000 {
+		t.Errorf("single lot: %+v", r)
+	}
+	small, big := v.Lots.Tiers[0].Auction, v.Lots.Tiers[1].Auction
+	if small != (TierAuction{Mean: 5000, StartPrice: 200, SpeedFloor: 3750}) || big != (TierAuction{Mean: 15000, StartPrice: 600, SpeedFloor: 11250}) {
+		t.Errorf("tiers: %+v %+v", small, big)
+	}
+
+	// 多拍品: 带入资金上限按拍场期望总价值 × 覆盖率
+	v.Lots.Min, v.Lots.Max = 2, 4
+	v.Calibrate(settings.Balance.Default())
+	if r := v.Auction; r.StartPrice != 200 || r.MaxCarry != 9000 || r.BotCarry != 5400 {
+		t.Errorf("multiple lots: %+v", r)
 	}
 }
 

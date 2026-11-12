@@ -33,6 +33,8 @@ export function VenueCard({venue: v, carry, decimals, busy, queued, disabled, on
     {kind: 'ranked', enabled: v.ranked_enabled, range: v.value_range, icon: Swords},
   ];
   const capReached = v.pve.profit_caps.some((c) => c.profit >= c.limit);
+  // 一局一个仓库
+  const single = v.lots.max === 1;
 
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border bg-card">
@@ -58,7 +60,7 @@ export function VenueCard({venue: v, carry, decimals, busy, queued, disabled, on
           <dd>
             <EntryCost venue={v} decimals={decimals} />
           </dd>
-          {v.lots && (
+          {!single && (
             <>
               <dt className="text-muted-foreground">拍品</dt>
               <dd>{v.lots.min === v.lots.max ? v.lots.min : `${v.lots.min}-${v.lots.max}`} 个仓库, 共用带入资金</dd>
@@ -70,7 +72,7 @@ export function VenueCard({venue: v, carry, decimals, busy, queued, disabled, on
           </dd>
           <dt className="text-muted-foreground">轮数</dt>
           <dd>
-            {v.lots && '每个拍品 '}{v.auction.rounds} 轮, 每轮 {v.auction.round_seconds} 秒
+            {!single && '每个拍品 '}{v.auction.rounds} 轮, 每轮 {v.auction.round_seconds} 秒
           </dd>
         </dl>
 
@@ -91,7 +93,7 @@ export function VenueCard({venue: v, carry, decimals, busy, queued, disabled, on
                 )}
               </div>
               <span className="text-xs text-muted-foreground" title="模拟的仓库价值, 八成的仓库在这个区间内">
-                {v.lots ? '每仓约' : '价值约'} {formatAmount(range.p10, decimals, {compact: true})} - {formatAmount(range.p90, decimals, {compact: true})}
+                {single ? '价值约' : '每仓约'} {formatAmount(range.p10, decimals, {compact: true})} - {formatAmount(range.p90, decimals, {compact: true})}
               </span>
               {kind === 'pve' && v.pve.profit_caps.map((c) => (
                 <ProfitCapLine key={c.scope} cap={c} currency={v.bid_currency} decimals={decimals} />

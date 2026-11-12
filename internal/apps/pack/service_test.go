@@ -260,7 +260,7 @@ func TestChooseActions(t *testing.T) {
 			PackLootPools:  contentOf(t, PackLootPools, packLootPool{LootPoolRequest: lootadmin.LootPoolRequest{Code: "crate"}}, packLootPool{LootPoolRequest: lootadmin.LootPoolRequest{Code: "box"}}),
 			PackVenues: contentOf(t, PackVenues, venueadmin.VenueRequest{
 				Code:         "dock",
-				Warehouse:    venue.WarehouseRule{Slots: []venue.Slot{{Pool: "crate"}, {Pool: "box"}}},
+				Lots:         venue.LotRule{Tiers: []venue.Tier{{Warehouse: venue.WarehouseRule{Slots: []venue.Slot{{Pool: "crate"}, {Pool: "box"}}}}}},
 				Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"metric":"wins","scope":"venue:dock:pve"}`)}},
 			}),
 			PackShopItems:    contentOf(t, PackShopItems, shopadmin.ShopItemRequest{Code: "pass", Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"metric":"wins","scope":"venue:dock"}`)}}}),
@@ -288,7 +288,7 @@ func TestChooseActions(t *testing.T) {
 		t.Errorf("chosen = %d, want 3", len(chosen))
 	}
 	v := itemsOf[venueadmin.VenueRequest](r.pack, PackVenues)[0]
-	if v.Code != "pier" || v.Warehouse.Slots[0].Pool != "crate_2" || v.Warehouse.Slots[1].Pool != "box" {
+	if v.Code != "pier" || v.Lots.Tiers[0].Warehouse.Slots[0].Pool != "crate_2" || v.Lots.Tiers[0].Warehouse.Slots[1].Pool != "box" {
 		t.Errorf("venue = %+v", v)
 	}
 	if !strings.Contains(string(v.Requirements[0].Params), `"venue:pier:pve"`) {

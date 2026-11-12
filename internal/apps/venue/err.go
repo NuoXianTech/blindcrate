@@ -46,7 +46,7 @@ const (
 	FailureRateTooHigh = "仓库摆放失败率为 %.2f%%, 不能超过 1%%, 请加大格子或减少件数"
 	ValueEmpty         = "仓库的期望价值为 0, 请检查藏品的回收货币和回收价"
 	QuickWinInvalid    = "速胜倍率需要 %d 个, 即轮数减 1"
-	LotRangeInvalid    = "配置了档次时, 拍品数需在 1-8 之间, 最少不能多于最多"
+	LotRangeInvalid    = "最少拍品数不能多于最多拍品数"
 	TierDuplicate      = "档次代码 %s 重复"
 	TierInvalid        = "档次 %s: %s"
 	BalanceFailed      = "验算未通过, 不能启用: %s"

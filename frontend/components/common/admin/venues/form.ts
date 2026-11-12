@@ -53,7 +53,7 @@ export interface SwingDraft {
   weight: string;
 }
 
-/** 编辑中的仓库生成规则, 地图的仓库和每个档次的仓库共用 */
+/** 编辑中的仓库生成规则, 每个档次一个 */
 export interface WarehouseDraft {
   gridWidth: string;
   gridHeight: string;
@@ -94,14 +94,13 @@ export interface VenueForm {
   bidCurrency: string;
   entryCost: BundleDraft[];
   requirements: ConditionDraft[];
-  /** 没有配置档次时唯一的仓库, 配置了档次时不用 */
-  warehouse: WarehouseDraft;
   lotMin: string;
+  /** 为 1 时一局一个仓库, 带入资金按单个仓库的价值推导 */
   lotMax: string;
-  /** 为空表示单仓库玩法 */
+  /** 至少一种 */
   tiers: TierDraft[];
   gapSeconds: string;
-  /** 百分比, 0 表示用玩法平衡设置的默认值 */
+  /** 百分比, 0 表示用玩法平衡设置的默认值; 多拍品时生效 */
   coverage: string;
   rounds: string;
   roundSeconds: string;
@@ -139,7 +138,7 @@ export function recommendedQuickWin(rounds: number): string[] {
   );
 }
 
-/** 新建地图和新增档次时的仓库 */
+/** 新建地图时第一种档次的仓库 */
 const DEFAULT_WAREHOUSE: WarehouseRule = {
   grid: {width: 6, height: 5},
   slots: [{pool: '', min: 4, max: 8, chance: 10000}],
@@ -148,7 +147,7 @@ const DEFAULT_WAREHOUSE: WarehouseRule = {
 };
 
 /** 仓库生成规则转为表单 */
-function toWarehouseDraft(w: WarehouseRule = DEFAULT_WAREHOUSE): WarehouseDraft {
+function toWarehouseDraft(w: WarehouseRule): WarehouseDraft {
   return {
     gridWidth: String(w.grid.width),
     gridHeight: String(w.grid.height),
@@ -159,7 +158,7 @@ function toWarehouseDraft(w: WarehouseRule = DEFAULT_WAREHOUSE): WarehouseDraft 
       max: String(s.max),
       chance: ratioInput(s.chance, PERCENT_DECIMALS),
     })),
-    swings: (w.swings ?? []).map((s) => ({
+    swings: w.swings.map((s) => ({
       key: nanoid(),
       factor: ratioInput(s.factor, PERCENT_DECIMALS),
       weight: String(s.weight),
@@ -181,8 +180,13 @@ const DEFAULT_REQUEST: VenueRequest = {
   bid_currency: '',
   entry_cost: {},
   requirements: [],
-  warehouse: DEFAULT_WAREHOUSE,
-  lots: {min: 0, max: 0, tiers: [], gap_seconds: 0, coverage: 0},
+  lots: {
+    min: 1,
+    max: 1,
+    tiers: [{code: 'tier1', name: '档次 1', weight: 1, warehouse: DEFAULT_WAREHOUSE}],
+    gap_seconds: 0,
+    coverage: 0,
+  },
   auction: {
     rounds: 5,
     round_seconds: 20,
@@ -242,10 +246,8 @@ export function toVenueForm(venue: VenueRequest | null, {currencies, types, pers
     bidCurrency: v.bid_currency,
     entryCost: toBundleDrafts(v.entry_cost, currencies),
     requirements: toConditionDrafts(v.requirements ?? [], types),
-    warehouse: toWarehouseDraft(v.warehouse),
-    // 没有配置档次时拍品数为 0, 表单中按 1 个展示
-    lotMin: String(v.lots.min || 1),
-    lotMax: String(v.lots.max || 1),
+    lotMin: String(v.lots.min),
+    lotMax: String(v.lots.max),
     tiers: v.lots.tiers.map((t) => ({
       key: nanoid(),
       code: t.code,
@@ -333,22 +335,18 @@ function fromWarehouseDraft(w: WarehouseDraft, prefix = ''): WarehouseRule {
   };
 }
 
-/** 拍场转为请求体; 没有配置档次时拍品数不生效, 提交 0 */
+/** 拍场转为请求体 */
 function fromLots(form: VenueForm): VenueRequest['lots'] {
   const tiers = form.tiers;
-  check(tiers.length > MAX_TIERS ? `档次最多 ${MAX_TIERS} 种` : null);
-  const gapSeconds = readNumber(form.gapSeconds, {label: '拍品间隔', min: 0, max: MAX_GAP_SECONDS, unit: ' 秒'});
-  const coverage = percent(form.coverage, '带入覆盖率', 0, 20000);
-  if (tiers.length === 0) return {min: 0, max: 0, tiers: [], gap_seconds: gapSeconds, coverage};
-
+  check(tiers.length === 0 || tiers.length > MAX_TIERS ? `档次需为 1-${MAX_TIERS} 种` : null);
   const min = readNumber(form.lotMin, {label: '最少拍品数', min: 1, max: MAX_LOTS});
   const max = readNumber(form.lotMax, {label: '最多拍品数', min: 1, max: MAX_LOTS});
   check(max < min ? '最多拍品数不能少于最少拍品数' : null);
   return {
     min,
     max,
-    gap_seconds: gapSeconds,
-    coverage,
+    gap_seconds: readNumber(form.gapSeconds, {label: '拍品间隔', min: 0, max: MAX_GAP_SECONDS, unit: ' 秒'}),
+    coverage: percent(form.coverage, '带入覆盖率', 0, 20000),
     tiers: tiers.map((t, i) => {
       const row = `第 ${i + 1} 种档次`;
       const code = t.code.trim();
@@ -363,17 +361,6 @@ function fromLots(form: VenueForm): VenueRequest['lots'] {
         warehouse: fromWarehouseDraft(t.warehouse, `档次 ${name}: `),
       };
     }),
-  };
-}
-
-/** 不校验地转换仓库表单, 格式不对的数值按 0 提交 */
-function looseWarehouse(w: WarehouseDraft): WarehouseRule {
-  const int = (text: string, decimals = 0) => parseAmount(text, decimals) ?? 0;
-  return {
-    grid: {width: int(w.gridWidth), height: int(w.gridHeight)},
-    slots: w.slots.map((s) => ({pool: s.pool, min: int(s.min), max: int(s.max), chance: int(s.chance, PERCENT_DECIMALS)})),
-    swings: w.swings.map((s) => ({factor: int(s.factor, PERCENT_DECIMALS), weight: int(s.weight)})),
-    max_rerolls: int(w.maxRerolls),
   };
 }
 
@@ -427,8 +414,6 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
     bid_currency: form.bidCurrency,
     entry_cost: fromBundleDrafts(form.entryCost, currencies, '入场代价'),
     requirements: fromConditionDrafts(form.requirements, types, '入场条件'),
-    // 配置了档次时后端不用也不校验地图的仓库, 原样提交; 换回单仓库时再校验
-    warehouse: form.tiers.length > 0 ? looseWarehouse(form.warehouse) : fromWarehouseDraft(form.warehouse),
     lots: fromLots(form),
     auction: {
       rounds,

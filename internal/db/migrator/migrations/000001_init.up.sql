@@ -447,7 +447,6 @@ CREATE TABLE IF NOT EXISTS venues
     bid_currency   VARCHAR(32)   NOT NULL,                -- 出价和计算仓库价值的货币
     entry_cost     JSONB         NOT NULL DEFAULT '{}',   -- 入场代价 reward.Bundle, 数量为正数
     requirements   JSONB         NOT NULL DEFAULT '[]',   -- 入场条件 []condition.Condition
-    warehouse      JSONB         NOT NULL DEFAULT '{}',   -- 仓库生成规则, 没有配置拍场档次时使用
     lots           JSONB         NOT NULL DEFAULT '{}',   -- 拍场: 拍品数、档次、拍品间隔和带入覆盖率
     auction        JSONB         NOT NULL DEFAULT '{}',   -- 拍卖参数
     bots           JSONB         NOT NULL DEFAULT '{}',   -- 每个模式出场的人机风格和权重

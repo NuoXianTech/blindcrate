@@ -51,14 +51,10 @@ export function toRequest(venue: AdminVenue): VenueRequest {
     bid_currency: venue.bid_currency,
     entry_cost: venue.entry_cost,
     requirements: venue.requirements,
-    warehouse: venue.warehouse,
     // 档次的金额由后端推导, 不提交
     lots: {
-      min: venue.lots?.min ?? 0,
-      max: venue.lots?.max ?? 0,
-      tiers: (venue.lots?.tiers ?? []).map(({code, name, weight, warehouse}) => ({code, name, weight, warehouse})),
-      gap_seconds: venue.lots?.gap_seconds ?? 0,
-      coverage: venue.lots?.coverage ?? 0,
+      ...venue.lots,
+      tiers: venue.lots.tiers.map(({code, name, weight, warehouse}) => ({code, name, weight, warehouse})),
     },
     auction: venue.auction,
     bots: venue.bots,

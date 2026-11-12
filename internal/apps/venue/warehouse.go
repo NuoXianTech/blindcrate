@@ -373,7 +373,7 @@ func (g *Generator) PieceOdds(valueFactor int32) []PieceOdds {
 
 // Lineup 按地图的档次生成拍场的拍品: 拍品数在 LotRule 的范围内均匀随机, 每个拍品按权重抽一种档次
 //
-// 没有配置档次时只有 Warehouse 一档, 拍品数为 1。与 Generator 相同, 不是并发安全的。
+// 与 Generator 相同, 不是并发安全的。
 type Lineup struct {
 	min, max int32
 	tiers    []*Generator
@@ -384,8 +384,8 @@ type Lineup struct {
 // NewLineup 读取各档次引用的掉落池和物品, 使用 crypto/rand 抽取; 错误同 NewGenerator
 func NewLineup(tx *gorm.DB, v *Venue) (*Lineup, error) {
 	l := &Lineup{randN: loot.RandInt64N}
-	l.min, l.max = v.Lots.Range()
-	for _, t := range v.LotTiers() {
+	l.min, l.max = v.Lots.Min, v.Lots.Max
+	for _, t := range v.Lots.Tiers {
 		g, err := NewGenerator(tx, t.Warehouse, v.BidCurrency)
 		if err != nil {
 			return nil, err
@@ -404,7 +404,7 @@ func (l *Lineup) Count() int {
 	return int(l.min + int32(l.randN(int64(l.max-l.min+1))))
 }
 
-// Pick 按权重抽一种档次, 返回下标, 同 LotTiers 的顺序
+// Pick 按权重抽一种档次, 返回下标, 同 Lots.Tiers 的顺序
 func (l *Lineup) Pick() int {
 	if len(l.weights) == 1 {
 		return 0

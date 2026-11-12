@@ -58,9 +58,6 @@ const (
 // HostPersonas 全部性格, 按展示顺序
 var HostPersonas = []string{HostSteady, HostShowman, HostSly}
 
-// DefaultTier 没有配置档次时唯一档次的代码
-const DefaultTier = "default"
-
 // BasisPoints 基点的分母, 10000 表示 100%
 const BasisPoints = 10000
 

@@ -57,16 +57,13 @@ func (r *AuctionRule) Calibrate(stats ValueStats, b *settings.BalanceSettings) {
 	r.PreviewRate = int32(b.PreviewRate)
 }
 
-// Calibrate 推导地图的金额: 没有配置档次时同 AuctionRule.Calibrate; 配置了档次时起拍价和速胜下限按格子大小推导,
-// 带入资金上限按拍场期望总价值 × 覆盖率, 起拍价取各档次中最低的
+// Calibrate 推导地图的金额: 各档次的起拍价和速胜下限按格子大小推导, 地图的起拍价取各档次中最低的;
+// 单拍品时带入资金同 AuctionRule.Calibrate, 多拍品时带入资金上限按拍场期望总价值 × 覆盖率
 //
 // 拍品的起拍价等金额出价时公开, 档次不公开, 所以不能按档次的期望价值算: 格子大小相同的档次按权重混合期望价值, 用同一套金额。
 func (v *Venue) Calibrate(b *settings.BalanceSettings) {
 	r := &v.Auction
 	r.Calibrate(v.Simulation.Ranked, b)
-	if !v.Lots.Enabled() {
-		return
-	}
 	tiers := v.Lots.Tiers
 	for i := range tiers {
 		var weight, total float64
@@ -83,6 +80,9 @@ func (v *Venue) Calibrate(b *settings.BalanceSettings) {
 	r.StartPrice = v.Lots.Tiers[0].Auction.StartPrice
 	for _, t := range v.Lots.Tiers {
 		r.StartPrice = min(r.StartPrice, t.Auction.StartPrice)
+	}
+	if v.Lots.Single() {
+		return
 	}
 	coverage := int(v.Lots.Coverage)
 	if coverage == 0 {
@@ -148,7 +148,7 @@ func (b *Balance) judge(v *Venue, rule *settings.BalanceSettings) {
 	n := func(x int) *int64 { return bound(int64(x)) }
 	b.Checks = []Check{newCheck(CheckRounds, "", int64(v.Auction.Rounds), n(rule.MinRounds), n(rule.MaxRounds), UnitCount)}
 	// 多个档次时按最小和最大的边长判定
-	tiers := v.LotTiers()
+	tiers := v.Lots.Tiers
 	low, high := tiers[0].Warehouse.Grid, tiers[0].Warehouse.Grid
 	for _, t := range tiers[1:] {
 		g := t.Warehouse.Grid
@@ -166,7 +166,7 @@ func (b *Balance) judge(v *Venue, rule *settings.BalanceSettings) {
 		b.Checks = append(b.Checks, c)
 	}
 	minSeat := bound(ofRate(v.SessionMean(), rule.MinSeatEV))
-	lots := v.Lots.Enabled()
+	lots := !v.Lots.Single()
 	winRates := map[string]int{SquadRanked: rule.MinRankedWinRate, SquadPve: rule.MinPveWinRate}
 	for _, s := range b.Squads {
 		if s.Squad == SquadHumans {

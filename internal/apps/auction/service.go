@@ -353,7 +353,7 @@ func (vm *venueMode) practice(tx *gorm.DB, userID uint64) (bool, error) {
 
 // Start 快照地图配置, 抽出拍品数并逐个生成拍品(见 newLots), 按地图配置的权重为人机选出风格, 进入第 1 个拍品的第 1 轮出价
 //
-// 人机模式按地图的仓库价值系数缩放抽取次数; 配置了档次时人机的带入资金在 BotCarry × [人机带入下限, 100%] 内随机。
+// 人机模式按地图的仓库价值系数缩放抽取次数; 多拍品时人机的带入资金在 BotCarry × [人机带入下限, 100%] 内随机。
 // 掉落池已不可用或摆不下、人机风格已不可用时开局失败。
 func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) (*match.Phase, error) {
 	v := vm.venue
@@ -378,7 +378,7 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 		},
 		Lot: 1,
 	}
-	for _, t := range v.LotTiers() {
+	for _, t := range v.Lots.Tiers {
 		a.Venue.TierNames[t.Code] = t.Name
 	}
 	lots, items, err := vm.newLots(tx, m.ID)
@@ -418,7 +418,7 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 			continue
 		}
 		carry := v.Auction.BotBudget()
-		if v.Lots.Enabled() {
+		if !v.Lots.Single() {
 			floor := int64(balance.BotCarryFloor)
 			carry = max(carry*(floor+rand.Int64N(venue.BasisPoints-floor+1))/venue.BasisPoints, v.Auction.StartPrice)
 		}
@@ -453,7 +453,7 @@ func (vm *venueMode) newLots(tx *gorm.DB, matchID uint64) ([]Lot, []WarehouseIte
 	if err != nil {
 		return nil, nil, fmt.Errorf("auction: load warehouse rules of venue %s failed: %w", v.Code, err)
 	}
-	tiers := v.LotTiers()
+	tiers := v.Lots.Tiers
 	public := publicLots(tiers, venueLineup{lineup}, valueFactor)
 	scanDurations, err := item.ScanDurations(tx)
 	if err != nil {

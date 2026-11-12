@@ -70,7 +70,7 @@ export interface AuctionRule {
   max_extra_rounds: number;
   /** 出价货币的入场费, 开局时与入场代价一起扣除, 流拍时退还; 由对局验算求出 */
   entry_fee: number;
-  /** 起拍价; 配置了档次时为各档次中最低的, 也是最低带入, 每个拍品按档次的起拍价 */
+  /** 各档次中最低的起拍价, 也是最低带入; 每个拍品按档次的起拍价 */
   start_price: number;
   /** 带入资金上限, 玩家在 [start_price, max_carry] 内自选带入金额, 整个拍场共用 */
   max_carry: number;
@@ -130,15 +130,14 @@ export interface Venue {
   requirements: RequirementProgress[];
   /** 满足全部入场条件 */
   eligible: boolean;
-  grid: Grid;
   auction: AuctionRule;
   /** 主持人的提示 */
   host: HostRule;
-  /** 排位模式的仓库价值区间 */
+  /** 排位模式单个拍品的价值区间 */
   value_range: ValueRange;
   pve: PveView;
-  /** 拍场的拍品数和格子大小, 一局一个仓库时为 null */
-  lots: LotsView | null;
+  /** 拍场的拍品数和格子大小; max 为 1 时一局一个仓库 */
+  lots: LotsView;
 }
 
 /** 仓库的一个档位, 对应后端 venue.Slot */
@@ -185,9 +184,7 @@ export interface SlotOdds extends Slot {
 
 /** 玩家看到的地图详情, 对应后端 venue.VenueDetail */
 export interface VenueDetail extends Venue {
-  /** 一局一个仓库时的档位, 拍场为空, 见 lot_slots */
-  slots: SlotOdds[];
-  /** 拍场每种格子大小的仓库, 一局一个仓库时为空 */
+  /** 拍场每种格子大小的仓库 */
   lot_slots: GridOdds[];
 }
 
@@ -223,8 +220,8 @@ export interface WarehouseSwing {
 export interface WarehouseRule {
   grid: Grid;
   slots: WarehouseSlot[];
-  /** 每局按权重抽一档, 为空表示不波动; 旧数据可能为 null */
-  swings?: WarehouseSwing[] | null;
+  /** 每局按权重抽一档, 为空表示不波动 */
+  swings: WarehouseSwing[];
   /** 摆不下时重抽, 超过后开局失败 */
   max_rerolls: number;
 }
@@ -252,17 +249,17 @@ export interface LotTier {
 
 /**
  * 拍场, 对应后端 venue.LotRule: 一局依次开拍 [min, max] 个拍品, 共用一笔带入资金, 每个拍品按权重抽一种档次
- * 没有配置档次时只有 warehouse 一档, 一局一个仓库
+ * max 为 1 时一局一个仓库, 带入资金按单个仓库的价值分布推导, 不用覆盖率
  */
 export interface LotRule {
-  /** 配置了档次时为 1-8, 不超过 max; 没有档次时忽略 */
+  /** 1-8, 不超过 max */
   min: number;
   max: number;
-  /** 最多 6 种; 旧数据可能为 null */
-  tiers: LotTier[] | null;
+  /** 1-6 种 */
+  tiers: LotTier[];
   /** 一个拍品开箱后停留多久进入下一个, 0-30 秒 */
   gap_seconds: number;
-  /** 带入覆盖率, 基点; 0 表示用玩法平衡设置的默认值 */
+  /** 带入覆盖率, 基点, 多拍品时生效; 0 表示用玩法平衡设置的默认值 */
   coverage: number;
 }
 
@@ -422,12 +419,12 @@ export interface TierStats {
 /** 仓库模拟结果, 对应后端 venue.Simulation */
 export interface Simulation {
   runs: number;
-  /** 排位模式, 不缩放抽取次数; 配置了档次时为单个拍品(按权重混合各档次)的分布 */
+  /** 排位模式, 不缩放抽取次数; 单个拍品(按权重混合各档次)的分布 */
   ranked: ValueStats;
   /** 人机模式, 按仓库价值系数缩放抽取次数 */
   pve: ValueStats;
-  /** 各档次的价值分布, 没有配置档次时为空; 旧数据没有 */
-  tiers?: TierStats[] | null;
+  /** 各档次的价值分布, 同 lots.tiers 的顺序 */
+  tiers: TierStats[];
   /** 对局验算, 旧数据为空 */
   balance: Balance | null;
   simulated_at: string;
@@ -459,10 +456,8 @@ export interface AdminVenue {
   entry_cost: Bundle;
   /** 入场条件, 需要全部满足 */
   requirements: Condition[];
-  /** 仓库生成规则, 配置了档次时不用 */
-  warehouse: WarehouseRule;
-  /** 拍场: 一局开拍几个仓库, 从哪些档次中抽; 旧数据可能没有 */
-  lots?: LotRule;
+  /** 拍场: 一局开拍几个仓库, 从哪些档次中抽 */
+  lots: LotRule;
   auction: AuctionRule;
   bots: BotRule;
   pve: PveRule;

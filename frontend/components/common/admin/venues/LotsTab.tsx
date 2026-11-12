@@ -8,12 +8,12 @@ import type {LotTier, TierStats} from '@/lib/services/venue';
 import type {Currency} from '@/lib/services/wallet';
 import {formatAmount} from '@/lib/utils';
 import {FieldGroup, InputField} from './Fields';
-import {WarehouseEditor} from './WarehouseTab';
+import {WarehouseEditor} from './WarehouseEditor';
 import {MAX_GAP_SECONDS, MAX_LOTS, MAX_TIERS} from './constants';
 import type {FormTabProps, TierDraft} from './form';
 
 /**
- * 拍场: 一局开拍几个拍品、拍品间隔、带入覆盖率和拍品的档次; 没有档次时为单仓库玩法, 用仓库页的配置
+ * 拍场: 一局开拍几个拍品、拍品间隔、带入覆盖率和拍品的档次; 最多拍品数为 1 时一局一个仓库
  */
 export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, tierStats, stale}: FormTabProps & {
   pools: LootPoolListItem[];
@@ -26,13 +26,15 @@ export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, 
   /** 推导之后表单有改动 */
   stale: boolean;
 }) {
-  const enabled = form.tiers.length > 0;
+  // 一局一个仓库, 带入资金按单个仓库的价值推导, 拍品间隔和带入覆盖率不生效
+  const single = form.lotMax.trim() === '1';
   const updateTier = (key: string, patch: Partial<TierDraft>) =>
     onChange({tiers: form.tiers.map((t) => (t.key === key ? {...t, ...patch} : t))});
   const addTier = () => {
     const n = form.tiers.length + 1;
-    // 第一种档次沿用仓库页的配置, 之后的复制最后一种
-    const last = form.tiers.at(-1)?.warehouse ?? form.warehouse;
+    // 复制最后一种档次的仓库
+    const last = form.tiers.at(-1)?.warehouse;
+    if (!last) return;
     const warehouse = {
       ...last,
       slots: last.slots.map((s) => ({...s, key: nanoid()})),
@@ -46,9 +48,9 @@ export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, 
       <FieldGroup
         title="拍品数"
         help={
-          enabled ?
-            '一局依次开拍若干个拍品, 共用一笔带入资金; 拍品数和每个拍品的格子大小开局时公开, 档次拍场结束后公开' :
-            '没有配置档次, 一局一个仓库(单仓库玩法), 拍品数不生效; 添加档次后开启多拍品'
+          single ?
+            '一局一个仓库, 带入资金上限按单个仓库的价值分布推导; 最多拍品数大于 1 时一局依次开拍多个拍品, 共用一笔带入资金' :
+            '一局依次开拍若干个拍品, 共用一笔带入资金; 拍品数和每个拍品的格子大小开局时公开, 档次拍场结束后公开'
         }
       >
         <div className="grid gap-3 sm:grid-cols-2">
@@ -59,16 +61,16 @@ export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, 
             inputMode="numeric"
             value={form.lotMin}
             onChange={(lotMin) => onChange({lotMin})}
-            disabled={disabled || !enabled}
+            disabled={disabled}
           />
           <InputField
             id="venue-lot-max"
             label="最多拍品数"
-            help="每局在最少和最多之间均匀随机"
+            help="每局在最少和最多之间均匀随机; 1 表示一局一个仓库"
             inputMode="numeric"
             value={form.lotMax}
             onChange={(lotMax) => onChange({lotMax})}
-            disabled={disabled || !enabled}
+            disabled={disabled}
           />
           <InputField
             id="venue-gap-seconds"
@@ -78,7 +80,7 @@ export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, 
             inputMode="numeric"
             value={form.gapSeconds}
             onChange={(gapSeconds) => onChange({gapSeconds})}
-            disabled={disabled}
+            disabled={disabled || single}
           />
           <InputField
             id="venue-coverage"
@@ -88,14 +90,14 @@ export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, 
             inputMode="decimal"
             value={form.coverage}
             onChange={(coverage) => onChange({coverage})}
-            disabled={disabled}
+            disabled={disabled || single}
           />
         </div>
       </FieldGroup>
 
       <FieldGroup
         title="档次"
-        help={`每个拍品按权重抽一种档次生成仓库; 配置了档次时不用仓库页的配置。格子大小相同的档次起拍价等金额相同; 最多 ${MAX_TIERS} 种`}
+        help={`每个拍品按权重抽一种档次生成仓库; 格子大小相同的档次起拍价等金额相同; 1-${MAX_TIERS} 种`}
       >
         <div className="flex flex-col gap-3">
           {form.tiers.map((t, i) => (
@@ -110,10 +112,10 @@ export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, 
               stale={stale}
               onChange={(patch) => updateTier(t.key, patch)}
               onRemove={() => onChange({tiers: form.tiers.filter((x) => x.key !== t.key)})}
+              removable={form.tiers.length > 1}
               disabled={disabled}
             />
           ))}
-          {!enabled && <p className="py-2 text-sm text-muted-foreground">没有档次, 按单仓库玩法进行</p>}
           <div>
             <Button
               type="button"
@@ -147,13 +149,15 @@ interface TierCardProps {
   stale: boolean;
   onChange: (patch: Partial<TierDraft>) => void;
   onRemove: () => void;
+  /** 至少保留一种档次 */
+  removable: boolean;
   disabled: boolean;
 }
 
 /**
  * 一种档次: 代码、名称、权重和仓库生成规则, 以及推导出的金额(只读)
  */
-function TierCard({index, tier, pools, saved, stats, currency, stale, onChange, onRemove, disabled}: TierCardProps) {
+function TierCard({index, tier, pools, saved, stats, currency, stale, onChange, onRemove, removable, disabled}: TierCardProps) {
   const id = `venue-tier-${tier.key}`;
   const amount = (value: number) => formatAmount(value, currency?.decimals ?? 0);
   const derived = saved && saved.auction.start_price > 0 ? saved.auction : null;
@@ -199,7 +203,7 @@ function TierCard({index, tier, pools, saved, stats, currency, stale, onChange, 
           aria-label="删除档次"
           className="mt-6 hover:text-destructive"
           onClick={onRemove}
-          disabled={disabled}
+          disabled={disabled || !removable}
         >
           <Trash2 />
         </Button>
