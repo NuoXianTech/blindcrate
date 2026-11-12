@@ -16,6 +16,13 @@ export interface CredentialsRequest {
   password: string;
 }
 
+export interface RegisterRequest extends CredentialsRequest {
+  /** 开启注册时验证邮箱后必填 */
+  email?: string;
+  /** 发到邮箱的验证码 */
+  code?: string;
+}
+
 export interface UpdateUserInfoRequest {
   /** 不传表示不修改 */
   nickname?: string;

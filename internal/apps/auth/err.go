@@ -44,4 +44,8 @@ const (
 	AvatarURLInvalid   = "头像地址需为 http(s) 链接或上传的图片, 且不超过 1024 个字符"
 	RegisterClosed     = "当前未开放注册"
 	EmailLoginDisabled = "当前未开放邮箱登录"
+	EmailRequired      = "注册需要填写邮箱并通过验证"
+	EmailNotRequired   = "当前注册不需要验证邮箱"
+	EmailAliasBlocked  = "不支持带 + 的别名邮箱, 请使用原始邮箱地址"
+	EmailDomainBlocked = "不支持该邮箱后缀, 请更换邮箱"
 )

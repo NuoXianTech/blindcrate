@@ -10,6 +10,13 @@ export function checkUsername(username: string): string | null {
   return USERNAME_PATTERN.test(username) ? null : '用户名需为 3-32 位字母、数字或下划线';
 }
 
+/** 邮箱格式只做粗略检查, 以后端为准; blockAlias 为站点设置的屏蔽别名邮箱 */
+export function checkEmail(email: string, blockAlias = false): string | null {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '邮箱格式不正确';
+  if (blockAlias && email.slice(0, email.lastIndexOf('@')).includes('+')) return '不支持带 + 的别名邮箱, 请使用原始邮箱地址';
+  return null;
+}
+
 /** bcrypt 最多处理 72 字节, 按字节计 */
 export function checkPassword(password: string): string | null {
   const bytes = new TextEncoder().encode(password).length;

@@ -1,5 +1,5 @@
 import {BaseService} from '../core';
-import type {ChangePasswordRequest, CredentialsRequest, UpdateUserInfoRequest, UserInfo} from './types';
+import type {ChangePasswordRequest, CredentialsRequest, RegisterRequest, UpdateUserInfoRequest, UserInfo} from './types';
 
 export class AuthService extends BaseService {
   protected static readonly basePath = '/auth';
@@ -8,8 +8,13 @@ export class AuthService extends BaseService {
     return this.post<UserInfo>('/login', body);
   }
 
-  static register(body: CredentialsRequest) {
+  static register(body: RegisterRequest) {
     return this.post<UserInfo>('/register', body);
+  }
+
+  /** 向注册用的邮箱发送验证码, 只在开启注册时验证邮箱后可用 */
+  static sendRegisterCode(email: string) {
+    return this.post<null>('/register/code', {email});
   }
 
   static logout() {

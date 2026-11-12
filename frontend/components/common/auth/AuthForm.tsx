@@ -1,8 +1,9 @@
 'use client';
 
-import {useEffect} from 'react';
+import {useEffect, useState} from 'react';
 import Link from 'next/link';
 import {useRouter, useSearchParams} from 'next/navigation';
+import {LoaderCircle} from 'lucide-react';
 import {useForm} from 'react-hook-form';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
@@ -15,7 +16,7 @@ import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import {ROUTES, loginHref, safeRedirect} from '@/lib/access';
 import {formatAmount} from '@/lib/utils';
-import {checkPassword, checkPasswordConfirm, checkUsername} from '@/lib/validation';
+import {checkEmail, checkPassword, checkPasswordConfirm, checkUsername} from '@/lib/validation';
 import {useAuth} from './AuthProvider';
 
 type Mode = 'login' | 'register';
@@ -25,7 +26,13 @@ interface AuthValues {
   password: string;
   /** 确认密码, 只有注册时有 */
   confirm: string;
+  /** 邮箱和验证码, 只有开启注册时验证邮箱后有 */
+  email: string;
+  code: string;
 }
+
+/** 发送验证码的冷却秒数, 与后端一致 */
+const EMAIL_CODE_COOLDOWN = 60;
 
 const COPY = {
   login: {description: '登录账号, 继续开箱', submit: '登录', switchText: '还没有账号?', switchLink: '注册一个', switchTo: ROUTES.register},
@@ -43,9 +50,27 @@ export function AuthForm({mode}: { mode: Mode }) {
   const {site, auth, economy} = useSite();
   // 关闭注册时注册页只显示提示, 登录页不显示注册入口
   const registerClosed = !auth.register_enabled;
+  // 开启后注册时要填写邮箱并通过验证码验证
+  const emailRequired = mode === 'register' && auth.register_email_required;
   const {pending, submit} = useSubmit();
+  const send = useSubmit();
+  const [cooldown, setCooldown] = useState(0);
 
-  const form = useForm<AuthValues>({defaultValues: {username: '', password: '', confirm: ''}});
+  const form = useForm<AuthValues>({defaultValues: {username: '', password: '', confirm: '', email: '', code: ''}});
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  // 发送前只校验邮箱一栏, 其他字段可以稍后再填
+  const handleSend = send.submit(async () => {
+    if (!(await form.trigger('email'))) return;
+    await services.auth.sendRegisterCode(form.getValues('email').trim());
+    setCooldown(EMAIL_CODE_COOLDOWN);
+    toast.success('验证码已发送, 10 分钟内有效');
+  });
 
   // 已登录(含刚登录成功)时离开登录页
   useEffect(() => {
@@ -53,7 +78,7 @@ export function AuthForm({mode}: { mode: Mode }) {
   }, [user, redirect, router]);
 
   // 字段校验由表单完成, 错误显示在字段下方; 请求失败仍以提示框展示
-  const handleSubmit = form.handleSubmit(({username, password}) => submit(async () => {
+  const handleSubmit = form.handleSubmit(({username, password, email, code}) => submit(async () => {
     const body = {username: username.trim(), password};
     if (mode === 'login') {
       const info = await services.auth.login(body);
@@ -61,7 +86,7 @@ export function AuthForm({mode}: { mode: Mode }) {
       setUser(info);
       return;
     }
-    const info = await services.auth.register(body);
+    const info = await services.auth.register(emailRequired ? {...body, email: email.trim(), code: code.trim()} : body);
     toast.success(`注册成功, 欢迎 ${info.nickname}`, {description: await grantedText(economy.base_currency)});
     setUser(info);
   })());
@@ -154,6 +179,51 @@ export function AuthForm({mode}: { mode: Mode }) {
                   </FormItem>
                 )}
               />
+            )}
+            {emailRequired && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="email"
+                  rules={{validate: (v) => (!v.trim() ? '请填写邮箱' : checkEmail(v.trim(), auth.block_email_alias) ?? true)}}
+                  render={({field}) => (
+                    <FormItem>
+                      <FormLabel>邮箱</FormLabel>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input type="email" autoComplete="email" placeholder="name@example.com" disabled={pending} {...field} />
+                        </FormControl>
+                        <Button type="button" variant="secondary" onClick={() => handleSend()} disabled={pending || send.pending || cooldown > 0}>
+                          {send.pending && <LoaderCircle className="animate-spin" />}
+                          {cooldown > 0 ? `${cooldown} 秒后重发` : '发送验证码'}
+                        </Button>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="code"
+                  rules={{validate: (v) => (v.trim() ? true : '请填写验证码')}}
+                  render={({field}) => (
+                    <FormItem>
+                      <FormLabel>验证码</FormLabel>
+                      <FormControl>
+                        <Input
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={6}
+                          placeholder="6 位数字"
+                          disabled={pending}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
             )}
             {mode === 'register' && economy.signup_grant > 0 && (
               <p className="flex items-center justify-center gap-1.5 rounded-lg border bg-card px-3 py-2 text-sm">

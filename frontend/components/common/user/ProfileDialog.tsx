@@ -9,11 +9,12 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {useAuth} from '@/components/common/auth';
+import {useSite} from '@/components/common/site';
 import {ImageUploadField, SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {UserInfo} from '@/lib/services/auth';
-import {checkImageURL, checkNickname, checkPassword, checkPasswordConfirm} from '@/lib/validation';
+import {checkEmail, checkImageURL, checkNickname, checkPassword, checkPasswordConfirm} from '@/lib/validation';
 import {UserAvatar} from './UserAvatar';
 
 /** 发送验证码的冷却秒数, 与后端一致 */
@@ -174,6 +175,7 @@ function PasswordForm() {
 
 function EmailForm({user}: { user: UserInfo }) {
   const {refresh} = useAuth();
+  const {auth} = useSite();
   const send = useSubmit();
   const verify = useSubmit();
   const [email, setEmail] = useState('');
@@ -187,7 +189,7 @@ function EmailForm({user}: { user: UserInfo }) {
   }, [cooldown]);
 
   const handleSend = send.submit(async () => {
-    check(email.trim() ? null : '请先填写邮箱');
+    check(email.trim() ? checkEmail(email.trim(), auth.block_email_alias) : '请先填写邮箱');
     await services.auth.sendEmailCode(email.trim());
     setCooldown(EMAIL_CODE_COOLDOWN);
     toast.success('验证码已发送, 10 分钟内有效');
