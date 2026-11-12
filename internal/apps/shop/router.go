@@ -96,6 +96,7 @@ type CreateOrderRequest struct {
 // @Failure 409 {object} Response
 // @Failure 429 {object} Response
 // @Failure 500 {object} Response
+// @Param X-Captcha-Token header string false "人机验证令牌, 该场景开启人机验证时必填"
 // @Router /api/v1/shop/orders [post]
 func CreateOrder(c *gin.Context) {
 	ctx := c.Request.Context()

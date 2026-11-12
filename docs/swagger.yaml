@@ -10677,6 +10677,10 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/auth.LoginRequest'
+      - description: 人机验证令牌, 该场景开启人机验证时必填
+        in: header
+        name: X-Captcha-Token
+        type: string
       produces:
       - application/json
       responses:
@@ -10782,6 +10786,10 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/auth.RegisterRequest'
+      - description: 人机验证令牌, 该场景开启人机验证时必填
+        in: header
+        name: X-Captcha-Token
+        type: string
       produces:
       - application/json
       responses:
@@ -10829,6 +10837,10 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/auth.SendRegisterCodeRequest'
+      - description: 人机验证令牌, 该场景开启人机验证时必填
+        in: header
+        name: X-Captcha-Token
+        type: string
       produces:
       - application/json
       responses:
@@ -10966,6 +10978,11 @@ paths:
     post:
       description: 每天一次, 按连续签到的天数领取对应一天的奖励; 已下架的物品按回收价折成货币。签到关闭、没有配置奖励或奖励暂时无法发放时返回
         403
+      parameters:
+      - description: 人机验证令牌, 该场景开启人机验证时必填
+        in: header
+        name: X-Captcha-Token
+        type: string
       produces:
       - application/json
       responses:
@@ -12241,6 +12258,10 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/shop.CreateOrderRequest'
+      - description: 人机验证令牌, 该场景开启人机验证时必填
+        in: header
+        name: X-Captcha-Token
+        type: string
       produces:
       - application/json
       responses:

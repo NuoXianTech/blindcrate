@@ -9,6 +9,7 @@ import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
 import {Input} from '@/components/ui/input';
+import {useCaptcha} from '@/components/common/captcha';
 import {SiteLogo, useSite} from '@/components/common/site';
 import {SubmitButton} from '@/components/common/form';
 import {CurrencyIcon} from '@/components/common/wallet';
@@ -54,6 +55,8 @@ export function AuthForm({mode}: { mode: Mode }) {
   const emailRequired = mode === 'register' && auth.register_email_required;
   const {pending, submit} = useSubmit();
   const send = useSubmit();
+  // 登录和注册各有开关; 发送验证码和注册共用一个组件, 令牌每次请求用掉一个
+  const captcha = useCaptcha(mode);
   const [cooldown, setCooldown] = useState(0);
 
   const form = useForm<AuthValues>({defaultValues: {username: '', password: '', confirm: '', email: '', code: ''}});
@@ -67,7 +70,7 @@ export function AuthForm({mode}: { mode: Mode }) {
   // 发送前只校验邮箱一栏, 其他字段可以稍后再填
   const handleSend = send.submit(async () => {
     if (!(await form.trigger('email'))) return;
-    await services.auth.sendRegisterCode(form.getValues('email').trim());
+    await services.auth.sendRegisterCode(form.getValues('email').trim(), captcha.take());
     setCooldown(EMAIL_CODE_COOLDOWN);
     toast.success('验证码已发送, 10 分钟内有效');
   });
@@ -80,13 +83,14 @@ export function AuthForm({mode}: { mode: Mode }) {
   // 字段校验由表单完成, 错误显示在字段下方; 请求失败仍以提示框展示
   const handleSubmit = form.handleSubmit(({username, password, email, code}) => submit(async () => {
     const body = {username: username.trim(), password};
+    const token = captcha.take();
     if (mode === 'login') {
-      const info = await services.auth.login(body);
+      const info = await services.auth.login(body, token);
       toast.success(`欢迎回来, ${info.nickname}`);
       setUser(info);
       return;
     }
-    const info = await services.auth.register(emailRequired ? {...body, email: email.trim(), code: code.trim()} : body);
+    const info = await services.auth.register(emailRequired ? {...body, email: email.trim(), code: code.trim()} : body, token);
     toast.success(`注册成功, 欢迎 ${info.nickname}`, {description: await grantedText(economy.base_currency)});
     setUser(info);
   })());
@@ -193,7 +197,7 @@ export function AuthForm({mode}: { mode: Mode }) {
                         <FormControl>
                           <Input type="email" autoComplete="email" placeholder="name@example.com" disabled={pending} {...field} />
                         </FormControl>
-                        <Button type="button" variant="secondary" onClick={() => handleSend()} disabled={pending || send.pending || cooldown > 0}>
+                        <Button type="button" variant="secondary" onClick={() => handleSend()} disabled={pending || send.pending || cooldown > 0 || !captcha.ready}>
                           {send.pending && <LoaderCircle className="animate-spin" />}
                           {cooldown > 0 ? `${cooldown} 秒后重发` : '发送验证码'}
                         </Button>
@@ -233,7 +237,8 @@ export function AuthForm({mode}: { mode: Mode }) {
                 <span className="font-mono font-bold tabular-nums">{formatAmount(economy.signup_grant)}</span>
               </p>
             )}
-            <SubmitButton pending={pending} size="lg" className="mt-2 w-full">
+            {captcha.widget}
+            <SubmitButton pending={pending} disabled={!captcha.ready} size="lg" className="mt-2 w-full">
               {pending ? `正在${copy.submit}...` : copy.submit}
             </SubmitButton>
           </form>

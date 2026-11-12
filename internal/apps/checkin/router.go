@@ -75,6 +75,7 @@ func GetCheckin(c *gin.Context) {
 // @Failure 403 {object} Response
 // @Failure 409 {object} Response
 // @Failure 500 {object} Response
+// @Param X-Captcha-Token header string false "人机验证令牌, 该场景开启人机验证时必填"
 // @Router /api/v1/checkin [post]
 func DoCheckin(c *gin.Context) {
 	ctx := c.Request.Context()

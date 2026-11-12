@@ -1,20 +1,22 @@
-import {BaseService} from '../core';
+import {BaseService, captchaConfig} from '../core';
 import type {ChangePasswordRequest, CredentialsRequest, RegisterRequest, UpdateUserInfoRequest, UserInfo} from './types';
 
 export class AuthService extends BaseService {
   protected static readonly basePath = '/auth';
 
-  static login(body: CredentialsRequest) {
-    return this.post<UserInfo>('/login', body);
+  /** captcha 为人机验证的令牌, 登录开启人机验证时必填 */
+  static login(body: CredentialsRequest, captcha?: string) {
+    return this.post<UserInfo>('/login', body, captchaConfig(captcha));
   }
 
-  static register(body: RegisterRequest) {
-    return this.post<UserInfo>('/register', body);
+  /** captcha 为人机验证的令牌, 注册开启人机验证时必填 */
+  static register(body: RegisterRequest, captcha?: string) {
+    return this.post<UserInfo>('/register', body, captchaConfig(captcha));
   }
 
-  /** 向注册用的邮箱发送验证码, 只在开启注册时验证邮箱后可用 */
-  static sendRegisterCode(email: string) {
-    return this.post<null>('/register/code', {email});
+  /** 向注册用的邮箱发送验证码, 只在开启注册时验证邮箱后可用; 注册开启人机验证时也要带令牌 */
+  static sendRegisterCode(email: string, captcha?: string) {
+    return this.post<null>('/register/code', {email}, captchaConfig(captcha));
   }
 
   static logout() {

@@ -73,6 +73,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue/venueadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet/walletadmin"
+	"github.com/NuoXianTech/blindcrate/internal/captcha"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/NuoXianTech/blindcrate/internal/ratelimit"
@@ -171,9 +172,9 @@ func publicRoutes(r *gin.RouterGroup) {
 	r.GET("/ready", health.Ready)
 
 	// Auth
-	r.POST("/auth/login", ratelimit.ByIP("auth:login", ratelimit.PerMinute(10)), auth.Login)
-	r.POST("/auth/register", ratelimit.ByIP("auth:register", ratelimit.PerHour(10)), auth.Register)
-	r.POST("/auth/register/code", ratelimit.ByIP("auth:send_register_code", ratelimit.PerHour(10)), auth.SendRegisterCode)
+	r.POST("/auth/login", ratelimit.ByIP("auth:login", ratelimit.PerMinute(10)), captcha.Required(captcha.SceneLogin), auth.Login)
+	r.POST("/auth/register", ratelimit.ByIP("auth:register", ratelimit.PerHour(10)), captcha.Required(captcha.SceneRegister), auth.Register)
+	r.POST("/auth/register/code", ratelimit.ByIP("auth:send_register_code", ratelimit.PerHour(10)), captcha.Required(captcha.SceneRegister), auth.SendRegisterCode)
 	r.POST("/auth/logout", auth.Logout)
 
 	// Settings
@@ -271,7 +272,7 @@ func userRoutes(r *gin.RouterGroup) {
 	{
 		shopRouter.GET("/items", shop.ListItems)
 		shopRouter.GET("/orders", shop.ListOrders)
-		shopRouter.POST("/orders", ratelimit.ByUser("shop:buy", ratelimit.PerMinute(60)), shop.CreateOrder)
+		shopRouter.POST("/orders", ratelimit.ByUser("shop:buy", ratelimit.PerMinute(60)), captcha.Required(captcha.SceneShop), shop.CreateOrder)
 	}
 
 	// Mailbox
@@ -297,7 +298,7 @@ func userRoutes(r *gin.RouterGroup) {
 	checkinRouter := r.Group("/checkin")
 	{
 		checkinRouter.GET("", checkin.GetCheckin)
-		checkinRouter.POST("", ratelimit.ByUser("checkin", ratelimit.PerMinute(30)), checkin.DoCheckin)
+		checkinRouter.POST("", ratelimit.ByUser("checkin", ratelimit.PerMinute(30)), captcha.Required(captcha.SceneCheckin), checkin.DoCheckin)
 	}
 
 	// Codex

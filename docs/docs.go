@@ -8246,6 +8246,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/auth.LoginRequest"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "人机验证令牌, 该场景开启人机验证时必填",
+                        "name": "X-Captcha-Token",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -8411,6 +8417,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/auth.RegisterRequest"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "人机验证令牌, 该场景开启人机验证时必填",
+                        "name": "X-Captcha-Token",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -8487,6 +8499,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/auth.SendRegisterCodeRequest"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "人机验证令牌, 该场景开启人机验证时必填",
+                        "name": "X-Captcha-Token",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -8709,6 +8727,14 @@ const docTemplate = `{
                     "checkin"
                 ],
                 "summary": "签到",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "人机验证令牌, 该场景开启人机验证时必填",
+                        "name": "X-Captcha-Token",
+                        "in": "header"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -10767,6 +10793,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/shop.CreateOrderRequest"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "人机验证令牌, 该场景开启人机验证时必填",
+                        "name": "X-Captcha-Token",
+                        "in": "header"
                     }
                 ],
                 "responses": {

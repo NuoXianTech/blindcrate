@@ -5,6 +5,7 @@ import {nanoid} from 'nanoid';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
+import {useCaptcha} from '@/components/common/captcha';
 import {QuantityStepper, SubmitButton} from '@/components/common/form';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
@@ -48,6 +49,7 @@ export function BuyDialog({item, onClose, onRefresh}: BuyDialogProps) {
  */
 function BuyForm({item, onClose, onRefresh}: Omit<BuyDialogProps, 'item'> & { item: ShopItem }) {
   const {pending, submit} = useSubmit();
+  const captcha = useCaptcha('shop', {appearance: 'interaction-only'});
   const max = maxQuantity(item);
   const [text, setText] = useState('1');
   // 幂等键在份数变化时重新生成, 份数不变的重复提交(如超时后重试)只成交一次
@@ -62,8 +64,9 @@ function BuyForm({item, onClose, onRefresh}: Omit<BuyDialogProps, 'item'> & { it
 
   const handleSubmit = submit(async () => {
     check(quantity === null ? `份数需为 1-${max}` : null);
+    const token = captcha.take();
     try {
-      await services.shop.buy({code: item.code, quantity: quantity!, price: toBundle(item.price), idempotency_key: idempotencyKey});
+      await services.shop.buy({code: item.code, quantity: quantity!, price: toBundle(item.price), idempotency_key: idempotencyKey}, token);
     } catch (err) {
       // 价格变化等冲突, 刷新商品后让玩家重新确认
       if (err instanceof ApiError && err.status === 409) onRefresh();
@@ -92,11 +95,13 @@ function BuyForm({item, onClose, onRefresh}: Omit<BuyDialogProps, 'item'> & { it
         </div>
       </div>
 
+      {captcha.widget}
+
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
           取消
         </Button>
-        <SubmitButton pending={pending} disabled={quantity === null}>
+        <SubmitButton pending={pending} disabled={quantity === null || !captcha.ready}>
           确认购买
         </SubmitButton>
       </DialogFooter>
