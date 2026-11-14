@@ -10,7 +10,7 @@ import {Button} from '@/components/ui/button';
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
 import {Input} from '@/components/ui/input';
 import {useCaptcha} from '@/components/common/captcha';
-import {SiteLogo, useSite} from '@/components/common/site';
+import {SiteLogo, useLiveSite} from '@/components/common/site';
 import {SubmitButton} from '@/components/common/form';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useSubmit} from '@/hooks/use-submit';
@@ -48,7 +48,8 @@ export function AuthForm({mode}: { mode: Mode }) {
   const redirect = useSearchParams().get('redirect');
   const copy = COPY[mode];
   const {user, setUser} = useAuth();
-  const {site, auth, economy} = useSite();
+  // 页面上的公开设置有缓存, 管理员刚改过注册、邮箱验证、人机验证的开关时可能是旧的; 打开表单时读取最新的设置
+  const {site, auth, economy} = useLiveSite();
   // 关闭注册时注册页只显示提示, 登录页不显示注册入口
   const registerClosed = !auth.register_enabled;
   // 开启后注册时要填写邮箱并通过验证码验证

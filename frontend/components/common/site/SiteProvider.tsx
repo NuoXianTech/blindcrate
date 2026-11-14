@@ -1,10 +1,18 @@
 'use client';
 
-import {createContext, useContext, useMemo} from 'react';
+import {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
 import {UNKNOWN_QUALITY, qualityStyle, qualityStyleSheet, type Quality, type QualityStyle} from '@/lib/quality';
+import services from '@/lib/services';
 import type {PublicSettings} from '@/lib/site';
 
-const SiteContext = createContext<{ settings: PublicSettings; qualities: Quality[] } | null>(null);
+interface SiteContextValue {
+  settings: PublicSettings;
+  qualities: Quality[];
+  /** 向后端读取最新的公开设置 */
+  refresh: () => void;
+}
+
+const SiteContext = createContext<SiteContextValue | null>(null);
 
 /**
  * 把服务端读取的公开设置和品质交给客户端组件, 见 app/layout.tsx; 纯色品质的类名在这里生成样式表
@@ -14,7 +22,17 @@ export function SiteProvider({settings, qualities, children}: {
   qualities: Quality[];
   children: React.ReactNode;
 }) {
-  const value = useMemo(() => ({settings, qualities}), [settings, qualities]);
+  // 服务端读取的设置有缓存, 在站内切换页面时也不会重新读取; 这里是浏览器向后端读到的最新值, 服务端送来新的设置后作废
+  const [live, setLive] = useState<{ base: PublicSettings; settings: PublicSettings } | null>(null);
+  const refresh = useCallback(() => {
+    services.settings.getPublic()
+        .then((latest) => setLive({base: settings, settings: {...settings, ...latest}}))
+        .catch(() => {
+          // 读取失败时继续使用服务端读取的设置
+        });
+  }, [settings]);
+  const current = live?.base === settings ? live.settings : settings;
+  const value = useMemo(() => ({settings: current, qualities, refresh}), [current, qualities, refresh]);
   return (
     <SiteContext.Provider value={value}>
       {/* 颜色已按 #rrggbb 过滤 */}
@@ -35,6 +53,16 @@ function useSiteContext() {
  */
 export function useSite(): PublicSettings {
   return useSiteContext().settings;
+}
+
+/**
+ * 读取站点公开设置, 并在挂载时向后端读取一次最新值, 读到后全站的公开设置一起更新
+ * 用在必须和后端一致的页面(如登录、注册表单): 页面上的设置可能是旧的, 后端已经按新的设置校验
+ */
+export function useLiveSite(): PublicSettings {
+  const {settings, refresh} = useSiteContext();
+  useEffect(refresh, [refresh]);
+  return settings;
 }
 
 /**
