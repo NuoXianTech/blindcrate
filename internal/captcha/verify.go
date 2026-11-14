@@ -31,12 +31,21 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 )
 
 // client 请求 Cloudflare 用的客户端
 var client = &http.Client{Timeout: verifyTimeout}
+
+// breaker 连不上 Cloudflare 时的熔断
+var breaker struct {
+	sync.Mutex
+	failures int       // 连续没有连上的次数
+	until    time.Time // 熔断到什么时候
+}
 
 // verifyResponse Turnstile 验证接口的响应
 type verifyResponse struct {
@@ -71,6 +80,37 @@ func enabled(s *settings.CaptchaSettings, scene string) bool {
 	return false
 }
 
+// paused 是否在熔断中, 熔断中的请求不验证; 到期后只让一个请求去试探, 其余的仍然不验证
+func paused() bool {
+	breaker.Lock()
+	defer breaker.Unlock()
+	if breaker.failures < breakerThreshold {
+		return false
+	}
+	now := time.Now()
+	if now.Before(breaker.until) {
+		return true
+	}
+	breaker.until = now.Add(breakerCooldown)
+	return false
+}
+
+// record 记录一次请求有没有连上 Cloudflare, 返回是否进入熔断
+func record(reached bool) bool {
+	breaker.Lock()
+	defer breaker.Unlock()
+	if reached {
+		breaker.failures = 0
+		return false
+	}
+	breaker.failures++
+	if breaker.failures < breakerThreshold {
+		return false
+	}
+	breaker.until = time.Now().Add(breakerCooldown)
+	return true
+}
+
 // verify 向 Cloudflare 验证令牌, 返回是否通过和没有通过时的错误码; 请求失败、响应无法解析或私钥不被接受时返回 error
 func verify(ctx context.Context, secret, token, ip string) (bool, []string, error) {
 	form := url.Values{"secret": {secret}, "response": {token}}
@@ -84,9 +124,14 @@ func verify(ctx context.Context, secret, token, ip string) (bool, []string, erro
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := client.Do(req)
 	if err != nil {
+		// 请求方自己断开连接时不算连不上
+		if ctx.Err() == nil && record(false) {
+			err = fmt.Errorf("%w; verification paused for %s", err, breakerCooldown)
+		}
 		return false, nil, err
 	}
 	defer resp.Body.Close()
+	record(true)
 	if resp.StatusCode != http.StatusOK {
 		return false, nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}

@@ -30,6 +30,7 @@ import (
 	"net/http/httptest"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 )
@@ -96,5 +97,76 @@ func TestVerify(t *testing.T) {
 		if passed, _, err := verify(ctx, "secret", token, "203.0.113.7"); err == nil || passed {
 			t.Errorf("%s: passed = %t, err = %v", token, passed, err)
 		}
+	}
+	// Cloudflare 有响应就不算连不上
+	if paused() {
+		t.Error("paused after responses from cloudflare")
+	}
+}
+
+func TestBreaker(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"success":true,"error-codes":[]}`))
+	}))
+	defer server.Close()
+	// 已经关闭的服务, 连接会被拒绝
+	down := httptest.NewServer(http.NotFoundHandler())
+	down.Close()
+	old := verifyURL
+	defer func() {
+		verifyURL = old
+		breaker.failures, breaker.until = 0, time.Time{}
+	}()
+
+	ctx := context.Background()
+	verifyURL = down.URL
+	for i := 1; i <= breakerThreshold; i++ {
+		if paused() {
+			t.Fatalf("paused after %d failures", i-1)
+		}
+		if _, _, err := verify(ctx, "secret", "good", ""); err == nil {
+			t.Fatal("verify against a closed server should fail")
+		}
+	}
+	if !paused() {
+		t.Fatalf("not paused after %d failures", breakerThreshold)
+	}
+
+	// 请求方断开连接不计入
+	breaker.failures = 0
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	for range breakerThreshold {
+		_, _, _ = verify(canceled, "secret", "good", "")
+	}
+	if paused() {
+		t.Error("paused by canceled requests")
+	}
+
+	// 到期后只放一个请求去试探, 仍然连不上时继续熔断
+	breaker.failures = breakerThreshold
+	breaker.until = time.Now().Add(-time.Second)
+	if paused() {
+		t.Fatal("no probe after cooldown")
+	}
+	if !paused() {
+		t.Error("second request also probes")
+	}
+	_, _, _ = verify(ctx, "secret", "good", "")
+	if !paused() {
+		t.Error("not paused after a failed probe")
+	}
+
+	// 试探连上了就恢复验证
+	breaker.until = time.Now().Add(-time.Second)
+	verifyURL = server.URL
+	if paused() {
+		t.Fatal("no probe after cooldown")
+	}
+	if passed, _, err := verify(ctx, "secret", "good", ""); err != nil || !passed {
+		t.Errorf("probe: passed = %t, err = %v", passed, err)
+	}
+	if paused() {
+		t.Error("still paused after a successful probe")
 	}
 }
