@@ -30,6 +30,9 @@
 // 没有令牌时返回 400, 验证没有通过时返回 403。
 //
 // 没有填写站点密钥或私钥时视为关闭; 读取设置出错、连不上 Cloudflare 或私钥填错时放行并记录日志: 人机验证只用于防刷, 不影响正常业务, 也避免管理员无法登录后台改回来。
+//
+// 连续 breakerThreshold 次连不上 Cloudflare 后熔断 breakerCooldown, 期间不再请求而直接放行, 避免每个请求都等到 verifyTimeout;
+// 到期后用一个请求试探, 连上了就恢复验证。
 package captcha
 
 import "time"
@@ -50,6 +53,10 @@ const (
 	maxTokenLength = 2048
 	// verifyTimeout 请求 Cloudflare 的超时时间
 	verifyTimeout = 5 * time.Second
+	// breakerThreshold 连续这么多次连不上 Cloudflare 后熔断
+	breakerThreshold = 3
+	// breakerCooldown 熔断的时长
+	breakerCooldown = 30 * time.Second
 )
 
 // verifyURL Turnstile 的验证接口, 测试时替换

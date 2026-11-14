@@ -62,6 +62,11 @@ func Required(scene string) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error_msg": VerifyFailed, "data": nil})
 			return
 		}
+		// 熔断中不请求 Cloudflare, 直接放行
+		if paused() {
+			c.Next()
+			return
+		}
 		passed, codes, err := verify(ctx, s.SecretKey, token, c.ClientIP())
 		if err != nil {
 			logger.ErrorF(ctx, "[Captcha] verify %s failed: %v", scene, err)
