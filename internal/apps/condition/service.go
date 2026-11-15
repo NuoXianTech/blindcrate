@@ -25,23 +25,13 @@
 package condition
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"reflect"
-	"slices"
 	"strings"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"gorm.io/gorm"
 )
-
-// ParamsValidator 参数结构体可以实现的接口, 保存时做需要查库的校验, 如货币是否存在
-type ParamsValidator interface {
-	// Validate 返回非空的 reason 表示参数不合法, reason 展示给管理员; err 为查库等内部错误
-	Validate(tx *gorm.DB) (reason string, err error)
-}
 
 // InvalidError 条件配置不合法, Error 返回的提示可以直接展示
 type InvalidError struct {
@@ -63,9 +53,8 @@ type ScopeNamer func(tx *gorm.DB, scope string) (string, error)
 type definition struct {
 	label       string
 	description string
-	fields      []Field
-	decode      func(raw json.RawMessage, strict bool) (any, error) // 返回参数结构体的指针
-	check       func(tx *gorm.DB, userID uint64, params any) (*Progress, error)
+	schema      *params.Schema
+	check       func(tx *gorm.DB, userID uint64, decoded any) (*Progress, error)
 }
 
 var (
@@ -79,9 +68,9 @@ var (
 
 // Register 注册一种条件类型, 需要在启动前调用; 类型为空、过长、重复或参数结构体有不支持的字段时 panic
 //
-// P 为参数结构体, 字段 tag 与设置组一致(json、label、help、binding), 另可用 input 指定选择器(currency、item、quality、scope、metric、pool);
-// P 的指针可以实现 ParamsValidator。check 只读, 不能有副作用, 返回的 Progress 不需要填 Type。
-func Register[P any](conditionType, label, description string, check func(tx *gorm.DB, userID uint64, params *P) (*Progress, error)) {
+// P 为参数结构体, 字段的 tag 见 params 包, 可用 input 指定选择器(currency、item、quality、scope、metric、pool);
+// P 的指针可以实现 params.Validator。check 只读, 不能有副作用, 返回的 Progress 不需要填 Type。
+func Register[P any](conditionType, label, description string, check func(tx *gorm.DB, userID uint64, decoded *P) (*Progress, error)) {
 	if conditionType == "" || len(conditionType) > 32 {
 		panic(fmt.Sprintf("condition: invalid type %q", conditionType))
 	}
@@ -91,78 +80,12 @@ func Register[P any](conditionType, label, description string, check func(tx *go
 	definitions[conditionType] = &definition{
 		label:       label,
 		description: description,
-		fields:      FieldsOf[P](conditionType),
-		decode: func(raw json.RawMessage, strict bool) (any, error) {
-			params := new(P)
-			if len(raw) == 0 {
-				return params, nil
-			}
-			dec := json.NewDecoder(bytes.NewReader(raw))
-			if strict {
-				dec.DisallowUnknownFields()
-			}
-			if err := dec.Decode(params); err != nil {
-				return nil, err
-			}
-			return params, nil
-		},
-		check: func(tx *gorm.DB, userID uint64, params any) (*Progress, error) {
-			return check(tx, userID, params.(*P))
+		schema:      params.New[P](conditionType, params.Plain, nil),
+		check: func(tx *gorm.DB, userID uint64, decoded any) (*Progress, error) {
+			return check(tx, userID, decoded.(*P))
 		},
 	}
 	typeOrder = append(typeOrder, conditionType)
-}
-
-// FieldsOf 根据参数结构体的 tag 生成表单描述, 道具效果等同样按参数结构体生成表单的模块也使用它
-//
-// 除 json、label、help、input 外, 字符串可以用 options 列出可选值("值:名称,值:名称"), 显示为下拉框;
-// 整数可以用 unit:"bp" 表示基点, 后台按百分比输入。
-// name 只用于出错时的提示; P 不是结构体或有不支持的字段类型、tag 时 panic, 需要在启动前调用。
-func FieldsOf[P any](name string) []Field {
-	typ := reflect.TypeFor[P]()
-	if typ.Kind() != reflect.Struct {
-		panic(fmt.Sprintf("condition: params of %s must be a struct", name))
-	}
-	fields := []Field{}
-	for i := range typ.NumField() {
-		sf := typ.Field(i)
-		fieldName := name + "." + sf.Name
-		f := Field{
-			Key:     strings.Split(sf.Tag.Get("json"), ",")[0],
-			Label:   sf.Tag.Get("label"),
-			Help:    sf.Tag.Get("help"),
-			Input:   sf.Tag.Get("input"),
-			Options: settings.ParseOptions(fieldName, sf.Tag.Get("options")),
-			Unit:    sf.Tag.Get("unit"),
-		}
-		switch sf.Type.Kind() {
-		case reflect.String:
-			f.Type = "string"
-			switch {
-			case len(f.Options) > 0:
-				f.Input = "select"
-			case f.Input == "":
-				f.Input = "text"
-			}
-		case reflect.Bool:
-			f.Type, f.Input = "bool", "switch"
-		case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint64:
-			f.Type = "int"
-			if f.Input == "" {
-				f.Input = "number"
-			}
-		default:
-			panic(fmt.Sprintf("condition: %s: unsupported type %s", fieldName, sf.Type))
-		}
-		switch {
-		case len(f.Options) > 0 && f.Type != "string":
-			panic(fmt.Sprintf("condition: %s: only strings can have options", fieldName))
-		case f.Unit != "" && (f.Unit != unitBasisPoints || f.Type != "int"):
-			panic(fmt.Sprintf("condition: %s: unsupported unit %q", fieldName, f.Unit))
-		}
-		fields = append(fields, f)
-	}
-	return fields
 }
 
 // RegisterScopeNamer 为一类统计范围注册展示名称, 需要在启动前调用
@@ -177,14 +100,14 @@ func RegisterScopeNamer(prefix string, namer ScopeNamer) {
 
 // Types 全部条件类型, 按注册顺序; 选择器 metric 的可选值为已注册的计数指标
 func Types() []TypeView {
-	var metricOptions []Option
+	var metricOptions []params.Option
 	for _, m := range stats.Metrics() {
-		metricOptions = append(metricOptions, Option{Value: m.Key, Label: m.Label})
+		metricOptions = append(metricOptions, params.Option{Value: m.Key, Label: m.Label})
 	}
 	views := make([]TypeView, 0, len(typeOrder))
 	for _, conditionType := range typeOrder {
 		def := definitions[conditionType]
-		fields := slices.Clone(def.fields)
+		fields := def.schema.Fields()
 		for i := range fields {
 			if fields[i].Input == "metric" {
 				fields[i].Options = metricOptions
@@ -220,17 +143,16 @@ func validateOne(tx *gorm.DB, c *Condition) (string, error) {
 	if !ok {
 		return TypeNotFound, nil
 	}
-	params, err := def.decode(c.Params, true)
-	if err != nil {
+	_, problem, err := def.schema.Validate(tx, c.Params)
+	switch {
+	case err != nil:
+		return "", err
+	case problem == nil:
+		return "", nil
+	case problem.Malformed:
 		return ParamsInvalid, nil
 	}
-	if err := settings.ValidateStruct(params); err != nil {
-		return err.Error(), nil
-	}
-	if validator, ok := params.(ParamsValidator); ok {
-		return validator.Validate(tx)
-	}
-	return "", nil
+	return problem.Reason, nil
 }
 
 // Evaluate 检查用户对每个条件的达成情况, 按条件的顺序返回, 用于展示进度
@@ -266,11 +188,11 @@ func evaluateOne(tx *gorm.DB, userID uint64, c *Condition) (*Progress, error) {
 	if !ok {
 		return nil, fmt.Errorf("condition: unknown type %s", c.Type)
 	}
-	params, err := def.decode(c.Params, false)
+	decoded, err := def.schema.Decode(c.Params, false)
 	if err != nil {
 		return nil, fmt.Errorf("condition: decode params of %s failed: %w", c.Type, err)
 	}
-	progress, err := def.check(tx, userID, params)
+	progress, err := def.check(tx, userID, decoded)
 	if err != nil {
 		return nil, err
 	}

@@ -270,7 +270,7 @@ type HostRule struct {
 	Enabled     bool     `json:"enabled" label:"主持人提示"`                                             // 关闭时没有提示和热度
 	Personas    []string `json:"personas" label:"性格" binding:"max=3,dive,oneof=steady showman sly"` // 为空表示全部性格
 	LieRate     int32    `json:"lie_rate" label:"撒谎率" binding:"min=0,max=2500"`                     // 基点, 提示说错的概率, 按性格和热度调整, 不超过 25%
-	HighQuality int16    `json:"high_quality" label:"高品质" input:"quality" binding:"min=0"`          // 提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; 也是"高品质件数"提示统计的最低品质
+	HighQuality int16    `json:"high_quality" label:"高品质" binding:"min=0"`                          // 提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; 也是"高品质件数"提示统计的最低品质
 }
 
 // ValueStats 模拟仓库的价值分布, 价值为出价货币的回收价之和

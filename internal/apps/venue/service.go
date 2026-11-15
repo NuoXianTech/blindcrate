@@ -41,6 +41,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
@@ -253,7 +254,7 @@ func validateRules(v *Venue) error {
 		{"道具规则", &v.Consumables},
 		{"主持人", &v.Host},
 	} {
-		if err := settings.ValidateStruct(section.value); err != nil {
+		if err := params.ValidateStruct(section.value); err != nil {
 			return invalid(RuleInvalid, section.name, err.Error())
 		}
 	}

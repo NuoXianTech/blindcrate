@@ -1885,7 +1885,7 @@ const docTemplate = `{
         },
         "/api/v1/admin/items/effects": {
             "get": {
-                "description": "由代码注册的全部效果, 按注册顺序; fields 为参数的表单描述, 与条件类型相同",
+                "description": "由代码注册的全部效果, 按注册顺序; fields 为参数的表单描述, 写法与条件类型、人机策略相同",
                 "produces": [
                     "application/json"
                 ],
@@ -13613,10 +13613,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "fields": {
-                    "description": "参数的表单描述, 与条件类型相同",
+                    "description": "参数的表单描述",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/condition.Field"
+                        "$ref": "#/definitions/params.Field"
                     }
                 },
                 "label": {
@@ -14167,50 +14167,6 @@ const docTemplate = `{
                 }
             }
         },
-        "condition.Field": {
-            "type": "object",
-            "properties": {
-                "help": {
-                    "type": "string"
-                },
-                "input": {
-                    "description": "text / select / switch / number, 或选择器 currency / item / quality / scope / metric / pool",
-                    "type": "string"
-                },
-                "key": {
-                    "type": "string"
-                },
-                "label": {
-                    "type": "string"
-                },
-                "options": {
-                    "description": "下拉框 select 和选择器 metric 的可选值",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/condition.Option"
-                    }
-                },
-                "type": {
-                    "description": "string / bool / int",
-                    "type": "string"
-                },
-                "unit": {
-                    "description": "整数的单位, 只有 bp(基点)",
-                    "type": "string"
-                }
-            }
-        },
-        "condition.Option": {
-            "type": "object",
-            "properties": {
-                "label": {
-                    "type": "string"
-                },
-                "value": {
-                    "type": "string"
-                }
-            }
-        },
         "condition.Progress": {
             "type": "object",
             "properties": {
@@ -14241,9 +14197,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "fields": {
+                    "description": "参数的表单描述",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/condition.Field"
+                        "$ref": "#/definitions/params.Field"
                     }
                 },
                 "label": {
@@ -14396,10 +14353,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "fields": {
-                    "description": "参数的表单描述, 与条件类型相同",
+                    "description": "参数的表单描述",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/condition.Field"
+                        "$ref": "#/definitions/params.Field"
                     }
                 },
                 "label": {
@@ -17198,6 +17155,50 @@ const docTemplate = `{
                 }
             }
         },
+        "params.Field": {
+            "type": "object",
+            "properties": {
+                "help": {
+                    "type": "string"
+                },
+                "input": {
+                    "description": "text / textarea / password / select / switch / number / list, 或选择器 currency / item / quality / scope / metric / pool",
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "options": {
+                    "description": "下拉框和部分选择器的可选值",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/params.Option"
+                    }
+                },
+                "type": {
+                    "description": "string / bool / int / int_list",
+                    "type": "string"
+                },
+                "unit": {
+                    "description": "整数的单位: bp / second / millisecond",
+                    "type": "string"
+                }
+            }
+        },
+        "params.Option": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "ranked.ListTiersResponseData": {
             "type": "object",
             "properties": {
@@ -18064,7 +18065,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "input": {
-                    "description": "text / textarea / password / select / switch / number / list",
+                    "description": "text / textarea / password / select / switch / number / list, 或选择器 currency / item / quality / scope / metric / pool",
                     "type": "string"
                 },
                 "key": {
@@ -18074,13 +18075,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "options": {
-                    "description": "下拉框的可选值",
+                    "description": "下拉框和部分选择器的可选值",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/settings.Option"
+                        "$ref": "#/definitions/params.Option"
                     }
                 },
                 "public": {
+                    "description": "可以公开给前端",
                     "type": "boolean"
                 },
                 "ref": {
@@ -18088,6 +18090,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "secret": {
+                    "description": "密钥, 加密保存, 后台不回显",
                     "type": "boolean"
                 },
                 "type": {
@@ -18150,17 +18153,6 @@ const docTemplate = `{
                 "version": {
                     "description": "保存时原样提交, 未保存过为 0",
                     "type": "integer"
-                }
-            }
-        },
-        "settings.Option": {
-            "type": "object",
-            "properties": {
-                "label": {
-                    "type": "string"
-                },
-                "value": {
-                    "type": "string"
                 }
             }
         },

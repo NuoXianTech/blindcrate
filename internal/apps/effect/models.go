@@ -24,16 +24,16 @@
 
 package effect
 
-import "github.com/NuoXianTech/blindcrate/internal/apps/condition"
+import "github.com/NuoXianTech/blindcrate/internal/apps/params"
 
 // TypeView 后台看到的效果类型
 type TypeView struct {
-	Code        string            `json:"code"`
-	Scene       string            `json:"scene"`      // 场景, 见 Scene 开头的常量
-	SceneName   string            `json:"scene_name"` // 场景的展示名称, 如 "对局中"
-	Label       string            `json:"label"`
-	Description string            `json:"description"`
-	Fields      []condition.Field `json:"fields"` // 参数的表单描述, 与条件类型相同
+	Code        string         `json:"code"`
+	Scene       string         `json:"scene"`      // 场景, 见 Scene 开头的常量
+	SceneName   string         `json:"scene_name"` // 场景的展示名称, 如 "对局中"
+	Label       string         `json:"label"`
+	Description string         `json:"description"`
+	Fields      []params.Field `json:"fields"` // 参数的表单描述
 }
 
 // UseRequest 使用一个物品
