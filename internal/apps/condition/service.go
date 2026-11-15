@@ -46,7 +46,7 @@ func (e *InvalidError) Error() string {
 	return fmt.Sprintf(ConditionInvalid, e.Index, e.Reason)
 }
 
-// ScopeNamer 返回统计范围的展示名称, 如 "排位"、"码头仓库"
+// ScopeNamer 返回统计范围的展示名称, 如 "排位"、"码头货仓"
 type ScopeNamer func(tx *gorm.DB, scope string) (string, error)
 
 // definition 一种条件类型, 由 Register 生成
@@ -200,7 +200,7 @@ func evaluateOne(tx *gorm.DB, userID uint64, c *Condition) (*Progress, error) {
 	return progress, nil
 }
 
-// ScopeName 统计范围的展示名称, 如 "排位"、"码头仓库"; 全部对局为空字符串, 没有注册展示名称的类别为统计范围本身
+// ScopeName 统计范围的展示名称, 如 "排位"、"码头货仓"; 全部对局为空字符串, 没有注册展示名称的类别为统计范围本身
 func ScopeName(tx *gorm.DB, scope string) (string, error) {
 	if scope == stats.ScopeAll {
 		return "", nil

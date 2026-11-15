@@ -13,7 +13,7 @@ import {MAX_GAP_SECONDS, MAX_LOTS, MAX_TIERS} from './constants';
 import type {FormTabProps, TierDraft} from './form';
 
 /**
- * 拍场: 一局开拍几个拍品、拍品间隔、带入覆盖率和拍品的档次; 最多拍品数为 1 时一局一个仓库
+ * 仓库: 一局开拍几个拍品、拍品间隔、带入覆盖率和拍品的档次; 最多拍品数为 1 时一局一个货仓
  */
 export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, tierStats, stale}: FormTabProps & {
   pools: LootPoolListItem[];
@@ -26,13 +26,13 @@ export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, 
   /** 推导之后表单有改动 */
   stale: boolean;
 }) {
-  // 一局一个仓库, 带入资金按单个仓库的价值推导, 拍品间隔和带入覆盖率不生效
+  // 一局一个货仓, 带入资金按单个货仓的价值推导, 拍品间隔和带入覆盖率不生效
   const single = form.lotMax.trim() === '1';
   const updateTier = (key: string, patch: Partial<TierDraft>) =>
     onChange({tiers: form.tiers.map((t) => (t.key === key ? {...t, ...patch} : t))});
   const addTier = () => {
     const n = form.tiers.length + 1;
-    // 复制最后一种档次的仓库
+    // 复制最后一种档次的货仓
     const last = form.tiers.at(-1)?.warehouse;
     if (!last) return;
     const warehouse = {
@@ -49,8 +49,8 @@ export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, 
         title="拍品数"
         help={
           single ?
-            '一局一个仓库, 带入资金上限按单个仓库的价值分布推导; 最多拍品数大于 1 时一局依次开拍多个拍品, 共用一笔带入资金' :
-            '一局依次开拍若干个拍品, 共用一笔带入资金; 拍品数和每个拍品的格子大小开局时公开, 档次拍场结束后公开'
+            '一局一个货仓, 带入资金上限按单个货仓的价值分布推导; 最多拍品数大于 1 时一局依次开拍多个拍品, 共用一笔带入资金' :
+            '一局依次开拍若干个拍品, 共用一笔带入资金; 拍品数和每个拍品的格子大小开局时公开, 档次仓库结束后公开'
         }
       >
         <div className="grid gap-3 sm:grid-cols-2">
@@ -66,7 +66,7 @@ export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, 
           <InputField
             id="venue-lot-max"
             label="最多拍品数"
-            help="每局在最少和最多之间均匀随机; 1 表示一局一个仓库"
+            help="每局在最少和最多之间均匀随机; 1 表示一局一个货仓"
             inputMode="numeric"
             value={form.lotMax}
             onChange={(lotMax) => onChange({lotMax})}
@@ -97,7 +97,7 @@ export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, 
 
       <FieldGroup
         title="档次"
-        help={`每个拍品按权重抽一种档次生成仓库; 格子大小相同的档次起拍价等金额相同; 1-${MAX_TIERS} 种`}
+        help={`每个拍品按权重抽一种档次生成货仓; 格子大小相同的档次起拍价等金额相同; 1-${MAX_TIERS} 种`}
       >
         <div className="flex flex-col gap-3">
           {form.tiers.map((t, i) => (
@@ -155,7 +155,7 @@ interface TierCardProps {
 }
 
 /**
- * 一种档次: 代码、名称、权重和仓库生成规则, 以及推导出的金额(只读)
+ * 一种档次: 代码、名称、权重和货仓生成规则, 以及推导出的金额(只读)
  */
 function TierCard({index, tier, pools, saved, stats, currency, stale, onChange, onRemove, removable, disabled}: TierCardProps) {
   const id = `venue-tier-${tier.key}`;
@@ -179,7 +179,7 @@ function TierCard({index, tier, pools, saved, stats, currency, stale, onChange, 
           <InputField
             id={`${id}-name`}
             label="名称"
-            help="管理端和拍场结束后显示"
+            help="管理端和仓库结束后显示"
             maxLength={32}
             value={tier.name}
             onChange={(name) => onChange({name})}
@@ -234,7 +234,7 @@ function TierCard({index, tier, pools, saved, stats, currency, stale, onChange, 
       <details className="group">
         <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground select-none">
           <ChevronRight className="size-4 transition-transform group-open:rotate-90" />
-          仓库生成规则
+          货仓生成规则
           <span className="text-xs">
             · {tier.warehouse.gridWidth}×{tier.warehouse.gridHeight} 格 · {slots} 个档位
           </span>

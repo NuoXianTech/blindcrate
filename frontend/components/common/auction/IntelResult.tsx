@@ -27,7 +27,7 @@ function QualityTag({quality, children}: { quality: number; children?: React.Rea
 
 /**
  * 一个道具得到的情报, 按结果中有的字段展示, 不依赖效果代码, 新增的效果复用同样的字段即可
- * 看到的藏品同时在仓库中扫出轮廓, 这里不编号, 只标出占的格子大小
+ * 看到的藏品同时在货仓中扫出轮廓, 这里不编号, 只标出占的格子大小
  */
 export function IntelResult({intel, currency, decimals}: {
   intel: Intel;
@@ -69,7 +69,7 @@ export function IntelResult({intel, currency, decimals}: {
       )}
       {hasRange && (
         <span className="flex items-center gap-1 text-xs">
-          <span className="text-muted-foreground">仓库价值</span>
+          <span className="text-muted-foreground">货仓价值</span>
           <CurrencyIcon currency={currency} className="size-3.5" />
           <span className="font-mono tabular-nums">
             {formatAmount(intel.value_min ?? 0, decimals)} - {formatAmount(intel.value_max ?? 0, decimals)}

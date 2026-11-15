@@ -57,7 +57,7 @@ interface VenueDialogProps {
 }
 
 /**
- * 新建或编辑地图, 保存前可以先模拟仓库的价值分布和对局
+ * 新建或编辑地图, 保存前可以先模拟货仓的价值分布和对局
  */
 export function VenueDialog({venue, options, onClose, onSaved}: VenueDialogProps) {
   const editing = venue && venue !== 'new' ? venue : null;
@@ -67,7 +67,7 @@ export function VenueDialog({venue, options, onClose, onSaved}: VenueDialogProps
         <DialogHeader>
           <DialogTitle>{editing ? `编辑 ${editing.name}` : '新建地图'}</DialogTitle>
           <DialogDescription>
-            保存时会模拟 10000 个仓库, 推导拍卖的金额并验算对局; 摆放失败率超过 1% 时不能保存, 验算未通过时只能保存为停用;
+            保存时会模拟 10000 个货仓, 推导拍卖的金额并验算对局; 摆放失败率超过 1% 时不能保存, 验算未通过时只能保存为停用;
             开局时快照配置, 修改不影响进行中的对局
           </DialogDescription>
         </DialogHeader>
@@ -112,7 +112,7 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
     setStale(true);
   };
   const tabProps = {form, onChange, disabled: pending};
-  // 一局多个拍品, 带入资金和验算的闸门与一局一个仓库时不同
+  // 一局多个拍品, 带入资金和验算的闸门与一局一个货仓时不同
   const multiLot = form.lotMax.trim() !== '1';
 
   const handleSimulate = simulate.submit(async () => {
@@ -143,7 +143,7 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
         <TabsList className="w-full">
           <TabsTrigger value="basic">基本</TabsTrigger>
           <TabsTrigger value="entry">入场</TabsTrigger>
-          <TabsTrigger value="lots">拍场</TabsTrigger>
+          <TabsTrigger value="lots">仓库</TabsTrigger>
           <TabsTrigger value="auction">拍卖</TabsTrigger>
           <TabsTrigger value="bots">人机</TabsTrigger>
           <TabsTrigger value="consumables">道具</TabsTrigger>

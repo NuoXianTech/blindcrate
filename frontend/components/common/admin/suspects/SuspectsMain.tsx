@@ -120,7 +120,7 @@ export function SuspectsMain() {
 }
 
 /**
- * 可疑名单的一行: 两个账号和同局统计, 成交比例为成交价占仓库价值的比例
+ * 可疑名单的一行: 两个账号和同局统计, 成交比例为成交价占货仓价值的比例
  */
 function SuspectRow({suspect: s, onReview}: { suspect: Suspect; onReview: () => void }) {
   const reviewed = isReviewed(s);

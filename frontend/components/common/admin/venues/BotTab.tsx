@@ -62,7 +62,7 @@ export function BotTab({form, onChange, disabled, currency, personas}: FormTabPr
           />
           <InputField
             id="venue-value-factor"
-            label="仓库价值系数"
+            label="货仓价值系数"
             help="按这个比例缩放各档位的抽取次数, 10-100%"
             suffix="%"
             inputMode="decimal"

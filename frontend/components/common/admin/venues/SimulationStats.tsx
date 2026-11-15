@@ -17,8 +17,8 @@ const SQUAD_NAMES: Record<Squad, string> = {
 /** 闸门的名称, 与后端 venue 的 checkNames 一致 */
 const CHECK_NAMES: Record<CheckCode, string> = {
   rounds: '轮数',
-  grid_width: '仓库宽度',
-  grid_height: '仓库高度',
+  grid_width: '货仓宽度',
+  grid_height: '货仓高度',
   top_share: '最贵一件的占比',
   price_value: '成交价与价值之比',
   bid_cv: '出价离散度',
@@ -32,7 +32,7 @@ const CHECK_NAMES: Record<CheckCode, string> = {
 const percent = (bp: number) => `${(bp / 100).toFixed(1)}%`;
 
 /**
- * 仓库模拟结果: 排位和人机两种模式的价值分布, 以及对局验算
+ * 货仓模拟结果: 排位和人机两种模式的价值分布, 以及对局验算
  */
 export function SimulationStats({simulation, currency, stale, lots, tierNames}: {
   simulation: Simulation;
@@ -71,7 +71,7 @@ export function SimulationStats({simulation, currency, stale, lots, tierNames}: 
       <div className="flex flex-col gap-2 rounded-lg border p-3 text-sm">
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>
-            模拟 {simulation.runs} 个仓库, 价值为{currency?.name ?? '出价货币'}的回收价之和
+            模拟 {simulation.runs} 个货仓, 价值为{currency?.name ?? '出价货币'}的回收价之和
           </span>
           <span>{stale ? '配置已修改, 需要重新模拟' : formatDateTime(simulation.simulated_at)}</span>
         </div>
@@ -138,7 +138,7 @@ export function SimulationStats({simulation, currency, stale, lots, tierNames}: 
 function BalanceStats({balance, amount, lots}: {
   balance: Balance;
   amount: (value: number) => string;
-  /** 一局多个拍品; 胜率闸门看拍场第 1 名的比例 */
+  /** 一局多个拍品; 胜率闸门看仓库第 1 名的比例 */
   lots: boolean;
 }) {
   const rows: { label: string; value: (s: SquadStats) => React.ReactNode }[] = [
@@ -152,7 +152,7 @@ function BalanceStats({balance, amount, lots}: {
     {label: lots ? '真人每拍品成交率' : '真人成交率', value: (s) => percent(s.win_rate)},
     ...(lots ?
       [
-        {label: '拍场第 1 名率', value: (s: SquadStats) => percent(s.rank_win ?? 0)},
+        {label: '仓库第 1 名率', value: (s: SquadStats) => percent(s.rank_win ?? 0)},
         {label: '资金耗尽率', value: (s: SquadStats) => percent(s.budget_out ?? 0)},
         {label: '规划预算多赚', value: (s: SquadStats) => (s.plan_gain ? amount(s.plan_gain) : '-')},
       ] :
@@ -202,7 +202,7 @@ function BalanceStats({balance, amount, lots}: {
       </div>
       <div className="flex flex-col gap-1 border-t pt-2">
         <span className="text-xs text-muted-foreground">
-          闸门: 结构类只看 4 个真人, 有人机的阵容看人机估值和真人盈亏{lots && '; 多拍品时真人胜率看拍场第 1 名率'}
+          闸门: 结构类只看 4 个真人, 有人机的阵容看人机估值和真人盈亏{lots && '; 多拍品时真人胜率看仓库第 1 名率'}
         </span>
         {balance.checks.map((c) => (
           <CheckRow key={`${c.code}-${c.squad ?? ''}`} check={c} amount={amount} />

@@ -78,7 +78,7 @@ func invalid(format string, args ...any) error {
 	return &InvalidError{Reason: fmt.Sprintf(format, args...)}
 }
 
-// Validate 保存地图前校验配置, 并模拟 SimulationRuns 个仓库, 把结果写入 v.Simulation;
+// Validate 保存地图前校验配置, 并模拟 SimulationRuns 个货仓, 把结果写入 v.Simulation;
 // 再按排位模式的价值分布推导拍卖的金额和比例写入 v.Auction, 由注册的 Balancer 验算对局, 结果写入 v.Simulation.Balance
 //
 // 配置不合法、摆放失败率超过 1% 或启用的地图验算未通过时返回 *InvalidError, 提示可以直接展示; 其他错误为查库失败等内部错误。
@@ -247,7 +247,7 @@ func validateRules(v *Venue) error {
 		value any
 	}
 	for _, section := range []section{
-		{"拍场", &v.Lots},
+		{"仓库", &v.Lots},
 		{"拍卖参数", &v.Auction},
 		{"人机风格", &v.Bots},
 		{"人机模式", &v.Pve},
@@ -286,7 +286,7 @@ func validateWarehouse(w *WarehouseRule) error {
 	return nil
 }
 
-// validateLots 最少拍品数不能超过最多, 档次代码不能重复; 每个档次的仓库规则见 validateWarehouse
+// validateLots 最少拍品数不能超过最多, 档次代码不能重复; 每个档次的货仓规则见 validateWarehouse
 func validateLots(r *LotRule) error {
 	if r.Min > r.Max {
 		return invalid(LotRangeInvalid)
@@ -416,7 +416,7 @@ func modeScopeName(_ *gorm.DB, scope string) (string, error) {
 	return modeNames[strings.TrimPrefix(scope, "mode:")], nil
 }
 
-// venueScopeName 统计范围 venue:<代码> 和 venue:<代码>:<模式> 的展示名称, 如 "码头仓库"、"码头仓库·排位"
+// venueScopeName 统计范围 venue:<代码> 和 venue:<代码>:<模式> 的展示名称, 如 "码头货仓"、"码头货仓·排位"
 //
 // 已删除的地图仍按原名称展示, 地图不存在时展示统计范围本身。
 func venueScopeName(tx *gorm.DB, scope string) (string, error) {
@@ -444,7 +444,7 @@ type CostLine struct {
 	Amount   int64  `json:"amount"` // 货币金额或物品数量
 }
 
-// ValueRange 玩家看到的仓库价值区间
+// ValueRange 玩家看到的货仓价值区间
 type ValueRange struct {
 	P10 int64 `json:"p10"`
 	P50 int64 `json:"p50"`
@@ -454,7 +454,7 @@ type ValueRange struct {
 // PveView 玩家看到的人机模式参数
 type PveView struct {
 	PracticeOnly bool        `json:"practice_only"`
-	ValueFactor  int32       `json:"value_factor"` // 仓库价值系数, 基点
+	ValueFactor  int32       `json:"value_factor"` // 货仓价值系数, 基点
 	ValueRange   ValueRange  `json:"value_range"`
 	ProfitCaps   []ProfitCap `json:"profit_caps"` // 用户今天受到的每日收益上限, 不限制时为空; 任一上限达到后人机对局转为练习局
 }
@@ -511,10 +511,10 @@ type VenueView struct {
 	Host          HostRule             `json:"host"`        // 主持人的提示
 	ValueRange    ValueRange           `json:"value_range"` // 排位模式单个拍品的价值区间, 保存地图时模拟
 	Pve           PveView              `json:"pve"`
-	Lots          LotsView             `json:"lots"` // 拍场的拍品数和格子大小
+	Lots          LotsView             `json:"lots"` // 仓库的拍品数和格子大小
 }
 
-// LotsView 玩家看到的拍场: 拍品数和每种格子大小的出现比例、起拍价; 档次不公开, 只按格子大小汇总
+// LotsView 玩家看到的仓库: 拍品数和每种格子大小的出现比例、起拍价; 档次不公开, 只按格子大小汇总
 type LotsView struct {
 	Min        int32     `json:"min"`
 	Max        int32     `json:"max"`
@@ -548,7 +548,7 @@ func newLotsView(v *Venue) LotsView {
 	return view
 }
 
-// SlotOdds 仓库的一个档位及其掉落池的公示概率
+// SlotOdds 货仓的一个档位及其掉落池的公示概率
 type SlotOdds struct {
 	Slot
 	Odds *loot.PoolOdds `json:"odds"` // 掉落池不可用时为空
@@ -557,10 +557,10 @@ type SlotOdds struct {
 // VenueDetail 玩家看到的地图详情
 type VenueDetail struct {
 	VenueView
-	LotSlots []GridOdds `json:"lot_slots"` // 拍场每种格子大小的仓库
+	LotSlots []GridOdds `json:"lot_slots"` // 仓库每种格子大小的货仓
 }
 
-// GridOdds 拍场中一种格子大小的仓库: 同一格子大小的各档次不公开名称, 按权重给出概率和档位
+// GridOdds 仓库中一种格子大小的货仓: 同一格子大小的各档次不公开名称, 按权重给出概率和档位
 type GridOdds struct {
 	Grid     Grid          `json:"grid"`
 	Variants []VariantOdds `json:"variants"`

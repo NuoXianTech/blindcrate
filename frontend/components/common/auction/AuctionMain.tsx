@@ -37,7 +37,7 @@ function newer<T extends { version: number }>(prev: T | null, next: T): T {
 }
 
 /**
- * 拍卖桌: 拍品进度、当前拍品(或点开查看的其他拍品)的仓库、座位、出价和结算
+ * 拍卖桌: 拍品进度、当前拍品(或点开查看的其他拍品)的货仓、座位、出价和结算
  * 以 auction:updated 和 match:updated 推送为准; 推送不保证送达, 连上 WebSocket 后和阶段到期后迟迟没有推送时重新拉取
  */
 export function AuctionMain({matchId}: { matchId: number }) {
@@ -137,7 +137,7 @@ function AuctionSkeleton() {
   );
 }
 
-/** 加载完的拍卖桌, 当前拍品的开箱扫描进度在这里算一次, 仓库、座位和结算按同一进度揭晓 */
+/** 加载完的拍卖桌, 当前拍品的开箱扫描进度在这里算一次, 货仓、座位和结算按同一进度揭晓 */
 function AuctionTable({view, match, decimals, remaining, onView}: {
   view: AuctionView;
   match: MatchView;

@@ -46,7 +46,7 @@ type ListVenuesResponseData struct {
 // ListVenues
 // @Tags venue
 // @Summary 获取启用的地图
-// @Description 按排序值排列, 附带当前用户对每个入场条件的达成情况和仓库价值区间; 价值区间为保存地图时的模拟结果
+// @Description 按排序值排列, 附带当前用户对每个入场条件的达成情况和货仓价值区间; 价值区间为保存地图时的模拟结果
 // @Produce json
 // @Success 200 {object} Response{data=ListVenuesResponseData}
 // @Failure 401 {object} Response
@@ -72,7 +72,7 @@ func ListVenues(c *gin.Context) {
 // GetVenue
 // @Tags venue
 // @Summary 获取地图详情
-// @Description 在列表的基础上附带仓库各档位掉落池的公示概率; 掉落池不可用时该档位的 odds 为 null
+// @Description 在列表的基础上附带货仓各档位掉落池的公示概率; 掉落池不可用时该档位的 odds 为 null
 // @Produce json
 // @Param code path string true "venue code"
 // @Success 200 {object} Response{data=VenueDetail}

@@ -337,7 +337,7 @@ func TestSimulateStandardMap(t *testing.T) {
 	}
 }
 
-// TestSolveDiscount 取成交价 ÷ 仓库价值最接近目标的折让, 流拍的局不计入
+// TestSolveDiscount 取成交价 ÷ 货仓价值最接近目标的折让, 流拍的局不计入
 func TestSolveDiscount(t *testing.T) {
 	rule := venue.AuctionRule{StartPrice: 10}
 	matches := []matchSim{

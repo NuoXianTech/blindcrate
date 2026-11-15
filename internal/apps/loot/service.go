@@ -104,7 +104,7 @@ func QueryEntries(tx *gorm.DB, poolID uint64) ([]EntryDetail, error) {
 
 // QueryAvailable 按代码获取已启用的掉落池和其中可抽取的条目, 概率与 Roll 一致
 //
-// 需要多次抽取时(如仓库生成)先读出条目再在内存中抽取, 避免每次抽取都查库。
+// 需要多次抽取时(如货仓生成)先读出条目再在内存中抽取, 避免每次抽取都查库。
 func QueryAvailable(tx *gorm.DB, code string) (*Pool, []EntryDetail, error) {
 	var pool Pool
 	if err := pool.ExactCode(tx, code); err != nil {

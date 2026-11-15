@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS setting_revisions
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_setting_revisions_key_version ON setting_revisions (key, version);
 
--- 物品品质, 新增品质只需插入一行; 等级越大越稀有, 物品和仓库藏品按等级引用
+-- 物品品质, 新增品质只需插入一行; 等级越大越稀有, 物品和货仓藏品按等级引用
 CREATE TABLE IF NOT EXISTS qualities
 (
     level      SMALLINT PRIMARY KEY,
@@ -173,11 +173,11 @@ CREATE TABLE IF NOT EXISTS items
     name          VARCHAR(64)   NOT NULL,
     description   VARCHAR(255)  NOT NULL DEFAULT '',
     quality       SMALLINT      NOT NULL DEFAULT 1,             -- 品质等级, 见 qualities
-    category      VARCHAR(32)   NOT NULL DEFAULT 'collectible', -- 类别代码, 由代码注册; 仓库只抽藏品
+    category      VARCHAR(32)   NOT NULL DEFAULT 'collectible', -- 类别代码, 由代码注册; 货仓只抽藏品
     image_url     VARCHAR(1024) NOT NULL DEFAULT '',
     sell_currency VARCHAR(32)   NOT NULL,                       -- 卖出得到的货币
     sell_price    BIGINT        NOT NULL DEFAULT 0,             -- 卖出价格, 0 表示不可卖出
-    width         SMALLINT      NOT NULL DEFAULT 1,             -- 在仓库中占的格数
+    width         SMALLINT      NOT NULL DEFAULT 1,             -- 在货仓中占的格数
     height        SMALLINT      NOT NULL DEFAULT 1,
     effect        VARCHAR(32)   NOT NULL DEFAULT '',            -- 使用效果代码, 空表示不能使用, 藏品没有效果
     effect_params JSONB         NOT NULL DEFAULT '{}',          -- 效果参数, 结构由效果决定
@@ -369,7 +369,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_leaderboards_code ON leaderboards (code);
 INSERT INTO leaderboards (code, name, description, metric, scope, period, size, min_matches, sort_order, is_enabled)
 VALUES ('ranked_wins', '排位胜场', '排位中拿到第一名的次数', 'wins', 'mode:ranked', 'total', 100, 0, 10, TRUE),
        ('daily_profit_chip', '今日收益', '今天所有对局的筹码净收益, 至少完成 3 局才上榜', 'profit:chip', 'all', 'day', 100, 3, 20, TRUE),
-       ('bid_won', '成交次数', '累计拍下仓库的次数', 'bid_won', 'all', 'total', 100, 0, 30, TRUE),
+       ('bid_won', '成交次数', '累计拍下货仓的次数', 'bid_won', 'all', 'total', 100, 0, 30, TRUE),
        ('season_rating', '赛季段位分', '本赛季的段位分', 'rating', 'all', 'season', 100, 0, 40, TRUE)
 ON CONFLICT (code) DO NOTHING;
 
@@ -444,10 +444,10 @@ CREATE TABLE IF NOT EXISTS venues
     is_enabled     BOOLEAN       NOT NULL DEFAULT FALSE,  -- 停用后不能加入队列, 进行中的对局照常打完
     pve_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,
     ranked_enabled BOOLEAN       NOT NULL DEFAULT FALSE,
-    bid_currency   VARCHAR(32)   NOT NULL,                -- 出价和计算仓库价值的货币
+    bid_currency   VARCHAR(32)   NOT NULL,                -- 出价和计算货仓价值的货币
     entry_cost     JSONB         NOT NULL DEFAULT '{}',   -- 入场代价 reward.Bundle, 数量为正数
     requirements   JSONB         NOT NULL DEFAULT '[]',   -- 入场条件 []condition.Condition
-    lots           JSONB         NOT NULL DEFAULT '{}',   -- 拍场: 拍品数、档次、拍品间隔和带入覆盖率
+    lots           JSONB         NOT NULL DEFAULT '{}',   -- 仓库: 拍品数、档次、拍品间隔和带入覆盖率
     auction        JSONB         NOT NULL DEFAULT '{}',   -- 拍卖参数
     bots           JSONB         NOT NULL DEFAULT '{}',   -- 每个模式出场的人机风格和权重
     pve            JSONB         NOT NULL DEFAULT '{}',   -- 人机模式防刷参数
@@ -462,7 +462,7 @@ CREATE TABLE IF NOT EXISTS venues
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_venues_code ON venues (code);
 CREATE INDEX IF NOT EXISTS idx_venues_deleted_at ON venues (deleted_at);
 
--- 暗拍(拍场)的对局级数据, 与 matches 一一对应, 开局时创建; 模式取 matches.mode 中冒号之前的部分
+-- 暗拍(仓库)的对局级数据, 与 matches 一一对应, 开局时创建; 模式取 matches.mode 中冒号之前的部分
 CREATE TABLE IF NOT EXISTS auction_matches
 (
     match_id   BIGINT PRIMARY KEY,
@@ -470,27 +470,27 @@ CREATE TABLE IF NOT EXISTS auction_matches
     venue      JSONB       NOT NULL,            -- 开局时的地图配置快照
     lot_count  INTEGER     NOT NULL DEFAULT 1,  -- 拍品数, 开局时公开
     lot        INTEGER     NOT NULL DEFAULT 1,  -- 当前拍品的序号, 从 1 开始
-    outcome    VARCHAR(16) NOT NULL DEFAULT '', -- 拍场结算前为空, 之后为 sold(至少成交一个拍品)、unsold 或 cancelled
+    outcome    VARCHAR(16) NOT NULL DEFAULT '', -- 仓库结算前为空, 之后为 sold(至少成交一个拍品)、unsold 或 cancelled
     host       VARCHAR(16) NOT NULL DEFAULT '', -- 主持人的性格, 没有主持人提示时为空
     hype       INTEGER     NOT NULL DEFAULT 0,  -- 当前热度, 0-100, 跨拍品延续, 变动见 auction_hype_events
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    settled_at TIMESTAMPTZ                      -- 拍场结算或取消的时间
+    settled_at TIMESTAMPTZ                      -- 仓库结算或取消的时间
 );
 
--- 拍场中的拍品(仓库), 开局时全部生成; 轮次在整个拍场内连续编号, 拍品从 first_round 开始
+-- 仓库中的拍品(货仓), 开局时全部生成; 轮次在整个仓库内连续编号, 拍品从 first_round 开始
 CREATE TABLE IF NOT EXISTS auction_lots
 (
     id           BIGSERIAL PRIMARY KEY,
     match_id     BIGINT      NOT NULL,
     lot_no       INTEGER     NOT NULL,              -- 出场顺序, 从 1 开始
-    tier         VARCHAR(32) NOT NULL DEFAULT '',   -- 档次代码, 拍场结束前不公开
+    tier         VARCHAR(32) NOT NULL DEFAULT '',   -- 档次代码, 仓库结束前不公开
     grid         JSONB       NOT NULL,              -- 格子大小, 开局时公开
     odds         JSONB       NOT NULL DEFAULT '[]', -- 按格子大小推断的公示分布
     start_price  BIGINT      NOT NULL DEFAULT 0,    -- 起拍价和速胜下限按格子大小推导
     speed_floor  BIGINT      NOT NULL DEFAULT 0,
     first_round  INTEGER     NOT NULL DEFAULT 0,    -- 开拍时的轮次, 还没开拍时为 0
-    value        BIGINT      NOT NULL,              -- 仓库价值, 出价货币的回收价之和
+    value        BIGINT      NOT NULL,              -- 货仓价值, 出价货币的回收价之和
     piece_count  INTEGER     NOT NULL,              -- 藏品件数
     contenders   JSONB       NOT NULL DEFAULT '[]', -- 加轮时可以出价的座位, 为空表示所有人
     extra_rounds INTEGER     NOT NULL DEFAULT 0,    -- 已加的轮数
@@ -513,14 +513,14 @@ CREATE TABLE IF NOT EXISTS auction_players
     seed         BIGINT      NOT NULL DEFAULT 0,     -- 人机在这一局的随机种子, 真人为 0
     is_practice  BOOLEAN     NOT NULL DEFAULT FALSE, -- 练习局, 不扣入场代价、不冻结资金、不发藏品、不写统计
     entry_cost   JSONB       NOT NULL DEFAULT '{}',  -- 实际扣除的入场费和入场代价
-    carry        BIGINT      NOT NULL DEFAULT 0,     -- 带入资金, 整个拍场共用; 真人在准入时自选
+    carry        BIGINT      NOT NULL DEFAULT 0,     -- 带入资金, 整个仓库共用; 真人在准入时自选
     frozen       BIGINT      NOT NULL DEFAULT 0,     -- 冻结的带入资金
     spent        BIGINT      NOT NULL DEFAULT 0,     -- 已成交的拍品的成交价之和
     estimate     BIGINT      NOT NULL DEFAULT 0,     -- 人机对当前拍品按公开信息的最新估值, 真人为 0
     bid          BIGINT      NOT NULL DEFAULT 0,     -- 当前拍品的出价, 每个拍品开拍时清零
     bid_at       TIMESTAMPTZ,                        -- 当前出价的提交时间
-    profit       BIGINT      NOT NULL DEFAULT 0,     -- 拍场结算后的盈亏
-    rank         SMALLINT    NOT NULL DEFAULT 0,     -- 拍场的名次, 全部流拍时为 0
+    profit       BIGINT      NOT NULL DEFAULT 0,     -- 仓库结算后的盈亏
+    rank         SMALLINT    NOT NULL DEFAULT 0,     -- 仓库的名次, 全部流拍时为 0
     rating_delta INTEGER     NOT NULL DEFAULT 0,     -- 本局段位分的变化, 只有排位且至少成交一个拍品时有
     rating       INTEGER     NOT NULL DEFAULT 0,     -- 结算后的段位分, 同上
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -539,7 +539,7 @@ CREATE TABLE IF NOT EXISTS auction_carry_preferences
     PRIMARY KEY (user_id, venue)
 );
 
--- 暗拍每轮的出价, 每人每轮一条, 0 表示不加价; 轮次在整个拍场内连续编号
+-- 暗拍每轮的出价, 每人每轮一条, 0 表示不加价; 轮次在整个仓库内连续编号
 CREATE TABLE IF NOT EXISTS auction_bids
 (
     id         BIGSERIAL PRIMARY KEY,
@@ -553,7 +553,7 @@ CREATE TABLE IF NOT EXISTS auction_bids
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_bids_match_id_round_seat ON auction_bids (match_id, round, seat);
 
--- 暗拍仓库里的藏品, 开局时快照名称、回收价和扫描时长
+-- 暗拍货仓里的藏品, 开局时快照名称、回收价和扫描时长
 CREATE TABLE IF NOT EXISTS auction_warehouse_items
 (
     id            BIGSERIAL PRIMARY KEY,
@@ -594,7 +594,7 @@ CREATE TABLE IF NOT EXISTS auction_uses
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_uses_match_id_seat_item_id_round ON auction_uses (match_id, seat, item_id, round);
 
--- 暗拍中主持人每轮开始时公开的关于当前拍品的提示, 只追加; 是否说错在拍场结束后公开
+-- 暗拍中主持人每轮开始时公开的关于当前拍品的提示, 只追加; 是否说错在仓库结束后公开
 CREATE TABLE IF NOT EXISTS auction_hints
 (
     id         BIGSERIAL PRIMARY KEY,
@@ -606,7 +606,7 @@ CREATE TABLE IF NOT EXISTS auction_hints
     count      INTEGER     NOT NULL DEFAULT 0,    -- 提示中的件数
     x          SMALLINT    NOT NULL DEFAULT 0,    -- 提示针对的藏品的位置, 是第 1 轮扫出轮廓的一件
     y          SMALLINT    NOT NULL DEFAULT 0,
-    above      BOOLEAN     NOT NULL DEFAULT FALSE, -- 仓库价值是否高于期望
+    above      BOOLEAN     NOT NULL DEFAULT FALSE, -- 货仓价值是否高于期望
     truthful   BOOLEAN     NOT NULL,              -- 提示是否属实
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

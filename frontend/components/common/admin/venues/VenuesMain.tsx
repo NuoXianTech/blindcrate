@@ -28,7 +28,7 @@ import {PAGE_SIZE, STATUS_FILTERS, toRequest, type StatusFilter} from './constan
 const OPTION_LIMIT = 100;
 
 /**
- * 地图管理: 搜索和状态筛选, 新建、编辑、启停、删除, 编辑时可以模拟仓库
+ * 地图管理: 搜索和状态筛选, 新建、编辑、启停、删除, 编辑时可以模拟货仓
  */
 export function VenuesMain() {
   const {user: me} = useAuth();

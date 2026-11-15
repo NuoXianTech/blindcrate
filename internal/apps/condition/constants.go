@@ -30,7 +30,7 @@
 //   - 拦截: FirstUnmet 返回第一个未满足的条件, 由调用方决定如何拒绝, 如 match.Reject(p.Text)
 //
 // 新增一种条件类型: 定义参数结构体, 在 checkers.go 的 init 中调用 Register, 后台的条件编辑器根据 Types 自动生成表单。
-// 统计范围的展示名称(如 "排位"、"码头仓库")由定义模式和地图的模块通过 RegisterScopeNamer 提供。
+// 统计范围的展示名称(如 "排位"、"码头货仓")由定义模式和地图的模块通过 RegisterScopeNamer 提供。
 package condition
 
 // 条件类型

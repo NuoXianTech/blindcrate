@@ -87,7 +87,7 @@ type Summary struct {
 	Venue       string        `json:"venue"`      // 地图代码
 	VenueName   string        `json:"venue_name"` // 开局时的地图名称
 	BidCurrency string        `json:"bid_currency"`
-	Outcome     string        `json:"outcome"`      // 拍场结算前为空, 之后为 sold(至少成交一个拍品)、unsold 或 cancelled
+	Outcome     string        `json:"outcome"`      // 仓库结算前为空, 之后为 sold(至少成交一个拍品)、unsold 或 cancelled
 	LotCount    int32         `json:"lot_count"`    // 拍品数
 	WonLots     int32         `json:"won_lots"`     // 自己拿下的拍品数
 	Spent       int64         `json:"spent"`        // 自己拿下的拍品的成交价之和
@@ -368,7 +368,7 @@ func (vm *venueMode) practice(tx *gorm.DB, userID uint64) (bool, error) {
 
 // Start 快照地图配置, 抽出拍品数并逐个生成拍品(见 newLots), 按地图配置的权重为人机选出风格, 进入第 1 个拍品的第 1 轮出价
 //
-// 人机模式按地图的仓库价值系数缩放抽取次数; 多拍品时人机的带入资金在 BotCarry × [人机带入下限, 100%] 内随机。
+// 人机模式按地图的货仓价值系数缩放抽取次数; 多拍品时人机的带入资金在 BotCarry × [人机带入下限, 100%] 内随机。
 // 掉落池已不可用或摆不下、人机风格已不可用时开局失败。
 func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) (*match.Phase, error) {
 	v := vm.venue
@@ -456,7 +456,7 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 	return biddingPhase(&rule, 1), nil
 }
 
-// newLots 生成拍场的全部拍品和藏品: 抽出拍品数, 每个拍品按权重抽一种档次生成仓库, 公示概率按格子大小推断(见 publicLots),
+// newLots 生成仓库的全部拍品和藏品: 抽出拍品数, 每个拍品按权重抽一种档次生成货仓, 公示概率按格子大小推断(见 publicLots),
 // 金额取档次按格子大小推导的; 每个拍品按首轮扫描比例抽出第 1 轮扫出轮廓的藏品(见 previewPieces), 按位置排出扫描顺序并快照扫描时长
 func (vm *venueMode) newLots(tx *gorm.DB, matchID uint64) ([]Lot, []WarehouseItem, error) {
 	v := vm.venue
@@ -535,7 +535,7 @@ func (vm *venueMode) newLots(tx *gorm.DB, matchID uint64) ([]Lot, []WarehouseIte
 	return lots, rows, nil
 }
 
-// OnTimeout 出价阶段到期时没提交的真人视为不加价, 判定本轮; 开箱阶段到期时拍场已结算则对局结束, 否则开拍下一个拍品
+// OnTimeout 出价阶段到期时没提交的真人视为不加价, 判定本轮; 开箱阶段到期时仓库已结算则对局结束, 否则开拍下一个拍品
 func (vm *venueMode) OnTimeout(tx *gorm.DB, m *match.Match, _ []match.Player) (*match.Phase, error) {
 	st, err := loadState(tx, m)
 	if err != nil {
@@ -553,8 +553,8 @@ func (vm *venueMode) OnTimeout(tx *gorm.DB, m *match.Match, _ []match.Player) (*
 	return nil, fmt.Errorf("auction: unknown phase %s of match %d", m.Phase, m.ID)
 }
 
-// OnCancel 拍场还没结算时取消: 已结算的拍品不变; 还没有拍品成交时退还正式局真人的入场代价;
-// 退还还没结算的拍品上用掉的道具, 解冻剩余的带入资金。拍场已结算(最后的开箱阶段)时什么都不做
+// OnCancel 仓库还没结算时取消: 已结算的拍品不变; 还没有拍品成交时退还正式局真人的入场代价;
+// 退还还没结算的拍品上用掉的道具, 解冻剩余的带入资金。仓库已结算(最后的开箱阶段)时什么都不做
 func (vm *venueMode) OnCancel(tx *gorm.DB, m *match.Match, _ []match.Player) error {
 	st, err := loadState(tx, m)
 	if err != nil {
@@ -602,7 +602,7 @@ func (vm *venueMode) OnCancel(tx *gorm.DB, m *match.Match, _ []match.Player) err
 	return tx.Model(a).Select("outcome", "settled_at").Updates(a).Error
 }
 
-// biddingPhase 第 round 轮出价, round 为拍场内的轮次
+// biddingPhase 第 round 轮出价, round 为仓库内的轮次
 func biddingPhase(rule *venue.AuctionRule, round int32) *match.Phase {
 	return &match.Phase{Name: PhaseBidding, Round: round, Duration: time.Duration(rule.RoundSeconds) * time.Second}
 }
@@ -753,7 +753,7 @@ func (st *state) resolveRound(tx *gorm.DB, waited bool) (*match.Phase, error) {
 
 // advance 按 s 结束本轮(人机出价并判定, 见 session.closeRound)并写入结果: 当前拍品成交或流拍时结算并进入开箱, 否则进入下一轮
 //
-// 开箱阶段的时长为这个拍品的扫描时长之和加上停留时长, 还有下一个拍品时再加上拍品间隔; 最后一个拍品开箱时拍场已结算, 对局随即释放,
+// 开箱阶段的时长为这个拍品的扫描时长之和加上停留时长, 还有下一个拍品时再加上拍品间隔; 最后一个拍品开箱时仓库已结算, 对局随即释放,
 // 玩家可以离开去排下一局。没有真人可以出价的轮次(只有人机并列的加轮、真人的剩余资金都不够起拍价)不等待超时, 直接结束下一轮。
 // waited 为本轮是否等待过真人出价: 是时人机的出价时间见 botBidAt; 否则没有真人可比, 为现在。
 func (st *state) advance(tx *gorm.DB, s *session, waited bool) (*match.Phase, error) {
@@ -965,7 +965,7 @@ func (st *state) wonProfit(seat int16) int64 {
 	return total
 }
 
-// settleSession 最后一个拍品结算后结算拍场: 写入盈亏和名次, 全部流拍时退还入场费和入场代价, 解冻剩余的带入资金, 写入统计;
+// settleSession 最后一个拍品结算后结算仓库: 写入盈亏和名次, 全部流拍时退还入场费和入场代价, 解冻剩余的带入资金, 写入统计;
 // 排位至少成交一个拍品时结算段位分
 //
 // 练习局只计算盈亏和名次, 不变动资金也不写统计; 人机同。排位中挂机的真人计入统计, 提交后记录挂机次数。
@@ -1068,7 +1068,7 @@ func (st *state) settleSession(tx *gorm.DB) error {
 	return tx.Model(a).Select("outcome", "settled_at").Updates(a).Error
 }
 
-// afkUsers 排位中整个拍场都没有提交出价的真人, 练习局和其他模式不算
+// afkUsers 排位中整个仓库都没有提交出价的真人, 练习局和其他模式不算
 //
 // 每轮都可以提交"不加价", 一次都没有提交说明人不在; 轮次到期时没提交的人没有出价记录。
 func (st *state) afkUsers(tx *gorm.DB) ([]uint64, error) {
@@ -1257,7 +1257,7 @@ func (st *state) kind() string {
 	return kind
 }
 
-// remarkOf 资金流水的备注, 如 "码头仓库·人机"
+// remarkOf 资金流水的备注, 如 "码头货仓·人机"
 func remarkOf(venueName, kind string) string {
 	return venueName + "·" + venue.ModeName(kind)
 }
@@ -1356,7 +1356,7 @@ type UseRequest struct {
 
 // UseItem 真人在出价阶段对当前拍品使用一个道具: 扣除一个, 按效果算出情报并保存, 返回使用后自己的视角; 不影响出价和本轮的判定
 //
-// 本轮已出过价也可以用, 情报留到这个拍品之后几轮; 次数上限按整个拍场计。不满足使用规则时返回 *bidError, 原因可以直接展示。
+// 本轮已出过价也可以用, 情报留到这个拍品之后几轮; 次数上限按整个仓库计。不满足使用规则时返回 *bidError, 原因可以直接展示。
 func UseItem(ctx context.Context, userID uint64, req *UseRequest) (*AuctionView, error) {
 	_, err := match.Advance(ctx, req.MatchID, func(tx *gorm.DB, m *match.Match, players []match.Player) (*match.Phase, error) {
 		var seat int16

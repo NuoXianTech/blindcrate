@@ -24,7 +24,7 @@ export const MAX_ENTRY_COST_LINES = 8;
 export const MAX_REQUIREMENTS = 16;
 export const MAX_SLOTS = 8;
 export const MAX_SWINGS = 8;
-/** 拍场, 与后端 venue.LotRule 的校验一致 */
+/** 仓库, 与后端 venue.LotRule 的校验一致 */
 export const MAX_LOTS = 8;
 export const MAX_TIERS = 6;
 export const MAX_GAP_SECONDS = 30;

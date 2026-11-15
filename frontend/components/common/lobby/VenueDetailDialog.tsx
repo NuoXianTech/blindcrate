@@ -15,7 +15,7 @@ import {formatAmount} from '@/lib/utils';
 import {EntryCost, RequirementList} from './VenueInfo';
 
 /**
- * 地图详情: 拍卖规则、入场代价和条件、仓库价值区间, 以及仓库各档位的掉落概率
+ * 地图详情: 拍卖规则、入场代价和条件、货仓价值区间, 以及货仓各档位的掉落概率
  * 列表中的地图先用来显示标题, 打开后拉取详情
  */
 export function VenueDetailDialog({venue, decimals, onClose}: {
@@ -63,7 +63,7 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
   }
 
   const v = detail;
-  // 一局一个仓库
+  // 一局一个货仓
   const single = v.lots.max === 1;
   const ranges = [
     {kind: 'pve', enabled: v.pve_enabled, range: v.pve.value_range},
@@ -79,8 +79,8 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
               <dt className="text-muted-foreground">拍品</dt>
               <dd>
                 {single ?
-                  '每局 1 个仓库, 开局时公开格子大小' :
-                  `每局 ${v.lots.min === v.lots.max ? v.lots.min : `${v.lots.min}-${v.lots.max}`} 个仓库, 依次开拍, 开局时公开数量和格子大小`}
+                  '每局 1 个货仓, 开局时公开格子大小' :
+                  `每局 ${v.lots.min === v.lots.max ? v.lots.min : `${v.lots.min}-${v.lots.max}`} 个货仓, 依次开拍, 开局时公开数量和格子大小`}
                 <ul className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground">
                   {v.lots.grids.map((g) => (
                     <li key={`${g.grid.width}x${g.grid.height}`} className="font-mono tabular-nums">
@@ -142,7 +142,7 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
           <dd>
             {v.auction.preview_rate > 0 ?
               `第 1 轮每件藏品有 ${formatRate(v.auction.preview_rate)} 的概率扫出轮廓, 至少一件` :
-              '开局不扫描, 只知道仓库大小'}
+              '开局不扫描, 只知道货仓大小'}
             <p className="text-xs text-muted-foreground">
               只看得到占的格子; 件数、品质和名称直到开箱都不公开, 只能靠道具看到
             </p>
@@ -151,9 +151,9 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
             <>
               <dt className="text-muted-foreground">主持人</dt>
               <dd>
-                每轮开始时给一条提示, 可能说错, 拍场结束后公开真假
+                每轮开始时给一条提示, 可能说错, 仓库结束后公开真假
                 <p className="text-xs text-muted-foreground">
-                  性格拍场结束后才公开: 稳重的很少说错, 煽动的错时往高了吹, 狡黠的错时往低了压
+                  性格仓库结束后才公开: 稳重的很少说错, 煽动的错时往高了吹, 狡黠的错时往低了压
                 </p>
               </dd>
             </>
@@ -166,7 +166,7 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
           </dd>
           {single && v.lots.grids.length === 1 && (
             <>
-              <dt className="text-muted-foreground">仓库</dt>
+              <dt className="text-muted-foreground">货仓</dt>
               <dd>
                 {v.lots.grids[0].grid.width} × {v.lots.grids[0].grid.height} 格
               </dd>
@@ -189,7 +189,7 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
         </div>
       </Section>
 
-      <Section title={single ? '仓库价值' : '单个仓库的价值'} hint="模拟的仓库价值, 八成的仓库在低和高之间">
+      <Section title={single ? '货仓价值' : '单个货仓的价值'} hint="模拟的货仓价值, 八成的货仓在低和高之间">
         <div className="grid grid-cols-4 gap-x-4 gap-y-1.5 text-sm">
           <span className="text-muted-foreground">模式</span>
           <span className="text-right text-muted-foreground">低</span>
@@ -201,12 +201,12 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
         </div>
       </Section>
 
-      <Section title="掉落概率" hint="仓库由各档位抽到的藏品组成, 概率为每次抽取抽中该藏品的概率">
+      <Section title="掉落概率" hint="货仓由各档位抽到的藏品组成, 概率为每次抽取抽中该藏品的概率">
         <div className="flex flex-col gap-3">
           {v.lot_slots.map((g) => (
             <div key={`${g.grid.width}x${g.grid.height}`} className="flex flex-col gap-3">
               {v.lot_slots.length > 1 && (
-                <h4 className="font-mono text-sm font-medium tabular-nums">{g.grid.width}×{g.grid.height} 的仓库</h4>
+                <h4 className="font-mono text-sm font-medium tabular-nums">{g.grid.width}×{g.grid.height} 的货仓</h4>
               )}
               {g.variants.map((variant, i) => (
                 <div key={i} className="flex flex-col gap-2">
@@ -242,7 +242,7 @@ function Section({title, hint, children}: { title: string; hint?: string; childr
 }
 
 /**
- * 仓库价值区间的一行
+ * 货仓价值区间的一行
  */
 function ValueRow({label, values, decimals}: { label: string; values: number[]; decimals: number }) {
   return (
@@ -292,7 +292,7 @@ function formatRange(min: number, max: number): string {
 }
 
 /**
- * 仓库的一个档位: 出现概率、抽取次数, 以及掉落池按品质分组的概率表
+ * 货仓的一个档位: 出现概率、抽取次数, 以及掉落池按品质分组的概率表
  */
 function SlotCard({index, slot}: { index: number; slot: SlotOdds }) {
   const {qualityOf} = useQualities();

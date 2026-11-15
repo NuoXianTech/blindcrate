@@ -8,7 +8,7 @@ export class VenueAdminService extends BaseService {
     return this.get<ListVenuesData>('/venues', {params});
   }
 
-  /** 保存时会模拟仓库, 摆放失败率过高时拒绝 */
+  /** 保存时会模拟货仓, 摆放失败率过高时拒绝 */
   static createVenue(body: VenueRequest) {
     return this.post<AdminVenue>('/venues', body);
   }
@@ -21,7 +21,7 @@ export class VenueAdminService extends BaseService {
     return this.delete<null>(`/venues/${id}`);
   }
 
-  /** 按未保存的配置模拟仓库、推导拍卖参数并验算对局, 不写入数据; 验算未通过时不报错 */
+  /** 按未保存的配置模拟货仓、推导拍卖参数并验算对局, 不写入数据; 验算未通过时不报错 */
   static simulateVenue(body: VenueRequest) {
     return this.post<SimulateResult>('/venues/simulate', body);
   }

@@ -22,9 +22,9 @@ import type {Tier} from '@/lib/services/ranked';
 import {formatAmount} from '@/lib/utils';
 
 /**
- * 当前拍品的结算结果: 成交价、仓库价值; 最后一个拍品开箱后还有整场的名次、自己扣掉入场费的盈亏和排位的段位分、段位变化,
- * 此时拍场已结算, 对局随即释放, 开箱时就可以离开或再来一局
- * 仓库价值随开箱扫描累加, 盈亏、名次和段位分能推出仓库价值, 扫完才公开
+ * 当前拍品的结算结果: 成交价、货仓价值; 最后一个拍品开箱后还有整场的名次、自己扣掉入场费的盈亏和排位的段位分、段位变化,
+ * 此时仓库已结算, 对局随即释放, 开箱时就可以离开或再来一局
+ * 货仓价值随开箱扫描累加, 盈亏、名次和段位分能推出货仓价值, 扫完才公开
  */
 export function ResultPanel({view, lot, players, decimals, scan, finished, released}: {
   view: AuctionView;
@@ -66,9 +66,9 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
   const refunded = !view.lots.some((l) => l.outcome === AUCTION_OUTCOME.sold);
   let title: string;
   if (sold && winner?.is_self) {
-    title = '你拍下了这个仓库';
+    title = '你拍下了这个货仓';
   } else if (sold) {
-    title = `${winner?.nickname ?? `${lot.winner_seat} 号位`} 拍下了这个仓库`;
+    title = `${winner?.nickname ?? `${lot.winner_seat} 号位`} 拍下了这个货仓`;
   } else if (lot.outcome === AUCTION_OUTCOME.unsold) {
     title = session && refunded ? '全部流拍, 入场代价已退还' : '这个拍品流拍';
   } else {
@@ -88,7 +88,7 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
 
   const rows = [
     {label: '成交价', value: sold ? formatAmount(lot.price, decimals) : '-'},
-    {label: scan.complete ? '仓库价值' : '仓库价值 (扫描中)', value: formatAmount(scan.complete ? lot.value : scan.value, decimals)},
+    {label: scan.complete ? '货仓价值' : '货仓价值 (扫描中)', value: formatAmount(scan.complete ? lot.value : scan.value, decimals)},
     {label: '我的剩余资金', value: formatAmount(self.remaining, decimals)},
   ];
   // 整场盈亏要扣掉入场费; 其余的入场代价不是出价货币, 单独列出

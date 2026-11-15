@@ -44,7 +44,7 @@ export const PHASES: Record<string, string> = {
   reveal: '开箱',
 };
 
-/** 拍场中的拍品, 只用到判断进度的字段 */
+/** 仓库中的拍品, 只用到判断进度的字段 */
 interface LotLike {
   lot_no: number;
   outcome: string;

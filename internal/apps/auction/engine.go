@@ -33,10 +33,10 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 )
 
-// 本文件是拍场的推进规则, 不读写数据库: 对局(service.go)把结果写库, 保存地图时的验算(balance.go)只统计结果,
+// 本文件是仓库的推进规则, 不读写数据库: 对局(service.go)把结果写库, 保存地图时的验算(balance.go)只统计结果,
 // 两边按同一份规则推进。判定和成交价见 rules.go, 热度的变动见 hypeDelta
 
-// seat 拍场中的一个座位
+// seat 仓库中的一个座位
 type seat struct {
 	Seat     int16
 	Human    bool
@@ -61,7 +61,7 @@ type lotSpec struct {
 	LotsLeft   int32             // 之后还有几个拍品
 }
 
-// session 一个拍场的局面: 座位、热度和当前拍品的进度
+// session 一个仓库的局面: 座位、热度和当前拍品的进度
 //
 // 开拍一个拍品见 openLot, 从数据库恢复拍到一半的拍品见 resumeLot; 真人的出价由调用方写入(见 raise), 之后用 closeRound 结束这一轮。
 type session struct {
@@ -69,7 +69,7 @@ type session struct {
 	Hosted    bool             // 是否记录热度, 没有主持人的对局不记录
 	Hype      int32            // 当前热度, 跨拍品延续
 	HypeDecay int64            // 每个拍品开场时热度向开局热度回落的比例, 基点
-	Round     int32            // 当前轮次, 在整个拍场内连续编号, 还没开拍时为 0
+	Round     int32            // 当前轮次, 在整个仓库内连续编号, 还没开拍时为 0
 	Clock     func() time.Time // 人机加价时的提交时间, 只用于并列时比较先后
 
 	lot        lotSpec
@@ -101,7 +101,7 @@ type roundResult struct {
 	Hint    bool         // 下一轮还在规定的轮数内, 主持人给出提示; 加轮不给
 }
 
-// publicBefore 拍场进行到第 round 轮时, 从第 firstRound 轮开拍的拍品上这个轮次之前的出价已公开:
+// publicBefore 仓库进行到第 round 轮时, 从第 firstRound 轮开拍的拍品上这个轮次之前的出价已公开:
 // 拍品的前 N-1 轮(N 为规则的轮数)每轮结束后公开, 最后一轮和加轮在结算后公开
 func publicBefore(round, firstRound, rounds int32) int32 {
 	return min(round, firstRound+rounds-1)
@@ -201,7 +201,7 @@ func (s *session) raise(i int, amount int64, at time.Time) {
 // closeRound 结束当前轮: 有资格出价的人机按风格决策并出价, 再判定; 成交时从成交者的剩余资金中扣除成交价,
 // 没有结束时记下加轮和下一轮可以出价的座位, 更新热度, 公开这一轮的出价, 进入下一轮
 //
-// 人机看到的与真人在这一轮出价时相同, 见 Observation; 每轮的随机数由种子和拍场内的轮次决定, 各拍品互不相同。
+// 人机看到的与真人在这一轮出价时相同, 见 Observation; 每轮的随机数由种子和仓库内的轮次决定, 各拍品互不相同。
 // 剩余资金不够起拍价的人机只更新估值, 不出价; 出价超过剩余资金时按剩余资金, 低于起拍价或不高于当前出价时为不加价。
 func (s *session) closeRound() roundResult {
 	rule := &s.lot.Rule

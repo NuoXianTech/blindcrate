@@ -39,13 +39,13 @@ import (
 
 // 本文件是保存地图时的对局验算, 见 venue.RegisterBalancer
 //
-// 按推导出的拍卖参数模拟几种阵容的拍场: 人机按地图配置的风格出价, 与对局中相同; 真人按 humanModel 出价。
+// 按推导出的拍卖参数模拟几种阵容的仓库: 人机按地图配置的风格出价, 与对局中相同; 真人按 humanModel 出价。
 // 一个拍品的出价不受领先折让影响, 记下每个拍品第一名和第二名的出价, 再按不同的折让重算成交价(多拍品时见 simulate),
-// 取参考阵容(4 个真人)的成交价 ÷ 仓库价值最接近目标的折让。入场费也不影响出价, 只平移盈亏,
+// 取参考阵容(4 个真人)的成交价 ÷ 货仓价值最接近目标的折让。入场费也不影响出价, 只平移盈亏,
 // 按这个折让求出让参考阵容的真人盈亏等于目标的入场费, 见 solveEntryFee。
 
 const (
-	// balanceRuns 验算时每种阵容模拟的拍品数, 拍场数为它 ÷ 每局拍品数的期望
+	// balanceRuns 验算时每种阵容模拟的拍品数, 仓库数为它 ÷ 每局拍品数的期望
 	balanceRuns = 4000
 	// discountStep 领先折让的取值间隔, 基点
 	discountStep = 100
@@ -53,9 +53,9 @@ const (
 	balanceSalt = 0x5851f42d4c957f2d
 )
 
-// lineup 生成拍场的拍品, 即 *venue.Lineup(见 venueLineup), 测试时可以替换
+// lineup 生成仓库的拍品, 即 *venue.Lineup(见 venueLineup), 测试时可以替换
 type lineup interface {
-	Count() int // 抽一个拍场的拍品数
+	Count() int // 抽一个仓库的拍品数
 	Pick() int  // 按权重抽一种档次
 	Tiers() int // 档次的个数, 同 venue.Venue.Lots.Tiers
 	Generate(tier int, valueFactor int32) (*venue.Warehouse, error)
@@ -77,7 +77,7 @@ func (v venueLineup) PieceOdds(tier int, valueFactor int32) []venue.PieceOdds {
 
 // humanModel 模拟的真人, 行为来自玩法改进的验算器, 参数见 settings.BalanceSettings 的模拟真人
 //
-//   - 估值: 知道仓库价值但看不准, 每轮的估值为价值 × (1 ± 误差 × [0.35, 1]), 每个拍品偏高或偏低;
+//   - 估值: 知道货仓价值但看不准, 每轮的估值为价值 × (1 ± 误差 × [0.35, 1]), 每个拍品偏高或偏低;
 //     误差从 SigmaStart 每轮减 SigmaStep × 5 ÷ 轮数(轮数越多每轮减得越少), 不低于 SigmaFloor
 //   - 上限: min(估值 × CapFactor, 剩余资金, 预算), 低于起拍价或不高于当前出价时不再加价; 只有规划预算的真人有预算, 同人机的 budget
 //   - 别人的公开出价不低于上限时放弃这个拍品
@@ -164,22 +164,22 @@ type squad struct {
 	code        string // 见 venue 的 Squad
 	human       humanModel
 	humans      int
-	valueFactor int32                                // 仓库价值系数, 同 venue.Generator.Generate
+	valueFactor int32                                // 货仓价值系数, 同 venue.Generator.Generate
 	bots        []bot.Decider[Observation, Decision] // 出场的风格, 每局每个人机按 picks 的权重选一种
 	picks       []int64
 }
 
-// seatSim 模拟拍场中一个座位在验算时另外记的, 资金和出价见 session 的 seat
+// seatSim 模拟仓库中一个座位在验算时另外记的, 资金和出价见 session 的 seat
 type seatSim struct {
 	planner bool    // 真人是否规划预算
 	sign    float64 // 真人对当前拍品的估值偏高(1)还是偏低(-1)
-	profit  int64   // 拍场盈亏, 藏品按扣掉出售手续费后的回收价计, 不含入场费
+	profit  int64   // 仓库盈亏, 藏品按扣掉出售手续费后的回收价计, 不含入场费
 }
 
 // lotSim 一个拍品的模拟结果, 成交价由领先折让决定, 另算
 type lotSim struct {
 	value    int64
-	topShare float64 // 最贵一件占仓库价值的比例
+	topShare float64 // 最贵一件占货仓价值的比例
 	round    int32   // 结束的轮次
 	sold     bool
 	speed    bool    // 最后一轮之前成交
@@ -191,10 +191,10 @@ type lotSim struct {
 	appraise int64   // 人机最后的估值之和
 }
 
-// matchSim 一个拍场的模拟结果
+// matchSim 一个仓库的模拟结果
 type matchSim struct {
 	lots    []lotSim
-	profit  []int64 // 每个座位的拍场盈亏, 按模拟时的领先折让, 不含入场费
+	profit  []int64 // 每个座位的仓库盈亏, 按模拟时的领先折让, 不含入场费
 	carry   []int64 // 每个座位结束时的剩余资金
 	planner []bool  // 每个座位是否是规划预算的真人
 	hype    int32   // 结束时的热度, 见 hypeDelta
@@ -248,7 +248,7 @@ func balance(tx *gorm.DB, v *venue.Venue, l *venue.Lineup, b *settings.BalanceSe
 	if b.LeadDiscountEnabled {
 		maxDiscount = int32(b.MaxLeadDiscount)
 	}
-	// 真人盈亏的目标按一个拍场的期望总价值算, 一局一个拍品时就是一个仓库的期望价值
+	// 真人盈亏的目标按一个仓库的期望总价值算, 一局一个拍品时就是一个货仓的期望价值
 	seatEV := scale(v.SessionMean(), int64(b.TargetSeatEV))
 	carryFloor := int64(venue.BasisPoints)
 	if !v.Lots.Single() {
@@ -268,7 +268,7 @@ type simConfig struct {
 	hypeDecay   int64 // 每个拍品开场时热度向开局热度回落的比例, 基点
 }
 
-// simulate 模拟各阵容的拍场, 第一种为参考阵容; 在 [0, maxDiscount] 中求出领先折让写入 v.Auction.LeadDiscount,
+// simulate 模拟各阵容的仓库, 第一种为参考阵容; 在 [0, maxDiscount] 中求出领先折让写入 v.Auction.LeadDiscount,
 // 再求出让参考阵容的真人盈亏等于 seatEV 的入场费写入 v.Auction.EntryFee, 返回各阵容按这个折让和入场费的结果
 //
 // 多拍品时成交价决定了后面拍品的剩余资金, 出价和折让有关: 先按折让上限的一半模拟一遍求出折让, 再按它重新模拟、重新求, 共三遍;
@@ -338,7 +338,7 @@ func publicLots(tiers []venue.Tier, source lineup, valueFactor int32) []publicLo
 	return lots
 }
 
-// run 模拟 balanceRuns ÷ 每局拍品数的期望 个拍场, 使拍品总数约为 balanceRuns; 摆不下的拍场不计入
+// run 模拟 balanceRuns ÷ 每局拍品数的期望 个仓库, 使拍品总数约为 balanceRuns; 摆不下的仓库不计入
 func (sq *squad) run(v *venue.Venue, tiers []venue.Tier, source lineup, seed uint64, cfg simConfig) ([]matchSim, error) {
 	rng := rand.New(rand.NewPCG(seed, balanceSalt))
 	public := publicLots(tiers, source, sq.valueFactor)
@@ -370,7 +370,7 @@ func (sq *squad) run(v *venue.Venue, tiers []venue.Tier, source lineup, seed uin
 	return matches, nil
 }
 
-// play 模拟一个拍场, 按对局的规则推进(见 session): 首轮扫出的轮廓见 previewPieces;
+// play 模拟一个仓库, 按对局的规则推进(见 session): 首轮扫出的轮廓见 previewPieces;
 // 真人带满上限, 人机带 BotCarry × [carryFloor, 100%]; 成交价按 v.Auction 的领先折让从剩余资金扣除
 func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, kinds []int, warehouses []*venue.Warehouse, rng *rand.Rand, cfg simConfig) (matchSim, error) {
 	sims := make([]seatSim, playerCount)
@@ -419,7 +419,7 @@ func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, ki
 	return m, nil
 }
 
-// playLot 模拟拍场中的一个拍品: 每轮真人按 humanModel 出价, 再结束这一轮; 热度的统计记在 m 上
+// playLot 模拟仓库中的一个拍品: 每轮真人按 humanModel 出价, 再结束这一轮; 热度的统计记在 m 上
 func (sq *squad) playLot(v *venue.Venue, s *session, sims []seatSim, spec lotSpec, warehouse *venue.Warehouse, m *matchSim, rng *rand.Rand) (lotSim, error) {
 	rule := &spec.Rule
 	pieces := warehouse.Pieces
@@ -514,7 +514,7 @@ func (sq *squad) playLot(v *venue.Venue, s *session, sims []seatSim, spec lotSpe
 
 // summarize 按 rule 的领先折让和入场费统计一种阵容的结果, 藏品按扣掉出售手续费后的回收价计
 //
-// 成交、价格、速胜、离散度、估值和胜率按拍品统计, 盈亏按拍场统计; 拍场盈亏按 rule 的折让重算, 与模拟时的折让不同时剩余资金不重算。
+// 成交、价格、速胜、离散度、估值和胜率按拍品统计, 盈亏按仓库统计; 仓库盈亏按 rule 的折让重算, 与模拟时的折让不同时剩余资金不重算。
 func (sq *squad) summarize(matches []matchSim, rule *venue.AuctionRule, sellFee int32) venue.SquadStats {
 	stats := venue.SquadStats{Squad: sq.code, Humans: int32(sq.humans)}
 	n := len(matches)
@@ -633,7 +633,7 @@ func (sq *squad) summarize(matches []matchSim, rule *venue.AuctionRule, sellFee 
 
 // solveEntryFee 入场费: 让 sq 每个真人席位每局的平均盈亏等于 seatEV, 不低于 0; 成交价按 rule 的领先折让
 //
-// 入场费不影响出价, 只平移盈亏; 全部流拍时退还, 至少成交一个拍品的拍场才收, 所以按这种拍场的比例放大。不收入场费时盈亏已经不高于目标的为 0。
+// 入场费不影响出价, 只平移盈亏; 全部流拍时退还, 至少成交一个拍品的仓库才收, 所以按这种仓库的比例放大。不收入场费时盈亏已经不高于目标的为 0。
 func solveEntryFee(sq *squad, matches []matchSim, rule venue.AuctionRule, sellFee int32, seatEV int64) int64 {
 	rule.EntryFee = 0
 	stats := sq.summarize(matches, &rule, sellFee)
@@ -649,7 +649,7 @@ func solveEntryFee(sq *squad, matches []matchSim, rule venue.AuctionRule, sellFe
 	return max((stats.SeatEV-seatEV)*int64(len(matches))/charged, 0)
 }
 
-// solveDiscount 领先折让: 在 [0, maxDiscount] 中按 discountStep 取值, 取全部拍品的成交价 ÷ 仓库价值最接近 target 的, 一样近时取小的
+// solveDiscount 领先折让: 在 [0, maxDiscount] 中按 discountStep 取值, 取全部拍品的成交价 ÷ 货仓价值最接近 target 的, 一样近时取小的
 //
 // 折让越大成交价越低; 不打折时已经不高于目标的为 0, 打到上限仍高于目标的为上限, 由闸门判定是否可用。
 func solveDiscount(matches []matchSim, rule venue.AuctionRule, target, maxDiscount int32) int32 {

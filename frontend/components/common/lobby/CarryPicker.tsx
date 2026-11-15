@@ -22,7 +22,7 @@ interface CarryValues {
 const CARRY_SHARES = [0.25, 0.5, 0.75, 1];
 
 /**
- * 带入金额: 整个拍场共用这笔钱, 在 [起拍价, 带入资金上限] 内自选, 准入时按它冻结; 没选过时为上限
+ * 带入金额: 整个仓库共用这笔钱, 在 [起拍价, 带入资金上限] 内自选, 准入时按它冻结; 没选过时为上限
  * 带得少不容易被套住, 但后面的拍品可能出不起价
  */
 export function CarryPicker({venue: v, carry, decimals, disabled, onSaved}: {

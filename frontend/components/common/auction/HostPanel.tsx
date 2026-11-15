@@ -24,7 +24,7 @@ function HintText({hint}: { hint: HostHint }) {
         </span>
       );
     case HOST_HINT.best:
-      return <span>仓库里最好的藏品是 <QualityName quality={hint.quality} /></span>;
+      return <span>货仓里最好的藏品是 <QualityName quality={hint.quality} /></span>;
     case HOST_HINT.piece:
       return (
         <span>
@@ -38,7 +38,7 @@ function HintText({hint}: { hint: HostHint }) {
 }
 
 /**
- * 主持人: 公开热度和当前拍品每轮的提示(可能说错), 拍场结束后公开性格和提示的真假
+ * 主持人: 公开热度和当前拍品每轮的提示(可能说错), 仓库结束后公开性格和提示的真假
  * 没有主持人提示的地图不显示
  */
 export function HostPanel({view, lot}: {
@@ -51,7 +51,7 @@ export function HostPanel({view, lot}: {
 
   const hints = host.hints.filter((h) => h.lot_no === lot.lot_no);
   const lotRound = (round: number) => round - lot.first_round + 1;
-  // 性格拍场结束后才公开, 之前为空
+  // 性格仓库结束后才公开, 之前为空
   const persona = host.persona ? HOST_PERSONAS[host.persona] : undefined;
   const level = hypeLevel(host.hype);
   const lastHype = host.hypes.at(-1);

@@ -95,7 +95,7 @@ func TestBalanceJudge(t *testing.T) {
 	if !slices.Equal(failed, want) {
 		t.Errorf("failed checks %v, want %v", failed, want)
 	}
-	if got := b.failures(); got != "仓库高度、速胜率(4 个真人)、真人盈亏(排位补人机)" {
+	if got := b.failures(); got != "货仓高度、速胜率(4 个真人)、真人盈亏(排位补人机)" {
 		t.Errorf("failures: %q", got)
 	}
 	for _, c := range b.Checks {
@@ -140,7 +140,7 @@ func TestCalibrateVenue(t *testing.T) {
 			Tiers:  []TierStats{{Code: "small", Ranked: ValueStats{Mean: 5000}}, {Code: "big", Ranked: ValueStats{Mean: 15000}}},
 		},
 	}
-	// 单拍品: 带入资金按单个仓库的价值分布, 起拍价取各档次中最低的
+	// 单拍品: 带入资金按单个货仓的价值分布, 起拍价取各档次中最低的
 	v.Calibrate(settings.Balance.Default())
 	if r := v.Auction; r.StartPrice != 200 || r.MaxCarry != 30000 || r.BotCarry != 12000 {
 		t.Errorf("single lot: %+v", r)
@@ -150,7 +150,7 @@ func TestCalibrateVenue(t *testing.T) {
 		t.Errorf("tiers: %+v %+v", small, big)
 	}
 
-	// 多拍品: 带入资金上限按拍场期望总价值 × 覆盖率
+	// 多拍品: 带入资金上限按仓库期望总价值 × 覆盖率
 	v.Lots.Min, v.Lots.Max = 2, 4
 	v.Calibrate(settings.Balance.Default())
 	if r := v.Auction; r.StartPrice != 200 || r.MaxCarry != 9000 || r.BotCarry != 5400 {

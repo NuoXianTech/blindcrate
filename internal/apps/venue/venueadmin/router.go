@@ -112,7 +112,7 @@ type VenueRequest struct {
 	BidCurrency   string                `json:"bid_currency" binding:"required,max=32"`
 	EntryCost     reward.Bundle         `json:"entry_cost" binding:"-"` // 数量为正数, 开局时扣除
 	Requirements  []condition.Condition `json:"requirements" binding:"-"`
-	Lots          venue.LotRule         `json:"lots" binding:"-"` // 拍场的拍品数和档次, 最多 1 个拍品时一局一个仓库
+	Lots          venue.LotRule         `json:"lots" binding:"-"` // 仓库的拍品数和档次, 最多 1 个拍品时一局一个货仓
 	Auction       venue.AuctionRule     `json:"auction" binding:"-"`
 	Bots          venue.BotRule         `json:"bots" binding:"-"`
 	Pve           venue.PveRule         `json:"pve" binding:"-"`
@@ -129,7 +129,7 @@ type SimulateResponseData struct {
 // CreateVenue
 // @Tags admin
 // @Summary 新建地图
-// @Description 保存前模拟 10000 个仓库, 摆放失败率超过 1% 时拒绝; 再按价值分布推导拍卖的金额和比例并验算对局, 启用的地图验算未通过时拒绝; 结果写入 simulation
+// @Description 保存前模拟 10000 个货仓, 摆放失败率超过 1% 时拒绝; 再按价值分布推导拍卖的金额和比例并验算对局, 启用的地图验算未通过时拒绝; 结果写入 simulation
 // @Accept json
 // @Produce json
 // @Param request body VenueRequest true "request body"
@@ -174,7 +174,7 @@ func CreateVenue(c *gin.Context) {
 // UpdateVenue
 // @Tags admin
 // @Summary 修改地图
-// @Description 需提交全部字段, 代码不能修改; 每次保存都会重新模拟仓库、推导拍卖参数并验算对局, 启用的地图验算未通过时拒绝; 进行中的对局使用开局时的快照, 不受影响
+// @Description 需提交全部字段, 代码不能修改; 每次保存都会重新模拟货仓、推导拍卖参数并验算对局, 启用的地图验算未通过时拒绝; 进行中的对局使用开局时的快照, 不受影响
 // @Accept json
 // @Produce json
 // @Param id path int true "venue id"
@@ -266,7 +266,7 @@ func DeleteVenue(c *gin.Context) {
 // SimulateVenue
 // @Tags admin
 // @Summary 试算地图
-// @Description 按保存时的规则校验并模拟 10000 个仓库, 推导拍卖参数并验算对局, 返回结果, 不保存; 验算未通过时不拒绝
+// @Description 按保存时的规则校验并模拟 10000 个货仓, 推导拍卖参数并验算对局, 返回结果, 不保存; 验算未通过时不拒绝
 // @Accept json
 // @Produce json
 // @Param request body VenueRequest true "request body"

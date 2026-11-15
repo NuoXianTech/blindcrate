@@ -9,7 +9,7 @@ import {formatAmount} from '@/lib/utils';
 
 /**
  * 四个座位: 出价时显示已公开的最高出价, 加轮时标出可以出价的人; 开箱后公开每个人的出价和成交者; 各人已花的钱来自公开的成交结果
- * 名次能推出仓库价值, 扫描完才公开
+ * 名次能推出货仓价值, 扫描完才公开
  */
 export function SeatList({view, lot, players, decimals, revealed}: {
   view: AuctionView;

@@ -56,7 +56,7 @@ export interface MatchSummary {
   /** 开局时的地图名称 */
   venue_name: string;
   bid_currency: string;
-  /** 拍场结算前为空, 之后为 sold(至少成交一个拍品)、unsold 或 cancelled */
+  /** 仓库结算前为空, 之后为 sold(至少成交一个拍品)、unsold 或 cancelled */
   outcome: string;
   /** 拍品数 */
   lot_count: number;

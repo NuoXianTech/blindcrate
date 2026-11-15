@@ -53,7 +53,7 @@ export interface SwingDraft {
   weight: string;
 }
 
-/** 编辑中的仓库生成规则, 每个档次一个 */
+/** 编辑中的货仓生成规则, 每个档次一个 */
 export interface WarehouseDraft {
   gridWidth: string;
   gridHeight: string;
@@ -95,7 +95,7 @@ export interface VenueForm {
   entryCost: BundleDraft[];
   requirements: ConditionDraft[];
   lotMin: string;
-  /** 为 1 时一局一个仓库, 带入资金按单个仓库的价值推导 */
+  /** 为 1 时一局一个货仓, 带入资金按单个货仓的价值推导 */
   lotMax: string;
   /** 至少一种 */
   tiers: TierDraft[];
@@ -138,7 +138,7 @@ export function recommendedQuickWin(rounds: number): string[] {
   );
 }
 
-/** 新建地图时第一种档次的仓库 */
+/** 新建地图时第一种档次的货仓 */
 const DEFAULT_WAREHOUSE: WarehouseRule = {
   grid: {width: 6, height: 5},
   slots: [{pool: '', min: 4, max: 8, chance: 10000}],
@@ -146,7 +146,7 @@ const DEFAULT_WAREHOUSE: WarehouseRule = {
   max_rerolls: 10,
 };
 
-/** 仓库生成规则转为表单 */
+/** 货仓生成规则转为表单 */
 function toWarehouseDraft(w: WarehouseRule): WarehouseDraft {
   return {
     gridWidth: String(w.grid.width),
@@ -307,14 +307,14 @@ function readNumber(text: string, {label, min, max, decimals = 0, unit = ''}: Nu
 const percent = (text: string, label: string, min: number, max: number) =>
   readNumber(text, {label, min, max, decimals: PERCENT_DECIMALS, unit: '%'});
 
-/** 仓库表单转为请求体, prefix 加在提示前面, 如档次名称 */
+/** 货仓表单转为请求体, prefix 加在提示前面, 如档次名称 */
 function fromWarehouseDraft(w: WarehouseDraft, prefix = ''): WarehouseRule {
   check(w.slots.length === 0 || w.slots.length > MAX_SLOTS ? `${prefix}档位需为 1-${MAX_SLOTS} 个` : null);
   check(w.swings.length > MAX_SWINGS ? `${prefix}数量波动最多 ${MAX_SWINGS} 档` : null);
   return {
     grid: {
-      width: readNumber(w.gridWidth, {label: `${prefix}仓库宽度`, min: 1, max: 16}),
-      height: readNumber(w.gridHeight, {label: `${prefix}仓库高度`, min: 1, max: 16}),
+      width: readNumber(w.gridWidth, {label: `${prefix}货仓宽度`, min: 1, max: 16}),
+      height: readNumber(w.gridHeight, {label: `${prefix}货仓高度`, min: 1, max: 16}),
     },
     slots: w.slots.map((s, i) => {
       const row = `${prefix}第 ${i + 1} 档`;
@@ -335,7 +335,7 @@ function fromWarehouseDraft(w: WarehouseDraft, prefix = ''): WarehouseRule {
   };
 }
 
-/** 拍场转为请求体 */
+/** 仓库转为请求体 */
 function fromLots(form: VenueForm): VenueRequest['lots'] {
   const tiers = form.tiers;
   check(tiers.length === 0 || tiers.length > MAX_TIERS ? `档次需为 1-${MAX_TIERS} 种` : null);
@@ -431,7 +431,7 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
     pve: {
       practice_only: form.practiceOnly,
       daily_profit_cap: amount(form.dailyProfitCap, '每日收益上限', 0),
-      value_factor: percent(form.valueFactor, '仓库价值系数', 1000, 10000),
+      value_factor: percent(form.valueFactor, '货仓价值系数', 1000, 10000),
     },
     consumables: {
       pve: {max_per_match: readNumber(form.usesPve, {label: '人机每局道具数', min: 0, max: MAX_USES})},

@@ -39,7 +39,7 @@ import (
 
 // suspectPairsSQL 最近若干天已结束的排位中每一对真人的同局统计, 只统计暗拍的座位
 //
-// 拍品的成交者是两人之一时算作其中一人成交, 成交价低于仓库价值的 @rate 基点时算作低价成交; 一局有多个拍品时按拍品计。
+// 拍品的成交者是两人之一时算作其中一人成交, 成交价低于货仓价值的 @rate 基点时算作低价成交; 一局有多个拍品时按拍品计。
 const suspectPairsSQL = `
 WITH humans AS (
 	SELECT ap.match_id, ap.user_id, ap.seat
@@ -83,7 +83,7 @@ type Suspect struct {
 	Matches     int64          `json:"matches"`    // 一起打的排位局数
 	Wins        int64          `json:"wins"`       // 其中一人成交的拍品数
 	LowWins     int64          `json:"low_wins"`   // 其中一人低价成交的拍品数
-	PriceRate   int64          `json:"price_rate"` // 其中一人成交时成交价占仓库价值的平均比例, 基点; 没有成交时为 0
+	PriceRate   int64          `json:"price_rate"` // 其中一人成交时成交价占货仓价值的平均比例, 基点; 没有成交时为 0
 	LastMatchID uint64         `json:"last_match_id"`
 	LastMatchAt time.Time      `json:"last_match_at"`
 	Review      *SuspectReview `json:"review"` // 最近一次处理记录, 没处理过时为空

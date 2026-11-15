@@ -68,7 +68,7 @@ export interface Suspect {
   wins: number;
   /** 其中一人低价成交的拍品数 */
   low_wins: number;
-  /** 其中一人成交时成交价占仓库价值的平均比例, 基点; 没有成交时为 0 */
+  /** 其中一人成交时成交价占货仓价值的平均比例, 基点; 没有成交时为 0 */
   price_rate: number;
   last_match_id: number;
   last_match_at: string;

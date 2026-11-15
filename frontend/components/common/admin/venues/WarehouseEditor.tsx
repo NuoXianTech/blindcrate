@@ -16,10 +16,10 @@ const SLOT_COLUMNS = 'grid grid-cols-[1fr_4.5rem_4.5rem_6rem_2.25rem] items-cent
 const SWING_COLUMNS = 'grid grid-cols-[8rem_6rem_2.25rem] items-center gap-2';
 
 /**
- * 仓库编辑器的Props接口
+ * 货仓编辑器的Props接口
  */
 interface WarehouseEditorProps {
-  /** 输入框 id 的前缀, 每个档次一个仓库 */
+  /** 输入框 id 的前缀, 每个档次一个货仓 */
   id: string;
   value: WarehouseDraft;
   onChange: (patch: Partial<WarehouseDraft>) => void;
@@ -28,7 +28,7 @@ interface WarehouseEditorProps {
 }
 
 /**
- * 一个仓库的生成规则: 格子大小、档位、数量波动和重抽次数
+ * 一个货仓的生成规则: 格子大小、档位、数量波动和重抽次数
  */
 export function WarehouseEditor({id, value: form, onChange, disabled, pools}: WarehouseEditorProps) {
   const updateSlot = (key: string, patch: Partial<SlotDraft>) =>
@@ -114,7 +114,7 @@ export function WarehouseEditor({id, value: form, onChange, disabled, pools}: Wa
 
       <FieldGroup
         title="数量波动"
-        help={`每局按权重抽一档, 按数量系数缩放各档位的抽取次数, 让每局的藏品有多有少; 多少能从格子看出来, 只出固定价格的人多半拍到小仓库。不配置时不波动, 最多 ${MAX_SWINGS} 档`}
+        help={`每局按权重抽一档, 按数量系数缩放各档位的抽取次数, 让每局的藏品有多有少; 多少能从格子看出来, 只出固定价格的人多半拍到小货仓。不配置时不波动, 最多 ${MAX_SWINGS} 档`}
       >
         <div className="flex flex-col gap-2">
           {form.swings.length > 0 && (

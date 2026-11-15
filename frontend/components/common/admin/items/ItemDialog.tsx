@@ -191,7 +191,7 @@ function ItemForm({item, currencies, categories, effects, pools, onClose, onSave
           </Select>
         </div>
       </div>
-      <span className="-mt-2 text-xs text-muted-foreground">仓库只抽藏品, 其他类别的物品通过奖励、商城等获得</span>
+      <span className="-mt-2 text-xs text-muted-foreground">货仓只抽藏品, 其他类别的物品通过奖励、商城等获得</span>
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="item-description">描述</Label>

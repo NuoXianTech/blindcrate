@@ -43,7 +43,7 @@ func testSpec(rounds int32, quickWin ...int32) lotSpec {
 	}
 }
 
-// testSession 4 个座位的拍场, 前 humans 个是真人, 每人带 5000; 提交时间按调用的先后递增
+// testSession 4 个座位的仓库, 前 humans 个是真人, 每人带 5000; 提交时间按调用的先后递增
 func testSession(humans int, deciders ...bot.Decider[Observation, Decision]) *session {
 	s := &session{Seats: make([]seat, playerCount), Hosted: true, Hype: hypeStart, HypeDecay: 5000}
 	for i := range s.Seats {

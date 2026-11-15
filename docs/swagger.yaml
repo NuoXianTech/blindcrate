@@ -37,12 +37,12 @@ definitions:
           $ref: '#/definitions/auction.Player'
         type: array
       round:
-        description: 拍场内的轮次, 从 1 开始连续编号
+        description: 仓库内的轮次, 从 1 开始连续编号
         type: integer
       session:
         allOf:
         - $ref: '#/definitions/auction.SessionView'
-        description: 拍场结束后才有
+        description: 仓库结束后才有
       status:
         type: string
       uses:
@@ -84,14 +84,14 @@ definitions:
       phase_ends_at:
         type: string
       round:
-        description: 拍场内的轮次, 从 1 开始连续编号
+        description: 仓库内的轮次, 从 1 开始连续编号
         type: integer
       self:
         $ref: '#/definitions/auction.SelfView'
       session:
         allOf:
         - $ref: '#/definitions/auction.SessionView'
-        description: 拍场结束后才有
+        description: 仓库结束后才有
       status:
         type: string
       venue:
@@ -148,10 +148,10 @@ definitions:
       quality:
         type: integer
       round:
-        description: 拍场内的轮次
+        description: 仓库内的轮次
         type: integer
       truthful:
-        description: 是否属实, 拍场结束后才公开
+        description: 是否属实, 仓库结束后才公开
         type: boolean
       x:
         description: 指认的藏品的位置, 是第 1 轮扫出轮廓的一件
@@ -174,7 +174,7 @@ definitions:
           $ref: '#/definitions/auction.HypeEvent'
         type: array
       persona:
-        description: 见 venue.HostSteady 等, 拍场结束后才公开, 之前为空
+        description: 见 venue.HostSteady 等, 仓库结束后才公开, 之前为空
         type: string
     type: object
   auction.HypeEvent:
@@ -212,7 +212,7 @@ definitions:
       value_max:
         type: integer
       value_min:
-        description: 仓库价值的区间, 出价货币
+        description: 货仓价值的区间, 出价货币
         type: integer
     type: object
   auction.ListCarryResponseData:
@@ -279,7 +279,7 @@ definitions:
         description: 档次代码, 不公开
         type: string
       value:
-        description: 仓库价值, 出价货币的回收价之和
+        description: 货仓价值, 出价货币的回收价之和
         type: integer
       winner_seat:
         description: 成交者的座位, 没有成交时为 0
@@ -333,10 +333,10 @@ definitions:
       start_price:
         type: integer
       tier:
-        description: 档次名称, 拍场结束后公开
+        description: 档次名称, 仓库结束后公开
         type: string
       value:
-        description: 仓库价值, 开箱后公开
+        description: 货仓价值, 开箱后公开
         type: integer
       winner_seat:
         description: 没有成交时为 0
@@ -401,7 +401,7 @@ definitions:
         description: 当前出价的提交时间, 加轮用完仍并列时先出价的人成交
         type: string
       carry:
-        description: 带入资金, 整个拍场共用; 真人在准入时自选, 见 CarryPreference
+        description: 带入资金, 整个仓库共用; 真人在准入时自选, 见 CarryPreference
         type: integer
       created_at:
         type: string
@@ -427,10 +427,10 @@ definitions:
         - $ref: '#/definitions/bot.Snapshot'
         description: 人机的风格, 开局时快照, 真人为空
       profit:
-        description: 拍场结算后的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算
+        description: 仓库结算后的盈亏, 出价货币, 不含准入时扣除的入场代价; 练习局按正式局计算
         type: integer
       rank:
-        description: 拍场的名次, 全部流拍时为 0
+        description: 仓库的名次, 全部流拍时为 0
         type: integer
       rating:
         description: 结算后的段位分, 同上
@@ -455,7 +455,7 @@ definitions:
         description: 0 表示不加价
         type: integer
       round:
-        description: 拍场内的轮次
+        description: 仓库内的轮次
         type: integer
       seat:
         type: integer
@@ -508,10 +508,10 @@ definitions:
       is_practice:
         type: boolean
       profit:
-        description: 拍场结算后拿下的拍品的盈亏, 出价货币, 名次按它排; 整场的盈亏还要减去 EntryFee; 练习局按正式局计算
+        description: 仓库结算后拿下的拍品的盈亏, 出价货币, 名次按它排; 整场的盈亏还要减去 EntryFee; 练习局按正式局计算
         type: integer
       rank:
-        description: 拍场结算后的名次, 全部流拍时为 0
+        description: 仓库结算后的名次, 全部流拍时为 0
         type: integer
       rating:
         description: 结算后的段位分, 同上
@@ -577,7 +577,7 @@ definitions:
         description: 一起打的排位局数
         type: integer
       price_rate:
-        description: 其中一人成交时成交价占仓库价值的平均比例, 基点; 没有成交时为 0
+        description: 其中一人成交时成交价占货仓价值的平均比例, 基点; 没有成交时为 0
         type: integer
       review:
         allOf:
@@ -728,7 +728,7 @@ definitions:
       max_extra_rounds:
         type: integer
       max_uses:
-        description: 这个模式每局(整个拍场)最多使用几个道具, 0 表示不能用
+        description: 这个模式每局(整个仓库)最多使用几个道具, 0 表示不能用
         type: integer
       name:
         type: string
@@ -1937,7 +1937,7 @@ definitions:
       updated_at:
         type: string
       width:
-        description: 在仓库中占的格数
+        description: 在货仓中占的格数
         type: integer
     type: object
   item.ListQualitiesResponseData:
@@ -2070,7 +2070,7 @@ definitions:
       updated_at:
         type: string
       width:
-        description: 在仓库中占的格数
+        description: 在货仓中占的格数
         type: integer
     type: object
   itemadmin.ItemRequest:
@@ -2119,7 +2119,7 @@ definitions:
         minimum: 0
         type: integer
       width:
-        description: 在仓库中占的格数
+        description: 在货仓中占的格数
         maximum: 10
         minimum: 1
         type: integer
@@ -4735,7 +4735,7 @@ definitions:
   venue.AuctionRule:
     properties:
       bot_carry:
-        description: 人机的带入资金, 不超过带入资金上限; 价值远高于期望的仓库人机追不上
+        description: 人机的带入资金, 不超过带入资金上限; 价值远高于期望的货仓人机追不上
         type: integer
       entry_fee:
         description: 出价货币的入场费, 开局时与入场代价一起扣除, 成交时销毁, 流拍时退还
@@ -4744,7 +4744,7 @@ definitions:
         description: '领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 不低于起拍价'
         type: integer
       max_carry:
-        description: 带入资金上限, 玩家在 [起拍价, 上限] 内自选带入金额, 整个拍场共用
+        description: 带入资金上限, 玩家在 [起拍价, 上限] 内自选带入金额, 整个仓库共用
         type: integer
       max_extra_rounds:
         description: 最后一轮最高价并列时加轮, 之后按先出价的人成交
@@ -4798,7 +4798,7 @@ definitions:
           $ref: '#/definitions/venue.SquadStats'
         type: array
       target:
-        description: 成交价 ÷ 仓库价值的目标, 基点, 为 1 - 出售手续费率, 系统收支在这里平衡
+        description: 成交价 ÷ 货仓价值的目标, 基点, 为 1 - 出售手续费率, 系统收支在这里平衡
         type: integer
       version:
         description: Version 推导和验算时玩法平衡设置的版本, 与当前版本不同时需要重新推导
@@ -4939,7 +4939,7 @@ definitions:
   venue.LotRule:
     properties:
       coverage:
-        description: 基点, 多拍品时带入资金上限 = 拍场期望总价值 × 覆盖率; 0 表示用玩法平衡设置的默认值
+        description: 基点, 多拍品时带入资金上限 = 仓库期望总价值 × 覆盖率; 0 表示用玩法平衡设置的默认值
         maximum: 20000
         minimum: 0
         type: integer
@@ -5029,7 +5029,7 @@ definitions:
           $ref: '#/definitions/venue.ProfitCap'
         type: array
       value_factor:
-        description: 仓库价值系数, 基点
+        description: 货仓价值系数, 基点
         type: integer
       value_range:
         $ref: '#/definitions/venue.ValueRange'
@@ -5049,7 +5049,7 @@ definitions:
       pve:
         allOf:
         - $ref: '#/definitions/venue.ValueStats'
-        description: 人机模式, 按仓库价值系数缩放抽取次数
+        description: 人机模式, 按货仓价值系数缩放抽取次数
       ranked:
         allOf:
         - $ref: '#/definitions/venue.ValueStats'
@@ -5117,7 +5117,7 @@ definitions:
   venue.SquadStats:
     properties:
       appraise_bias:
-        description: 人机估值之和 ÷ 仓库价值之和, 没有人机时为 0
+        description: 人机估值之和 ÷ 货仓价值之和, 没有人机时为 0
         type: integer
       avg_rounds:
         description: 平均在第几轮结束, 百分之一轮
@@ -5126,7 +5126,7 @@ definitions:
         description: '出价离散度: 每局出过价的人的出价变异系数 ÷ √3 的平均值'
         type: integer
       budget_out:
-        description: 拍场结束时剩余资金不够最低起拍价的真人席位比例
+        description: 仓库结束时剩余资金不够最低起拍价的真人席位比例
         type: integer
       early_share:
         description: 成交的拍品在最后一轮前的最高价 ÷ 成交价的平均值, 太低说明大家都在等最后一轮
@@ -5150,13 +5150,13 @@ definitions:
         description: 会规划预算的模拟真人比不规划的每局多赚多少, 只有两种都有时有
         type: integer
       price_value:
-        description: 成交价之和 ÷ 仓库价值之和
+        description: 成交价之和 ÷ 货仓价值之和
         type: integer
       rank_win:
-        description: 每个真人席位拿到拍场第 1 名(盈亏最高且赚钱)的比例; 多拍品时胜率闸门看它
+        description: 每个真人席位拿到仓库第 1 名(盈亏最高且赚钱)的比例; 多拍品时胜率闸门看它
         type: integer
       seat_ev:
-        description: 每个真人席位每局(拍场)的平均盈亏, 藏品按扣掉出售手续费后的回收价计
+        description: 每个真人席位每局(仓库)的平均盈亏, 藏品按扣掉出售手续费后的回收价计
         type: integer
       sold:
         description: 成交率
@@ -5168,7 +5168,7 @@ definitions:
         description: 见 constants.go 的 Squad
         type: string
       top_share:
-        description: 最贵一件占仓库价值的比例的平均值
+        description: 最贵一件占货仓价值的比例的平均值
         type: integer
       win_rate:
         description: 每个真人席位每个拍品的成交率, 一局一个拍品时就是每局的成交率
@@ -5197,7 +5197,7 @@ definitions:
         maxLength: 32
         type: string
       name:
-        description: 只在管理端和拍场结束后显示
+        description: 只在管理端和仓库结束后显示
         maxLength: 32
         type: string
       warehouse:
@@ -5277,7 +5277,7 @@ definitions:
         - $ref: '#/definitions/venue.AuctionRule'
         description: 拍卖参数
       bid_currency:
-        description: 出价和计算仓库价值的货币
+        description: 出价和计算货仓价值的货币
         type: string
       bots:
         allOf:
@@ -5312,7 +5312,7 @@ definitions:
       lots:
         allOf:
         - $ref: '#/definitions/venue.LotRule'
-        description: '拍场: 一局开拍几个仓库, 从哪些档次中抽'
+        description: '仓库: 一局开拍几个货仓, 从哪些档次中抽'
       name:
         type: string
       pve:
@@ -5363,14 +5363,14 @@ definitions:
       image_url:
         type: string
       lot_slots:
-        description: 拍场每种格子大小的仓库
+        description: 仓库每种格子大小的货仓
         items:
           $ref: '#/definitions/venue.GridOdds'
         type: array
       lots:
         allOf:
         - $ref: '#/definitions/venue.LotsView'
-        description: 拍场的拍品数和格子大小
+        description: 仓库的拍品数和格子大小
       name:
         type: string
       pve:
@@ -5416,7 +5416,7 @@ definitions:
       lots:
         allOf:
         - $ref: '#/definitions/venue.LotsView'
-        description: 拍场的拍品数和格子大小
+        description: 仓库的拍品数和格子大小
       name:
         type: string
       pve:
@@ -5545,7 +5545,7 @@ definitions:
       lots:
         allOf:
         - $ref: '#/definitions/venue.LotRule'
-        description: 拍场的拍品数和档次, 最多 1 个拍品时一局一个仓库
+        description: 仓库的拍品数和档次, 最多 1 个拍品时一局一个货仓
       name:
         maxLength: 64
         type: string
@@ -10752,7 +10752,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 保存前模拟 10000 个仓库, 摆放失败率超过 1% 时拒绝; 再按价值分布推导拍卖的金额和比例并验算对局, 启用的地图验算未通过时拒绝;
+      description: 保存前模拟 10000 个货仓, 摆放失败率超过 1% 时拒绝; 再按价值分布推导拍卖的金额和比例并验算对局, 启用的地图验算未通过时拒绝;
         结果写入 simulation
       parameters:
       - description: request body
@@ -10838,7 +10838,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: 需提交全部字段, 代码不能修改; 每次保存都会重新模拟仓库、推导拍卖参数并验算对局, 启用的地图验算未通过时拒绝; 进行中的对局使用开局时的快照,
+      description: 需提交全部字段, 代码不能修改; 每次保存都会重新模拟货仓、推导拍卖参数并验算对局, 启用的地图验算未通过时拒绝; 进行中的对局使用开局时的快照,
         不受影响
       parameters:
       - description: venue id
@@ -10926,7 +10926,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 按保存时的规则校验并模拟 10000 个仓库, 推导拍卖参数并验算对局, 返回结果, 不保存; 验算未通过时不拒绝
+      description: 按保存时的规则校验并模拟 10000 个货仓, 推导拍卖参数并验算对局, 返回结果, 不保存; 验算未通过时不拒绝
       parameters:
       - description: request body
         in: body
@@ -11040,7 +11040,7 @@ paths:
       - admin
   /api/v1/auctions/{match_id}:
     get:
-      description: 进行中时只公开仓库大小、第 1 轮扫出的轮廓和自己的出价、反馈与情报, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复,
+      description: 进行中时只公开货仓大小、第 1 轮扫出的轮廓和自己的出价、反馈与情报, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复,
         之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use
         使用
       parameters:
@@ -11158,7 +11158,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: 整个拍场共用这笔带入资金, 超出 [起拍价, 带入资金上限] 时按边界保存; 下一局准入时按它冻结, 可用余额不够时拒绝入场
+      description: 整个仓库共用这笔带入资金, 超出 [起拍价, 带入资金上限] 时按边界保存; 下一局准入时按它冻结, 可用余额不够时拒绝入场
       parameters:
       - description: 带入金额
         in: body
@@ -13193,7 +13193,7 @@ paths:
       - upload
   /api/v1/venues:
     get:
-      description: 按排序值排列, 附带当前用户对每个入场条件的达成情况和仓库价值区间; 价值区间为保存地图时的模拟结果
+      description: 按排序值排列, 附带当前用户对每个入场条件的达成情况和货仓价值区间; 价值区间为保存地图时的模拟结果
       produces:
       - application/json
       responses:
@@ -13223,7 +13223,7 @@ paths:
       - venue
   /api/v1/venues/{code}:
     get:
-      description: 在列表的基础上附带仓库各档位掉落池的公示概率; 掉落池不可用时该档位的 odds 为 null
+      description: 在列表的基础上附带货仓各档位掉落池的公示概率; 掉落池不可用时该档位的 odds 为 null
       parameters:
       - description: venue code
         in: path

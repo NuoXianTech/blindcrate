@@ -98,7 +98,7 @@ type ItemRequest struct {
 	ImageURL     string         `json:"image_url" binding:"omitempty,max=1024,image_url"`
 	SellCurrency string         `json:"sell_currency" binding:"required,max=32"`
 	SellPrice    int64          `json:"sell_price" binding:"min=0,max=1000000000000"` // 0 表示不可卖出
-	Width        int16          `json:"width" binding:"required,min=1,max=10"`        // 在仓库中占的格数
+	Width        int16          `json:"width" binding:"required,min=1,max=10"`        // 在货仓中占的格数
 	Height       int16          `json:"height" binding:"required,min=1,max=10"`
 	Effect       string         `json:"effect,omitempty" binding:"max=32"`            // 使用效果代码, 空表示不能使用; 藏品不能配置
 	EffectParams map[string]any `json:"effect_params,omitempty" swaggertype:"object"` // 效果参数, 结构见 GET /admin/items/effects

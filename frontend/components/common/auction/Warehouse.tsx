@@ -12,7 +12,7 @@ import {cellKey, formatRate} from '@/lib/auction';
 import {AUCTION_PHASE, HOST_HINT, type AuctionPublicView, type LotView, type PieceIntel} from '@/lib/services/auction';
 import {formatAmount} from '@/lib/utils';
 
-/** 首轮扫出轮廓时扫描线走完整个仓库的时长, 秒 */
+/** 首轮扫出轮廓时扫描线走完整个货仓的时长, 秒 */
 const OUTLINE_SWEEP_S = 1.6;
 /** 道具扫出轮廓时扫描线走完一件的时长, 秒 */
 const CELL_SWEEP_S = 0.6;
@@ -21,7 +21,7 @@ const GOLD_SWEEP_S = 0.9;
 /** 播放过首轮扫描的拍品(对局:拍品), 存在 sessionStorage, 刷新和重连后不再播放 */
 const SWEPT_KEY = 'auction:outline-swept';
 
-/** 格子在仓库中的位置, 按百分比 */
+/** 格子在货仓中的位置, 按百分比 */
 function cellStyle(c: { x: number; y: number; width: number; height: number }, grid: { width: number; height: number }) {
   return {
     left: `${(c.x / grid.width) * 100}%`,
@@ -148,9 +148,9 @@ function seenCells(view: AuctionPublicView, lot: LotView, intel?: Map<string, Pi
 }
 
 /**
- * 一个拍品的仓库: 只公开仓库大小和第 1 轮扫出的几件藏品的轮廓, 件数、品质和名称直到开箱都不公开;
+ * 一个拍品的货仓: 只公开货仓大小和第 1 轮扫出的几件藏品的轮廓, 件数、品质和名称直到开箱都不公开;
  * 道具扫出的藏品只有自己看得到, 扫出名称和外观时播放金色扫描;
- * 开箱后按扫描顺序逐件扫描, 扫到时才显示轮廓、外观和回收价, 仓库价值随扫描累加
+ * 开箱后按扫描顺序逐件扫描, 扫到时才显示轮廓、外观和回收价, 货仓价值随扫描累加
  */
 export function Warehouse({view, lot, decimals, scan, intel}: {
   view: AuctionPublicView;
@@ -187,7 +187,7 @@ export function Warehouse({view, lot, decimals, scan, intel}: {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2 text-sm">
         <span className="text-muted-foreground">
-          拍品 {lot.lot_no} · 仓库 <span className="font-mono font-bold tabular-nums text-foreground">{grid.width}×{grid.height}</span>
+          拍品 {lot.lot_no} · 货仓 <span className="font-mono font-bold tabular-nums text-foreground">{grid.width}×{grid.height}</span>
           {result && scan.complete && (
             <>
               {' '}· 共 <span className="font-mono font-bold tabular-nums text-foreground">{pieces.length}</span> 件藏品
@@ -313,7 +313,7 @@ export function Warehouse({view, lot, decimals, scan, intel}: {
             );
           })}
 
-        {/* 首轮扫描线: 从上到下扫过整个仓库, 扫到的轮廓依次出现 */}
+        {/* 首轮扫描线: 从上到下扫过整个货仓, 扫到的轮廓依次出现 */}
         {!result && sweep && (
           <motion.span
             className="pointer-events-none absolute inset-x-0 h-0.5 bg-foreground/60 shadow-[0_0_10px_var(--color-foreground)]"

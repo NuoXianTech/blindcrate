@@ -9,7 +9,7 @@ export class VenueService extends BaseService {
     return this.get<{ venues: Venue[] }>('');
   }
 
-  /** 地图详情, 附带仓库各档位掉落池的公示概率 */
+  /** 地图详情, 附带货仓各档位掉落池的公示概率 */
   static getVenue(code: string) {
     return this.get<VenueDetail>(`/${encodeURIComponent(code)}`);
   }

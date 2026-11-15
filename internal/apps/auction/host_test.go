@@ -153,7 +153,7 @@ func TestMakeHint(t *testing.T) {
 	if got.Kind != HostHintValue {
 		t.Errorf("no preview: got %+v", got)
 	}
-	// 空仓库没有期望价值和高品质时没有能给的提示
+	// 空货仓没有期望价值和高品质时没有能给的提示
 	in.Items, in.Expected, in.Rule.HighQuality, in.Qualities = nil, 0, 0, nil
 	if _, ok := makeHint(in, first); ok {
 		t.Error("nothing to say: got a hint")

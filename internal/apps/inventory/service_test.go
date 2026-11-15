@@ -35,9 +35,9 @@ func TestGroupRecords(t *testing.T) {
 	used := won.Add(time.Minute)
 	// 一局拍下三种藏品记为一批, 之后单独用掉一个道具
 	rows := []Transaction{
-		{ID: 10, ItemID: 1, ItemName: "金怀表", Quantity: 1, QuantityAfter: 1, BizType: BizMatchReward, BizID: "42", Remark: "码头仓库·人机", CreatedAt: won},
-		{ID: 11, BatchID: 10, ItemID: 2, ItemName: "银勺", Quantity: 2, QuantityAfter: 5, BizType: BizMatchReward, BizID: "42", Remark: "码头仓库·人机", CreatedAt: won},
-		{ID: 12, BatchID: 10, ItemID: 3, ItemName: "古董花瓶", Quantity: 1, QuantityAfter: 1, BizType: BizMatchReward, BizID: "42", Remark: "码头仓库·人机", CreatedAt: won},
+		{ID: 10, ItemID: 1, ItemName: "金怀表", Quantity: 1, QuantityAfter: 1, BizType: BizMatchReward, BizID: "42", Remark: "码头货仓·人机", CreatedAt: won},
+		{ID: 11, BatchID: 10, ItemID: 2, ItemName: "银勺", Quantity: 2, QuantityAfter: 5, BizType: BizMatchReward, BizID: "42", Remark: "码头货仓·人机", CreatedAt: won},
+		{ID: 12, BatchID: 10, ItemID: 3, ItemName: "古董花瓶", Quantity: 1, QuantityAfter: 1, BizType: BizMatchReward, BizID: "42", Remark: "码头货仓·人机", CreatedAt: won},
 		{ID: 13, ItemID: 9, ItemName: "侦察卡", Quantity: -1, QuantityAfter: 0, BizType: BizItemUse, BizID: "43", CreatedAt: used},
 	}
 	got := groupRecords([]uint64{13, 10}, rows)
@@ -45,7 +45,7 @@ func TestGroupRecords(t *testing.T) {
 		{ID: 13, BizType: BizItemUse, BizID: "43", CreatedAt: used, Items: []RecordLine{
 			{ItemID: 9, ItemName: "侦察卡", Quantity: -1, QuantityAfter: 0},
 		}},
-		{ID: 10, BizType: BizMatchReward, BizID: "42", Remark: "码头仓库·人机", CreatedAt: won, Items: []RecordLine{
+		{ID: 10, BizType: BizMatchReward, BizID: "42", Remark: "码头货仓·人机", CreatedAt: won, Items: []RecordLine{
 			{ItemID: 1, ItemName: "金怀表", Quantity: 1, QuantityAfter: 1},
 			{ItemID: 2, ItemName: "银勺", Quantity: 2, QuantityAfter: 5},
 			{ItemID: 3, ItemName: "古董花瓶", Quantity: 1, QuantityAfter: 1},
@@ -57,7 +57,7 @@ func TestGroupRecords(t *testing.T) {
 
 	// 按物品筛选时只剩批次中的一行, 记录仍以批次中第一行的 ID 标识
 	got = groupRecords([]uint64{10}, rows[1:2])
-	want = []Record{{ID: 10, BizType: BizMatchReward, BizID: "42", Remark: "码头仓库·人机", CreatedAt: won, Items: []RecordLine{
+	want = []Record{{ID: 10, BizType: BizMatchReward, BizID: "42", Remark: "码头货仓·人机", CreatedAt: won, Items: []RecordLine{
 		{ItemID: 2, ItemName: "银勺", Quantity: 2, QuantityAfter: 5},
 	}}}
 	if !reflect.DeepEqual(got, want) {

@@ -59,7 +59,7 @@ export function VenueRow({venue, balanceVersion, items, currencies, onEdit, onTo
       <TableCell className="max-w-48 truncate" title={cost.join(', ') || undefined}>
         {cost.length ? cost.join(', ') : <span className="text-muted-foreground">免费</span>}
       </TableCell>
-      <TableCell className="text-right font-mono tabular-nums" title="排位模式模拟的仓库价值中位数">
+      <TableCell className="text-right font-mono tabular-nums" title="排位模式模拟的货仓价值中位数">
         {formatAmount(venue.simulation.ranked.p50, bid?.decimals ?? 0)}
       </TableCell>
       <TableCell>
