@@ -35,6 +35,8 @@ import (
 	"testing"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/crate"
+	"github.com/NuoXianTech/blindcrate/internal/apps/item/itemadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard/leaderboardadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot/lootadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/shop/shopadmin"
@@ -257,7 +259,11 @@ func TestChooseActions(t *testing.T) {
 	newPack := func() (*Run, []*Entry) {
 		p := testPack(t, map[string]Content{
 			PackCurrencies: contentOf(t, PackCurrencies, packCurrency{Code: "chip"}),
-			PackLootPools:  contentOf(t, PackLootPools, packLootPool{LootPoolRequest: lootadmin.LootPoolRequest{Code: "crate"}}, packLootPool{LootPoolRequest: lootadmin.LootPoolRequest{Code: "box"}}),
+			PackItems: contentOf(t, PackItems,
+				packItem{ID: 3, ItemRequest: itemadmin.ItemRequest{Effect: crate.EffectOpen, EffectParams: map[string]any{"pool": "crate"}}},
+				packItem{ID: 4, ItemRequest: itemadmin.ItemRequest{Effect: crate.EffectOpen, EffectParams: map[string]any{"pool": "box"}}},
+			),
+			PackLootPools: contentOf(t, PackLootPools, packLootPool{LootPoolRequest: lootadmin.LootPoolRequest{Code: "crate"}}, packLootPool{LootPoolRequest: lootadmin.LootPoolRequest{Code: "box"}}),
 			PackVenues: contentOf(t, PackVenues, venueadmin.VenueRequest{
 				Code:         "dock",
 				Lots:         venue.LotRule{Tiers: []venue.Tier{{Warehouse: venue.WarehouseRule{Slots: []venue.Slot{{Pool: "crate"}, {Pool: "box"}}}}}},
@@ -293,6 +299,10 @@ func TestChooseActions(t *testing.T) {
 	}
 	if !strings.Contains(string(v.Requirements[0].Params), `"venue:pier:pve"`) {
 		t.Errorf("requirement params = %s", v.Requirements[0].Params)
+	}
+	// 箱子的掉落池跟着掉落池一起改名
+	if crates := itemsOf[packItem](r.pack, PackItems); crates[0].EffectParams["pool"] != "crate_2" || crates[1].EffectParams["pool"] != "box" {
+		t.Errorf("crate pools = %v, %v", crates[0].EffectParams, crates[1].EffectParams)
 	}
 	if board := itemsOf[leaderboardadmin.LeaderboardRequest](r.pack, PackLeaderboards)[0]; board.Scope != "venue:pier" {
 		t.Errorf("leaderboard scope = %s", board.Scope)

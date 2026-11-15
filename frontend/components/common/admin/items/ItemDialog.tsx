@@ -17,6 +17,7 @@ import {useQualities, useSite} from '@/components/common/site';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminItem, ItemCategory, ItemEffect, ItemRequest} from '@/lib/services/item';
+import type {LootPool} from '@/lib/services/loot';
 import type {Currency} from '@/lib/services/wallet';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {checkImageURL} from '@/lib/validation';
@@ -34,6 +35,8 @@ interface ItemDialogProps {
   categories: ItemCategory[];
   /** 可选的使用效果 */
   effects: ItemEffect[];
+  /** 效果参数中可选的掉落池, 如箱子的掉落池 */
+  pools: LootPool[];
   onClose: () => void;
   /** 保存成功后刷新列表 */
   onSaved: () => void;
@@ -63,7 +66,7 @@ export function ItemDialog({item, ...props}: ItemDialogProps) {
 /**
  * 物品表单, item 为 null 时新建
  */
-function ItemForm({item, currencies, categories, effects, onClose, onSaved}: Omit<ItemDialogProps, 'item'> & {
+function ItemForm({item, currencies, categories, effects, pools, onClose, onSaved}: Omit<ItemDialogProps, 'item'> & {
   item: AdminItem | null;
 }) {
   const {pending, submit} = useSubmit();
@@ -280,7 +283,7 @@ function ItemForm({item, currencies, categories, effects, onClose, onSaved}: Omi
               </SelectContent>
             </Select>
             <span className="text-xs text-muted-foreground">
-              {effect?.description ?? '配置效果后玩家可以使用, 每次消耗 1 个; 能在哪些地图使用见地图的道具规则'}
+              {effect?.description ?? '配置效果后玩家可以使用, 每次消耗 1 个; 对局中的效果能在哪些地图使用见地图的道具规则'}
             </span>
           </div>
           {effect && effect.fields.length > 0 && (
@@ -294,6 +297,7 @@ function ItemForm({item, currencies, categories, effects, onClose, onSaved}: Omi
                   onChange={(value) => setEffectParams((prev) => ({...prev, [field.key]: value}))}
                   items={[]}
                   currencies={currencies}
+                  pools={pools}
                   disabled={pending}
                 />
               ))}

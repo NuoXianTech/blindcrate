@@ -17,6 +17,8 @@ export interface UserItem {
   /** 在仓库中占的格数 */
   width: number;
   height: number;
+  /** 使用效果代码, 空表示不能使用; 箱子为 CRATE_EFFECT, 可以在背包中开启 */
+  effect: string;
   /** 下架后不会再掉落或发放, 已有的仍在背包中 */
   is_enabled: boolean;
   /** 物品已被删除, 按占位物品展示 */

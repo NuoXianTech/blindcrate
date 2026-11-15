@@ -11,8 +11,8 @@ export interface ConditionField {
   label: string;
   help: string;
   type: 'string' | 'bool' | 'int';
-  /** text / select / switch / number, 或选择器 currency / item / quality / scope / metric */
-  input: 'text' | 'select' | 'switch' | 'number' | 'currency' | 'item' | 'quality' | 'scope' | 'metric';
+  /** text / select / switch / number, 或选择器 currency / item / quality / scope / metric / pool */
+  input: 'text' | 'select' | 'switch' | 'number' | 'currency' | 'item' | 'quality' | 'scope' | 'metric' | 'pool';
   /** 下拉框 select 和选择器 metric 的可选值 */
   options?: ConditionOption[];
   /** 整数的单位, bp 为基点, 按百分比输入 */

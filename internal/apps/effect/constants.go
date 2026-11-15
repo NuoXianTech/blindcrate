@@ -37,7 +37,8 @@ const CategoryConsumable = "consumable"
 
 // 场景
 const (
-	SceneMatch = "match" // 暗拍的出价阶段, 上下文和结果由 auction 定义
+	SceneMatch     = "match"     // 暗拍的出价阶段, 上下文和结果由 auction 定义
+	SceneInventory = "inventory" // 在背包中直接使用, 如开启箱子, 上下文和结果由 crate 定义
 )
 
 // MetricItemUsed 统计指标: 使用物品的次数, 每用一个累加 1; 按物品统计的指标见 MetricUse

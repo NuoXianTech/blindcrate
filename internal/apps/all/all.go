@@ -34,6 +34,7 @@ import (
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/checkin"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/codex"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	_ "github.com/NuoXianTech/blindcrate/internal/apps/crate"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/economy"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	_ "github.com/NuoXianTech/blindcrate/internal/apps/inventory"

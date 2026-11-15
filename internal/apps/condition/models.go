@@ -51,7 +51,7 @@ type Field struct {
 	Label   string   `json:"label"`
 	Help    string   `json:"help"`
 	Type    string   `json:"type"`              // string / bool / int
-	Input   string   `json:"input"`             // text / select / switch / number, 或选择器 currency / item / quality / scope / metric
+	Input   string   `json:"input"`             // text / select / switch / number, 或选择器 currency / item / quality / scope / metric / pool
 	Options []Option `json:"options,omitempty"` // 下拉框 select 和选择器 metric 的可选值
 	Unit    string   `json:"unit,omitempty"`    // 整数的单位, 只有 bp(基点)
 }
