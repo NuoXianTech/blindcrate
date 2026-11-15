@@ -35,6 +35,7 @@ export const ROUTES = {
   adminMissions: '/admin/missions',
   adminCheckin: '/admin/checkin',
   adminCodex: '/admin/codex',
+  adminRedeemCodes: '/admin/redeem-codes',
   adminMatches: '/admin/matches',
   adminSuspects: '/admin/suspects',
   adminSettings: '/admin/settings',

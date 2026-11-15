@@ -25,6 +25,7 @@ import {
   Store,
   Swords,
   Tags,
+  Ticket,
   Trophy,
   Users,
   Wallet,
@@ -106,6 +107,7 @@ export const ADMIN_NAV: NavGroup[] = [
       {title: '任务管理', icon: ClipboardList, href: ROUTES.adminMissions},
       {title: '签到管理', icon: CalendarCheck, href: ROUTES.adminCheckin},
       {title: '图鉴管理', icon: BookOpen, href: ROUTES.adminCodex},
+      {title: '兑换码', icon: Ticket, href: ROUTES.adminRedeemCodes},
     ],
   },
   {

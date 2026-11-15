@@ -1,3 +1,6 @@
+DROP TABLE IF EXISTS redeem_records;
+DROP TABLE IF EXISTS redeem_codes;
+DROP TABLE IF EXISTS redeem_batches;
 DROP TABLE IF EXISTS bot_personas;
 DROP TABLE IF EXISTS bot_names;
 DROP TABLE IF EXISTS codex_claims;

@@ -5006,6 +5006,468 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/redeem/batches": {
+            "get": {
+                "description": "从新到旧, 不含已删除的批次, 带上生成人的用户名和已兑换的次数",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取兑换码批次列表",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 64,
+                        "type": "string",
+                        "description": "按名称搜索, 不区分大小写; 也可以填完整的兑换码, 查它属于哪个批次",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "active",
+                            "expired",
+                            "disabled"
+                        ],
+                        "type": "string",
+                        "description": "active 生效中, expired 已到期, disabled 已停用; 为空时不筛选",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/redeemadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/redeemadmin.ListBatchesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "生成一个批次的兑换码, 共用名称、奖励、使用条件、可使用次数和到期时间: 指定了兑换码时只生成这一个, 否则随机生成 count 个 12 位的兑换码。兑换码与已有的重复时返回 409; 幂等键相同的重复提交返回已有的批次",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "生成兑换码",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.CreateBatchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/redeemadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/redeem.Batch"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/redeem/batches/{id}": {
+            "put": {
+                "description": "需提交全部字段, 兑换码本身不能修改; 修改后只影响之后的兑换, 已兑换的不受影响。到期时间可以改到过去, 批次立即到期",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "修改兑换码批次",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "batch id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.BatchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/redeemadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/redeem.Batch"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "软删除, 批次中的兑换码不能再兑换, 也不能再被新的批次使用; 已兑换的奖励不收回",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "删除兑换码批次",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "batch id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/redeem/batches/{id}/codes": {
+            "get": {
+                "description": "一次返回批次的全部兑换码和各自已兑换的次数, 按生成顺序排列, 最多 10000 个",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "获取批次的兑换码",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "batch id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/redeemadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/redeemadmin.ListCodesResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/redeem/records": {
+            "get": {
+                "description": "从新到旧, 包括已删除的批次的记录, 带上用户名、批次名称和兑换码",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "查询兑换记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "name": "batch_id",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 64,
+                        "type": "string",
+                        "description": "完整的兑换码, 不区分大小写",
+                        "name": "code",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/redeemadmin.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/redeemadmin.ListRecordsResponseData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/redeemadmin.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/seasons": {
             "get": {
                 "description": "按开始时间从晚到早排列",
@@ -10556,6 +11018,94 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/health.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/redeem": {
+            "post": {
+                "description": "兑换成功后奖励直接发放, 已下架的物品按回收价折成货币。兑换码不存在或所在的批次已停用时返回 404; 已过期、已被兑换完或自己已兑换过时返回 409; 不满足使用条件、达到每人可兑换的个数或奖励暂时无法发放时返回 403",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "redeem"
+                ],
+                "summary": "使用兑换码",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/redeem.RedeemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/redeem.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/redeem.Result"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/redeem.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/redeem.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/redeem.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/redeem.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/redeem.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/redeem.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/redeem.Response"
                         }
                     }
                 }
@@ -16531,6 +17081,373 @@ const docTemplate = `{
                 "user_b": {
                     "description": "大于 user_a",
                     "type": "integer"
+                }
+            }
+        },
+        "redeem.Batch": {
+            "type": "object",
+            "properties": {
+                "code_count": {
+                    "description": "兑换码的个数, 生成后不变",
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "integer"
+                },
+                "expires_at": {
+                    "description": "到期时间, 不包含, 为空时不过期",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_enabled": {
+                    "description": "停用后不能兑换",
+                    "type": "boolean"
+                },
+                "max_uses": {
+                    "description": "每个兑换码可以被多少个用户兑换, 1 为单次使用, 0 表示不限",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "兑换成功后展示给玩家, 也是流水的备注",
+                    "type": "string"
+                },
+                "requirements": {
+                    "description": "使用条件, 需要全部满足",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "reward": {
+                    "description": "兑换一次得到的奖励, 数量为正数, 不能为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_limit": {
+                    "description": "每个用户最多兑换这个批次中的几个兑换码, 0 表示不限",
+                    "type": "integer"
+                }
+            }
+        },
+        "redeem.Code": {
+            "type": "object",
+            "properties": {
+                "batch_id": {
+                    "type": "integer"
+                },
+                "code": {
+                    "description": "规范化后的兑换码, 见 Normalize; 在已删除的批次中也唯一",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "used": {
+                    "description": "已兑换的次数",
+                    "type": "integer"
+                }
+            }
+        },
+        "redeem.RedeemRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "description": "不区分大小写, 其中的空格和连字符会被忽略",
+                    "type": "string",
+                    "maxLength": 64
+                }
+            }
+        },
+        "redeem.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "redeem.Result": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "批次的名称",
+                    "type": "string"
+                },
+                "received": {
+                    "description": "实际得到的货币和物品, 已下架的物品按回收价折成了货币",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                }
+            }
+        },
+        "redeemadmin.BatchItem": {
+            "type": "object",
+            "properties": {
+                "code_count": {
+                    "description": "兑换码的个数, 生成后不变",
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "integer"
+                },
+                "created_username": {
+                    "description": "用户已不存在时为空",
+                    "type": "string"
+                },
+                "expires_at": {
+                    "description": "到期时间, 不包含, 为空时不过期",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_enabled": {
+                    "description": "停用后不能兑换",
+                    "type": "boolean"
+                },
+                "max_uses": {
+                    "description": "每个兑换码可以被多少个用户兑换, 1 为单次使用, 0 表示不限",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "兑换成功后展示给玩家, 也是流水的备注",
+                    "type": "string"
+                },
+                "redeemed": {
+                    "description": "批次中全部兑换码已兑换的次数",
+                    "type": "integer"
+                },
+                "requirements": {
+                    "description": "使用条件, 需要全部满足",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "reward": {
+                    "description": "兑换一次得到的奖励, 数量为正数, 不能为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_limit": {
+                    "description": "每个用户最多兑换这个批次中的几个兑换码, 0 表示不限",
+                    "type": "integer"
+                }
+            }
+        },
+        "redeemadmin.BatchRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "expires_at": {
+                    "description": "RFC3339, 不包含, 精确到分钟, 为空时不过期",
+                    "type": "string"
+                },
+                "is_enabled": {
+                    "description": "停用后不能兑换",
+                    "type": "boolean"
+                },
+                "max_uses": {
+                    "description": "每个兑换码可以被多少个用户兑换, 1 为单次使用, 0 表示不限",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "兑换成功后展示给玩家, 也是流水的备注",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "requirements": {
+                    "description": "使用条件, 需要全部满足",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "reward": {
+                    "description": "兑换一次得到的奖励, 数量为正数, 不能为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "user_limit": {
+                    "description": "每个用户最多兑换这个批次中的几个兑换码, 0 表示不限",
+                    "type": "integer"
+                }
+            }
+        },
+        "redeemadmin.CreateBatchRequest": {
+            "type": "object",
+            "required": [
+                "idempotency_key",
+                "name"
+            ],
+            "properties": {
+                "code": {
+                    "description": "指定兑换码, 4-32 个字母、数字或汉字, 不区分大小写; 不为空时只生成这一个",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "count": {
+                    "description": "随机生成的个数, 1-10000; 指定了兑换码时忽略",
+                    "type": "integer"
+                },
+                "expires_at": {
+                    "description": "RFC3339, 不包含, 精确到分钟, 为空时不过期",
+                    "type": "string"
+                },
+                "idempotency_key": {
+                    "description": "每次打开生成框生成一个, 重复提交只生成一次",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "is_enabled": {
+                    "description": "停用后不能兑换",
+                    "type": "boolean"
+                },
+                "max_uses": {
+                    "description": "每个兑换码可以被多少个用户兑换, 1 为单次使用, 0 表示不限",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "兑换成功后展示给玩家, 也是流水的备注",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "requirements": {
+                    "description": "使用条件, 需要全部满足",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/condition.Condition"
+                    }
+                },
+                "reward": {
+                    "description": "兑换一次得到的奖励, 数量为正数, 不能为空",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "user_limit": {
+                    "description": "每个用户最多兑换这个批次中的几个兑换码, 0 表示不限",
+                    "type": "integer"
+                }
+            }
+        },
+        "redeemadmin.ListBatchesResponseData": {
+            "type": "object",
+            "properties": {
+                "batches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/redeemadmin.BatchItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "redeemadmin.ListCodesResponseData": {
+            "type": "object",
+            "properties": {
+                "codes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/redeem.Code"
+                    }
+                }
+            }
+        },
+        "redeemadmin.ListRecordsResponseData": {
+            "type": "object",
+            "properties": {
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/redeemadmin.RecordItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "redeemadmin.RecordItem": {
+            "type": "object",
+            "properties": {
+                "batch_id": {
+                    "type": "integer"
+                },
+                "batch_name": {
+                    "description": "批次已删除时仍然返回",
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "code_id": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "reward": {
+                    "description": "实际发放的奖励, 已下架的物品按回收价折成了货币",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reward.Bundle"
+                        }
+                    ]
+                },
+                "user_id": {
+                    "type": "integer"
+                },
+                "username": {
+                    "description": "用户已不存在时为空",
+                    "type": "string"
+                }
+            }
+        },
+        "redeemadmin.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error_msg": {
+                    "type": "string"
                 }
             }
         },

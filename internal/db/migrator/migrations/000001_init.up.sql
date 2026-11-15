@@ -924,3 +924,54 @@ VALUES ('steady', '稳健', '按尺寸和品质估值, 逐轮加价, 不轻易�
        ('novice', '新手', '只看已公开的品质估值, 估值偏差大, 不防速胜', 'auction_basic',
         '{"perception": "quality", "bias": 3500, "open_factor": 4000, "close_factor": 7400, "max_factor": 8400, "jitter": 1000, "jump_chance": 500, "jump_factor": 7500, "chase": 1000, "guard": false}')
 ON CONFLICT (code) DO NOTHING;
+
+-- 兑换码批次, 一次生成的兑换码共用名称、奖励、使用条件、可使用次数和到期时间; 删除为软删除, 批次中的兑换码不能再兑换
+CREATE TABLE IF NOT EXISTS redeem_batches
+(
+    id              BIGSERIAL PRIMARY KEY,
+    name            VARCHAR(64) NOT NULL,              -- 兑换成功后展示给玩家, 也是流水的备注
+    reward          JSONB       NOT NULL DEFAULT '{}', -- 兑换一次得到的奖励 reward.Bundle, 数量为正数
+    requirements    JSONB       NOT NULL DEFAULT '[]', -- 使用条件 []condition.Condition, 需要全部满足
+    max_uses        INTEGER     NOT NULL,              -- 每个兑换码可以被多少个用户兑换, 1 为单次使用, 0 表示不限
+    user_limit      INTEGER     NOT NULL,              -- 每个用户最多兑换这个批次中的几个兑换码, 0 表示不限
+    code_count      INTEGER     NOT NULL,              -- 兑换码的个数, 生成后不变
+    expires_at      TIMESTAMPTZ,                       -- 到期时间, 不包含, 为空时不过期
+    is_enabled      BOOLEAN     NOT NULL DEFAULT FALSE,
+    idempotency_key VARCHAR(64) NOT NULL,              -- 幂等键, 重复提交只生成一次
+    created_by      BIGINT      NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ,
+    CONSTRAINT chk_redeem_batches_max_uses CHECK (max_uses >= 0),
+    CONSTRAINT chk_redeem_batches_user_limit CHECK (user_limit >= 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_redeem_batches_idempotency_key ON redeem_batches (idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_redeem_batches_deleted_at ON redeem_batches (deleted_at);
+
+-- 兑换码, 属于一个批次; 保存的是规范化后的兑换码, 在已删除的批次中也唯一
+CREATE TABLE IF NOT EXISTS redeem_codes
+(
+    id       BIGSERIAL PRIMARY KEY,
+    batch_id BIGINT      NOT NULL,
+    code     VARCHAR(32) NOT NULL,          -- 去掉空白和连字符、字母转为大写后的兑换码
+    used     INTEGER     NOT NULL DEFAULT 0 -- 已兑换的次数
+);
+
+CREATE INDEX IF NOT EXISTS idx_redeem_codes_batch_id ON redeem_codes (batch_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_redeem_codes_code ON redeem_codes (code);
+
+-- 兑换记录, 同一个兑换码同一用户只有一行
+CREATE TABLE IF NOT EXISTS redeem_records
+(
+    id         BIGSERIAL PRIMARY KEY,
+    batch_id   BIGINT      NOT NULL,
+    code_id    BIGINT      NOT NULL,
+    user_id    BIGINT      NOT NULL,
+    reward     JSONB       NOT NULL DEFAULT '{}', -- 实际发放的奖励 reward.Bundle
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_redeem_records_code_user ON redeem_records (code_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_redeem_records_batch_user ON redeem_records (batch_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_redeem_records_user_id ON redeem_records (user_id, id);
