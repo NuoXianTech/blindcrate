@@ -107,7 +107,7 @@ func TestPick(t *testing.T) {
 	}}
 	seen := map[string]bool{}
 	for range 500 {
-		drop := contents.pick()
+		drop := loot.Draw(contents.Entries).Bundle()
 		switch {
 		case len(drop.Items) == 1 && len(drop.Currencies) == 0:
 			line := drop.Items[0]
@@ -132,7 +132,7 @@ func TestPick(t *testing.T) {
 
 	only := &Contents{Entries: []loot.EntryDetail{{Entry: loot.Entry{Currency: "chip", Weight: 1, MinQuantity: 5, MaxQuantity: 5}}}}
 	want := reward.Bundle{Currencies: []reward.CurrencyLine{{Currency: "chip", Amount: 5}}}
-	if got := only.pick(); !reflect.DeepEqual(got, want) {
+	if got := loot.Draw(only.Entries).Bundle(); !reflect.DeepEqual(got, want) {
 		t.Errorf("single entry: got %+v, want %+v", got, want)
 	}
 }

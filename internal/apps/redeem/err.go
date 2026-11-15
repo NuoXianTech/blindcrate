@@ -25,16 +25,18 @@
 package redeem
 
 const (
-	NameInvalid        = "批次名称需为 1-64 个字符"
-	CodeInvalid        = "兑换码需为 4-32 个字母、数字或汉字"
-	CodeTaken          = "兑换码已存在"
-	CountInvalid       = "生成数量需为 1-10000"
-	MaxUsesInvalid     = "每个兑换码的可使用次数需为 0-1000000"
-	UserLimitInvalid   = "每人可兑换的个数需为 0-10000"
-	ExpiresInvalid     = "到期时间需晚于当前时间"
-	RewardEmpty        = "奖励至少包含一项货币或物品"
-	RewardInvalid      = "奖励: %s"
-	RequirementInvalid = "使用条件: %s"
+	NameInvalid = "批次名称需为 1-64 个字符"
+	CodeInvalid = "兑换码需为 4-32 个字母、数字或汉字"
+	CodeTaken   = "兑换码已存在"
+
+	IdempotencyConflict = "幂等键已被其他请求使用"
+	CountInvalid        = "生成数量需为 1-10000"
+	MaxUsesInvalid      = "每个兑换码的可使用次数需为 0-1000000"
+	UserLimitInvalid    = "每人可兑换的个数需为 0-10000"
+	ExpiresInvalid      = "到期时间需晚于当前时间"
+	RewardEmpty         = "奖励至少包含一项货币或物品"
+	RewardInvalid       = "奖励: %s"
+	RequirementInvalid  = "使用条件: %s"
 
 	BatchNotFound     = "兑换码批次不存在"
 	CodeNotFound      = "兑换码不存在或已失效"

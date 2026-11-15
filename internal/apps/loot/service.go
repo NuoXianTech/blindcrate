@@ -141,6 +141,25 @@ type Drop struct {
 	Quantity int64  `json:"quantity"`           // 物品数量或货币金额
 }
 
+// Bundle 这一项掉落的内容
+func (d Drop) Bundle() reward.Bundle {
+	if d.ItemID != 0 {
+		return reward.Bundle{Items: []reward.ItemLine{{ItemID: d.ItemID, Quantity: d.Quantity}}}
+	}
+	return reward.Bundle{Currencies: []reward.CurrencyLine{{Currency: d.Currency, Amount: d.Quantity}}}
+}
+
+// Draw 从可抽取的条目中按权重抽取一项, 数量在条目的范围内均匀随机; entries 不能为空, 见 QueryAvailable
+func Draw(entries []EntryDetail) Drop {
+	weights := make([]int64, len(entries))
+	for i := range entries {
+		weights[i] = int64(entries[i].Weight)
+	}
+	entry := entries[PickIndex(weights)]
+	quantity := entry.MinQuantity + RandInt64N(entry.MaxQuantity-entry.MinQuantity+1)
+	return Drop{EntryID: entry.ID, ItemID: entry.ItemID, Currency: entry.Currency, Quantity: quantity}
+}
+
 // RollResult 从掉落池中抽取的结果
 type RollResult struct {
 	PoolID uint64        `json:"pool_id"`
@@ -162,21 +181,11 @@ func Roll(tx *gorm.DB, code string, times int) (*RollResult, error) {
 		return nil, err
 	}
 
-	weights := make([]int64, len(entries))
-	for i := range entries {
-		weights[i] = int64(entries[i].Weight)
-	}
 	result := &RollResult{PoolID: pool.ID, Drops: make([]Drop, times)}
 	var bundle reward.Bundle
 	for i := range times {
-		entry := entries[PickIndex(weights)]
-		quantity := entry.MinQuantity + RandInt64N(entry.MaxQuantity-entry.MinQuantity+1)
-		result.Drops[i] = Drop{EntryID: entry.ID, ItemID: entry.ItemID, Currency: entry.Currency, Quantity: quantity}
-		if entry.ItemID != 0 {
-			bundle.Items = append(bundle.Items, reward.ItemLine{ItemID: entry.ItemID, Quantity: quantity})
-		} else {
-			bundle.Currencies = append(bundle.Currencies, reward.CurrencyLine{Currency: entry.Currency, Amount: quantity})
-		}
+		result.Drops[i] = Draw(entries)
+		bundle.Add(result.Drops[i].Bundle())
 	}
 	if result.Bundle, err = bundle.Normalize(); err != nil {
 		return nil, err

@@ -180,7 +180,7 @@ func dropFields(files map[string][]byte, balance, auction []string) error {
 }
 
 // packLockKey 导入和预览在这个咨询锁上排队, 同一时间只有一个导入
-const packLockKey = "blindcrate:pack:import"
+const packLockKey = "pack:import"
 
 // packSavePoint 写入每一项前的保存点, 失败时回滚到这里继续处理下一项
 const packSavePoint = "pack_entry"
@@ -760,7 +760,7 @@ func (r *Run) chooseActions(entries []*Entry, actions []PackAction) (map[*Entry]
 //
 // 返回的错误为包或处理方式不符合要求(可以直接展示)或数据库错误。
 func (r *Run) run(tx *gorm.DB, actions []PackAction) ([]PackEntryResult, error) {
-	if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", packLockKey).Error; err != nil {
+	if err := db.Lock(tx, packLockKey); err != nil {
 		return nil, err
 	}
 	entries, err := r.entries()

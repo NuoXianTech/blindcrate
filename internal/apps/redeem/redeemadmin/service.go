@@ -94,7 +94,7 @@ func QueryBatches(ctx context.Context, req *ListBatchesRequest) (int64, []BatchI
 
 // doCreateBatch 校验并生成一个批次的兑换码: 指定了兑换码时只生成这一个, 否则随机生成 Count 个
 //
-// 幂等键已生成过时返回已有的批次, replayed 为 true。
+// 幂等键已生成过时返回已有的批次, replayed 为 true; 内容与已生成的不同时返回 IdempotencyConflict。
 func doCreateBatch(ctx context.Context, operatorID uint64, req *CreateBatchRequest) (_ *redeem.Batch, replayed bool, _ error) {
 	target := &redeem.Batch{IdempotencyKey: req.IdempotencyKey, CreatedBy: operatorID}
 	applyBatch(target, &req.BatchRequest)
@@ -126,9 +126,16 @@ func doCreateBatch(ctx context.Context, operatorID uint64, req *CreateBatchReque
 		}
 		if result.RowsAffected == 0 {
 			replayed = true
+			requested, count := batchFields(target), target.CodeCount
 			*target = redeem.Batch{}
 			// 已有的批次之后被删除了也返回它, 不再生成一次
-			return tx.Unscoped().Where("idempotency_key = ?", req.IdempotencyKey).First(target).Error
+			if err := tx.Unscoped().Where("idempotency_key = ?", req.IdempotencyKey).First(target).Error; err != nil {
+				return err
+			}
+			if target.CodeCount != count || len(audit.Changes(batchFields(target), requested)) > 0 {
+				return errors.New(redeem.IdempotencyConflict)
+			}
+			return nil
 		}
 		rows := make([]redeem.Code, len(codes))
 		for i, code := range codes {

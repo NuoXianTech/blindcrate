@@ -27,6 +27,7 @@ package reward
 import (
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
@@ -39,7 +40,7 @@ import (
 type ApplyRequest struct {
 	UserID         uint64
 	Bundle         Bundle
-	BizType        string // 业务类型, 需要同时在 wallet 和 inventory 的 constants.go 中定义, 最长 32
+	BizType        string // 业务类型, 需要用 ledger.RegisterBizType 登记(早期的在 wallet 和 inventory 的 constants.go 中), 最长 32
 	BizID          string // 业务单号, 最长 64
 	IdempotencyKey string // 非空时同一个 key 只生效一次, 需带业务前缀保证全局唯一, 最长 MaxIdempotencyKeyLength
 	OperatorID     uint64 // 操作人, 0 表示系统
@@ -129,6 +130,32 @@ func Apply(tx *gorm.DB, req *ApplyRequest) (*Result, bool, error) {
 		return nil, false, errors.New(IdempotencyConflict)
 	}
 	return result, lines > 0 && replayedLines == lines, nil
+}
+
+// Lock 按 Apply 的加锁顺序(先物品后货币, 各自按 ID 和代码排序)锁定用户在这些 Bundle 中涉及的背包行和余额行, 直到事务结束
+//
+// 一个事务里对同一用户调用多次 Apply(如先扣价格再发商品)时, 每次各自有序, 合起来却不是: 第一次锁了余额, 第二次才去锁物品,
+// 与同时进行的出售(先物品后余额)互相等待而死锁。先调用 Lock 一次锁齐, 之后的 Apply 不再等待别的事务。
+// 还不存在的行没有可锁的, 首次获得的物品或货币不受保护, 但此时也没有别的事务持有它。
+func Lock(tx *gorm.DB, userID uint64, bundles ...Bundle) error {
+	var (
+		itemIDs    []uint64
+		currencies []string
+	)
+	for _, b := range bundles {
+		for _, line := range b.Items {
+			itemIDs = append(itemIDs, line.ItemID)
+		}
+		for _, line := range b.Currencies {
+			currencies = append(currencies, line.Currency)
+		}
+	}
+	slices.Sort(itemIDs)
+	slices.Sort(currencies)
+	if err := inventory.LockItems(tx, userID, slices.Compact(itemIDs)); err != nil {
+		return err
+	}
+	return wallet.LockBalances(tx, userID, slices.Compact(currencies))
 }
 
 // InvalidError 配置中的奖励或价格不合法, Error 返回的提示可以直接展示给管理员

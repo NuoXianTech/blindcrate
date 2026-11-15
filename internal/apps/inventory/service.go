@@ -94,7 +94,7 @@ func Change(tx *gorm.DB, req *ChangeRequest) (*Transaction, bool, error) {
 
 	// 幂等: 同一个 key 的并发请求在咨询锁上排队, 后到的能看到先到的已提交流水
 	if req.IdempotencyKey != "" {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", "blindcrate:inventory:"+req.IdempotencyKey).Error; err != nil {
+		if err := db.Lock(tx, "inventory:"+req.IdempotencyKey); err != nil {
 			return nil, false, err
 		}
 		// 查不到是常态, 用 Find 避免每次都打 record not found 日志
@@ -182,6 +182,18 @@ func checkItem(tx *gorm.DB, req *ChangeRequest) (*item.Item, error) {
 		return nil, errors.New(item.ItemDisabled)
 	}
 	return &target, nil
+}
+
+// LockItems 按物品 ID 的顺序锁定用户背包中的这些物品, 直到事务结束; 还没有的物品没有行可锁
+//
+// 一个事务要分几次变动同一用户的物品和余额时先调用, 见 reward.Lock。
+func LockItems(tx *gorm.DB, userID uint64, itemIDs []uint64) error {
+	if len(itemIDs) == 0 {
+		return nil
+	}
+	var locked []uint64
+	return tx.Model(&UserItem{}).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("user_id = ? AND item_id IN ?", userID, itemIDs).Order("item_id").Pluck("item_id", &locked).Error
 }
 
 // applyQuantity 原子地变动数量并返回变动后的背包行
@@ -457,7 +469,7 @@ func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*Se
 	)
 	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		// 幂等: 同一个 key 的并发请求在咨询锁上排队, 后到的能看到先到的已提交出售单
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", fmt.Sprintf("blindcrate:inventory_sell:%d:%s", userID, req.IdempotencyKey)).Error; err != nil {
+		if err := db.Lock(tx, fmt.Sprintf("inventory_sell:%d:%s", userID, req.IdempotencyKey)); err != nil {
 			return err
 		}
 		var existing SellOrder

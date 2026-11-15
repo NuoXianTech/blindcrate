@@ -33,6 +33,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/mailbox"
@@ -171,9 +172,21 @@ func QueryBroadcasts(ctx context.Context, req *ListBroadcastsRequest) (int64, []
 	return total, items, nil
 }
 
+// broadcastFields 全服邮件发送时确定的内容, 用于判断重复提交的是不是同一封; 过期时间按提交的时刻计算, 不比较
+func broadcastFields(target *mailbox.Broadcast) map[string]interface{} {
+	return map[string]interface{}{
+		"sender":            target.Sender,
+		"title":             target.Title,
+		"content":           target.Content,
+		"attachments":       target.Attachments,
+		"requirements":      target.Requirements,
+		"include_new_users": target.RegisteredBefore == nil,
+	}
+}
+
 // doCreateBroadcast 校验并发送全服邮件; 之后注册的用户是否能收到见 IncludeNewUsers
 //
-// 幂等键已发送过时返回已有的全服邮件, replayed 为 true。
+// 幂等键已发送过时返回已有的全服邮件, replayed 为 true; 内容与已发送的不同时返回 IdempotencyConflict。
 func doCreateBroadcast(ctx context.Context, operatorID uint64, req *BroadcastRequest) (_ *mailbox.Broadcast, replayed bool, _ error) {
 	expiresAt, err := mailbox.Expiry(ctx, req.ExpireDays)
 	if err != nil {
@@ -206,8 +219,14 @@ func doCreateBroadcast(ctx context.Context, operatorID uint64, req *BroadcastReq
 		}
 		if result.RowsAffected == 0 {
 			replayed = true
+			requested := broadcastFields(target)
 			*target = mailbox.Broadcast{}
-			return tx.Where("idempotency_key = ?", req.IdempotencyKey).First(target).Error
+			if err := tx.Where("idempotency_key = ?", req.IdempotencyKey).First(target).Error; err != nil {
+				return err
+			}
+			if len(audit.Changes(broadcastFields(target), requested)) > 0 {
+				return errors.New(mailbox.IdempotencyConflict)
+			}
 		}
 		return nil
 	})

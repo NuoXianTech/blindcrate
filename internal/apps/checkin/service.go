@@ -229,7 +229,7 @@ func Checkin(ctx context.Context, userID uint64) (*CheckinResult, error) {
 	today, yesterday := periods(now)
 	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		// 同一用户的签到串行执行, 避免跨零点的两次请求都读不到对方的记录而断开连续天数
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", fmt.Sprintf("blindcrate:checkin:%d", userID)).Error; err != nil {
+		if err := db.Lock(tx, fmt.Sprintf("checkin:%d", userID)); err != nil {
 			return err
 		}
 		days, err := QueryDays(tx)

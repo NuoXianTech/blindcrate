@@ -134,7 +134,7 @@ func (g *Generator) draw(valueFactor int32) []Piece {
 			times++
 		}
 		for range times {
-			entry := &sp.entries[g.pick(sp.weights)]
+			entry := &sp.entries[loot.PickIndexWith(sp.weights, g.randN)]
 			quantity := entry.MinQuantity + g.randN(entry.MaxQuantity-entry.MinQuantity+1)
 			target := g.items[entry.ItemID]
 			for range quantity {
@@ -165,7 +165,7 @@ func (g *Generator) swing() int64 {
 	for i, s := range g.rule.Swings {
 		weights[i] = int64(s.Weight)
 	}
-	return int64(g.rule.Swings[g.pick(weights)].Factor)
+	return int64(g.rule.Swings[loot.PickIndexWith(weights, g.randN)].Factor)
 }
 
 // meanSwing 数量波动的平均系数, 基点; 没有配置时为 BasisPoints
@@ -179,22 +179,6 @@ func (g *Generator) meanSwing() float64 {
 		return BasisPoints
 	}
 	return weighted / total
-}
-
-// pick 按权重随机选出一个下标, 权重都大于 0
-func (g *Generator) pick(weights []int64) int {
-	var total int64
-	for _, weight := range weights {
-		total += weight
-	}
-	n := g.randN(total)
-	for i, weight := range weights {
-		if n < weight {
-			return i
-		}
-		n -= weight
-	}
-	return len(weights) - 1
 }
 
 // placeAttempts 随机摆放的尝试次数, 都摆不下时改为逐行扫描
@@ -409,18 +393,7 @@ func (l *Lineup) Pick() int {
 	if len(l.weights) == 1 {
 		return 0
 	}
-	var total int64
-	for _, w := range l.weights {
-		total += w
-	}
-	n := l.randN(total)
-	for i, w := range l.weights {
-		if n < w {
-			return i
-		}
-		n -= w
-	}
-	return len(l.weights) - 1
+	return loot.PickIndexWith(l.weights, l.randN)
 }
 
 // Tier 第 i 种档次的生成器

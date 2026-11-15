@@ -43,5 +43,7 @@ const (
 	UnclaimedAttachments  = "附件还没有领取, 不能删除"
 
 	BroadcastNotFound = "全服邮件不存在"
-	BroadcastRevoked  = "全服邮件已撤回"
+
+	IdempotencyConflict = "幂等键已被其他请求使用"
+	BroadcastRevoked    = "全服邮件已撤回"
 )

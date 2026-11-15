@@ -95,20 +95,6 @@ func contentsOf(ctx *UseContext, params *OpenParams) (*Contents, error) {
 	return &Contents{Pool: pool, Entries: entries}, nil
 }
 
-// pick 按权重抽取一项, 数量在条目的范围内均匀随机, 与 loot.Roll 抽取一次相同
-func (c *Contents) pick() reward.Bundle {
-	weights := make([]int64, len(c.Entries))
-	for i := range c.Entries {
-		weights[i] = int64(c.Entries[i].Weight)
-	}
-	entry := c.Entries[loot.PickIndex(weights)]
-	quantity := entry.MinQuantity + loot.RandInt64N(entry.MaxQuantity-entry.MinQuantity+1)
-	if entry.ItemID != 0 {
-		return reward.Bundle{Items: []reward.ItemLine{{ItemID: entry.ItemID, Quantity: quantity}}}
-	}
-	return reward.Bundle{Currencies: []reward.CurrencyLine{{Currency: entry.Currency, Amount: quantity}}}
-}
-
 // load 获取箱子和它的内容
 //
 // 物品不存在、已删除或不能在背包中使用时返回 CrateNotFound; 掉落池不可用时返回 CrateUnavailable。
@@ -224,7 +210,7 @@ func Open(ctx context.Context, userID, itemID uint64, idempotencyKey string) (*R
 		results  []*reward.Result
 	)
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", fmt.Sprintf("blindcrate:crate:%d", userID)).Error; err != nil {
+		if err := db.Lock(tx, fmt.Sprintf("crate:%d", userID)); err != nil {
 			return err
 		}
 		if err := tx.Where("user_id = ? AND idempotency_key = ?", userID, idempotencyKey).Limit(1).Find(&record).Error; err != nil {
@@ -270,7 +256,7 @@ func open(tx *gorm.DB, userID, itemID uint64, idempotencyKey string, record *Rec
 	if err != nil {
 		return nil, err
 	}
-	drop := contents.pick()
+	drop := loot.Draw(contents.Entries).Bundle()
 
 	*record = Record{
 		UserID:         userID,
@@ -285,6 +271,10 @@ func open(tx *gorm.DB, userID, itemID uint64, idempotencyKey string, record *Rec
 		if db.IsUniqueViolation(err) {
 			return nil, errors.New(DuplicateRequest)
 		}
+		return nil, err
+	}
+	// 扣箱子和发内容是两次变动, 先按统一的顺序锁齐, 否则与同时进行的出售互相等待而死锁
+	if err := reward.Lock(tx, userID, reward.Bundle{Items: []reward.ItemLine{{ItemID: target.ID, Quantity: -1}}}, drop); err != nil {
 		return nil, err
 	}
 	bizID := strconv.FormatUint(record.ID, 10)
