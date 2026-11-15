@@ -37,11 +37,8 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
-	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
-	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -171,8 +168,7 @@ func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 	}
 	var (
 		batch    Batch
-		result   *reward.Result
-		replayed bool
+		delivery *reward.Delivery
 	)
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", fmt.Sprintf("blindcrate:redeem:%d", userID)).Error; err != nil {
@@ -222,17 +218,10 @@ func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 		if unmet != nil {
 			return &RejectedError{Reason: fmt.Sprintf(RequirementUnmet, unmet.Text)}
 		}
-		bundle, err := reward.Deliverable(tx, batch.Reward, nil)
+		// 兑换记录中保存合并后实际发放的内容; 奖励发不出时不记兑换, 奖励改好后还可以兑换
+		bundle, err := reward.Prepare(tx, batch.Reward)
 		if err != nil {
-			return err
-		}
-		// 兑换记录中保存合并后实际发放的内容
-		if bundle, err = bundle.Normalize(); err != nil {
-			return errors.New(RewardTooLarge)
-		}
-		// 奖励全是已下架且没有回收价的物品时什么也发不出, 不记兑换, 奖励改好后还可以兑换
-		if bundle.IsEmpty() {
-			return errors.New(RewardUnavailable)
+			return undeliverable(err)
 		}
 		record := Record{BatchID: batch.ID, CodeID: target.ID, UserID: userID, Reward: bundle}
 		if err := tx.Create(&record).Error; err != nil {
@@ -242,7 +231,7 @@ func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 			}
 			return err
 		}
-		if result, replayed, err = reward.Apply(tx, &reward.ApplyRequest{
+		if delivery, err = reward.Deliver(tx, &reward.ApplyRequest{
 			UserID:         userID,
 			Bundle:         bundle,
 			BizType:        BizRedeem,
@@ -250,25 +239,28 @@ func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 			IdempotencyKey: fmt.Sprintf("redeem:%d:%d", target.ID, userID),
 			Remark:         batch.Name,
 		}); err != nil {
-			switch err.Error() {
-			case item.ItemNotFound, item.ItemDisabled, wallet.CurrencyNotFound, wallet.CurrencyDisabled:
-				return errors.New(RewardUnavailable)
-			case wallet.AmountInvalid, inventory.QuantityInvalid:
-				return errors.New(RewardTooLarge)
-			}
-			return err
+			return undeliverable(err)
 		}
 		return tx.Model(&target).UpdateColumn("used", gorm.Expr("used + 1")).Error
 	})
 	if err != nil {
 		return nil, err
 	}
-	if !replayed {
-		result.Push(ctx)
-	}
-	lines, err := reward.Lines(db.DB(ctx), result.Bundle)
+	delivery.Push(ctx)
+	received, err := delivery.Received(db.DB(ctx))
 	if err != nil {
 		return nil, err
 	}
-	return &Result{Name: batch.Name, Received: lines[0]}, nil
+	return &Result{Name: batch.Name, Received: received}, nil
+}
+
+// undeliverable 奖励发不出时换成给玩家的提示, 其他错误原样返回
+func undeliverable(err error) error {
+	switch reward.FailureOf(err) {
+	case reward.Unavailable:
+		return errors.New(RewardUnavailable)
+	case reward.TooLarge:
+		return errors.New(RewardTooLarge)
+	}
+	return err
 }

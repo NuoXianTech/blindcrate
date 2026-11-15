@@ -40,7 +40,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 )
@@ -308,11 +307,10 @@ func open(tx *gorm.DB, userID, itemID uint64, idempotencyKey string, record *Rec
 		IdempotencyKey: "crate:" + bizID + ":drop",
 		Remark:         target.Name,
 	})
+	if reward.FailureOf(err) != reward.Delivered {
+		return nil, errors.New(CrateUnavailable)
+	}
 	if err != nil {
-		switch err.Error() {
-		case item.ItemNotFound, item.ItemDisabled, wallet.CurrencyNotFound, wallet.CurrencyDisabled, wallet.AmountInvalid, inventory.QuantityInvalid:
-			return nil, errors.New(CrateUnavailable)
-		}
 		return nil, err
 	}
 	return []*reward.Result{used, granted}, nil

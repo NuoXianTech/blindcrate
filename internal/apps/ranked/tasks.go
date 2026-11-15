@@ -106,6 +106,7 @@ func settleSeason(ctx context.Context, s *season.Season) error {
 // grantSeasonRewards 给一批玩家发放赛季奖励, 返回本次发放的人数
 //
 // 已有赛季奖励流水的人视为已发放, 不再发放: 重试时已下架的物品会折成货币, 内容变了, 幂等键拦不住。
+// 某一档的奖励发不出(货币已停用, 或全是已下架且没有回收价的物品)时返回错误, 不跳过这个人。
 func grantSeasonRewards(ctx context.Context, s *season.Season, ratings []Rating) (int, error) {
 	userIDs := make([]uint64, len(ratings))
 	for i, r := range ratings {
@@ -121,18 +122,12 @@ func grantSeasonRewards(ctx context.Context, s *season.Season, ratings []Rating)
 		if target == nil || done[r.UserID] {
 			continue
 		}
-		var (
-			result   *reward.Result
-			replayed bool
-		)
+		var delivery *reward.Delivery
 		err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
-			bundle, err := reward.Deliverable(tx, target.Bundle, nil)
-			if err != nil {
-				return err
-			}
-			result, replayed, err = reward.Apply(tx, &reward.ApplyRequest{
+			var err error
+			delivery, err = reward.Deliver(tx, &reward.ApplyRequest{
 				UserID:         r.UserID,
-				Bundle:         bundle,
+				Bundle:         target.Bundle,
 				BizType:        wallet.BizSeasonReward,
 				BizID:          s.Code,
 				IdempotencyKey: fmt.Sprintf("season:%s:reward:%d", s.Code, r.UserID),
@@ -140,11 +135,15 @@ func grantSeasonRewards(ctx context.Context, s *season.Season, ratings []Rating)
 			})
 			return err
 		})
+		// 奖励发不出时赛季不标记为已结算, 奖励改好后下次执行时继续发放, 已经发过的人不会重复发
+		if reward.FailureOf(err) != reward.Delivered {
+			return granted, fmt.Errorf("reward of rating %d cannot be delivered to user %d: %w", target.MinRating, r.UserID, err)
+		}
 		if err != nil {
 			return granted, fmt.Errorf("grant user %d: %w", r.UserID, err)
 		}
-		if !replayed {
-			result.Push(ctx)
+		if !delivery.Replayed() {
+			delivery.Push(ctx)
 			granted++
 		}
 	}

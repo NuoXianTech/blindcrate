@@ -39,12 +39,9 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
-	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
-	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/ws"
@@ -466,10 +463,7 @@ func ClaimAll(ctx context.Context, userID uint64) (*ClaimResult, error) {
 
 // claim 在一个事务中领取一封邮件的附件, 返回实际发放的内容
 func claim(ctx context.Context, userID, mailID uint64) (reward.Bundle, error) {
-	var (
-		result   *reward.Result
-		replayed bool
-	)
+	var delivery *reward.Delivery
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		m, err := lockMail(tx, userID, mailID)
 		if err != nil {
@@ -484,29 +478,23 @@ func claim(ctx context.Context, userID, mailID uint64) (reward.Bundle, error) {
 		case !now.Before(m.ExpiresAt):
 			return errors.New(MailExpired)
 		}
-		bundle, err := reward.Deliverable(tx, m.Attachments, nil)
-		if err != nil {
-			return err
-		}
-		// 附件全是已下架且没有回收价的物品时什么也发不出, 不记领取, 附件中的物品重新上架后还可以领
-		if bundle.IsEmpty() {
-			return errors.New(AttachmentUnavailable)
-		}
+		// 附件发不出时不记领取, 附件中的物品重新上架后还可以领
 		bizID := strconv.FormatUint(m.ID, 10)
-		if result, replayed, err = reward.Apply(tx, &reward.ApplyRequest{
+		delivery, err = reward.Deliver(tx, &reward.ApplyRequest{
 			UserID:         userID,
-			Bundle:         bundle,
+			Bundle:         m.Attachments,
 			BizType:        BizClaim,
 			BizID:          bizID,
 			IdempotencyKey: "mail:" + bizID,
 			Remark:         m.Title,
-		}); err != nil {
-			switch err.Error() {
-			case item.ItemNotFound, item.ItemDisabled, wallet.CurrencyNotFound, wallet.CurrencyDisabled:
-				return errors.New(AttachmentUnavailable)
-			case wallet.AmountInvalid, inventory.QuantityInvalid:
-				return errors.New(AttachmentTooLarge)
-			}
+		})
+		switch reward.FailureOf(err) {
+		case reward.Unavailable:
+			return errors.New(AttachmentUnavailable)
+		case reward.TooLarge:
+			return errors.New(AttachmentTooLarge)
+		}
+		if err != nil {
 			return err
 		}
 		return tx.Model(m).UpdateColumns(map[string]any{
@@ -517,8 +505,6 @@ func claim(ctx context.Context, userID, mailID uint64) (reward.Bundle, error) {
 	if err != nil {
 		return reward.Bundle{}, err
 	}
-	if !replayed {
-		result.Push(ctx)
-	}
-	return result.Bundle, nil
+	delivery.Push(ctx)
+	return delivery.Bundle, nil
 }

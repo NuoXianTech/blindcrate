@@ -31,13 +31,10 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
-	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
-	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/task/schedule"
 	"gorm.io/gorm"
@@ -226,8 +223,7 @@ func Checkin(ctx context.Context, userID uint64) (*CheckinResult, error) {
 	}
 	var (
 		record   Record
-		result   *reward.Result
-		replayed bool
+		delivery *reward.Delivery
 	)
 	now := time.Now()
 	today, yesterday := periods(now)
@@ -265,41 +261,30 @@ func Checkin(ctx context.Context, userID uint64) (*CheckinResult, error) {
 		if err := stats.Add(tx, userID, []string{stats.ScopeAll}, now, stats.Values{MetricCheckins: 1}); err != nil {
 			return err
 		}
-		bundle, err := reward.Deliverable(tx, days[record.CycleDay-1].Reward, nil)
-		if err != nil {
-			return err
-		}
-		// 奖励全是已下架且没有回收价的物品时什么也发不出, 不记签到, 奖励改好后还可以签
-		if bundle.IsEmpty() {
-			return &RejectedError{Reason: RewardUnavailable}
-		}
-		if result, replayed, err = reward.Apply(tx, &reward.ApplyRequest{
+		// 奖励发不出时不记签到, 奖励改好后还可以签
+		delivery, err = reward.Deliver(tx, &reward.ApplyRequest{
 			UserID:         userID,
-			Bundle:         bundle,
+			Bundle:         days[record.CycleDay-1].Reward,
 			BizType:        BizCheckin,
 			BizID:          today,
 			IdempotencyKey: fmt.Sprintf("checkin:%d:%s", userID, today),
 			Remark:         fmt.Sprintf("签到第 %d 天", record.CycleDay),
-		}); err != nil {
-			switch err.Error() {
-			case item.ItemNotFound, item.ItemDisabled, wallet.CurrencyNotFound, wallet.CurrencyDisabled:
-				return &RejectedError{Reason: RewardUnavailable}
-			case wallet.AmountInvalid, inventory.QuantityInvalid:
-				return &RejectedError{Reason: RewardTooLarge}
-			}
-			return err
+		})
+		switch reward.FailureOf(err) {
+		case reward.Unavailable:
+			return &RejectedError{Reason: RewardUnavailable}
+		case reward.TooLarge:
+			return &RejectedError{Reason: RewardTooLarge}
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	if !replayed {
-		result.Push(ctx)
-	}
-	lines, err := reward.Lines(db.DB(ctx), result.Bundle)
+	delivery.Push(ctx)
+	received, err := delivery.Received(db.DB(ctx))
 	if err != nil {
 		return nil, err
 	}
-	return &CheckinResult{Streak: record.Streak, Day: record.CycleDay, Received: lines[0]}, nil
+	return &CheckinResult{Streak: record.Streak, Day: record.CycleDay, Received: received}, nil
 }

@@ -36,8 +36,6 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
-	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
-	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
@@ -369,10 +367,7 @@ type ClaimResult struct {
 // 任务加共享锁, 与后台修改和删除互斥; 领取记录的主键防止同一周期重复领取, 发放的幂等键再兜底一次。
 // 奖励中已下架或已删除的物品按回收价折成货币; 货币已停用时返回 RewardUnavailable, 可以之后再领取。
 func Claim(ctx context.Context, userID uint64, code string) (*ClaimResult, error) {
-	var (
-		result   *reward.Result
-		replayed bool
-	)
+	var delivery *reward.Delivery
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		var m Mission
 		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("code = ? AND is_enabled", code).First(&m).Error; err != nil {
@@ -403,41 +398,30 @@ func Claim(ctx context.Context, userID uint64, code string) (*ClaimResult, error
 		if inserted.RowsAffected == 0 {
 			return errors.New(AlreadyClaimed)
 		}
-		bundle, err := reward.Deliverable(tx, m.Reward, nil)
-		if err != nil {
-			return err
-		}
-		// 奖励全是已下架且没有回收价的物品时什么也发不出, 不记领取, 奖励改好后还可以领
-		if bundle.IsEmpty() {
-			return errors.New(RewardUnavailable)
-		}
-		if result, replayed, err = reward.Apply(tx, &reward.ApplyRequest{
+		// 奖励发不出时不记领取, 奖励改好后还可以领
+		delivery, err = reward.Deliver(tx, &reward.ApplyRequest{
 			UserID:         userID,
-			Bundle:         bundle,
+			Bundle:         m.Reward,
 			BizType:        BizReward,
 			BizID:          strconv.FormatUint(m.ID, 10),
 			IdempotencyKey: fmt.Sprintf("mission:%d:%s:%d", m.ID, period, userID),
 			Remark:         m.Name,
-		}); err != nil {
-			switch err.Error() {
-			case item.ItemNotFound, item.ItemDisabled, wallet.CurrencyNotFound, wallet.CurrencyDisabled:
-				return errors.New(RewardUnavailable)
-			case wallet.AmountInvalid, inventory.QuantityInvalid:
-				return errors.New(RewardTooLarge)
-			}
-			return err
+		})
+		switch reward.FailureOf(err) {
+		case reward.Unavailable:
+			return errors.New(RewardUnavailable)
+		case reward.TooLarge:
+			return errors.New(RewardTooLarge)
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	if !replayed {
-		result.Push(ctx)
-	}
-	lines, err := reward.Lines(db.DB(ctx), result.Bundle)
+	delivery.Push(ctx)
+	received, err := delivery.Received(db.DB(ctx))
 	if err != nil {
 		return nil, err
 	}
-	return &ClaimResult{Received: lines[0]}, nil
+	return &ClaimResult{Received: received}, nil
 }
