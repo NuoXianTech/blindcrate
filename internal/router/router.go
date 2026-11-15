@@ -61,6 +61,8 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked/rankedadmin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/redeem"
+	"github.com/NuoXianTech/blindcrate/internal/apps/redeem/redeemadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season/seasonadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
@@ -308,6 +310,9 @@ func userRoutes(r *gin.RouterGroup) {
 		codexRouter.POST("/sets/:code/claim", ratelimit.ByUser("codex:claim", ratelimit.PerMinute(60)), codex.ClaimCodexSet)
 	}
 
+	// Redeem
+	r.POST("/redeem", ratelimit.ByUser("redeem", ratelimit.PerMinute(10)), redeem.RedeemCode)
+
 	// Upload
 	r.POST("/uploads", ratelimit.ByUser("upload", ratelimit.PerHour(60)), upload.CreateUpload)
 }
@@ -501,6 +506,17 @@ func adminRoutes(r *gin.RouterGroup) {
 		codexAdminRouter.POST("", codexadmin.CreateCodexSet)
 		codexAdminRouter.PUT("/:id", codexadmin.UpdateCodexSet)
 		codexAdminRouter.DELETE("/:id", codexadmin.DeleteCodexSet)
+	}
+
+	// Redeem
+	redeemAdminRouter := r.Group("/redeem")
+	{
+		redeemAdminRouter.GET("/batches", redeemadmin.ListRedeemBatches)
+		redeemAdminRouter.POST("/batches", redeemadmin.CreateRedeemBatch)
+		redeemAdminRouter.PUT("/batches/:id", redeemadmin.UpdateRedeemBatch)
+		redeemAdminRouter.DELETE("/batches/:id", redeemadmin.DeleteRedeemBatch)
+		redeemAdminRouter.GET("/batches/:id/codes", redeemadmin.ListRedeemBatchCodes)
+		redeemAdminRouter.GET("/records", redeemadmin.ListRedeemRecords)
 	}
 
 	// Inventory

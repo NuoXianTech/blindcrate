@@ -14,6 +14,7 @@ import {MatchAdminService, MatchService} from './match';
 import {MissionAdminService, MissionService} from './mission';
 import {PackAdminService} from './pack';
 import {RankedAdminService, RankedService} from './ranked';
+import {RedeemAdminService, RedeemService} from './redeem';
 import {SeasonAdminService, SeasonService} from './season';
 import {SettingsAdminService, SettingsService} from './settings';
 import {ShopAdminService, ShopService} from './shop';
@@ -72,6 +73,8 @@ const services = {
   checkin: CheckinService,
   /** 图鉴 */
   codex: CodexService,
+  /** 兑换码 */
+  redeem: RedeemService,
   /** 公开设置 */
   settings: SettingsService,
   /** 图片上传 */
@@ -110,6 +113,8 @@ const services = {
   packAdmin: PackAdminService,
   /** 后台: 段位和可疑名单 */
   rankedAdmin: RankedAdminService,
+  /** 后台: 兑换码 */
+  redeemAdmin: RedeemAdminService,
   /** 后台: 赛季 */
   seasonAdmin: SeasonAdminService,
   /** 后台: 系统设置 */

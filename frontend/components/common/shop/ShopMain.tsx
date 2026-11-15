@@ -6,6 +6,7 @@ import {toast} from 'sonner';
 import {Skeleton} from '@/components/ui/skeleton';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {useAuth} from '@/components/common/auth';
+import {RedeemButton} from '@/components/common/redeem';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {ShopItem} from '@/lib/services/shop';
@@ -75,7 +76,11 @@ export function ShopMain() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">商城</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold">商城</h1>
+        {/* 兑换到的货币和物品会影响商品的购买条件, 兑换后刷新商品 */}
+        <RedeemButton onRedeemed={() => void load()} />
+      </div>
       <Tabs value={active} onValueChange={setTab}>
         <TabsList className="h-auto flex-wrap">
           {single ? (

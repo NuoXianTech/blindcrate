@@ -45,6 +45,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/mission"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
+	"github.com/NuoXianTech/blindcrate/internal/apps/redeem"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/shop"
@@ -159,6 +160,9 @@ func runAutoMigrate() {
 		&codex.ClaimRecord{},
 		&bot.Name{},
 		&bot.Persona{},
+		&redeem.Batch{},
+		&redeem.Code{},
+		&redeem.Record{},
 	); err != nil {
 		log.Fatalf("[PostgreSQL] auto migrate failed: %v\n", err)
 	}
