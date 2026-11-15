@@ -168,19 +168,11 @@ type squad struct {
 	picks       []int64
 }
 
-// seatSim 模拟拍场中的一个座位
+// seatSim 模拟拍场中一个座位在验算时另外记的, 资金和出价见 session 的 seat
 type seatSim struct {
-	seat     int16
-	human    bool
-	planner  bool    // 真人是否规划预算
-	sign     float64 // 真人对当前拍品的估值偏高(1)还是偏低(-1)
-	decide   bot.Decider[Observation, Decision]
-	seed     int64
-	carry    int64 // 剩余资金
-	bid      int64 // 当前拍品的出价
-	bidAt    time.Time
-	estimate int64 // 人机对当前拍品最后的估值
-	profit   int64 // 拍场盈亏, 藏品按扣掉出售手续费后的回收价计, 不含入场费
+	planner bool    // 真人是否规划预算
+	sign    float64 // 真人对当前拍品的估值偏高(1)还是偏低(-1)
+	profit  int64   // 拍场盈亏, 藏品按扣掉出售手续费后的回收价计, 不含入场费
 }
 
 // lotSim 一个拍品的模拟结果, 成交价由领先折让决定, 另算
@@ -377,158 +369,118 @@ func (sq *squad) run(v *venue.Venue, tiers []venue.Tier, source lineup, seed uin
 	return matches, nil
 }
 
-// play 模拟一个拍场, 规则与对局中相同: 首轮扫出的轮廓见 previewPieces, 判定见 judge, 前 N-1 轮结束后公开出价;
+// play 模拟一个拍场, 按对局的规则推进(见 session): 首轮扫出的轮廓见 previewPieces;
 // 真人带满上限, 人机带 BotCarry × [carryFloor, 100%]; 成交价按 v.Auction 的领先折让从剩余资金扣除
 func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, kinds []int, warehouses []*venue.Warehouse, rng *rand.Rand, cfg simConfig) (matchSim, error) {
-	seats := make([]seatSim, playerCount)
-	for i := range seats {
-		s := &seats[i]
-		s.seat = int16(i + 1)
+	sims := make([]seatSim, playerCount)
+	s := &session{Seats: make([]seat, playerCount), Hosted: true, Hype: hypeStart, HypeDecay: cfg.hypeDecay}
+	for i := range sims {
+		p := &s.Seats[i]
+		p.Seat = int16(i + 1)
 		if i < sq.humans {
-			s.human, s.carry = true, v.Auction.MaxCarry
-			s.planner = len(kinds) > 1 && rng.Int64N(venue.BasisPoints) < sq.human.PlanShare
+			p.Human, p.Carry = true, v.Auction.MaxCarry
+			sims[i].planner = len(kinds) > 1 && rng.Int64N(venue.BasisPoints) < sq.human.PlanShare
 			continue
 		}
-		s.decide, s.seed = sq.bots[pickIndex(sq.picks, rng)], rng.Int64()
-		s.carry = scale(v.Auction.BotCarry, between(rng, cfg.carryFloor, venue.BasisPoints))
+		p.Decide, p.Seed = sq.bots[pickIndex(sq.picks, rng)], rng.Int64()
+		p.Carry = scale(v.Auction.BotCarry, between(rng, cfg.carryFloor, venue.BasisPoints))
 	}
 
-	m := matchSim{hype: hypeStart}
+	var m matchSim
 	for lot := range kinds {
-		if lot > 0 {
-			m.hype = hypeStart + int32(int64(m.hype-hypeStart)*(venue.BasisPoints-cfg.hypeDecay)/venue.BasisPoints)
-		}
 		var future int64
 		for _, k := range kinds[lot+1:] {
 			future += public[k].expected
 		}
-		rule := v.Auction.ForTier(&tiers[kinds[lot]].Auction)
-		l, err := sq.playLot(v, &rule, public[kinds[lot]], warehouses[lot], seats, future, int32(len(kinds)-lot-1), &m, rng)
+		k := kinds[lot]
+		spec := lotSpec{
+			Rule:     v.Auction.ForTier(&tiers[k].Auction),
+			Grid:     public[k].grid,
+			Odds:     public[k].odds,
+			Future:   future,
+			LotsLeft: int32(len(kinds) - lot - 1),
+		}
+		l, err := sq.playLot(v, s, sims, spec, warehouses[lot], &m, rng)
 		if err != nil {
 			return matchSim{}, err
 		}
 		if l.sold {
-			price := settlePrice(&rule, l.top, l.second)
-			w := &seats[l.winner-1]
-			w.carry -= price
-			w.profit += scale(l.value, int64(venue.BasisPoints-cfg.sellFee)) - price
+			sims[l.winner-1].profit += scale(l.value, int64(venue.BasisPoints-cfg.sellFee)) - settlePrice(&spec.Rule, l.top, l.second)
 		}
 		m.lots = append(m.lots, l)
 	}
-	for _, s := range seats {
-		m.profit = append(m.profit, s.profit)
-		m.carry = append(m.carry, s.carry)
-		m.planner = append(m.planner, s.planner)
+	m.hype = s.Hype
+	for i := range sims {
+		m.profit = append(m.profit, sims[i].profit)
+		m.carry = append(m.carry, s.Seats[i].Carry)
+		m.planner = append(m.planner, sims[i].planner)
 	}
 	return m, nil
 }
 
-// playLot 模拟拍场中的一个拍品, 热度记在 m 上
-func (sq *squad) playLot(v *venue.Venue, rule *venue.AuctionRule, public publicLot, warehouse *venue.Warehouse, seats []seatSim, future int64, left int32, m *matchSim, rng *rand.Rand) (lotSim, error) {
+// playLot 模拟拍场中的一个拍品: 每轮真人按 humanModel 出价, 再结束这一轮; 热度的统计记在 m 上
+func (sq *squad) playLot(v *venue.Venue, s *session, sims []seatSim, spec lotSpec, warehouse *venue.Warehouse, m *matchSim, rng *rand.Rand) (lotSim, error) {
+	rule := &spec.Rule
 	pieces := warehouse.Pieces
-	prints := []Footprint{}
+	spec.Footprints = []Footprint{}
 	for i, picked := range previewPieces(len(pieces), rule.PreviewRate, rng.Int64N) {
 		if picked {
-			prints = append(prints, Footprint{X: pieces[i].X, Y: pieces[i].Y, Width: pieces[i].Width, Height: pieces[i].Height})
+			spec.Footprints = append(spec.Footprints, Footprint{X: pieces[i].X, Y: pieces[i].Y, Width: pieces[i].Width, Height: pieces[i].Height})
 		}
 	}
-	for i := range seats {
-		s := &seats[i]
-		s.bid, s.bidAt, s.estimate, s.sign = 0, time.Time{}, 0, 1
-		if s.human && rng.IntN(2) == 0 {
-			s.sign = -1
+	s.openLot(spec)
+	for i := range sims {
+		sims[i].sign = 1
+		if s.Seats[i].Human && rng.IntN(2) == 0 {
+			sims[i].sign = -1
 		}
+	}
+	start := time.Unix(0, 0)
+	s.Clock = func() time.Time {
+		return start.Add(time.Duration(s.lotRound())*time.Minute + time.Duration(rng.Int64N(int64(time.Minute))))
 	}
 
-	var (
-		start      = time.Unix(0, 0)
-		bidders    = make([]bidder, len(seats))
-		shown      = make([]int64, len(seats)) // 最后一个公开轮次结束时每个座位的出价
-		contenders []int16
-		extra      int32
-		result     verdict
-		round      int32
-		raises     []int64
-		l          = lotSim{value: warehouse.Value}
-	)
-	for round = 1; ; round++ {
-		raises = raises[:0]
-		for i := range seats {
-			s := &seats[i]
-			if len(contenders) > 0 && !slices.Contains(contenders, s.seat) {
+	l := lotSim{value: warehouse.Value}
+	var result verdict
+	for {
+		round := s.lotRound()
+		for i := range sims {
+			p := &s.Seats[i]
+			if !p.Human || !s.contender(p.Seat) {
 				continue
 			}
-			others := make([]int64, 0, len(seats)-1)
-			for j := range seats {
-				if j != i {
-					others = append(others, shown[j])
-				}
+			view := humanView{carry: p.Carry, previous: p.Bid, best: slices.Max(append(s.others(i), 0)), future: -1}
+			if sims[i].planner && spec.LotsLeft > 0 {
+				view.future = spec.Future
 			}
-			var amount int64
-			if s.human {
-				view := humanView{carry: s.carry, previous: s.bid, best: slices.Max(append(others, 0)), future: -1}
-				if s.planner && left > 0 {
-					view.future = future
-				}
-				amount = sq.human.bid(rule, round, warehouse.Value, s.sign, view, rng)
-			} else {
-				obs := Observation{
-					Round:      round,
-					Rules:      *rule,
-					Grid:       public.grid,
-					Footprints: prints,
-					Odds:       public.odds,
-					Carry:      s.carry,
-					Bid:        s.bid,
-					Others:     others,
-					Future:     future,
-					LotsLeft:   left,
-					Seed:       s.seed,
-				}
-				decision, err := s.decide(obs, rand.New(rand.NewPCG(uint64(s.seed), uint64(round))))
-				if err != nil {
-					return lotSim{}, err
-				}
-				s.estimate = decision.Estimate
-				if amount = min(decision.Bid, s.carry); amount < rule.StartPrice {
-					amount = 0
-				}
-			}
-			if amount > s.bid {
-				raises = append(raises, amount-s.bid)
-				s.bid, s.bidAt = amount, start.Add(time.Duration(round)*time.Minute+time.Duration(rng.Int64N(int64(time.Minute))))
+			if amount := sq.human.bid(rule, round, warehouse.Value, sims[i].sign, view, rng); amount > p.Bid {
+				s.raise(i, amount, s.Clock())
 			}
 		}
-
-		for i, s := range seats {
-			bidders[i] = bidder{Seat: s.seat, Bid: s.bid, BidAt: s.bidAt}
+		res := s.closeRound()
+		if len(res.Failed) > 0 {
+			return lotSim{}, res.Failed[0].Err
 		}
-		if result = judge(rule, round, extra, bidders); result.Outcome != "" {
+		if result = res.Verdict; result.Outcome != "" {
+			l.round = round
 			break
 		}
-		// 与 state.advanceHost 相同
-		m.hype = min(max(m.hype+hypeDelta(raises, public.expected, rule.Rounds), 0), hypeMax)
 		m.hypes++
-		if m.hype >= hypeHot {
+		if s.Hype >= hypeHot {
 			m.hot++
 		}
-		if m.hype <= hypeCold {
+		if s.Hype <= hypeCold {
 			m.cold++
 		}
 		// 前 N-1 轮结束后公开出价, 最后一轮和加轮暗标
 		if round < rule.Rounds {
-			for i, s := range seats {
-				shown[i] = s.bid
+			l.early = 0
+			for _, p := range s.Seats {
+				l.early = max(l.early, p.shown)
 			}
-			l.early = slices.Max(shown)
 		}
-		if round >= rule.Rounds {
-			extra++
-		}
-		contenders = result.Contenders
 	}
 
-	l.round = round
 	if warehouse.Value > 0 {
 		var top int64
 		for _, piece := range pieces {
@@ -539,20 +491,20 @@ func (sq *squad) playLot(v *venue.Venue, rule *venue.AuctionRule, public publicL
 		l.topShare = float64(top) / float64(warehouse.Value)
 	}
 	if result.Outcome == OutcomeSold {
-		sorted := sortBidders(bidders)
-		l.sold, l.speed, l.winner = true, round < rule.Rounds, result.Winner
+		sorted := sortBidders(s.bidders())
+		l.sold, l.speed, l.winner = true, l.round < rule.Rounds, result.Winner
 		l.top, l.second = sorted[0].Bid, sorted[1].Bid
 		if l.speed {
 			l.early = l.top
 		}
 	}
 	var positive []float64
-	for _, s := range seats {
-		if s.bid > 0 {
-			positive = append(positive, float64(s.bid))
+	for _, p := range s.Seats {
+		if p.Bid > 0 {
+			positive = append(positive, float64(p.Bid))
 		}
-		if !s.human {
-			l.appraise += s.estimate
+		if !p.Human {
+			l.appraise += p.Estimate
 		}
 	}
 	l.bidCV = variation(positive) / math.Sqrt(playerCount-1)

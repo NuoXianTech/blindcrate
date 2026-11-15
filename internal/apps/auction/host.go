@@ -239,64 +239,20 @@ func startHost(tx *gorm.DB, a *Match, lot *Lot, items []WarehouseItem) error {
 	return giveHint(tx, a, lot, items, lot.FirstRound, "")
 }
 
-// lotHost 下一个拍品开场时热度按 Snapshot.HypeDecay 向开局热度回落, 给出这个拍品第 1 轮的提示
-func (st *state) lotHost(tx *gorm.DB) error {
-	a, lot := &st.auction, st.lot
-	if a.Host == "" {
-		return nil
-	}
-	next := hypeStart + int32(int64(a.Hype-hypeStart)*int64(venue.BasisPoints-a.Venue.HypeDecay)/venue.BasisPoints)
-	if err := tx.Create(&HypeEvent{MatchID: a.MatchID, LotNo: lot.LotNo, Delta: next - a.Hype, Hype: next}).Error; err != nil {
-		return err
-	}
-	a.Hype = next
-	if err := tx.Model(a).Select("hype").Updates(a).Error; err != nil {
-		return err
-	}
-	items, err := loadItems(tx, a.MatchID, lot.LotNo)
-	if err != nil {
-		return err
-	}
-	return giveHint(tx, a, lot, items, lot.FirstRound, "")
-}
-
-// advanceHost 一轮结束且没有成交时按当前拍品这一轮的加价更新热度, 下一轮还在规定的轮数内时给出提示; 加轮不给提示
-func (st *state) advanceHost(tx *gorm.DB, round int32) error {
-	a, lot := &st.auction, st.lot
-	if a.Host == "" {
-		return nil
-	}
-	var rows []struct {
-		Seat   int16
-		Amount int64
-	}
-	if err := tx.Model(&Bid{}).Where("match_id = ? AND lot_no = ? AND round < ?", a.MatchID, lot.LotNo, round).
-		Select("seat, MAX(amount) AS amount").Group("seat").Scan(&rows).Error; err != nil {
-		return err
-	}
-	before := make(map[int16]int64, len(rows))
-	for _, row := range rows {
-		before[row.Seat] = row.Amount
-	}
-	var raises []int64
-	for _, p := range st.players {
-		if p.Bid > before[p.Seat] {
-			raises = append(raises, p.Bid-before[p.Seat])
-		}
-	}
-	next := min(max(a.Hype+hypeDelta(raises, expectedValue(lot.Odds), a.Venue.Auction.Rounds), 0), hypeMax)
-	event := HypeEvent{MatchID: a.MatchID, LotNo: lot.LotNo, Round: round, Raises: int32(len(raises)), Delta: next - a.Hype, Hype: next}
+// recordHype 记录当前拍品上热度的一次变动, hype 为变动后的热度; round 为结束的轮次, 拍品开场(热度回落)时为 0
+func (st *state) recordHype(tx *gorm.DB, round, raises, hype int32) error {
+	a := &st.auction
+	event := HypeEvent{MatchID: a.MatchID, LotNo: st.lot.LotNo, Round: round, Raises: raises, Delta: hype - a.Hype, Hype: hype}
 	if err := tx.Create(&event).Error; err != nil {
 		return err
 	}
-	a.Hype = next
-	if err := tx.Model(a).Select("hype").Updates(a).Error; err != nil {
-		return err
-	}
+	a.Hype = hype
+	return tx.Model(a).Select("hype").Updates(a).Error
+}
 
-	if lot.Round(round) >= a.Venue.Auction.Rounds {
-		return nil
-	}
+// hint 给出当前拍品在拍场第 round 轮的提示, 能选别的时不与这个拍品的上一条同一种
+func (st *state) hint(tx *gorm.DB, round int32) error {
+	a, lot := &st.auction, st.lot
 	items, err := loadItems(tx, a.MatchID, lot.LotNo)
 	if err != nil {
 		return err
@@ -305,7 +261,7 @@ func (st *state) advanceHost(tx *gorm.DB, round int32) error {
 	if err := tx.Where("match_id = ? AND lot_no = ?", a.MatchID, lot.LotNo).Order("round DESC").Limit(1).Find(&last).Error; err != nil {
 		return err
 	}
-	return giveHint(tx, a, lot, items, round+1, last.Kind)
+	return giveHint(tx, a, lot, items, round, last.Kind)
 }
 
 // giveHint 生成并保存拍品 lot 在拍场第 round 轮的提示, 没有能给的提示时跳过

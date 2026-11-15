@@ -669,18 +669,6 @@ func (st *state) canBid(p *Player) bool {
 	return st.lot.CanBid(p.Seat) && p.Remaining() >= st.lot.StartPrice
 }
 
-// bidders 判定用的出价者
-func (st *state) bidders() []bidder {
-	bidders := make([]bidder, len(st.players))
-	for i, p := range st.players {
-		bidders[i] = bidder{Seat: p.Seat, Bid: p.Bid}
-		if p.BidAt != nil {
-			bidders[i].BidAt = *p.BidAt
-		}
-	}
-	return bidders
-}
-
 // allSubmitted 本轮可以出价的真人是否都已出价
 func (st *state) allSubmitted() bool {
 	for i := range st.players {
@@ -690,16 +678,6 @@ func (st *state) allSubmitted() bool {
 		}
 	}
 	return true
-}
-
-// humanCanBid 本轮是否有真人可以出价
-func (st *state) humanCanBid() bool {
-	for i := range st.players {
-		if p := &st.players[i]; p.UserID != 0 && st.canBid(p) {
-			return true
-		}
-	}
-	return false
 }
 
 // placeBid 记录 p 本轮的出价, 高于当前出价时更新当前出价和提交时间
@@ -715,123 +693,101 @@ func (st *state) placeBid(tx *gorm.DB, p *Player, amount int64, at time.Time) er
 	return tx.Model(p).Select("bid", "bid_at").Updates(p).Error
 }
 
-// botBids 本轮可以出价的人机按风格决策并出价, 同时更新估值
-//
-// 人机看到的与真人在这一轮出价时相同, 见 Observation; 决策出错时记录日志并视为不加价, 不影响对局。
-// waited 为本轮是否等待过真人出价: 是时出价时间见 botBidAt; 否则没有真人可比, 为现在。
-func (st *state) botBids(tx *gorm.DB, waited bool) error {
-	m, lot := st.match, st.lot
-	rule := st.rule()
-	now := time.Now()
-	var start time.Time
-	var length time.Duration
-	if waited && m.PhaseEndsAt != nil {
-		length = time.Duration(rule.RoundSeconds) * time.Second
-		start = m.PhaseEndsAt.Add(-length)
+// session 各座位和热度在推进规则中的局面, 与 players 的顺序相同; 还没有进入拍品, 见 session.openLot 和 session.resumeLot
+func (st *state) session() *session {
+	a := &st.auction
+	s := &session{
+		Seats:     make([]seat, len(st.players)),
+		Hosted:    a.Host != "",
+		Hype:      a.Hype,
+		HypeDecay: int64(a.Venue.HypeDecay),
+		Round:     st.match.Round,
 	}
-	var future int64
-	for _, l := range st.lots[lot.LotNo:] {
-		future += expectedValue(l.Odds)
-	}
-	var prints []Footprint
-	var shown map[int16]int64
 	for i := range st.players {
 		p := &st.players[i]
-		if p.UserID != 0 || !st.canBid(p) {
-			continue
+		s.Seats[i] = seat{Seat: p.Seat, Human: p.UserID != 0, Carry: p.Remaining(), Bid: p.Bid, Estimate: p.Estimate, Seed: p.Seed}
+		if p.BidAt != nil {
+			s.Seats[i].BidAt = *p.BidAt
 		}
-		if shown == nil {
-			var err error
-			if shown, err = shownBids(tx, lot, m.Round, rule.Rounds); err != nil {
-				return err
+		if p.UserID == 0 {
+			s.Seats[i].Decide = func(obs Observation, rng *rand.Rand) (Decision, error) {
+				return bot.Decide[Observation, Decision](&p.Persona, obs, rng)
 			}
-			items, err := loadItems(tx, m.ID, lot.LotNo)
-			if err != nil {
-				return err
-			}
-			prints = footprints(items)
-		}
-		others := make([]int64, 0, len(st.players)-1)
-		for _, other := range st.players {
-			if other.Seat != p.Seat {
-				others = append(others, shown[other.Seat])
-			}
-		}
-		obs := Observation{
-			Round:      lot.Round(m.Round),
-			Rules:      rule,
-			Grid:       lot.Grid,
-			Footprints: prints,
-			Odds:       lot.Odds,
-			Carry:      p.Remaining(),
-			Bid:        p.Bid,
-			Others:     others,
-			Future:     future,
-			LotsLeft:   st.auction.LotCount - lot.LotNo,
-			Seed:       p.Seed,
-		}
-		var amount int64
-		decision, err := bot.Decide[Observation, Decision](&p.Persona, obs, rand.New(rand.NewPCG(uint64(p.Seed), uint64(m.Round))))
-		if err != nil {
-			logger.ErrorF(tx.Statement.Context, "[Auction] bot of seat %d in match %d failed to decide: %v", p.Seat, m.ID, err)
-		} else {
-			if amount = min(decision.Bid, p.Remaining()); amount < rule.StartPrice || amount <= p.Bid {
-				amount = 0
-			}
-			if decision.Estimate != p.Estimate {
-				p.Estimate = decision.Estimate
-				if err := tx.Model(p).Select("estimate").Updates(p).Error; err != nil {
-					return err
-				}
-			}
-		}
-		if err := st.placeBid(tx, p, amount, botBidAt(start, length, now, rand.Int64N)); err != nil {
-			return err
 		}
 	}
-	return nil
+	return s
 }
 
-// shownBids 拍场的第 round 轮出价时已公开的拍品 lot 上每个座位的出价: 拍品的前 N-1 轮(N 为规则的轮数)结束后公开,
-// 取 round 之前的公开轮次中每个座位的最高出价
-func shownBids(tx *gorm.DB, lot *Lot, round, rounds int32) (map[int16]int64, error) {
-	var rows []Bid
-	if err := tx.Where("match_id = ? AND lot_no = ? AND round < ? AND round < ?", lot.MatchID, lot.LotNo, round, lot.FirstRound+rounds-1).
-		Find(&rows).Error; err != nil {
+// lotSpec 当前拍品开拍时就确定的信息; 扫出的轮廓只有人机决策时用, 没有人机时不读
+func (st *state) lotSpec(tx *gorm.DB) (lotSpec, error) {
+	lot := st.lot
+	spec := lotSpec{Rule: st.rule(), Grid: lot.Grid, Odds: lot.Odds, LotsLeft: st.auction.LotCount - lot.LotNo}
+	for _, l := range st.lots[lot.LotNo:] {
+		spec.Future += expectedValue(l.Odds)
+	}
+	if slices.ContainsFunc(st.players, func(p Player) bool { return p.UserID == 0 }) {
+		items, err := loadItems(tx, st.match.ID, lot.LotNo)
+		if err != nil {
+			return lotSpec{}, err
+		}
+		spec.Footprints = footprints(items)
+	}
+	return spec, nil
+}
+
+// resolveRound 真人出价后结束本轮, 见 advance; 当前拍品的进度按出价记录恢复
+func (st *state) resolveRound(tx *gorm.DB, waited bool) (*match.Phase, error) {
+	lot := st.lot
+	spec, err := st.lotSpec(tx)
+	if err != nil {
 		return nil, err
 	}
-	shown := map[int16]int64{}
-	for _, b := range rows {
-		shown[b.Seat] = max(shown[b.Seat], b.Amount)
+	var bids []Bid
+	if err := tx.Where("match_id = ? AND lot_no = ?", st.match.ID, lot.LotNo).Find(&bids).Error; err != nil {
+		return nil, err
 	}
-	return shown, nil
+	s := st.session()
+	s.resumeLot(spec, lot.FirstRound, lot.ExtraRounds, lot.Contenders, bids)
+	return st.advance(tx, s, waited)
 }
 
-// resolveRound 人机出价后判定本轮: 当前拍品成交或流拍时结算并进入开箱, 否则进入下一轮
+// advance 按 s 结束本轮(人机出价并判定, 见 session.closeRound)并写入结果: 当前拍品成交或流拍时结算并进入开箱, 否则进入下一轮
 //
 // 开箱阶段的时长为这个拍品的扫描时长之和加上停留时长, 还有下一个拍品时再加上拍品间隔; 最后一个拍品开箱时拍场已结算, 对局随即释放,
-// 玩家可以离开去排下一局。没有真人可以出价的轮次(只有人机并列的加轮、真人的剩余资金都不够起拍价)不等待超时, 直接判定下一轮。
-// waited 见 botBids。
-func (st *state) resolveRound(tx *gorm.DB, waited bool) (*match.Phase, error) {
+// 玩家可以离开去排下一局。没有真人可以出价的轮次(只有人机并列的加轮、真人的剩余资金都不够起拍价)不等待超时, 直接结束下一轮。
+// waited 为本轮是否等待过真人出价: 是时人机的出价时间见 botBidAt; 否则没有真人可比, 为现在。
+func (st *state) advance(tx *gorm.DB, s *session, waited bool) (*match.Phase, error) {
 	a, lot := &st.auction, st.lot
 	rule := st.rule()
 	match.AfterCommit(tx, func(ctx context.Context) { pushViews(ctx, st.match.ID) })
+	now := time.Now()
+	var start time.Time
+	var length time.Duration
+	if waited && st.match.PhaseEndsAt != nil {
+		length = time.Duration(rule.RoundSeconds) * time.Second
+		start = st.match.PhaseEndsAt.Add(-length)
+	}
+	s.Clock = func() time.Time {
+		if !waited {
+			return time.Now()
+		}
+		return botBidAt(start, length, now, rand.Int64N)
+	}
 	for ; ; waited = false {
-		round := st.match.Round
-		if err := st.botBids(tx, waited); err != nil {
+		res := s.closeRound()
+		if err := st.saveBots(tx, s, &res); err != nil {
 			return nil, err
 		}
 
-		result := judge(&rule, lot.Round(round), lot.ExtraRounds, st.bidders())
-		if result.Outcome != "" {
-			if err := st.settleLot(tx, result); err != nil {
+		if res.Verdict.Outcome != "" {
+			if err := st.settleLot(tx, res.Verdict); err != nil {
 				return nil, err
 			}
 			scan, err := scanDuration(tx, st.match.ID, lot.LotNo)
 			if err != nil {
 				return nil, err
 			}
-			phase := &match.Phase{Name: PhaseReveal, Round: round, Duration: scan + time.Duration(rule.RevealSeconds)*time.Second}
+			phase := &match.Phase{Name: PhaseReveal, Round: res.Round, Duration: scan + time.Duration(rule.RevealSeconds)*time.Second}
 			if lot.LotNo < a.LotCount {
 				phase.Duration += time.Duration(a.Venue.GapSeconds) * time.Second
 				return phase, nil
@@ -843,38 +799,80 @@ func (st *state) resolveRound(tx *gorm.DB, waited bool) (*match.Phase, error) {
 			return phase, nil
 		}
 
-		if lot.Round(round) >= rule.Rounds {
-			lot.ExtraRounds++
-		}
-		lot.Contenders = result.Contenders
+		lot.ExtraRounds, lot.Contenders = s.extra, s.contenders
 		if lot.Contenders == nil {
 			lot.Contenders = []int16{}
 		}
 		if err := tx.Model(lot).Select("contenders", "extra_rounds").Updates(lot).Error; err != nil {
 			return nil, err
 		}
-		if err := st.advanceHost(tx, round); err != nil {
-			return nil, err
+		if s.Hosted {
+			if err := st.recordHype(tx, res.Round, res.Raises, s.Hype); err != nil {
+				return nil, err
+			}
+			if res.Hint {
+				if err := st.hint(tx, s.Round); err != nil {
+					return nil, err
+				}
+			}
 		}
 		// 出价记录按 match.Round 写入, 阶段最终由 Advance 按返回值写入
-		st.match.Round = round + 1
+		st.match.Round = s.Round
 		clear(st.submitted)
-		if st.humanCanBid() {
-			return biddingPhase(&rule, round+1), nil
+		if s.humanCanBid() {
+			return biddingPhase(&rule, s.Round), nil
 		}
 	}
 }
 
-// startLot 开拍下一个拍品: 从上一个拍品的最后一轮之后开始, 清空每个人的出价和估值, 热度回落并给出第 1 轮的提示
+// saveBots 写入人机在 res 这一轮的估值和出价; 决策出错的人机记录日志并视为不加价, 不影响对局
+func (st *state) saveBots(tx *gorm.DB, s *session, res *roundResult) error {
+	for _, f := range res.Failed {
+		logger.ErrorF(tx.Statement.Context, "[Auction] bot of seat %d in match %d failed to decide: %v", f.Seat, st.match.ID, f.Err)
+	}
+	for i := range st.players {
+		p := &st.players[i]
+		if p.UserID != 0 || p.Estimate == s.Seats[i].Estimate {
+			continue
+		}
+		p.Estimate = s.Seats[i].Estimate
+		if err := tx.Model(p).Select("estimate").Updates(p).Error; err != nil {
+			return err
+		}
+	}
+	for _, b := range res.Bots {
+		if err := tx.Create(&Bid{MatchID: st.match.ID, LotNo: st.lot.LotNo, Round: res.Round, Seat: b.Seat, Amount: b.Amount}).Error; err != nil {
+			return err
+		}
+		if b.Amount == 0 {
+			continue
+		}
+		i := slices.IndexFunc(st.players, func(p Player) bool { return p.Seat == b.Seat })
+		p, at := &st.players[i], s.Seats[i].BidAt
+		p.Bid, p.BidAt = b.Amount, &at
+		if err := tx.Model(p).Select("bid", "bid_at").Updates(p).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// startLot 开拍下一个拍品(见 session.openLot): 从上一个拍品的最后一轮之后开始, 清空每个人的出价和估值, 热度回落并给出第 1 轮的提示
 func (st *state) startLot(tx *gorm.DB) (*match.Phase, error) {
 	a := &st.auction
-	a.Lot++
-	if int(a.Lot) > len(st.lots) {
-		return nil, fmt.Errorf("auction: lot %d of match %d not found", a.Lot, a.MatchID)
+	if int(a.Lot) >= len(st.lots) {
+		return nil, fmt.Errorf("auction: lot %d of match %d not found", a.Lot+1, a.MatchID)
 	}
+	s := st.session()
+	a.Lot++
 	st.lot = &st.lots[a.Lot-1]
-	round := st.match.Round + 1
-	st.lot.FirstRound = round
+	spec, err := st.lotSpec(tx)
+	if err != nil {
+		return nil, err
+	}
+	s.openLot(spec)
+
+	st.lot.FirstRound = s.Round
 	if err := tx.Model(st.lot).Select("first_round").Updates(st.lot).Error; err != nil {
 		return nil, err
 	}
@@ -888,18 +886,23 @@ func (st *state) startLot(tx *gorm.DB) (*match.Phase, error) {
 	for i := range st.players {
 		st.players[i].Bid, st.players[i].BidAt, st.players[i].Estimate = 0, nil, 0
 	}
-	if err := st.lotHost(tx); err != nil {
-		return nil, err
+	if s.Hosted {
+		if err := st.recordHype(tx, 0, 0, s.Hype); err != nil {
+			return nil, err
+		}
+		if err := st.hint(tx, s.Round); err != nil {
+			return nil, err
+		}
 	}
 
-	st.match.Round = round
+	st.match.Round = s.Round
 	clear(st.submitted)
-	rule := st.rule()
-	if !st.humanCanBid() {
-		return st.resolveRound(tx, false)
+	if !s.humanCanBid() {
+		return st.advance(tx, s, false)
 	}
 	match.AfterCommit(tx, func(ctx context.Context) { pushViews(ctx, st.match.ID) })
-	return biddingPhase(&rule, round), nil
+	rule := st.rule()
+	return biddingPhase(&rule, s.Round), nil
 }
 
 // scanDuration 开箱时扫描一个拍品的全部藏品的时长
