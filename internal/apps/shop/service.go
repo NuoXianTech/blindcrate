@@ -36,7 +36,6 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
-	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
@@ -180,13 +179,13 @@ func Purchase(ctx context.Context, userID uint64, req *PurchaseRequest) (*OrderV
 		results, err = purchase(tx, userID, req, &order)
 		return err
 	})
+	switch reward.FailureOf(err) {
+	case reward.Unavailable:
+		return nil, false, &RejectedError{Reason: GoodsUnavailable}
+	case reward.TooLarge:
+		return nil, false, errors.New(AmountTooLarge)
+	}
 	if err != nil {
-		switch err.Error() {
-		case item.ItemNotFound, item.ItemDisabled, wallet.CurrencyNotFound, wallet.CurrencyDisabled:
-			return nil, false, &RejectedError{Reason: GoodsUnavailable}
-		case wallet.AmountInvalid, inventory.QuantityInvalid:
-			return nil, false, errors.New(AmountTooLarge)
-		}
 		return nil, false, err
 	}
 	for _, result := range results {
@@ -384,11 +383,12 @@ func Refund(ctx context.Context, operatorID, orderID uint64) (*Order, error) {
 			OperatorID:     operatorID,
 			Remark:         order.Name,
 		}); err != nil {
+			if reward.FailureOf(err) == reward.Unavailable {
+				return errors.New(RefundUnavailable)
+			}
 			switch err.Error() {
 			case wallet.InsufficientBalance, inventory.InsufficientQuantity:
 				return errors.New(RefundInsufficient)
-			case item.ItemNotFound, item.ItemDisabled, wallet.CurrencyNotFound, wallet.CurrencyDisabled:
-				return errors.New(RefundUnavailable)
 			}
 			return err
 		}
