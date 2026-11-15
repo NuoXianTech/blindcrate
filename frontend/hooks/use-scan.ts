@@ -11,14 +11,14 @@ const SCAN_TICK_MS = 100;
 export interface Scan extends ScanProgress {
   /** 正在播放开箱扫描 */
   scanning: boolean;
-  /** 全部扫完, 可以公开仓库价值、盈亏和名次; 还没结算时为 false */
+  /** 全部扫完, 可以公开货仓价值、盈亏和名次; 还没结算时为 false */
   complete: boolean;
   /** 已扫完的藏品中出价货币的回收价之和 */
   value: number;
 }
 
 /**
- * 一个拍品的开箱扫描进度: 结算后按扫描顺序逐件扫描, 仓库价值随扫描累加, 全部扫完才算揭晓
+ * 一个拍品的开箱扫描进度: 结算后按扫描顺序逐件扫描, 货仓价值随扫描累加, 全部扫完才算揭晓
  * 中途进入或重连时按结算后已过去的时间接着扫; 对局已结束或拍品已取消时视为已扫完
  */
 export function useScan(lot: LotView, currency: string, finished: boolean): Scan {

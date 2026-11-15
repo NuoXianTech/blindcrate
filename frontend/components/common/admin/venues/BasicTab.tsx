@@ -95,7 +95,7 @@ export function BasicTab({form, onChange, disabled, editing, currencies}: FormTa
             ))}
           </SelectContent>
         </Select>
-        <span className="text-xs text-muted-foreground">出价、带入资金和仓库价值都按这个货币计算, 其他货币的藏品不计入仓库价值</span>
+        <span className="text-xs text-muted-foreground">出价、带入资金和货仓价值都按这个货币计算, 其他货币的藏品不计入货仓价值</span>
       </div>
 
       <div className="flex flex-col gap-2">

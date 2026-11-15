@@ -82,7 +82,7 @@ const services = {
   settings: SettingsService,
   /** 图片上传 */
   upload: UploadService,
-  /** 仓库暗拍 */
+  /** 货仓暗拍 */
   auction: AuctionService,
   /** 后台: 暗拍详情 */
   auctionAdmin: AuctionAdminService,

@@ -17,7 +17,7 @@ export interface Item {
   sell_currency: string;
   /** 官方回收价, 最小单位; 0 表示不可卖出 */
   sell_price: number;
-  /** 在仓库中占的格数 */
+  /** 在货仓中占的格数 */
   width: number;
   height: number;
   /** 使用效果代码, 见 ItemEffect; 空表示不能使用, 藏品没有效果 */

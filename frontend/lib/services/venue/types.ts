@@ -25,20 +25,20 @@ export interface RequirementProgress {
   text: string;
 }
 
-/** 仓库价值区间, 保存地图时模拟得到 */
+/** 货仓价值区间, 保存地图时模拟得到 */
 export interface ValueRange {
   p10: number;
   p50: number;
   p90: number;
 }
 
-/** 仓库的格子 */
+/** 货仓的格子 */
 export interface Grid {
   width: number;
   height: number;
 }
 
-/** 拍场中一种格子大小的拍品, 对应后端 venue.LotGrid */
+/** 仓库中一种格子大小的拍品, 对应后端 venue.LotGrid */
 export interface LotGrid {
   grid: Grid;
   /** 拍品是这种格子大小的概率, 基点 */
@@ -47,7 +47,7 @@ export interface LotGrid {
   speed_floor: number;
 }
 
-/** 玩家看到的拍场: 拍品数和每种格子大小, 档次不公开, 对应后端 venue.LotsView */
+/** 玩家看到的仓库: 拍品数和每种格子大小, 档次不公开, 对应后端 venue.LotsView */
 export interface LotsView {
   min: number;
   max: number;
@@ -59,7 +59,7 @@ export interface LotsView {
 /**
  * 拍卖参数, 金额按出价货币的最小单位, 对应后端 venue.AuctionRule
  *
- * 管理员只配置轮次、时长和速胜倍率; 金额和比例由保存时模拟的仓库价值分布推导, 旧数据中为 0
+ * 管理员只配置轮次、时长和速胜倍率; 金额和比例由保存时模拟的货仓价值分布推导, 旧数据中为 0
  */
 export interface AuctionRule {
   rounds: number;
@@ -72,7 +72,7 @@ export interface AuctionRule {
   entry_fee: number;
   /** 各档次中最低的起拍价, 也是最低带入; 每个拍品按档次的起拍价 */
   start_price: number;
-  /** 带入资金上限, 玩家在 [start_price, max_carry] 内自选带入金额, 整个拍场共用 */
+  /** 带入资金上限, 玩家在 [start_price, max_carry] 内自选带入金额, 整个仓库共用 */
   max_carry: number;
   /** 人机的带入资金, 不超过带入资金上限; 旧地图为 0, 按带入资金上限 */
   bot_carry: number;
@@ -85,7 +85,7 @@ export interface AuctionRule {
 }
 
 /**
- * 主持人, 对应后端 venue.HostRule: 每轮开始时公开一条关于仓库的提示, 有一定概率说错
+ * 主持人, 对应后端 venue.HostRule: 每轮开始时公开一条关于货仓的提示, 有一定概率说错
  */
 export interface HostRule {
   /** 关闭时没有提示和热度 */
@@ -102,7 +102,7 @@ export interface HostRule {
 export interface PveView {
   /** 人机模式只能打练习局 */
   practice_only: boolean;
-  /** 仓库价值系数, 基点 */
+  /** 货仓价值系数, 基点 */
   value_factor: number;
   value_range: ValueRange;
   /** 今天受到的每日收益上限, 不限制时为空; 任一上限达到后人机对局转为练习局 */
@@ -136,11 +136,11 @@ export interface Venue {
   /** 排位模式单个拍品的价值区间 */
   value_range: ValueRange;
   pve: PveView;
-  /** 拍场的拍品数和格子大小; max 为 1 时一局一个仓库 */
+  /** 仓库的拍品数和格子大小; max 为 1 时一局一个货仓 */
   lots: LotsView;
 }
 
-/** 仓库的一个档位, 对应后端 venue.Slot */
+/** 货仓的一个档位, 对应后端 venue.Slot */
 export interface Slot {
   /** 掉落池代码 */
   pool: string;
@@ -184,11 +184,11 @@ export interface SlotOdds extends Slot {
 
 /** 玩家看到的地图详情, 对应后端 venue.VenueDetail */
 export interface VenueDetail extends Venue {
-  /** 拍场每种格子大小的仓库 */
+  /** 仓库每种格子大小的货仓 */
   lot_slots: GridOdds[];
 }
 
-/** 拍场中一种格子大小的仓库, 同一格子大小的各档次不公开名称 */
+/** 仓库中一种格子大小的货仓, 同一格子大小的各档次不公开名称 */
 export interface GridOdds {
   grid: Grid;
   variants: {
@@ -198,8 +198,8 @@ export interface GridOdds {
   }[];
 }
 
-/** 仓库的一个档位, 从掉落池抽取若干次 */
-export interface WarehouseSlot {
+/** 货仓的一个档位, 从掉落池抽取若干次 */
+export interface DepotSlot {
   /** 掉落池代码, 只能有物品条目 */
   pool: string;
   /** 抽取次数在 [min, max] 内均匀随机 */
@@ -209,19 +209,19 @@ export interface WarehouseSlot {
   chance: number;
 }
 
-/** 仓库的一档数量波动, 对应后端 venue.Swing */
-export interface WarehouseSwing {
+/** 货仓的一档数量波动, 对应后端 venue.Swing */
+export interface DepotSwing {
   /** 抽中这一档时按它缩放各档位的抽取次数, 基点 */
   factor: number;
   weight: number;
 }
 
-/** 仓库生成规则, 对应后端 venue.WarehouseRule */
-export interface WarehouseRule {
+/** 货仓生成规则, 对应后端 venue.DepotRule */
+export interface DepotRule {
   grid: Grid;
-  slots: WarehouseSlot[];
+  slots: DepotSlot[];
   /** 每局按权重抽一档, 为空表示不波动 */
-  swings: WarehouseSwing[];
+  swings: DepotSwing[];
   /** 摆不下时重抽, 超过后开局失败 */
   max_rerolls: number;
 }
@@ -238,18 +238,18 @@ export interface TierAuction {
 export interface LotTier {
   /** 档次中唯一 */
   code: string;
-  /** 只在管理端和拍场结束后显示 */
+  /** 只在管理端和仓库结束后显示 */
   name: string;
   /** 1-10000 */
   weight: number;
-  warehouse: WarehouseRule;
+  depot: DepotRule;
   /** 保存时推导, 提交的值会被覆盖 */
   auction: TierAuction;
 }
 
 /**
- * 拍场, 对应后端 venue.LotRule: 一局依次开拍 [min, max] 个拍品, 共用一笔带入资金, 每个拍品按权重抽一种档次
- * max 为 1 时一局一个仓库, 带入资金按单个仓库的价值分布推导, 不用覆盖率
+ * 仓库, 对应后端 venue.LotRule: 一局依次开拍 [min, max] 个拍品, 共用一笔带入资金, 每个拍品按权重抽一种档次
+ * max 为 1 时一局一个货仓, 带入资金按单个货仓的价值分布推导, 不用覆盖率
  */
 export interface LotRule {
   /** 1-8, 不超过 max */
@@ -263,7 +263,7 @@ export interface LotRule {
   coverage: number;
 }
 
-/** 提交的拍场, 档次的金额由后端推导, 不需要提交 */
+/** 提交的仓库, 档次的金额由后端推导, 不需要提交 */
 export type LotRequest = Omit<LotRule, 'tiers'> & {
   tiers: Omit<LotTier, 'auction'>[];
 };
@@ -306,7 +306,7 @@ export interface PveRule {
   value_factor: number;
 }
 
-/** 模拟仓库的价值分布, 价值为出价货币的回收价之和 */
+/** 模拟货仓的价值分布, 价值为出价货币的回收价之和 */
 export interface ValueStats {
   /** 摆放失败率, 基点 */
   failure_rate: number;
@@ -330,27 +330,27 @@ export interface SquadStats {
   humans: number;
   /** 成交率 */
   sold: number;
-  /** 成交价之和 ÷ 仓库价值之和 */
+  /** 成交价之和 ÷ 货仓价值之和 */
   price_value: number;
   /** 速胜率, 最后一轮之前成交的比例 */
   speed_win: number;
   /** 出价离散度 */
   bid_cv: number;
-  /** 最贵一件占仓库价值的比例 */
+  /** 最贵一件占货仓价值的比例 */
   top_share: number;
-  /** 人机估值之和 ÷ 仓库价值之和, 没有人机时为 0 */
+  /** 人机估值之和 ÷ 货仓价值之和, 没有人机时为 0 */
   appraise_bias: number;
   /** 平均在第几轮结束, 百分之一轮 */
   avg_rounds: number;
   /** 每个真人席位每个拍品的成交率, 一局一个拍品时就是每局的成交率 */
   win_rate: number;
-  /** 每个真人席位每局(拍场)的平均盈亏 */
+  /** 每个真人席位每局(仓库)的平均盈亏 */
   seat_ev: number;
   /** 每局平均的拍品数, 百分之一个; 旧数据没有 */
   lots?: number;
-  /** 每个真人席位拿到拍场第 1 名(盈亏最高且赚钱)的比例; 多拍品时胜率闸门看它 */
+  /** 每个真人席位拿到仓库第 1 名(盈亏最高且赚钱)的比例; 多拍品时胜率闸门看它 */
   rank_win?: number;
-  /** 拍场结束时剩余资金不够最低起拍价的真人席位比例 */
+  /** 仓库结束时剩余资金不够最低起拍价的真人席位比例 */
   budget_out?: number;
   /** 会规划预算的模拟真人比不规划的每局多赚多少, 只有两种都有时有 */
   plan_gain?: number;
@@ -398,7 +398,7 @@ export interface BalanceCheck {
 export interface Balance {
   /** 每种阵容模拟的局数 */
   runs: number;
-  /** 成交价 ÷ 仓库价值的目标, 基点 */
+  /** 成交价 ÷ 货仓价值的目标, 基点 */
   target: number;
   /** 参考阵容在前 */
   squads: SquadStats[];
@@ -416,12 +416,12 @@ export interface TierStats {
   pve: ValueStats;
 }
 
-/** 仓库模拟结果, 对应后端 venue.Simulation */
+/** 货仓模拟结果, 对应后端 venue.Simulation */
 export interface Simulation {
   runs: number;
   /** 排位模式, 不缩放抽取次数; 单个拍品(按权重混合各档次)的分布 */
   ranked: ValueStats;
-  /** 人机模式, 按仓库价值系数缩放抽取次数 */
+  /** 人机模式, 按货仓价值系数缩放抽取次数 */
   pve: ValueStats;
   /** 各档次的价值分布, 同 lots.tiers 的顺序 */
   tiers: TierStats[];
@@ -456,7 +456,7 @@ export interface AdminVenue {
   entry_cost: Bundle;
   /** 入场条件, 需要全部满足 */
   requirements: Condition[];
-  /** 拍场: 一局开拍几个仓库, 从哪些档次中抽 */
+  /** 仓库: 一局开拍几个货仓, 从哪些档次中抽 */
   lots: LotRule;
   auction: AuctionRule;
   bots: BotRule;

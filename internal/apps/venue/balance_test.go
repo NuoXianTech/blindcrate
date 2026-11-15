@@ -48,7 +48,7 @@ func TestCalibrate(t *testing.T) {
 			AuctionRule{StartPrice: 400, MaxCarry: 20000, BotCarry: 12000, SpeedFloor: 7500},
 		},
 		{
-			"tiny warehouses still start at 1",
+			"tiny depots still start at 1",
 			ValueStats{Mean: 10, P90: 10, CV: 0},
 			AuctionRule{StartPrice: 1, MaxCarry: 20, BotCarry: 12, SpeedFloor: 7},
 		},
@@ -68,7 +68,7 @@ func TestCalibrate(t *testing.T) {
 
 func TestBalanceJudge(t *testing.T) {
 	v := &Venue{
-		Lots:       LotRule{Min: 1, Max: 1, Tiers: []Tier{{Warehouse: WarehouseRule{Grid: Grid{Width: 8, Height: 3}}}}},
+		Lots:       LotRule{Min: 1, Max: 1, Tiers: []Tier{{Depot: DepotRule{Grid: Grid{Width: 8, Height: 3}}}}},
 		Auction:    AuctionRule{Rounds: 5},
 		Pve:        PveRule{PracticeOnly: true},
 		Simulation: Simulation{Ranked: ValueStats{Mean: 10000}},
@@ -95,7 +95,7 @@ func TestBalanceJudge(t *testing.T) {
 	if !slices.Equal(failed, want) {
 		t.Errorf("failed checks %v, want %v", failed, want)
 	}
-	if got := b.failures(); got != "仓库高度、速胜率(4 个真人)、真人盈亏(排位补人机)" {
+	if got := b.failures(); got != "货仓高度、速胜率(4 个真人)、真人盈亏(排位补人机)" {
 		t.Errorf("failures: %q", got)
 	}
 	for _, c := range b.Checks {
@@ -104,7 +104,7 @@ func TestBalanceJudge(t *testing.T) {
 		}
 	}
 
-	v.Lots.Tiers[0].Warehouse.Grid.Height = 6
+	v.Lots.Tiers[0].Depot.Grid.Height = 6
 	b.Squads[0].SpeedWin, b.Squads[1].SeatEV = 2000, -400
 	b.judge(v, settings.Balance.Default())
 	if !b.Passed || b.failures() != "" {
@@ -132,15 +132,15 @@ func TestBalanceJudge(t *testing.T) {
 func TestCalibrateVenue(t *testing.T) {
 	v := &Venue{
 		Lots: LotRule{Min: 1, Max: 1, Tiers: []Tier{
-			{Code: "small", Weight: 1, Warehouse: WarehouseRule{Grid: Grid{Width: 4, Height: 4}}},
-			{Code: "big", Weight: 1, Warehouse: WarehouseRule{Grid: Grid{Width: 6, Height: 6}}},
+			{Code: "small", Weight: 1, Depot: DepotRule{Grid: Grid{Width: 4, Height: 4}}},
+			{Code: "big", Weight: 1, Depot: DepotRule{Grid: Grid{Width: 6, Height: 6}}},
 		}},
 		Simulation: Simulation{
 			Ranked: ValueStats{Mean: 10000, P90: 20000},
 			Tiers:  []TierStats{{Code: "small", Ranked: ValueStats{Mean: 5000}}, {Code: "big", Ranked: ValueStats{Mean: 15000}}},
 		},
 	}
-	// 单拍品: 带入资金按单个仓库的价值分布, 起拍价取各档次中最低的
+	// 单拍品: 带入资金按单个货仓的价值分布, 起拍价取各档次中最低的
 	v.Calibrate(settings.Balance.Default())
 	if r := v.Auction; r.StartPrice != 200 || r.MaxCarry != 30000 || r.BotCarry != 12000 {
 		t.Errorf("single lot: %+v", r)
@@ -150,7 +150,7 @@ func TestCalibrateVenue(t *testing.T) {
 		t.Errorf("tiers: %+v %+v", small, big)
 	}
 
-	// 多拍品: 带入资金上限按拍场期望总价值 × 覆盖率
+	// 多拍品: 带入资金上限按仓库期望总价值 × 覆盖率
 	v.Lots.Min, v.Lots.Max = 2, 4
 	v.Calibrate(settings.Balance.Default())
 	if r := v.Auction; r.StartPrice != 200 || r.MaxCarry != 9000 || r.BotCarry != 5400 {

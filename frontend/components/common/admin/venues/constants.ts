@@ -24,7 +24,7 @@ export const MAX_ENTRY_COST_LINES = 8;
 export const MAX_REQUIREMENTS = 16;
 export const MAX_SLOTS = 8;
 export const MAX_SWINGS = 8;
-/** 拍场, 与后端 venue.LotRule 的校验一致 */
+/** 仓库, 与后端 venue.LotRule 的校验一致 */
 export const MAX_LOTS = 8;
 export const MAX_TIERS = 6;
 export const MAX_GAP_SECONDS = 30;
@@ -54,7 +54,7 @@ export function toRequest(venue: AdminVenue): VenueRequest {
     // 档次的金额由后端推导, 不提交
     lots: {
       ...venue.lots,
-      tiers: venue.lots.tiers.map(({code, name, weight, warehouse}) => ({code, name, weight, warehouse})),
+      tiers: venue.lots.tiers.map(({code, name, weight, depot}) => ({code, name, weight, depot})),
     },
     auction: venue.auction,
     bots: venue.bots,

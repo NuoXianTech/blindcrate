@@ -106,7 +106,7 @@ func judge(rule *venue.AuctionRule, round, extraRounds int32, bidders []bidder) 
 
 // settlePrice 成交价: 第二名的出价加上第一名领先部分 × (1 - 领先折让); 没有第二名时按起拍价算, 并列时就是最高价
 //
-// 只按最高价成交时赢家总是买贵, 按第二名的出价成交时赢家白捡; 折让由保存地图时的验算求出, 让成交价平均落在仓库价值 × (1 - 出售手续费率)。
+// 只按最高价成交时赢家总是买贵, 按第二名的出价成交时赢家白捡; 折让由保存地图时的验算求出, 让成交价平均落在货仓价值 × (1 - 出售手续费率)。
 func settlePrice(rule *venue.AuctionRule, top, second int64) int64 {
 	base := max(second, rule.StartPrice)
 	if top <= base {
@@ -135,17 +135,17 @@ func previewPieces(n int, rate int32, randN func(n int64) int64) []bool {
 	return picked
 }
 
-// seatTotal 拍场结算时一个座位的成绩
+// seatTotal 仓库结算时一个座位的成绩
 type seatTotal struct {
 	Seat   int16
 	Profit int64   // 拿下的拍品的价值 - 成交价之和
-	Gap    float64 // 出过价的拍品中 |最后的出价 - 仓库价值| ÷ 仓库价值的平均值, 没出过价时为 -1
+	Gap    float64 // 出过价的拍品中 |最后的出价 - 货仓价值| ÷ 货仓价值的平均值, 没出过价时为 -1
 }
 
-// rankSession 拍场的名次, 从 1 开始且不重复: 盈亏从高到低; 相同时出过价的在前, 出价离仓库价值越近越前; 再相同时按座位
+// rankWarehouse 仓库的名次, 从 1 开始且不重复: 盈亏从高到低; 相同时出过价的在前, 出价离货仓价值越近越前; 再相同时按座位
 //
 // 一个拍品时与之前的规则一致: 赚钱的成交者第 1, 其他出过价的人按差距排, 之后是没出过价的人, 亏本的成交者最后。
-func rankSession(totals []seatTotal) map[int16]int16 {
+func rankWarehouse(totals []seatTotal) map[int16]int16 {
 	order := slices.Clone(totals)
 	slices.SortFunc(order, func(a, b seatTotal) int {
 		if c := cmp.Compare(b.Profit, a.Profit); c != 0 {

@@ -36,11 +36,11 @@ import (
 
 // hostInput 生成一轮提示时的局面
 type hostInput struct {
-	Round     int32           // 即将开始的轮次
-	Items     []WarehouseItem // 仓库里的全部藏品
-	Value     int64           // 仓库价值
-	Expected  int64           // 期望价值, 见 expectedValue
-	Qualities []int16         // 这张地图可能出现的品质, 从低到高; 说错时换成相邻的品质
+	Round     int32       // 即将开始的轮次
+	Items     []DepotItem // 货仓里的全部藏品
+	Value     int64       // 货仓价值
+	Expected  int64       // 期望价值, 见 expectedValue
+	Qualities []int16     // 这张地图可能出现的品质, 从低到高; 说错时换成相邻的品质
 	Rule      *venue.HostRule
 	Persona   string
 	Hype      int32
@@ -51,7 +51,7 @@ type hostInput struct {
 //
 // 提示只涉及开局时就确定的信息, 不涉及其他人的出价; 指认一件藏品时只指第 1 轮扫出轮廓的, 不透露其他藏品的位置。
 func makeHint(in *hostInput, randN func(n int64) int64) (HostHint, bool) {
-	var previewed []WarehouseItem
+	var previewed []DepotItem
 	for _, it := range in.Items {
 		if it.Preview {
 			previewed = append(previewed, it)
@@ -68,7 +68,7 @@ func makeHint(in *hostInput, randN func(n int64) int64) (HostHint, bool) {
 		options = append(options, HostHint{Kind: HostHintCount, Quality: q, Count: n})
 	}
 	if len(in.Items) > 0 {
-		best := slices.MaxFunc(in.Items, func(a, b WarehouseItem) int { return cmp.Compare(a.Quality, b.Quality) })
+		best := slices.MaxFunc(in.Items, func(a, b DepotItem) int { return cmp.Compare(a.Quality, b.Quality) })
 		options = append(options, HostHint{Kind: HostHintBest, Quality: best.Quality})
 	}
 	if len(previewed) > 0 {
@@ -178,7 +178,7 @@ func shiftHint(in *hostInput, hint *HostHint, up bool) bool {
 	return false
 }
 
-// expectedValue 按公示概率算出的仓库期望价值, 与人机估值用的分布相同
+// expectedValue 按公示概率算出的货仓期望价值, 与人机估值用的分布相同
 func expectedValue(odds []venue.PieceOdds) int64 {
 	var total float64
 	for _, o := range odds {
@@ -187,8 +187,8 @@ func expectedValue(odds []venue.PieceOdds) int64 {
 	return int64(math.Round(total))
 }
 
-// hostQualities 可能出现的品质, 从低到高: 公示概率中的品质加上仓库里实际有的
-func hostQualities(odds []venue.PieceOdds, items []WarehouseItem) []int16 {
+// hostQualities 可能出现的品质, 从低到高: 公示概率中的品质加上货仓里实际有的
+func hostQualities(odds []venue.PieceOdds, items []DepotItem) []int16 {
 	var qualities []int16
 	for _, o := range odds {
 		qualities = append(qualities, o.Quality)
@@ -219,8 +219,8 @@ func hypeDelta(raises []int64, expected int64, rounds int32) int32 {
 	return delta
 }
 
-// startHost 开局时选出主持人的性格(拍场结束后才公开), 记录初始热度, 给出第 1 个拍品第 1 轮的提示; 没有开启主持人提示时什么都不做
-func startHost(tx *gorm.DB, a *Match, lot *Lot, items []WarehouseItem) error {
+// startHost 开局时选出主持人的性格(仓库结束后才公开), 记录初始热度, 给出第 1 个拍品第 1 轮的提示; 没有开启主持人提示时什么都不做
+func startHost(tx *gorm.DB, a *Match, lot *Lot, items []DepotItem) error {
 	rule := &a.Venue.Host
 	if !rule.Enabled {
 		return nil
@@ -250,7 +250,7 @@ func (st *state) recordHype(tx *gorm.DB, round, raises, hype int32) error {
 	return tx.Model(a).Select("hype").Updates(a).Error
 }
 
-// hint 给出当前拍品在拍场第 round 轮的提示, 能选别的时不与这个拍品的上一条同一种
+// hint 给出当前拍品在仓库第 round 轮的提示, 能选别的时不与这个拍品的上一条同一种
 func (st *state) hint(tx *gorm.DB, round int32) error {
 	a, lot := &st.auction, st.lot
 	items, err := loadItems(tx, a.MatchID, lot.LotNo)
@@ -264,8 +264,8 @@ func (st *state) hint(tx *gorm.DB, round int32) error {
 	return giveHint(tx, a, lot, items, round, last.Kind)
 }
 
-// giveHint 生成并保存拍品 lot 在拍场第 round 轮的提示, 没有能给的提示时跳过
-func giveHint(tx *gorm.DB, a *Match, lot *Lot, items []WarehouseItem, round int32, last string) error {
+// giveHint 生成并保存拍品 lot 在仓库第 round 轮的提示, 没有能给的提示时跳过
+func giveHint(tx *gorm.DB, a *Match, lot *Lot, items []DepotItem, round int32, last string) error {
 	in := &hostInput{
 		Round:     lot.Round(round),
 		Items:     items,
@@ -301,19 +301,19 @@ func loadHost(tx *gorm.DB, matchID uint64) ([]HostHint, []HypeEvent, error) {
 // HintView 公开的一条提示, 字段见 HostHint
 type HintView struct {
 	LotNo    int32  `json:"lot_no"`
-	Round    int32  `json:"round"` // 拍场内的轮次
+	Round    int32  `json:"round"` // 仓库内的轮次
 	Kind     string `json:"kind"`  // 见 constants.go 的 HostHint
 	Quality  int16  `json:"quality"`
 	Count    int32  `json:"count"`
 	X        int16  `json:"x"` // 指认的藏品的位置, 是第 1 轮扫出轮廓的一件
 	Y        int16  `json:"y"`
 	Above    bool   `json:"above"`
-	Truthful *bool  `json:"truthful"` // 是否属实, 拍场结束后才公开
+	Truthful *bool  `json:"truthful"` // 是否属实, 仓库结束后才公开
 }
 
 // HostView 公开的主持人状态, 没有主持人提示的对局为空
 type HostView struct {
-	Persona string      `json:"persona"` // 见 venue.HostSteady 等, 拍场结束后才公开, 之前为空
+	Persona string      `json:"persona"` // 见 venue.HostSteady 等, 仓库结束后才公开, 之前为空
 	Hype    int32       `json:"hype"`
 	Hints   []HintView  `json:"hints"` // 按轮次
 	Hypes   []HypeEvent `json:"hypes"` // 热度的每次变动, 按时间

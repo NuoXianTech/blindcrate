@@ -214,7 +214,7 @@ func venueRenamed(req *venueadmin.VenueRequest, section, old, next string) {
 	switch section {
 	case PackLootPools:
 		for t := range req.Lots.Tiers {
-			slots := req.Lots.Tiers[t].Warehouse.Slots
+			slots := req.Lots.Tiers[t].Depot.Slots
 			for i := range slots {
 				if slots[i].Pool == old {
 					slots[i].Pool = next

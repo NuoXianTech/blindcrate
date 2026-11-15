@@ -8,7 +8,7 @@ import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
-import {IntelResult, Warehouse} from '@/components/common/auction';
+import {IntelResult, Depot} from '@/components/common/auction';
 import {useScan} from '@/hooks/use-scan';
 import {OUTCOMES, modeLabel, parseMode} from '@/lib/auction';
 import services from '@/lib/services';
@@ -19,7 +19,7 @@ import {formatAmount, formatDateTime} from '@/lib/utils';
 import {STATUS_LABELS, phaseLabel} from './constants';
 
 /**
- * 对局详情: 时间、每个座位, 暗拍还显示每个拍品的档次、价值和成交结果, 每个座位的带入资金、已花、当前出价、估值和盈亏, 道具的使用记录, 以及各拍品的仓库
+ * 对局详情: 时间、每个座位, 暗拍还显示每个拍品的档次、价值和成交结果, 每个座位的带入资金、已花、当前出价、估值和盈亏, 道具的使用记录, 以及各拍品的货仓
  */
 export function MatchDetailDialog({match, venueName, decimalsOf, onClose, onCancel}: {
   match: AdminMatch | null;
@@ -66,8 +66,8 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
   const status = STATUS_LABELS[m.status];
   const currency = auction?.venue.bid_currency ?? '';
   const decimals = decimalsOf(currency);
-  // 拍场结束后才有名次和盈亏
-  const settled = !!auction?.session;
+  // 仓库结束后才有名次和盈亏
+  const settled = !!auction?.warehouse;
   const lotNo = shownLot || auction?.lot || 1;
   const lot = auction?.lots[lotNo - 1];
   const times = [
@@ -108,7 +108,7 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
                 <TableHead>结果</TableHead>
                 <TableHead className="text-right">起拍价</TableHead>
                 <TableHead className="text-right">成交价</TableHead>
-                <TableHead className="text-right">仓库价值</TableHead>
+                <TableHead className="text-right">货仓价值</TableHead>
                 <TableHead className="text-right">件数</TableHead>
               </TableRow>
             </TableHeader>
@@ -118,7 +118,7 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
                   key={l.lot_no}
                   className={cn('cursor-pointer', l.lot_no === lotNo && 'bg-muted/50')}
                   onClick={() => setShownLot(l.lot_no)}
-                  title="查看这个拍品的仓库"
+                  title="查看这个拍品的货仓"
                 >
                   <TableCell className="font-mono tabular-nums">
                     {l.lot_no}
@@ -224,7 +224,7 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
       ) : (
         auction && lot && (
           <div className="mx-auto w-full max-w-2xl">
-            <AdminWarehouse key={lot.lot_no} view={auction} lot={lot} decimals={decimals} />
+            <AdminDepot key={lot.lot_no} view={auction} lot={lot} decimals={decimals} />
           </div>
         )
       )}
@@ -242,11 +242,11 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
 }
 
 /**
- * 详情中一个拍品的仓库, 不播放开箱扫描, 结算后直接显示全部藏品
+ * 详情中一个拍品的货仓, 不播放开箱扫描, 结算后直接显示全部藏品
  */
-function AdminWarehouse({view, lot, decimals}: { view: AuctionAdminView; lot: LotView; decimals: number }) {
+function AdminDepot({view, lot, decimals}: { view: AuctionAdminView; lot: LotView; decimals: number }) {
   const scan = useScan(lot, view.venue.bid_currency, true);
-  return <Warehouse view={view} lot={lot} decimals={decimals} scan={scan} />;
+  return <Depot view={view} lot={lot} decimals={decimals} scan={scan} />;
 }
 
 /**

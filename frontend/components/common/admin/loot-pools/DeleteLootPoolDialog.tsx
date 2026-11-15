@@ -41,7 +41,7 @@ export function DeleteLootPoolDialog({pool, onClose, onSaved}: {
           <AlertDialogTitle>删除 {pool?.name}</AlertDialogTitle>
           <AlertDialogDescription>
             删除后无法恢复, {pool && pool.entry_count > 0 ? `${pool.entry_count} 个条目会一同删除。` : '当前没有条目。'}
-            引用了代码 {pool?.code} 的地图将无法生成仓库, 需要先修改地图的档位。只是暂时不想用的话, 停用即可。
+            引用了代码 {pool?.code} 的地图将无法生成货仓, 需要先修改地图的档位。只是暂时不想用的话, 停用即可。
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

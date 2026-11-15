@@ -13,7 +13,7 @@ import {
 import {check} from '@/hooks/use-submit';
 import type {BotPersona} from '@/lib/services/bot';
 import type {ConditionType} from '@/lib/services/condition';
-import type {BotWeight, VenueRequest, WarehouseRule} from '@/lib/services/venue';
+import type {BotWeight, VenueRequest, DepotRule} from '@/lib/services/venue';
 import type {Currency} from '@/lib/services/wallet';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {checkImageURL} from '@/lib/validation';
@@ -53,8 +53,8 @@ export interface SwingDraft {
   weight: string;
 }
 
-/** 编辑中的仓库生成规则, 每个档次一个 */
-export interface WarehouseDraft {
+/** 编辑中的货仓生成规则, 每个档次一个 */
+export interface DepotDraft {
   gridWidth: string;
   gridHeight: string;
   slots: SlotDraft[];
@@ -68,7 +68,7 @@ export interface TierDraft {
   code: string;
   name: string;
   weight: string;
-  warehouse: WarehouseDraft;
+  depot: DepotDraft;
 }
 
 /** 编辑中的一种出场的人机风格 */
@@ -95,7 +95,7 @@ export interface VenueForm {
   entryCost: BundleDraft[];
   requirements: ConditionDraft[];
   lotMin: string;
-  /** 为 1 时一局一个仓库, 带入资金按单个仓库的价值推导 */
+  /** 为 1 时一局一个货仓, 带入资金按单个货仓的价值推导 */
   lotMax: string;
   /** 至少一种 */
   tiers: TierDraft[];
@@ -138,16 +138,16 @@ export function recommendedQuickWin(rounds: number): string[] {
   );
 }
 
-/** 新建地图时第一种档次的仓库 */
-const DEFAULT_WAREHOUSE: WarehouseRule = {
+/** 新建地图时第一种档次的货仓 */
+const DEFAULT_DEPOT: DepotRule = {
   grid: {width: 6, height: 5},
   slots: [{pool: '', min: 4, max: 8, chance: 10000}],
   swings: [],
   max_rerolls: 10,
 };
 
-/** 仓库生成规则转为表单 */
-function toWarehouseDraft(w: WarehouseRule): WarehouseDraft {
+/** 货仓生成规则转为表单 */
+function toDepotDraft(w: DepotRule): DepotDraft {
   return {
     gridWidth: String(w.grid.width),
     gridHeight: String(w.grid.height),
@@ -183,7 +183,7 @@ const DEFAULT_REQUEST: VenueRequest = {
   lots: {
     min: 1,
     max: 1,
-    tiers: [{code: 'tier1', name: '档次 1', weight: 1, warehouse: DEFAULT_WAREHOUSE}],
+    tiers: [{code: 'tier1', name: '档次 1', weight: 1, depot: DEFAULT_DEPOT}],
     gap_seconds: 0,
     coverage: 0,
   },
@@ -253,7 +253,7 @@ export function toVenueForm(venue: VenueRequest | null, {currencies, types, pers
       code: t.code,
       name: t.name,
       weight: String(t.weight),
-      warehouse: toWarehouseDraft(t.warehouse),
+      depot: toDepotDraft(t.depot),
     })),
     gapSeconds: String(v.lots.gap_seconds),
     coverage: ratioInput(v.lots.coverage, PERCENT_DECIMALS),
@@ -307,14 +307,14 @@ function readNumber(text: string, {label, min, max, decimals = 0, unit = ''}: Nu
 const percent = (text: string, label: string, min: number, max: number) =>
   readNumber(text, {label, min, max, decimals: PERCENT_DECIMALS, unit: '%'});
 
-/** 仓库表单转为请求体, prefix 加在提示前面, 如档次名称 */
-function fromWarehouseDraft(w: WarehouseDraft, prefix = ''): WarehouseRule {
+/** 货仓表单转为请求体, prefix 加在提示前面, 如档次名称 */
+function fromDepotDraft(w: DepotDraft, prefix = ''): DepotRule {
   check(w.slots.length === 0 || w.slots.length > MAX_SLOTS ? `${prefix}档位需为 1-${MAX_SLOTS} 个` : null);
   check(w.swings.length > MAX_SWINGS ? `${prefix}数量波动最多 ${MAX_SWINGS} 档` : null);
   return {
     grid: {
-      width: readNumber(w.gridWidth, {label: `${prefix}仓库宽度`, min: 1, max: 16}),
-      height: readNumber(w.gridHeight, {label: `${prefix}仓库高度`, min: 1, max: 16}),
+      width: readNumber(w.gridWidth, {label: `${prefix}货仓宽度`, min: 1, max: 16}),
+      height: readNumber(w.gridHeight, {label: `${prefix}货仓高度`, min: 1, max: 16}),
     },
     slots: w.slots.map((s, i) => {
       const row = `${prefix}第 ${i + 1} 档`;
@@ -335,7 +335,7 @@ function fromWarehouseDraft(w: WarehouseDraft, prefix = ''): WarehouseRule {
   };
 }
 
-/** 拍场转为请求体 */
+/** 仓库转为请求体 */
 function fromLots(form: VenueForm): VenueRequest['lots'] {
   const tiers = form.tiers;
   check(tiers.length === 0 || tiers.length > MAX_TIERS ? `档次需为 1-${MAX_TIERS} 种` : null);
@@ -358,7 +358,7 @@ function fromLots(form: VenueForm): VenueRequest['lots'] {
         code,
         name,
         weight: readNumber(t.weight, {label: `${row}: 权重`, min: 1, max: 10000}),
-        warehouse: fromWarehouseDraft(t.warehouse, `档次 ${name}: `),
+        depot: fromDepotDraft(t.depot, `档次 ${name}: `),
       };
     }),
   };
@@ -431,7 +431,7 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
     pve: {
       practice_only: form.practiceOnly,
       daily_profit_cap: amount(form.dailyProfitCap, '每日收益上限', 0),
-      value_factor: percent(form.valueFactor, '仓库价值系数', 1000, 10000),
+      value_factor: percent(form.valueFactor, '货仓价值系数', 1000, 10000),
     },
     consumables: {
       pve: {max_per_match: readNumber(form.usesPve, {label: '人机每局道具数', min: 0, max: MAX_USES})},

@@ -45,7 +45,7 @@ func RegisterBalancer(fn Balancer) {
 
 // Calibrate 按价值分布推导金额和比例, 系数和开关见 settings.BalanceSettings; 领先折让和入场费由对局验算求出, 这里先置 0
 //
-// 两种模式共用一套金额, 按排位模式的价值分布推导: 人机模式按仓库价值系数缩小仓库, 金额不跟着缩小, 是人机模式的防刷手段之一。
+// 两种模式共用一套金额, 按排位模式的价值分布推导: 人机模式按货仓价值系数缩小货仓, 金额不跟着缩小, 是人机模式的防刷手段之一。
 func (r *AuctionRule) Calibrate(stats ValueStats, b *settings.BalanceSettings) {
 	r.StartPrice = max(ofRate(stats.Mean, b.StartPriceRate), 1)
 	r.MaxCarry = max(ofRate(stats.Mean, b.CarryOfMean), ofRate(stats.P90, b.CarryOfP90), r.StartPrice)
@@ -58,7 +58,7 @@ func (r *AuctionRule) Calibrate(stats ValueStats, b *settings.BalanceSettings) {
 }
 
 // Calibrate 推导地图的金额: 各档次的起拍价和速胜下限按格子大小推导, 地图的起拍价取各档次中最低的;
-// 单拍品时带入资金同 AuctionRule.Calibrate, 多拍品时带入资金上限按拍场期望总价值 × 覆盖率
+// 单拍品时带入资金同 AuctionRule.Calibrate, 多拍品时带入资金上限按仓库期望总价值 × 覆盖率
 //
 // 拍品的起拍价等金额出价时公开, 档次不公开, 所以不能按档次的期望价值算: 格子大小相同的档次按权重混合期望价值, 用同一套金额。
 func (v *Venue) Calibrate(b *settings.BalanceSettings) {
@@ -68,7 +68,7 @@ func (v *Venue) Calibrate(b *settings.BalanceSettings) {
 	for i := range tiers {
 		var weight, total float64
 		for j := range tiers {
-			if tiers[j].Warehouse.Grid == tiers[i].Warehouse.Grid {
+			if tiers[j].Depot.Grid == tiers[i].Depot.Grid {
 				weight += float64(tiers[j].Weight)
 				total += float64(tiers[j].Weight) * float64(v.Simulation.Tiers[j].Ranked.Mean)
 			}
@@ -88,7 +88,7 @@ func (v *Venue) Calibrate(b *settings.BalanceSettings) {
 	if coverage == 0 {
 		coverage = b.CarryCoverage
 	}
-	total := v.SessionMean()
+	total := v.WarehouseMean()
 	r.MaxCarry = max(ofRate(total, coverage), r.StartPrice)
 	r.BotCarry = max(ofRate(r.MaxCarry, b.BotCarryShare), r.StartPrice)
 }
@@ -101,8 +101,8 @@ func ofRate(v int64, rate int) int64 {
 // checkNames 闸门的名称, 用于未通过时的提示
 var checkNames = map[string]string{
 	CheckRounds:       "轮数",
-	CheckGridWidth:    "仓库宽度",
-	CheckGridHeight:   "仓库高度",
+	CheckGridWidth:    "货仓宽度",
+	CheckGridHeight:   "货仓高度",
 	CheckTopShare:     "最贵一件的占比",
 	CheckPriceValue:   "成交价与价值之比",
 	CheckBidCV:        "出价离散度",
@@ -143,15 +143,15 @@ func newCheck(code, squad string, value int64, min, max *int64, unit string) Che
 // 有人机的阵容只看人机估值、真人盈亏和真人胜率。人机模式只能练习时不看盈亏。
 //
 // 多拍品时带入资金有限, 第二名常常追不起, 成交价天然低于价值, 由入场费收回, 不看成交价与价值之比, 系统收支由真人盈亏把关;
-// 真人花完钱后剩下的拍品只能给人机, 按拍品的胜率说明不了手感, 真人胜率改为拍场第 1 名(盈亏最高且赚钱)的比例。
+// 真人花完钱后剩下的拍品只能给人机, 按拍品的胜率说明不了手感, 真人胜率改为仓库第 1 名(盈亏最高且赚钱)的比例。
 func (b *Balance) judge(v *Venue, rule *settings.BalanceSettings) {
 	n := func(x int) *int64 { return bound(int64(x)) }
 	b.Checks = []Check{newCheck(CheckRounds, "", int64(v.Auction.Rounds), n(rule.MinRounds), n(rule.MaxRounds), UnitCount)}
 	// 多个档次时按最小和最大的边长判定
 	tiers := v.Lots.Tiers
-	low, high := tiers[0].Warehouse.Grid, tiers[0].Warehouse.Grid
+	low, high := tiers[0].Depot.Grid, tiers[0].Depot.Grid
 	for _, t := range tiers[1:] {
-		g := t.Warehouse.Grid
+		g := t.Depot.Grid
 		low.Width, low.Height = min(low.Width, g.Width), min(low.Height, g.Height)
 		high.Width, high.Height = max(high.Width, g.Width), max(high.Height, g.Height)
 	}
@@ -165,7 +165,7 @@ func (b *Balance) judge(v *Venue, rule *settings.BalanceSettings) {
 		}
 		b.Checks = append(b.Checks, c)
 	}
-	minSeat := bound(ofRate(v.SessionMean(), rule.MinSeatEV))
+	minSeat := bound(ofRate(v.WarehouseMean(), rule.MinSeatEV))
 	lots := !v.Lots.Single()
 	winRates := map[string]int{SquadRanked: rule.MinRankedWinRate, SquadPve: rule.MinPveWinRate}
 	for _, s := range b.Squads {

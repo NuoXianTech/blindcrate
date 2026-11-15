@@ -33,10 +33,10 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 )
 
-// 本文件是拍场的推进规则, 不读写数据库: 对局(service.go)把结果写库, 保存地图时的验算(balance.go)只统计结果,
+// 本文件是仓库的推进规则, 不读写数据库: 对局(service.go)把结果写库, 保存地图时的验算(balance.go)只统计结果,
 // 两边按同一份规则推进。判定和成交价见 rules.go, 热度的变动见 hypeDelta
 
-// seat 拍场中的一个座位
+// seat 仓库中的一个座位
 type seat struct {
 	Seat     int16
 	Human    bool
@@ -61,15 +61,15 @@ type lotSpec struct {
 	LotsLeft   int32             // 之后还有几个拍品
 }
 
-// session 一个拍场的局面: 座位、热度和当前拍品的进度
+// warehouse 一个仓库的局面: 座位、热度和当前拍品的进度
 //
 // 开拍一个拍品见 openLot, 从数据库恢复拍到一半的拍品见 resumeLot; 真人的出价由调用方写入(见 raise), 之后用 closeRound 结束这一轮。
-type session struct {
+type warehouse struct {
 	Seats     []seat           // 按座位号排序
 	Hosted    bool             // 是否记录热度, 没有主持人的对局不记录
 	Hype      int32            // 当前热度, 跨拍品延续
 	HypeDecay int64            // 每个拍品开场时热度向开局热度回落的比例, 基点
-	Round     int32            // 当前轮次, 在整个拍场内连续编号, 还没开拍时为 0
+	Round     int32            // 当前轮次, 在整个仓库内连续编号, 还没开拍时为 0
 	Clock     func() time.Time // 人机加价时的提交时间, 只用于并列时比较先后
 
 	lot        lotSpec
@@ -101,7 +101,7 @@ type roundResult struct {
 	Hint    bool         // 下一轮还在规定的轮数内, 主持人给出提示; 加轮不给
 }
 
-// publicBefore 拍场进行到第 round 轮时, 从第 firstRound 轮开拍的拍品上这个轮次之前的出价已公开:
+// publicBefore 仓库进行到第 round 轮时, 从第 firstRound 轮开拍的拍品上这个轮次之前的出价已公开:
 // 拍品的前 N-1 轮(N 为规则的轮数)每轮结束后公开, 最后一轮和加轮在结算后公开
 func publicBefore(round, firstRound, rounds int32) int32 {
 	return min(round, firstRound+rounds-1)
@@ -113,7 +113,7 @@ func coolHype(hype int32, decay int64) int32 {
 }
 
 // openLot 开拍下一个拍品: 从上一个拍品的最后一轮之后开始, 清空每个人的出价和估值; 不是第一个拍品时热度回落
-func (s *session) openLot(spec lotSpec) {
+func (s *warehouse) openLot(spec lotSpec) {
 	if s.Hosted && s.Round > 0 {
 		s.Hype = coolHype(s.Hype, s.HypeDecay)
 	}
@@ -126,7 +126,7 @@ func (s *session) openLot(spec lotSpec) {
 }
 
 // resumeLot 恢复拍到一半的拍品: Round 和各座位的出价由调用方按数据库填好, bids 为这个拍品的全部出价记录
-func (s *session) resumeLot(spec lotSpec, firstRound, extra int32, contenders []int16, bids []Bid) {
+func (s *warehouse) resumeLot(spec lotSpec, firstRound, extra int32, contenders []int16, bids []Bid) {
 	s.lot, s.firstRound, s.extra, s.contenders = spec, firstRound, extra, contenders
 	public := publicBefore(s.Round, firstRound, spec.Rule.Rounds)
 	for i := range s.Seats {
@@ -147,22 +147,22 @@ func (s *session) resumeLot(spec lotSpec, firstRound, extra int32, contenders []
 }
 
 // lotRound 当前轮次是当前拍品的第几轮
-func (s *session) lotRound() int32 {
+func (s *warehouse) lotRound() int32 {
 	return s.Round - s.firstRound + 1
 }
 
 // contender 座位在本轮是否有资格出价, 加轮时只有并列最高的人有
-func (s *session) contender(seat int16) bool {
+func (s *warehouse) contender(seat int16) bool {
 	return len(s.contenders) == 0 || slices.Contains(s.contenders, seat)
 }
 
 // canBid p 在本轮是否可以出价: 有资格, 且剩余资金够当前拍品的起拍价
-func (s *session) canBid(p *seat) bool {
+func (s *warehouse) canBid(p *seat) bool {
 	return s.contender(p.Seat) && p.Carry >= s.lot.Rule.StartPrice
 }
 
 // humanCanBid 本轮是否有真人可以出价, 没有时不用等待, 直接结束这一轮
-func (s *session) humanCanBid() bool {
+func (s *warehouse) humanCanBid() bool {
 	for i := range s.Seats {
 		if p := &s.Seats[i]; p.Human && s.canBid(p) {
 			return true
@@ -172,7 +172,7 @@ func (s *session) humanCanBid() bool {
 }
 
 // others 第 i 个座位看到的其他座位已公开的出价, 按座位
-func (s *session) others(i int) []int64 {
+func (s *warehouse) others(i int) []int64 {
 	others := make([]int64, 0, len(s.Seats)-1)
 	for j := range s.Seats {
 		if j != i {
@@ -183,7 +183,7 @@ func (s *session) others(i int) []int64 {
 }
 
 // bidders 判定用的出价者
-func (s *session) bidders() []bidder {
+func (s *warehouse) bidders() []bidder {
 	bidders := make([]bidder, len(s.Seats))
 	for i, p := range s.Seats {
 		bidders[i] = bidder{Seat: p.Seat, Bid: p.Bid, BidAt: p.BidAt}
@@ -192,7 +192,7 @@ func (s *session) bidders() []bidder {
 }
 
 // raise 第 i 个座位加价到 amount, 不高于当前出价时不变
-func (s *session) raise(i int, amount int64, at time.Time) {
+func (s *warehouse) raise(i int, amount int64, at time.Time) {
 	if p := &s.Seats[i]; amount > p.Bid {
 		p.Bid, p.BidAt = amount, at
 	}
@@ -201,9 +201,9 @@ func (s *session) raise(i int, amount int64, at time.Time) {
 // closeRound 结束当前轮: 有资格出价的人机按风格决策并出价, 再判定; 成交时从成交者的剩余资金中扣除成交价,
 // 没有结束时记下加轮和下一轮可以出价的座位, 更新热度, 公开这一轮的出价, 进入下一轮
 //
-// 人机看到的与真人在这一轮出价时相同, 见 Observation; 每轮的随机数由种子和拍场内的轮次决定, 各拍品互不相同。
+// 人机看到的与真人在这一轮出价时相同, 见 Observation; 每轮的随机数由种子和仓库内的轮次决定, 各拍品互不相同。
 // 剩余资金不够起拍价的人机只更新估值, 不出价; 出价超过剩余资金时按剩余资金, 低于起拍价或不高于当前出价时为不加价。
-func (s *session) closeRound() roundResult {
+func (s *warehouse) closeRound() roundResult {
 	rule := &s.lot.Rule
 	round := s.lotRound()
 	res := roundResult{Round: s.Round}

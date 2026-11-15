@@ -6,8 +6,8 @@ import type {MatchPlayer} from '@/lib/services/match';
 import {formatAmount} from '@/lib/utils';
 
 /**
- * 拍场进度: 每个拍品的格子大小和结果, 开局时就能看到后面还有多大的仓库, 用来分配带入资金
- * 点一个拍品查看它的仓库; 当前拍品的价值扫描完才公开
+ * 仓库进度: 每个拍品的格子大小和结果, 开局时就能看到后面还有多大的货仓, 用来分配带入资金
+ * 点一个拍品查看它的货仓; 当前拍品的价值扫描完才公开
  */
 export function LotStrip({view, players, decimals, scan, shown, onSelect}: {
   view: AuctionPublicView;
@@ -35,7 +35,7 @@ export function LotStrip({view, players, decimals, scan, shown, onSelect}: {
               type="button"
               aria-current={current ? 'step' : undefined}
               aria-pressed={selected}
-              title={selected ? undefined : `查看拍品 ${l.lot_no} 的仓库`}
+              title={selected ? undefined : `查看拍品 ${l.lot_no} 的货仓`}
               onClick={() => onSelect(l.lot_no)}
               className={cn(
                   'flex min-w-32 cursor-pointer flex-col gap-0.5 rounded-lg border bg-card px-3 py-2 text-left text-xs outline-none transition-colors',

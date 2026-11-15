@@ -65,31 +65,31 @@ var standardSlots = []standardSlot{
 	{0, 1, 2500, [][2]int64{{5, 50}, {6, 35}, {7, 15}}},
 }
 
-// standardWarehouses 交接包验算器的标准图: 6×6 格子, 三个档位, 不波动, 最多重抽 3 次; 抽取和摆放的规则与 venue.Generator 相同, 不查库
-type standardWarehouses struct {
+// standardDepots 交接包验算器的标准图: 6×6 格子, 三个档位, 不波动, 最多重抽 3 次; 抽取和摆放的规则与 venue.Generator 相同, 不查库
+type standardDepots struct {
 	rng *rand.Rand
 }
 
-func newStandardWarehouses(seed uint64) *standardWarehouses {
-	return &standardWarehouses{rng: rand.New(rand.NewPCG(seed, 7))}
+func newStandardDepots(seed uint64) *standardDepots {
+	return &standardDepots{rng: rand.New(rand.NewPCG(seed, 7))}
 }
 
 // standardLineup 标准图一局一个拍品, 只有一种档次
-type standardLineup struct{ *standardWarehouses }
+type standardLineup struct{ *standardDepots }
 
-func newStandardLineup(seed uint64) lineup { return standardLineup{newStandardWarehouses(seed)} }
+func newStandardLineup(seed uint64) lineup { return standardLineup{newStandardDepots(seed)} }
 
 func (standardLineup) Count() int { return 1 }
 func (standardLineup) Pick() int  { return 0 }
 func (standardLineup) Tiers() int { return 1 }
-func (s standardLineup) Generate(_ int, valueFactor int32) (*venue.Warehouse, error) {
-	return s.standardWarehouses.Generate(valueFactor)
+func (s standardLineup) Generate(_ int, valueFactor int32) (*venue.Depot, error) {
+	return s.standardDepots.Generate(valueFactor)
 }
 func (s standardLineup) PieceOdds(_ int, valueFactor int32) []venue.PieceOdds {
-	return s.standardWarehouses.PieceOdds(valueFactor)
+	return s.standardDepots.PieceOdds(valueFactor)
 }
 
-func (s *standardWarehouses) Generate(valueFactor int32) (*venue.Warehouse, error) {
+func (s *standardDepots) Generate(valueFactor int32) (*venue.Depot, error) {
 	for range 4 {
 		var pieces []venue.Piece
 		occupied := int64(0)
@@ -124,14 +124,14 @@ func (s *standardWarehouses) Generate(valueFactor int32) (*venue.Warehouse, erro
 			}
 		}
 		if standardPlace(pieces) {
-			warehouse := &venue.Warehouse{Pieces: pieces}
+			depot := &venue.Depot{Pieces: pieces}
 			for _, p := range pieces {
-				warehouse.Value += p.SellPrice
+				depot.Value += p.SellPrice
 			}
-			return warehouse, nil
+			return depot, nil
 		}
 	}
-	return nil, errors.New(venue.WarehouseNotFit)
+	return nil, errors.New(venue.DepotNotFit)
 }
 
 // standardPlace 按面积从大到小, 从上到下、从左到右找第一个放得下的位置
@@ -176,7 +176,7 @@ func standardPlace(pieces []venue.Piece) bool {
 	return true
 }
 
-func (s *standardWarehouses) PieceOdds(valueFactor int32) []venue.PieceOdds {
+func (s *standardDepots) PieceOdds(valueFactor int32) []venue.PieceOdds {
 	counts := make([]float64, len(standardPieces))
 	for _, slot := range standardSlots {
 		times := float64(slot.chance) / venue.BasisPoints * float64(slot.min+slot.max) / 2 * float64(valueFactor) / venue.BasisPoints
@@ -199,13 +199,13 @@ func (s *standardWarehouses) PieceOdds(valueFactor int32) []venue.PieceOdds {
 
 // standardStats 标准图排位模式的价值分布, 同 venue.Generator.Simulate
 func standardStats() venue.ValueStats {
-	source := newStandardWarehouses(1)
+	source := newStandardDepots(1)
 	var values []int64
 	var total int64
 	for range venue.SimulationRuns {
-		if warehouse, err := source.Generate(venue.BasisPoints); err == nil {
-			values = append(values, warehouse.Value)
-			total += warehouse.Value
+		if depot, err := source.Generate(venue.BasisPoints); err == nil {
+			values = append(values, depot.Value)
+			total += depot.Value
 		}
 	}
 	slices.Sort(values)
@@ -229,7 +229,7 @@ func standardVenue() *venue.Venue {
 		BidCurrency:   "chip",
 		PveEnabled:    true,
 		RankedEnabled: true,
-		Lots:          venue.LotRule{Min: 1, Max: 1, Tiers: []venue.Tier{{Code: "standard", Name: "标准", Weight: 1, Warehouse: venue.WarehouseRule{Grid: venue.Grid{Width: 6, Height: 6}}}}},
+		Lots:          venue.LotRule{Min: 1, Max: 1, Tiers: []venue.Tier{{Code: "standard", Name: "标准", Weight: 1, Depot: venue.DepotRule{Grid: venue.Grid{Width: 6, Height: 6}}}}},
 		Auction:       venue.AuctionRule{Rounds: 5, RoundSeconds: 20, RevealSeconds: 5, QuickWin: []int32{23000, 18975, 18630, 17825}, MaxExtraRounds: 1},
 		Pve:           venue.PveRule{ValueFactor: venue.BasisPoints},
 	}
@@ -337,7 +337,7 @@ func TestSimulateStandardMap(t *testing.T) {
 	}
 }
 
-// TestSolveDiscount 取成交价 ÷ 仓库价值最接近目标的折让, 流拍的局不计入
+// TestSolveDiscount 取成交价 ÷ 货仓价值最接近目标的折让, 流拍的局不计入
 func TestSolveDiscount(t *testing.T) {
 	rule := venue.AuctionRule{StartPrice: 10}
 	matches := []matchSim{

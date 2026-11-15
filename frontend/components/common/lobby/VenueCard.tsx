@@ -10,7 +10,7 @@ import {CarryPicker} from './CarryPicker';
 import {EntryCost, RequirementList} from './VenueInfo';
 
 /**
- * 大厅里的一张地图: 简介、入场代价、仓库价值区间、入场条件, 以及人机和排位两个入口
+ * 大厅里的一张地图: 简介、入场代价、货仓价值区间、入场条件, 以及人机和排位两个入口
  * busy 为正在加入的模式, queued 为正在这张地图排队的模式
  */
 export function VenueCard({venue: v, carry, decimals, busy, queued, disabled, onCarry, onJoin, onDetail}: {
@@ -33,7 +33,7 @@ export function VenueCard({venue: v, carry, decimals, busy, queued, disabled, on
     {kind: 'ranked', enabled: v.ranked_enabled, range: v.value_range, icon: Swords},
   ];
   const capReached = v.pve.profit_caps.some((c) => c.profit >= c.limit);
-  // 一局一个仓库
+  // 一局一个货仓
   const single = v.lots.max === 1;
 
   return (
@@ -63,7 +63,7 @@ export function VenueCard({venue: v, carry, decimals, busy, queued, disabled, on
           {!single && (
             <>
               <dt className="text-muted-foreground">拍品</dt>
-              <dd>{v.lots.min === v.lots.max ? v.lots.min : `${v.lots.min}-${v.lots.max}`} 个仓库, 共用带入资金</dd>
+              <dd>{v.lots.min === v.lots.max ? v.lots.min : `${v.lots.min}-${v.lots.max}`} 个货仓, 共用带入资金</dd>
             </>
           )}
           <dt className="text-muted-foreground">带入</dt>
@@ -92,7 +92,7 @@ export function VenueCard({venue: v, carry, decimals, busy, queued, disabled, on
                   </Badge>
                 )}
               </div>
-              <span className="text-xs text-muted-foreground" title="模拟的仓库价值, 八成的仓库在这个区间内">
+              <span className="text-xs text-muted-foreground" title="模拟的货仓价值, 八成的货仓在这个区间内">
                 {single ? '价值约' : '每仓约'} {formatAmount(range.p10, decimals, {compact: true})} - {formatAmount(range.p90, decimals, {compact: true})}
               </span>
               {kind === 'pve' && v.pve.profit_caps.map((c) => (

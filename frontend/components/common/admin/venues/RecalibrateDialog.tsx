@@ -51,7 +51,7 @@ export function RecalibrateDialog({open, onClose, onSaved}: {
               data.results.every((r) => r.updated) ?
                 `全部地图已按玩法平衡设置 v${data.version} 保存。` :
                 '未保存的地图保留原来的参数, 调整后再保存, 或先停用再推导。' :
-              '按当前的玩法平衡设置逐个重新模拟仓库、推导拍卖参数并验算对局, 每个地图需要几秒。启用的地图验算未通过时不保存, 保留原来的参数; 进行中的对局不受影响。'}
+              '按当前的玩法平衡设置逐个重新模拟货仓、推导拍卖参数并验算对局, 每个地图需要几秒。启用的地图验算未通过时不保存, 保留原来的参数; 进行中的对局不受影响。'}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {data && (

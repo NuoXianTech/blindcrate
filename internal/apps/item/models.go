@@ -43,7 +43,7 @@ type Item struct {
 	ImageURL      string         `gorm:"size:1024;not null;default:''" json:"image_url"`
 	SellCurrency  string         `gorm:"size:32;not null" json:"sell_currency"`
 	SellPrice     int64          `gorm:"not null;default:0;check:chk_items_sell_price,sell_price >= 0" json:"sell_price"` // 0 表示不可卖出
-	Width         int16          `gorm:"not null;default:1;check:chk_items_width,width >= 1" json:"width"`                // 在仓库中占的格数
+	Width         int16          `gorm:"not null;default:1;check:chk_items_width,width >= 1" json:"width"`                // 在货仓中占的格数
 	Height        int16          `gorm:"not null;default:1;check:chk_items_height,height >= 1" json:"height"`
 	Effect        string         `gorm:"size:32;not null;default:''" json:"effect"`                             // 使用效果代码, 空表示不能使用, 藏品没有效果; 见 effect 模块
 	EffectParams  map[string]any `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"effect_params"` // 效果参数, 结构由效果决定, 没有效果时为空对象
@@ -73,7 +73,7 @@ type Category struct {
 
 // Quality 物品品质, 新增品质只需插入一行
 //
-// 等级越大越稀有, 物品、仓库藏品按等级引用品质; 颜色和名称由前端从接口读取。
+// 等级越大越稀有, 物品、货仓藏品按等级引用品质; 颜色和名称由前端从接口读取。
 type Quality struct {
 	Level     int16     `gorm:"primaryKey;autoIncrement:false" json:"level"`
 	Code      string    `gorm:"size:32;not null;uniqueIndex:uniq_qualities_code" json:"code"` // 自然键, 导入导出时用来对应

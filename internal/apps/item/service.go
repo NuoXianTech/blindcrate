@@ -60,7 +60,7 @@ func placeholderName(id uint64) string {
 
 // Resolve 按 ID 批量获取物品, 已删除或不存在的物品返回占位物品, 占位物品按基础货币回收
 //
-// 背包展示、卖出、仓库暗拍等读取用户持有的物品时都应走这里, 占位规则只在这一处决定。
+// 背包展示、卖出、货仓暗拍等读取用户持有的物品时都应走这里, 占位规则只在这一处决定。
 func Resolve(tx *gorm.DB, ids []uint64) (map[uint64]*Item, error) {
 	result := make(map[uint64]*Item, len(ids))
 	if len(ids) == 0 {

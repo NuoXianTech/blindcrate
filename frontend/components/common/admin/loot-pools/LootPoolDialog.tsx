@@ -85,7 +85,7 @@ function LootPoolForm({pool, onClose, onSaved}: Omit<LootPoolDialogProps, 'pool'
           <Input
             id="pool-code"
             maxLength={64}
-            placeholder="如 warehouse_common"
+            placeholder="如 depot_common"
             className="font-mono"
             value={code}
             onChange={(e) => setCode(e.target.value)}

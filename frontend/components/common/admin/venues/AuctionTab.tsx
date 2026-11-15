@@ -130,8 +130,8 @@ function DerivedRule({derived, currency, stale, lots}: {
   stale: boolean;
   lots: boolean;
 }) {
-  // 每个拍品的起拍价和速胜下限按档次, 见拍场页
-  const perTier = '; 每个拍品按档次的, 见拍场页';
+  // 每个拍品的起拍价和速胜下限按档次, 见仓库页
+  const perTier = '; 每个拍品按档次的, 见仓库页';
   const amount = (value: number) => `${formatAmount(value, currency?.decimals ?? 0)} ${currency?.name ?? ''}`.trim();
   // 旧数据中推导的字段都是 0
   const ready = derived && derived.start_price > 0;
@@ -151,19 +151,19 @@ function DerivedRule({derived, currency, stale, lots}: {
         label: '带入资金上限',
         value: amount(derived.max_carry),
         help: lots ?
-          '玩家在 [起拍价, 上限] 内自选带入金额, 整个拍场共用; 按拍场期望总价值 × 带入覆盖率推导' :
-          '玩家在 [起拍价, 上限] 内自选带入金额; 按单个仓库的价值分布推导',
+          '玩家在 [起拍价, 上限] 内自选带入金额, 整个仓库共用; 按仓库期望总价值 × 带入覆盖率推导' :
+          '玩家在 [起拍价, 上限] 内自选带入金额; 按单个货仓的价值分布推导',
       },
       {
         label: '人机带入资金',
         value: amount(derived.bot_carry || derived.max_carry),
-        help: '人机的出价不超过它; 人机的钱不来自真人, 价值远高于平均的仓库留给真人去争',
+        help: '人机的出价不超过它; 人机的钱不来自真人, 价值远高于平均的货仓留给真人去争',
       },
       {label: '速胜下限', value: amount(derived.speed_floor), help: '速胜时第一名的出价不能低于它' + perTier},
       {
         label: '领先折让',
         value: formatRate(derived.lead_discount),
-        help: '成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 让成交价平均落在仓库价值扣掉出售手续费',
+        help: '成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 让成交价平均落在货仓价值扣掉出售手续费',
       },
       {
         label: '首轮扫描比例',
@@ -176,7 +176,7 @@ function DerivedRule({derived, currency, stale, lots}: {
   return (
     <FieldGroup
       title="金额和结算"
-      help="按排位模式模拟的仓库价值分布和玩法平衡设置自动推导, 模拟或保存时更新; 换了藏品、掉落或玩法平衡设置后重新保存即可, 不需要手动调"
+      help="按排位模式模拟的货仓价值分布和玩法平衡设置自动推导, 模拟或保存时更新; 换了藏品、掉落或玩法平衡设置后重新保存即可, 不需要手动调"
     >
       {ready ? (
         <div className="flex flex-col gap-2 rounded-lg border p-3 text-sm">

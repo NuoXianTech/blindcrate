@@ -47,10 +47,10 @@ type Venue struct {
 	IsEnabled     bool                  `gorm:"not null;default:false" json:"is_enabled"` // 停用后不能加入队列, 进行中的对局照常打完
 	PveEnabled    bool                  `gorm:"not null;default:false" json:"pve_enabled"`
 	RankedEnabled bool                  `gorm:"not null;default:false" json:"ranked_enabled"`
-	BidCurrency   string                `gorm:"size:32;not null" json:"bid_currency"`                                 // 出价和计算仓库价值的货币
+	BidCurrency   string                `gorm:"size:32;not null" json:"bid_currency"`                                 // 出价和计算货仓价值的货币
 	EntryCost     reward.Bundle         `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"entry_cost"`   // 入场代价, 数量为正数, 开局时扣除
 	Requirements  []condition.Condition `gorm:"type:jsonb;serializer:json;not null;default:'[]'" json:"requirements"` // 入场条件, 需要全部满足
-	Lots          LotRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"lots"`         // 拍场: 一局开拍几个仓库, 从哪些档次中抽
+	Lots          LotRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"lots"`         // 仓库: 一局开拍几个货仓, 从哪些档次中抽
 	Auction       AuctionRule           `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"auction"`      // 拍卖参数
 	Bots          BotRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"bots"`         // 人机风格, 按模式配置出场的风格和权重
 	Pve           PveRule               `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"pve"`          // 人机模式防刷参数
@@ -103,13 +103,13 @@ func (v *Venue) Entry() reward.Bundle {
 	return entry
 }
 
-// Grid 仓库的格子
+// Grid 货仓的格子
 type Grid struct {
-	Width  int16 `json:"width" label:"仓库宽度" binding:"min=1,max=16"`
-	Height int16 `json:"height" label:"仓库高度" binding:"min=1,max=16"`
+	Width  int16 `json:"width" label:"货仓宽度" binding:"min=1,max=16"`
+	Height int16 `json:"height" label:"货仓高度" binding:"min=1,max=16"`
 }
 
-// Slot 仓库的一个档位, 从一个掉落池中抽取若干次, 每次抽到的物品按数量放入仓库
+// Slot 货仓的一个档位, 从一个掉落池中抽取若干次, 每次抽到的物品按数量放入货仓
 type Slot struct {
 	Pool   string `json:"pool" label:"掉落池" binding:"required,max=64"` // 掉落池代码, 只能有物品条目
 	Min    int32  `json:"min" label:"最少次数" binding:"min=0,max=100"`   // 抽取次数在 [Min, Max] 内均匀随机
@@ -117,37 +117,37 @@ type Slot struct {
 	Chance int32  `json:"chance" label:"出现概率" binding:"min=1,max=10000"` // 这一档出现的概率, 基点, 10000 表示一定出现
 }
 
-// Swing 仓库的一档数量波动
+// Swing 货仓的一档数量波动
 type Swing struct {
 	Factor int32 `json:"factor" label:"数量系数" binding:"min=2000,max=20000"` // 基点, 抽中这一档时按它缩放各档位的抽取次数
 	Weight int32 `json:"weight" label:"权重" binding:"min=1,max=10000"`
 }
 
-// WarehouseRule 仓库生成规则: 各档位抽取的物品合在一起, 按面积从大到小摆进格子, 摆不下时整仓重抽
+// DepotRule 货仓生成规则: 各档位抽取的物品合在一起, 按面积从大到小摆进格子, 摆不下时整仓重抽
 //
 // 配置了数量波动时, 每局先按权重抽一档, 按它的系数缩放各档位的抽取次数; 藏品的多少在出价时可以从格子看出来,
-// 看得懂格子的人能在大仓库多出价、小仓库少出价, 只出固定价格的人多半拍到小仓库。
-type WarehouseRule struct {
-	Grid       Grid    `json:"grid" label:"仓库格子"`
+// 看得懂格子的人能在大货仓多出价、小货仓少出价, 只出固定价格的人多半拍到小货仓。
+type DepotRule struct {
+	Grid       Grid    `json:"grid" label:"货仓格子"`
 	Slots      []Slot  `json:"slots" label:"档位" binding:"min=1,max=8,dive"`
 	Swings     []Swing `json:"swings" label:"数量波动" binding:"max=8,dive"`          // 为空表示不波动
 	MaxRerolls int32   `json:"max_rerolls" label:"重抽次数上限" binding:"min=0,max=50"` // 超过后开局失败
 }
 
-// LotRule 拍场: 一局依次开拍 [Min, Max] 个仓库(拍品), 共用一笔带入资金; 每个拍品按权重从档次中抽一种生成
+// LotRule 仓库: 一局依次开拍 [Min, Max] 个货仓(拍品), 共用一笔带入资金; 每个拍品按权重从档次中抽一种生成
 //
-// 最多拍品数为 1 时一局一个仓库, 即单拍品玩法, 带入资金和验算的闸门与多拍品不同, 见 Single。拍品数和每个拍品的格子大小开局时公开, 档次不公开。
+// 最多拍品数为 1 时一局一个货仓, 即单拍品玩法, 带入资金和验算的闸门与多拍品不同, 见 Single。拍品数和每个拍品的格子大小开局时公开, 档次不公开。
 type LotRule struct {
 	Min        int32  `json:"min" label:"最少拍品数" binding:"min=1,max=8"`
 	Max        int32  `json:"max" label:"最多拍品数" binding:"min=1,max=8"`
 	Tiers      []Tier `json:"tiers" label:"档次" binding:"min=1,max=6,dive"`
 	GapSeconds int32  `json:"gap_seconds" label:"拍品间隔" binding:"min=0,max=30"`  // 一个拍品开箱后停留多久进入下一个
-	Coverage   int32  `json:"coverage" label:"带入覆盖率" binding:"min=0,max=20000"` // 基点, 多拍品时带入资金上限 = 拍场期望总价值 × 覆盖率; 0 表示用玩法平衡设置的默认值
+	Coverage   int32  `json:"coverage" label:"带入覆盖率" binding:"min=0,max=20000"` // 基点, 多拍品时带入资金上限 = 仓库期望总价值 × 覆盖率; 0 表示用玩法平衡设置的默认值
 }
 
 // Single 是否为单拍品玩法: 一局只有一个拍品, 没有跨拍品的预算分配
 //
-// 带入资金上限按单个仓库的价值分布推导而不是覆盖率, 人机的带入资金不浮动, 验算时看成交价与价值之比, 真人胜率按成交率。
+// 带入资金上限按单个货仓的价值分布推导而不是覆盖率, 人机的带入资金不浮动, 验算时看成交价与价值之比, 真人胜率按成交率。
 func (r *LotRule) Single() bool { return r.Max == 1 }
 
 // MeanCount 拍品数的期望
@@ -157,11 +157,11 @@ func (r *LotRule) MeanCount() float64 {
 
 // Tier 拍品的一种档次; Auction 由保存时推导, 提交的值会被覆盖
 type Tier struct {
-	Code      string        `json:"code" label:"档次代码" binding:"required,max=32"`
-	Name      string        `json:"name" label:"档次名称" binding:"required,max=32"` // 只在管理端和拍场结束后显示
-	Weight    int32         `json:"weight" label:"权重" binding:"min=1,max=10000"`
-	Warehouse WarehouseRule `json:"warehouse" label:"仓库生成规则"`
-	Auction   TierAuction   `json:"auction"`
+	Code    string      `json:"code" label:"档次代码" binding:"required,max=32"`
+	Name    string      `json:"name" label:"档次名称" binding:"required,max=32"` // 只在管理端和仓库结束后显示
+	Weight  int32       `json:"weight" label:"权重" binding:"min=1,max=10000"`
+	Depot   DepotRule   `json:"depot" label:"货仓生成规则"`
+	Auction TierAuction `json:"auction"`
 }
 
 // TierAuction 档次的期望价值, 以及按格子大小推导的金额(格子大小相同的档次相同, 见 Venue.Calibrate)
@@ -171,8 +171,8 @@ type TierAuction struct {
 	SpeedFloor int64 `json:"speed_floor"`
 }
 
-// SessionMean 一个拍场的期望总价值(排位模式): 拍品数的期望 × 单个拍品的期望价值, 一局一个拍品时就是仓库的期望价值
-func (v *Venue) SessionMean() int64 {
+// WarehouseMean 一个仓库的期望总价值(排位模式): 拍品数的期望 × 单个拍品的期望价值, 一局一个拍品时就是货仓的期望价值
+func (v *Venue) WarehouseMean() int64 {
 	return int64(float64(v.Simulation.Ranked.Mean) * v.Lots.MeanCount())
 }
 
@@ -184,7 +184,7 @@ func (r AuctionRule) ForTier(t *TierAuction) AuctionRule {
 
 // AuctionRule 拍卖参数, 金额按出价货币的最小单位
 //
-// 管理员只配置轮次、时长和速胜倍率; 金额和比例由保存时模拟的仓库价值分布推导(见 Calibrate), 领先折让和入场费由对局验算求出, 提交的值会被覆盖。
+// 管理员只配置轮次、时长和速胜倍率; 金额和比例由保存时模拟的货仓价值分布推导(见 Calibrate), 领先折让和入场费由对局验算求出, 提交的值会被覆盖。
 // 旧数据中推导的字段为 0, 按旧规则进行: 不收入场费、速胜不限金额、按最高价成交, 重新保存后生效。
 type AuctionRule struct {
 	Rounds         int32   `json:"rounds" label:"轮数" binding:"min=1,max=10"`
@@ -195,8 +195,8 @@ type AuctionRule struct {
 
 	EntryFee     int64 `json:"entry_fee"`     // 出价货币的入场费, 开局时与入场代价一起扣除, 成交时销毁, 流拍时退还
 	StartPrice   int64 `json:"start_price"`   // 各档次中最低的起拍价, 也是最低带入; 每个拍品按档次的起拍价
-	MaxCarry     int64 `json:"max_carry"`     // 带入资金上限, 玩家在 [起拍价, 上限] 内自选带入金额, 整个拍场共用
-	BotCarry     int64 `json:"bot_carry"`     // 人机的带入资金, 不超过带入资金上限; 价值远高于期望的仓库人机追不上
+	MaxCarry     int64 `json:"max_carry"`     // 带入资金上限, 玩家在 [起拍价, 上限] 内自选带入金额, 整个仓库共用
+	BotCarry     int64 `json:"bot_carry"`     // 人机的带入资金, 不超过带入资金上限; 价值远高于期望的货仓人机追不上
 	SpeedFloor   int64 `json:"speed_floor"`   // 速胜下限, 速胜时第一名的出价不能低于它
 	LeadDiscount int32 `json:"lead_discount"` // 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 不低于起拍价
 	PreviewRate  int32 `json:"preview_rate"`  // 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率公开占的格子, 至少一件; 0 表示不公开
@@ -231,7 +231,7 @@ func (r *BotRule) Weights(mode string) []bot.Weight {
 type PveRule struct {
 	PracticeOnly   bool  `json:"practice_only" label:"只能练习"`                                        // 人机模式只能打练习局
 	DailyProfitCap int64 `json:"daily_profit_cap" label:"每日收益上限" binding:"min=0,max=1000000000000"` // 当天在这张地图人机模式的净收益达到上限后转为练习局, 0 表示不单独限制; 全局的人机每日收益上限另外生效
-	ValueFactor    int32 `json:"value_factor" label:"仓库价值系数" binding:"min=1000,max=10000"`          // 人机模式按这个系数缩放各档位的抽取次数
+	ValueFactor    int32 `json:"value_factor" label:"货仓价值系数" binding:"min=1000,max=10000"`          // 人机模式按这个系数缩放各档位的抽取次数
 }
 
 // ConsumableLimit 一种模式中使用道具的次数限制
@@ -262,7 +262,7 @@ func (r *ConsumableRule) Allows(itemID uint64) bool {
 	return len(r.Allowed) == 0 || slices.Contains(r.Allowed, itemID)
 }
 
-// HostRule 主持人: 每轮开始时公开一条关于仓库的提示, 有一定概率说错, 性格开箱后才公开
+// HostRule 主持人: 每轮开始时公开一条关于货仓的提示, 有一定概率说错, 性格开箱后才公开
 //
 // 性格在开局时从 Personas 中随机选一种并公开, 决定说错时往哪边错, 见 constants.go 的 Host; 热度(Hype)由每轮的加价推动, 影响部分性格的撒谎率。
 // 说错的提示在开箱后公开。
@@ -273,7 +273,7 @@ type HostRule struct {
 	HighQuality int16    `json:"high_quality" label:"高品质" binding:"min=0"`                          // 提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; 也是"高品质件数"提示统计的最低品质
 }
 
-// ValueStats 模拟仓库的价值分布, 价值为出价货币的回收价之和
+// ValueStats 模拟货仓的价值分布, 价值为出价货币的回收价之和
 type ValueStats struct {
 	FailureRate int32 `json:"failure_rate"` // 摆放失败率, 基点
 	Mean        int64 `json:"mean"`
@@ -289,7 +289,7 @@ type ValueStats struct {
 type Simulation struct {
 	Runs        int         `json:"runs"`
 	Ranked      ValueStats  `json:"ranked"`  // 排位模式, 不缩放抽取次数; 单个拍品(按权重混合各档次)的分布
-	Pve         ValueStats  `json:"pve"`     // 人机模式, 按仓库价值系数缩放抽取次数
+	Pve         ValueStats  `json:"pve"`     // 人机模式, 按货仓价值系数缩放抽取次数
 	Tiers       []TierStats `json:"tiers"`   // 各档次的价值分布, 同 Lots.Tiers 的顺序
 	Balance     *Balance    `json:"balance"` // 对局验算, 旧数据为空
 	SimulatedAt time.Time   `json:"simulated_at"`
@@ -307,7 +307,7 @@ type TierStats struct {
 // 真人按模拟的估值误差出价, 人机按地图配置的风格出价; 结构类的闸门只看 4 个真人的参考阵容, 有人机的阵容看人机估值和真人盈亏。
 type Balance struct {
 	Runs   int          `json:"runs"`   // 每种阵容模拟的局数
-	Target int32        `json:"target"` // 成交价 ÷ 仓库价值的目标, 基点, 为 1 - 出售手续费率, 系统收支在这里平衡
+	Target int32        `json:"target"` // 成交价 ÷ 货仓价值的目标, 基点, 为 1 - 出售手续费率, 系统收支在这里平衡
 	Squads []SquadStats `json:"squads"` // 参考阵容在前
 	Checks []Check      `json:"checks"`
 	Passed bool         `json:"passed"` // 全部闸门通过, 未通过的地图不能启用
@@ -320,17 +320,17 @@ type SquadStats struct {
 	Squad        string `json:"squad"`         // 见 constants.go 的 Squad
 	Humans       int32  `json:"humans"`        // 真人数, 其余为人机
 	Sold         int32  `json:"sold"`          // 成交率
-	PriceValue   int32  `json:"price_value"`   // 成交价之和 ÷ 仓库价值之和
+	PriceValue   int32  `json:"price_value"`   // 成交价之和 ÷ 货仓价值之和
 	SpeedWin     int32  `json:"speed_win"`     // 速胜率, 最后一轮之前成交的比例
 	BidCV        int32  `json:"bid_cv"`        // 出价离散度: 每局出过价的人的出价变异系数 ÷ √3 的平均值
-	TopShare     int32  `json:"top_share"`     // 最贵一件占仓库价值的比例的平均值
-	AppraiseBias int32  `json:"appraise_bias"` // 人机估值之和 ÷ 仓库价值之和, 没有人机时为 0
+	TopShare     int32  `json:"top_share"`     // 最贵一件占货仓价值的比例的平均值
+	AppraiseBias int32  `json:"appraise_bias"` // 人机估值之和 ÷ 货仓价值之和, 没有人机时为 0
 	AvgRounds    int32  `json:"avg_rounds"`    // 平均在第几轮结束, 百分之一轮
 	WinRate      int32  `json:"win_rate"`      // 每个真人席位每个拍品的成交率, 一局一个拍品时就是每局的成交率
-	SeatEV       int64  `json:"seat_ev"`       // 每个真人席位每局(拍场)的平均盈亏, 藏品按扣掉出售手续费后的回收价计
+	SeatEV       int64  `json:"seat_ev"`       // 每个真人席位每局(仓库)的平均盈亏, 藏品按扣掉出售手续费后的回收价计
 	Lots         int32  `json:"lots"`          // 每局平均的拍品数, 百分之一个
-	RankWin      int32  `json:"rank_win"`      // 每个真人席位拿到拍场第 1 名(盈亏最高且赚钱)的比例; 多拍品时胜率闸门看它
-	BudgetOut    int32  `json:"budget_out"`    // 拍场结束时剩余资金不够最低起拍价的真人席位比例
+	RankWin      int32  `json:"rank_win"`      // 每个真人席位拿到仓库第 1 名(盈亏最高且赚钱)的比例; 多拍品时胜率闸门看它
+	BudgetOut    int32  `json:"budget_out"`    // 仓库结束时剩余资金不够最低起拍价的真人席位比例
 	PlanGain     int64  `json:"plan_gain"`     // 会规划预算的模拟真人比不规划的每局多赚多少, 只有两种都有时有
 	EarlyShare   int32  `json:"early_share"`   // 成交的拍品在最后一轮前的最高价 ÷ 成交价的平均值, 太低说明大家都在等最后一轮
 	WinnerEV     int64  `json:"winner_ev"`     // 真人成交时的平均盈亏, 没成交时只亏入场费, 流拍时不亏
@@ -350,7 +350,7 @@ type Check struct {
 	Passed bool   `json:"passed"`
 }
 
-// Piece 仓库里的一件藏品, 坐标从 0 开始, 左上角为原点
+// Piece 货仓里的一件藏品, 坐标从 0 开始, 左上角为原点
 type Piece struct {
 	ItemID       uint64 `json:"item_id"`
 	Quality      int16  `json:"quality"`
@@ -362,7 +362,7 @@ type Piece struct {
 	SellPrice    int64  `json:"sell_price"` // 生成时的回收价
 }
 
-// PieceOdds 按公示概率算出的一种藏品(品质和尺寸相同的合在一起)在一个仓库中的期望件数和平均回收价, 用于人机估值
+// PieceOdds 按公示概率算出的一种藏品(品质和尺寸相同的合在一起)在一个货仓中的期望件数和平均回收价, 用于人机估值
 type PieceOdds struct {
 	Quality int16   `json:"quality"`
 	Width   int16   `json:"width"`
@@ -371,8 +371,8 @@ type PieceOdds struct {
 	Price   float64 `json:"price"` // 平均回收价, 出价货币; 回收货币不同的按 0 计
 }
 
-// Warehouse 生成的仓库
-type Warehouse struct {
+// Depot 生成的货仓
+type Depot struct {
 	Pieces []Piece `json:"pieces"` // 按摆放顺序, 面积大的在前
 	Value  int64   `json:"value"`  // 出价货币的回收价之和, 其他货币的物品不计入
 }

@@ -4,13 +4,13 @@ import type {Grid} from '../venue';
 
 /** 暗拍阶段, 与后端 internal/apps/auction/constants.go 对应 */
 export const AUCTION_PHASE = {
-  /** 出价, round 为拍场内的第几轮, 整场连续编号, 加轮时继续递增 */
+  /** 出价, round 为仓库内的第几轮, 整场连续编号, 加轮时继续递增 */
   bidding: 'bidding',
   /** 当前拍品开箱, 已结算; 不是最后一个拍品时之后开拍下一个 */
   reveal: 'reveal',
 } as const;
 
-/** 拍品和拍场的结算结果; 拍场至少成交一个拍品时为 sold */
+/** 拍品和仓库的结算结果; 仓库至少成交一个拍品时为 sold */
 export const AUCTION_OUTCOME = {
   sold: 'sold',
   unsold: 'unsold',
@@ -41,11 +41,11 @@ export const HOST_PERSONA = {
 export const HOST_HINT = {
   /** 品质不低于 quality 的藏品共有 count 件 */
   count: 'count',
-  /** 仓库里最好的藏品是 quality */
+  /** 货仓里最好的藏品是 quality */
   best: 'best',
   /** 位置为 (x, y) 的藏品是 quality, 只指第 1 轮扫出轮廓的 */
   piece: 'piece',
-  /** 仓库价值高于(above)或不高于期望价值 */
+  /** 货仓价值高于(above)或不高于期望价值 */
   value: 'value',
 } as const;
 
@@ -59,7 +59,7 @@ export const AUCTION_EFFECT = {
   countQuality: 'count_quality',
   /** 看几件某个品质及以上的藏品的名称、外观和轮廓 */
   revealName: 'reveal_name',
-  /** 仓库价值的区间 */
+  /** 货仓价值的区间 */
   valueRange: 'value_range',
 } as const;
 
@@ -81,7 +81,7 @@ export interface AuctionVenue {
   lead_discount: number;
   /** 首轮扫描比例, 基点: 每个拍品的第 1 轮每件藏品按这个概率扫出轮廓, 至少一件 */
   preview_rate: number;
-  /** 这个模式每局(整个拍场)最多使用几个道具, 0 表示不能用 */
+  /** 这个模式每局(整个仓库)最多使用几个道具, 0 表示不能用 */
   max_uses: number;
   /** 可以用的道具, 为空表示所有对局中可用的道具 */
   allowed_items: number[];
@@ -93,7 +93,7 @@ export interface AuctionVenue {
 export interface HostHint {
   /** 提示针对的拍品 */
   lot_no: number;
-  /** 拍场内的轮次 */
+  /** 仓库内的轮次 */
   round: number;
   /** 见 HOST_HINT */
   kind: string;
@@ -103,7 +103,7 @@ export interface HostHint {
   x: number;
   y: number;
   above: boolean;
-  /** 是否属实, 拍场结束后才公开 */
+  /** 是否属实, 仓库结束后才公开 */
   truthful: boolean | null;
 }
 
@@ -121,7 +121,7 @@ export interface HypeEvent {
 
 /** 公开的主持人状态, 对应后端 auction.HostView */
 export interface HostView {
-  /** 见 HOST_PERSONA, 拍场结束后才公开, 之前为空 */
+  /** 见 HOST_PERSONA, 仓库结束后才公开, 之前为空 */
   persona: string;
   hype: number;
   /** 按轮次 */
@@ -138,7 +138,7 @@ export interface AuctionSelf {
   entry_fee: number;
   /** 实际扣除的其余入场代价, 同上为空 */
   entry_cost: RewardLine[];
-  /** 带入资金, 整个拍场共用 */
+  /** 带入资金, 整个仓库共用 */
   carry: number;
   /** 已拿下的拍品的成交价之和 */
   spent: number;
@@ -154,9 +154,9 @@ export interface AuctionSelf {
   uses: UseView[];
   /** 本局还能用几个道具, 练习局为 0; 不考虑阶段和轮次 */
   uses_left: number;
-  /** 拍场结算后拿下的拍品的盈亏, 名次按它排; 整场的盈亏还要减去 entry_fee; 练习局按正式局计算 */
+  /** 仓库结算后拿下的拍品的盈亏, 名次按它排; 整场的盈亏还要减去 entry_fee; 练习局按正式局计算 */
   profit: number;
-  /** 拍场结算后的名次, 全部流拍时为 0 */
+  /** 仓库结算后的名次, 全部流拍时为 0 */
   rank: number;
   /** 段位分的变化, 只有排位且至少成交一个拍品时有 */
   rating_delta: number;
@@ -191,7 +191,7 @@ export interface Intel {
   min_quality?: number;
   /** 最低品质及以上各品质的件数, 品质从高到低, 没有的品质不列出 */
   counts?: QualityCount[];
-  /** 仓库价值的区间, 出价货币 */
+  /** 货仓价值的区间, 出价货币 */
   value_min?: number;
   value_max?: number;
 }
@@ -256,7 +256,7 @@ export interface SeatResult {
 
 /** 公开的一次出价: 拍品的前 rounds-1 轮结束后公开, 最后一轮和加轮在拍品结算后公开 */
 export interface PublicBid {
-  /** 拍场内的轮次 */
+  /** 仓库内的轮次 */
   round: number;
   seat: number;
   /** 0 表示不加价 */
@@ -264,8 +264,8 @@ export interface PublicBid {
 }
 
 /**
- * 拍场中的一个拍品(仓库), 对应后端 auction.LotView
- * 格子大小和金额开局时公开, 第 1 轮的轮廓开拍后公开, 价值、藏品和每个座位的出价开箱后公开, 档次拍场结束后公开
+ * 仓库中的一个拍品(货仓), 对应后端 auction.LotView
+ * 格子大小和金额开局时公开, 第 1 轮的轮廓开拍后公开, 价值、藏品和每个座位的出价开箱后公开, 档次仓库结束后公开
  */
 export interface LotView {
   /** 出场顺序, 从 1 开始 */
@@ -274,7 +274,7 @@ export interface LotView {
   start_price: number;
   /** 速胜时第一名的出价不能低于它 */
   speed_floor: number;
-  /** 开拍时拍场内的轮次, 还没开拍时为 0 */
+  /** 开拍时仓库内的轮次, 还没开拍时为 0 */
   first_round: number;
   /** 第 1 轮扫出轮廓的藏品占的格子; 件数开箱前不公开 */
   footprints: Footprint[];
@@ -287,9 +287,9 @@ export interface LotView {
   /** 没有成交时为 0 */
   winner_seat: number;
   price: number;
-  /** 仓库价值, 开箱后公开 */
+  /** 货仓价值, 开箱后公开 */
   value: number;
-  /** 档次名称, 拍场结束后公开 */
+  /** 档次名称, 仓库结束后公开 */
   tier: string;
   /** 开箱后公开, 按扫描顺序 */
   pieces: AuctionPiece[] | null;
@@ -299,8 +299,8 @@ export interface LotView {
   scan_from: string | null;
 }
 
-/** 拍场结束后公开的一个座位的成绩 */
-export interface SessionSeat {
+/** 仓库结束后公开的一个座位的成绩 */
+export interface WarehouseSeat {
   seat: number;
   carry: number;
   spent: number;
@@ -309,21 +309,21 @@ export interface SessionSeat {
   rank: number;
 }
 
-/** 拍场结束后公开的成绩 */
-export interface SessionView {
+/** 仓库结束后公开的成绩 */
+export interface WarehouseView {
   /** 至少成交一个拍品时为 sold */
   outcome: string;
   /** 按座位号排序 */
-  seats: SessionSeat[];
+  seats: WarehouseSeat[];
 }
 
-/** 一局暗拍(拍场)中所有人都看得到的部分, 对应后端 auction.PublicView */
+/** 一局暗拍(仓库)中所有人都看得到的部分, 对应后端 auction.PublicView */
 export interface AuctionPublicView {
   match_id: number;
   mode: string;
   status: string;
   phase: string;
-  /** 拍场内的轮次, 从 1 开始整场连续编号 */
+  /** 仓库内的轮次, 从 1 开始整场连续编号 */
   round: number;
   /** 当前拍品的第几轮, 大于 venue.rounds 时为加轮 */
   lot_round: number;
@@ -338,8 +338,8 @@ export interface AuctionPublicView {
   lots: LotView[];
   /** 主持人, 没有主持人提示时为空 */
   host: HostView | null;
-  /** 拍场结束后才有 */
-  session: SessionView | null;
+  /** 仓库结束后才有 */
+  warehouse: WarehouseView | null;
 }
 
 /** 玩家看到的一局暗拍, 对应后端 auction.AuctionView */
@@ -357,7 +357,7 @@ export interface AuctionPlayer {
   is_practice: boolean;
   /** 实际扣除的入场费和入场代价, 练习局和人机为空, 退还后清空 */
   entry_cost: Bundle;
-  /** 带入资金, 整个拍场共用 */
+  /** 带入资金, 整个仓库共用 */
   carry: number;
   /** 冻结的带入资金, 练习局和人机为 0 */
   frozen: number;
@@ -367,9 +367,9 @@ export interface AuctionPlayer {
   estimate: number;
   /** 当前拍品的出价, 0 表示还没出过价 */
   bid: number;
-  /** 拍场结算后的盈亏; 练习局按正式局计算 */
+  /** 仓库结算后的盈亏; 练习局按正式局计算 */
   profit: number;
-  /** 拍场的名次, 全部流拍时为 0 */
+  /** 仓库的名次, 全部流拍时为 0 */
   rank: number;
   /** 本局段位分的变化, 只有排位且至少成交一个拍品时有 */
   rating_delta: number;

@@ -30,8 +30,8 @@ import (
 )
 
 // testPieces 6 件 1×1 的藏品排成一行, 扫描顺序 1-6 即 X 为 0-5, 品质各不相同; 第 1、3 件第 1 轮扫出轮廓
-func testPieces() []WarehouseItem {
-	items := []WarehouseItem{
+func testPieces() []DepotItem {
+	items := []DepotItem{
 		{Preview: true, Quality: 1, Name: "a"},
 		{Quality: 4, Name: "b"},
 		{Preview: true, Quality: 2, Name: "c"},

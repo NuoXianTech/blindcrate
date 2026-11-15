@@ -44,7 +44,7 @@ type Response struct {
 // GetAuction
 // @Tags auction
 // @Summary 获取当前用户参与的一局暗拍
-// @Description 进行中时只公开仓库大小、第 1 轮扫出的轮廓和自己的出价、反馈与情报, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用
+// @Description 进行中时只公开货仓大小、第 1 轮扫出的轮廓和自己的出价、反馈与情报, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用
 // @Produce json
 // @Param match_id path int true "match id"
 // @Success 200 {object} Response{data=AuctionView}
@@ -155,7 +155,7 @@ func ListCarry(c *gin.Context) {
 // PutCarry
 // @Tags auction
 // @Summary 选择在一张地图的带入金额
-// @Description 整个拍场共用这笔带入资金, 超出 [起拍价, 带入资金上限] 时按边界保存; 下一局准入时按它冻结, 可用余额不够时拒绝入场
+// @Description 整个仓库共用这笔带入资金, 超出 [起拍价, 带入资金上限] 时按边界保存; 下一局准入时按它冻结, 可用余额不够时拒绝入场
 // @Accept json
 // @Produce json
 // @Param body body CarryRequest true "带入金额"

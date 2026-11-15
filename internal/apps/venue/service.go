@@ -78,7 +78,7 @@ func invalid(format string, args ...any) error {
 	return &InvalidError{Reason: fmt.Sprintf(format, args...)}
 }
 
-// Validate 保存地图前校验配置, 并模拟 SimulationRuns 个仓库, 把结果写入 v.Simulation;
+// Validate 保存地图前校验配置, 并模拟 SimulationRuns 个货仓, 把结果写入 v.Simulation;
 // 再按排位模式的价值分布推导拍卖的金额和比例写入 v.Auction, 由注册的 Balancer 验算对局, 结果写入 v.Simulation.Balance
 //
 // 配置不合法、摆放失败率超过 1% 或启用的地图验算未通过时返回 *InvalidError, 提示可以直接展示; 其他错误为查库失败等内部错误。
@@ -247,7 +247,7 @@ func validateRules(v *Venue) error {
 		value any
 	}
 	for _, section := range []section{
-		{"拍场", &v.Lots},
+		{"仓库", &v.Lots},
 		{"拍卖参数", &v.Auction},
 		{"人机风格", &v.Bots},
 		{"人机模式", &v.Pve},
@@ -268,8 +268,8 @@ func validateRules(v *Venue) error {
 	return nil
 }
 
-// validateWarehouse 档位的次数范围需合法, 至少能抽到一件; 没有提交时为 null 的数量波动写为空列表
-func validateWarehouse(w *WarehouseRule) error {
+// validateDepot 档位的次数范围需合法, 至少能抽到一件; 没有提交时为 null 的数量波动写为空列表
+func validateDepot(w *DepotRule) error {
 	if w.Swings == nil {
 		w.Swings = []Swing{}
 	}
@@ -286,7 +286,7 @@ func validateWarehouse(w *WarehouseRule) error {
 	return nil
 }
 
-// validateLots 最少拍品数不能超过最多, 档次代码不能重复; 每个档次的仓库规则见 validateWarehouse
+// validateLots 最少拍品数不能超过最多, 档次代码不能重复; 每个档次的货仓规则见 validateDepot
 func validateLots(r *LotRule) error {
 	if r.Min > r.Max {
 		return invalid(LotRangeInvalid)
@@ -298,7 +298,7 @@ func validateLots(r *LotRule) error {
 			return invalid(TierDuplicate, t.Code)
 		}
 		codes[t.Code] = true
-		if err := validateWarehouse(&t.Warehouse); err != nil {
+		if err := validateDepot(&t.Depot); err != nil {
 			return invalid(TierInvalid, t.Name, err.Error())
 		}
 	}
@@ -444,7 +444,7 @@ type CostLine struct {
 	Amount   int64  `json:"amount"` // 货币金额或物品数量
 }
 
-// ValueRange 玩家看到的仓库价值区间
+// ValueRange 玩家看到的货仓价值区间
 type ValueRange struct {
 	P10 int64 `json:"p10"`
 	P50 int64 `json:"p50"`
@@ -454,7 +454,7 @@ type ValueRange struct {
 // PveView 玩家看到的人机模式参数
 type PveView struct {
 	PracticeOnly bool        `json:"practice_only"`
-	ValueFactor  int32       `json:"value_factor"` // 仓库价值系数, 基点
+	ValueFactor  int32       `json:"value_factor"` // 货仓价值系数, 基点
 	ValueRange   ValueRange  `json:"value_range"`
 	ProfitCaps   []ProfitCap `json:"profit_caps"` // 用户今天受到的每日收益上限, 不限制时为空; 任一上限达到后人机对局转为练习局
 }
@@ -511,10 +511,10 @@ type VenueView struct {
 	Host          HostRule             `json:"host"`        // 主持人的提示
 	ValueRange    ValueRange           `json:"value_range"` // 排位模式单个拍品的价值区间, 保存地图时模拟
 	Pve           PveView              `json:"pve"`
-	Lots          LotsView             `json:"lots"` // 拍场的拍品数和格子大小
+	Lots          LotsView             `json:"lots"` // 仓库的拍品数和格子大小
 }
 
-// LotsView 玩家看到的拍场: 拍品数和每种格子大小的出现比例、起拍价; 档次不公开, 只按格子大小汇总
+// LotsView 玩家看到的仓库: 拍品数和每种格子大小的出现比例、起拍价; 档次不公开, 只按格子大小汇总
 type LotsView struct {
 	Min        int32     `json:"min"`
 	Max        int32     `json:"max"`
@@ -538,9 +538,9 @@ func newLotsView(v *Venue) LotsView {
 		total += int64(t.Weight)
 	}
 	for _, t := range v.Lots.Tiers {
-		i := slices.IndexFunc(view.Grids, func(g LotGrid) bool { return g.Grid == t.Warehouse.Grid })
+		i := slices.IndexFunc(view.Grids, func(g LotGrid) bool { return g.Grid == t.Depot.Grid })
 		if i < 0 {
-			view.Grids = append(view.Grids, LotGrid{Grid: t.Warehouse.Grid, StartPrice: t.Auction.StartPrice, SpeedFloor: t.Auction.SpeedFloor})
+			view.Grids = append(view.Grids, LotGrid{Grid: t.Depot.Grid, StartPrice: t.Auction.StartPrice, SpeedFloor: t.Auction.SpeedFloor})
 			i = len(view.Grids) - 1
 		}
 		view.Grids[i].Share += int32(int64(t.Weight) * BasisPoints / max(total, 1))
@@ -548,7 +548,7 @@ func newLotsView(v *Venue) LotsView {
 	return view
 }
 
-// SlotOdds 仓库的一个档位及其掉落池的公示概率
+// SlotOdds 货仓的一个档位及其掉落池的公示概率
 type SlotOdds struct {
 	Slot
 	Odds *loot.PoolOdds `json:"odds"` // 掉落池不可用时为空
@@ -557,10 +557,10 @@ type SlotOdds struct {
 // VenueDetail 玩家看到的地图详情
 type VenueDetail struct {
 	VenueView
-	LotSlots []GridOdds `json:"lot_slots"` // 拍场每种格子大小的仓库
+	LotSlots []GridOdds `json:"lot_slots"` // 仓库每种格子大小的货仓
 }
 
-// GridOdds 拍场中一种格子大小的仓库: 同一格子大小的各档次不公开名称, 按权重给出概率和档位
+// GridOdds 仓库中一种格子大小的货仓: 同一格子大小的各档次不公开名称, 按权重给出概率和档位
 type GridOdds struct {
 	Grid     Grid          `json:"grid"`
 	Variants []VariantOdds `json:"variants"`
@@ -619,16 +619,16 @@ func QueryVenue(ctx context.Context, userID uint64, code string) (*VenueDetail, 
 	detail := &VenueDetail{VenueView: *view, LotSlots: []GridOdds{}}
 	weights := map[Grid]int64{}
 	for _, t := range v.Lots.Tiers {
-		weights[t.Warehouse.Grid] += int64(t.Weight)
+		weights[t.Depot.Grid] += int64(t.Weight)
 	}
 	for _, t := range v.Lots.Tiers {
-		grid := t.Warehouse.Grid
+		grid := t.Depot.Grid
 		i := slices.IndexFunc(detail.LotSlots, func(g GridOdds) bool { return g.Grid == grid })
 		if i < 0 {
 			detail.LotSlots = append(detail.LotSlots, GridOdds{Grid: grid, Variants: []VariantOdds{}})
 			i = len(detail.LotSlots) - 1
 		}
-		slots, err := slotOdds(ctx, t.Warehouse.Slots)
+		slots, err := slotOdds(ctx, t.Depot.Slots)
 		if err != nil {
 			return nil, err
 		}

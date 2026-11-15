@@ -26,7 +26,7 @@ import {ItemBar} from './ItemBar';
 import {LotStrip} from './LotStrip';
 import {ResultPanel} from './ResultPanel';
 import {SeatList} from './SeatList';
-import {Warehouse} from './Warehouse';
+import {Depot} from './Depot';
 
 /** 阶段到期后还没收到推送时, 每隔这么久重新拉取一次 */
 const STALE_RELOAD_MS = 3000;
@@ -37,7 +37,7 @@ function newer<T extends { version: number }>(prev: T | null, next: T): T {
 }
 
 /**
- * 拍卖桌: 拍品进度、当前拍品(或点开查看的其他拍品)的仓库、座位、出价和结算
+ * 拍卖桌: 拍品进度、当前拍品(或点开查看的其他拍品)的货仓、座位、出价和结算
  * 以 auction:updated 和 match:updated 推送为准; 推送不保证送达, 连上 WebSocket 后和阶段到期后迟迟没有推送时重新拉取
  */
 export function AuctionMain({matchId}: { matchId: number }) {
@@ -137,7 +137,7 @@ function AuctionSkeleton() {
   );
 }
 
-/** 加载完的拍卖桌, 当前拍品的开箱扫描进度在这里算一次, 仓库、座位和结算按同一进度揭晓 */
+/** 加载完的拍卖桌, 当前拍品的开箱扫描进度在这里算一次, 货仓、座位和结算按同一进度揭晓 */
 function AuctionTable({view, match, decimals, remaining, onView}: {
   view: AuctionView;
   match: MatchView;
@@ -177,7 +177,7 @@ function AuctionTable({view, match, decimals, remaining, onView}: {
             />
           )}
           <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-            <Warehouse key={`lot:${lot.lot_no}`} view={view} lot={lot} decimals={decimals} scan={scan} intel={intel} />
+            <Depot key={`lot:${lot.lot_no}`} view={view} lot={lot} decimals={decimals} scan={scan} intel={intel} />
             <div className="flex flex-col gap-4">
               {viewing && (
                 <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/60 bg-card px-3 py-2 text-sm">

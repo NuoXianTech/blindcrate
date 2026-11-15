@@ -81,9 +81,9 @@ func TestJudgeLastRound(t *testing.T) {
 	}
 }
 
-func TestRankSession(t *testing.T) {
+func TestRankWarehouse(t *testing.T) {
 	// 一个拍品, 价值 1000, 座位 1 以 900 成交; 座位 2、3 出价 700、1100, 座位 4 没出价
-	ranks := rankSession([]seatTotal{{1, 100, 0.1}, {2, 0, 0.3}, {3, 0, 0.1}, {4, 0, -1}})
+	ranks := rankWarehouse([]seatTotal{{1, 100, 0.1}, {2, 0, 0.3}, {3, 0, 0.1}, {4, 0, -1}})
 	want := map[int16]int16{1: 1, 3: 2, 2: 3, 4: 4}
 	for seat, rank := range want {
 		if ranks[seat] != rank {
@@ -92,7 +92,7 @@ func TestRankSession(t *testing.T) {
 	}
 
 	// 价值 800 时成交者亏 100
-	ranks = rankSession([]seatTotal{{1, -100, 0.125}, {2, 0, 0.125}, {3, 0, 0.375}, {4, 0, -1}})
+	ranks = rankWarehouse([]seatTotal{{1, -100, 0.125}, {2, 0, 0.125}, {3, 0, 0.375}, {4, 0, -1}})
 	want = map[int16]int16{2: 1, 3: 2, 4: 3, 1: 4}
 	for seat, rank := range want {
 		if ranks[seat] != rank {
@@ -101,9 +101,9 @@ func TestRankSession(t *testing.T) {
 	}
 }
 
-func TestRankSessionLots(t *testing.T) {
+func TestRankWarehouseLots(t *testing.T) {
 	// 两个拍品: 座位 2 拿下两个共赚 300, 座位 1 赚 300 但出价离价值更远, 座位 3 亏 50, 座位 4 一直没出价
-	ranks := rankSession([]seatTotal{{1, 300, 0.4}, {2, 300, 0.2}, {3, -50, 0.1}, {4, 0, -1}})
+	ranks := rankWarehouse([]seatTotal{{1, 300, 0.4}, {2, 300, 0.2}, {3, -50, 0.1}, {4, 0, -1}})
 	want := map[int16]int16{2: 1, 1: 2, 4: 3, 3: 4}
 	for seat, rank := range want {
 		if ranks[seat] != rank {
@@ -215,7 +215,7 @@ func TestPreviewPieces(t *testing.T) {
 		t.Errorf("rate 0: got %v", got)
 	}
 	if got := previewPieces(0, 3000, first); len(got) != 0 {
-		t.Errorf("empty warehouse: got %v", got)
+		t.Errorf("empty depot: got %v", got)
 	}
 	// 扫出的比例接近设置的比例
 	rng := rand.New(rand.NewPCG(1, 1))
