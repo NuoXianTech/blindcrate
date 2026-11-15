@@ -313,7 +313,7 @@ func (st *state) lotView(lot *Lot, items []WarehouseItem, uses []Use, ended bool
 	view.Footprints = footprints(items)
 	settled := lot.Outcome != ""
 	// 前 N-1 轮结束后公开, 结算后全部公开
-	shownBefore := min(st.match.Round, lot.FirstRound+st.auction.Venue.Auction.Rounds-1)
+	shownBefore := publicBefore(st.match.Round, lot.FirstRound, st.auction.Venue.Auction.Rounds)
 	for _, b := range st.bids {
 		if b.LotNo == lot.LotNo && (settled || b.Round < shownBefore) {
 			view.Bids = append(view.Bids, PublicBid{Round: b.Round, Seat: b.Seat, Amount: b.Amount})
