@@ -8,7 +8,7 @@ import type {LotTier, TierStats} from '@/lib/services/venue';
 import type {Currency} from '@/lib/services/wallet';
 import {formatAmount} from '@/lib/utils';
 import {FieldGroup, InputField} from './Fields';
-import {WarehouseEditor} from './WarehouseEditor';
+import {DepotEditor} from './DepotEditor';
 import {MAX_GAP_SECONDS, MAX_LOTS, MAX_TIERS} from './constants';
 import type {FormTabProps, TierDraft} from './form';
 
@@ -33,14 +33,14 @@ export function LotsTab({form, onChange, disabled, pools, currency, savedTiers, 
   const addTier = () => {
     const n = form.tiers.length + 1;
     // 复制最后一种档次的货仓
-    const last = form.tiers.at(-1)?.warehouse;
+    const last = form.tiers.at(-1)?.depot;
     if (!last) return;
-    const warehouse = {
+    const depot = {
       ...last,
       slots: last.slots.map((s) => ({...s, key: nanoid()})),
       swings: last.swings.map((s) => ({...s, key: nanoid()})),
     };
-    onChange({tiers: [...form.tiers, {key: nanoid(), code: `tier${n}`, name: `档次 ${n}`, weight: '1', warehouse}]});
+    onChange({tiers: [...form.tiers, {key: nanoid(), code: `tier${n}`, name: `档次 ${n}`, weight: '1', depot}]});
   };
 
   return (
@@ -161,7 +161,7 @@ function TierCard({index, tier, pools, saved, stats, currency, stale, onChange, 
   const id = `venue-tier-${tier.key}`;
   const amount = (value: number) => formatAmount(value, currency?.decimals ?? 0);
   const derived = saved && saved.auction.start_price > 0 ? saved.auction : null;
-  const slots = tier.warehouse.slots.length;
+  const slots = tier.depot.slots.length;
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border p-3">
@@ -236,14 +236,14 @@ function TierCard({index, tier, pools, saved, stats, currency, stale, onChange, 
           <ChevronRight className="size-4 transition-transform group-open:rotate-90" />
           货仓生成规则
           <span className="text-xs">
-            · {tier.warehouse.gridWidth}×{tier.warehouse.gridHeight} 格 · {slots} 个档位
+            · {tier.depot.gridWidth}×{tier.depot.gridHeight} 格 · {slots} 个档位
           </span>
         </summary>
         <div className="mt-3 flex flex-col gap-6">
-          <WarehouseEditor
+          <DepotEditor
             id={id}
-            value={tier.warehouse}
-            onChange={(patch) => onChange({warehouse: {...tier.warehouse, ...patch}})}
+            value={tier.depot}
+            onChange={(patch) => onChange({depot: {...tier.depot, ...patch}})}
             disabled={disabled}
             pools={pools}
           />

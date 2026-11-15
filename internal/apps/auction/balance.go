@@ -58,7 +58,7 @@ type lineup interface {
 	Count() int // 抽一个仓库的拍品数
 	Pick() int  // 按权重抽一种档次
 	Tiers() int // 档次的个数, 同 venue.Venue.Lots.Tiers
-	Generate(tier int, valueFactor int32) (*venue.Warehouse, error)
+	Generate(tier int, valueFactor int32) (*venue.Depot, error)
 	PieceOdds(tier int, valueFactor int32) []venue.PieceOdds
 }
 
@@ -68,7 +68,7 @@ type venueLineup struct{ l *venue.Lineup }
 func (v venueLineup) Count() int { return v.l.Count() }
 func (v venueLineup) Pick() int  { return v.l.Pick() }
 func (v venueLineup) Tiers() int { return v.l.Tiers() }
-func (v venueLineup) Generate(tier int, valueFactor int32) (*venue.Warehouse, error) {
+func (v venueLineup) Generate(tier int, valueFactor int32) (*venue.Depot, error) {
 	return v.l.Tier(tier).Generate(valueFactor)
 }
 func (v venueLineup) PieceOdds(tier int, valueFactor int32) []venue.PieceOdds {
@@ -169,7 +169,7 @@ type squad struct {
 	picks       []int64
 }
 
-// seatSim 模拟仓库中一个座位在验算时另外记的, 资金和出价见 session 的 seat
+// seatSim 模拟仓库中一个座位在验算时另外记的, 资金和出价见 warehouse 的 seat
 type seatSim struct {
 	planner bool    // 真人是否规划预算
 	sign    float64 // 真人对当前拍品的估值偏高(1)还是偏低(-1)
@@ -249,7 +249,7 @@ func balance(tx *gorm.DB, v *venue.Venue, l *venue.Lineup, b *settings.BalanceSe
 		maxDiscount = int32(b.MaxLeadDiscount)
 	}
 	// 真人盈亏的目标按一个仓库的期望总价值算, 一局一个拍品时就是一个货仓的期望价值
-	seatEV := scale(v.SessionMean(), int64(b.TargetSeatEV))
+	seatEV := scale(v.WarehouseMean(), int64(b.TargetSeatEV))
 	carryFloor := int64(venue.BasisPoints)
 	if !v.Lots.Single() {
 		carryFloor = int64(b.BotCarryFloor)
@@ -318,13 +318,13 @@ func publicLots(tiers []venue.Tier, source lineup, valueFactor int32) []publicLo
 	for i := range tiers {
 		var weight float64
 		for j := range tiers {
-			if tiers[j].Warehouse.Grid == tiers[i].Warehouse.Grid {
+			if tiers[j].Depot.Grid == tiers[i].Depot.Grid {
 				weight += float64(tiers[j].Weight)
 			}
 		}
 		var mixed []venue.PieceOdds
 		for j := range tiers {
-			if tiers[j].Warehouse.Grid != tiers[i].Warehouse.Grid {
+			if tiers[j].Depot.Grid != tiers[i].Depot.Grid {
 				continue
 			}
 			share := float64(tiers[j].Weight) / weight
@@ -333,7 +333,7 @@ func publicLots(tiers []venue.Tier, source lineup, valueFactor int32) []publicLo
 				mixed = append(mixed, o)
 			}
 		}
-		lots[i] = publicLot{grid: tiers[i].Warehouse.Grid, odds: mixed, expected: expectedValue(mixed)}
+		lots[i] = publicLot{grid: tiers[i].Depot.Grid, odds: mixed, expected: expectedValue(mixed)}
 	}
 	return lots
 }
@@ -342,26 +342,26 @@ func publicLots(tiers []venue.Tier, source lineup, valueFactor int32) []publicLo
 func (sq *squad) run(v *venue.Venue, tiers []venue.Tier, source lineup, seed uint64, cfg simConfig) ([]matchSim, error) {
 	rng := rand.New(rand.NewPCG(seed, balanceSalt))
 	public := publicLots(tiers, source, sq.valueFactor)
-	sessions := int(math.Ceil(balanceRuns / v.Lots.MeanCount()))
-	matches := make([]matchSim, 0, sessions)
-	for range sessions {
+	warehouses := int(math.Ceil(balanceRuns / v.Lots.MeanCount()))
+	matches := make([]matchSim, 0, warehouses)
+	for range warehouses {
 		count := source.Count()
 		kinds := make([]int, count)
-		warehouses := make([]*venue.Warehouse, count)
+		depots := make([]*venue.Depot, count)
 		fit := true
 		for i := range kinds {
 			kinds[i] = source.Pick()
-			warehouse, err := source.Generate(kinds[i], sq.valueFactor)
+			depot, err := source.Generate(kinds[i], sq.valueFactor)
 			if err != nil {
 				fit = false
 				break
 			}
-			warehouses[i] = warehouse
+			depots[i] = depot
 		}
 		if !fit {
 			continue
 		}
-		m, err := sq.play(v, tiers, public, kinds, warehouses, rng, cfg)
+		m, err := sq.play(v, tiers, public, kinds, depots, rng, cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -370,11 +370,11 @@ func (sq *squad) run(v *venue.Venue, tiers []venue.Tier, source lineup, seed uin
 	return matches, nil
 }
 
-// play 模拟一个仓库, 按对局的规则推进(见 session): 首轮扫出的轮廓见 previewPieces;
+// play 模拟一个仓库, 按对局的规则推进(见 warehouse): 首轮扫出的轮廓见 previewPieces;
 // 真人带满上限, 人机带 BotCarry × [carryFloor, 100%]; 成交价按 v.Auction 的领先折让从剩余资金扣除
-func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, kinds []int, warehouses []*venue.Warehouse, rng *rand.Rand, cfg simConfig) (matchSim, error) {
+func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, kinds []int, depots []*venue.Depot, rng *rand.Rand, cfg simConfig) (matchSim, error) {
 	sims := make([]seatSim, playerCount)
-	s := &session{Seats: make([]seat, playerCount), Hosted: true, Hype: hypeStart, HypeDecay: cfg.hypeDecay}
+	s := &warehouse{Seats: make([]seat, playerCount), Hosted: true, Hype: hypeStart, HypeDecay: cfg.hypeDecay}
 	for i := range sims {
 		p := &s.Seats[i]
 		p.Seat = int16(i + 1)
@@ -401,7 +401,7 @@ func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, ki
 			Future:   future,
 			LotsLeft: int32(len(kinds) - lot - 1),
 		}
-		l, err := sq.playLot(v, s, sims, spec, warehouses[lot], &m, rng)
+		l, err := sq.playLot(v, s, sims, spec, depots[lot], &m, rng)
 		if err != nil {
 			return matchSim{}, err
 		}
@@ -420,9 +420,9 @@ func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, ki
 }
 
 // playLot 模拟仓库中的一个拍品: 每轮真人按 humanModel 出价, 再结束这一轮; 热度的统计记在 m 上
-func (sq *squad) playLot(v *venue.Venue, s *session, sims []seatSim, spec lotSpec, warehouse *venue.Warehouse, m *matchSim, rng *rand.Rand) (lotSim, error) {
+func (sq *squad) playLot(v *venue.Venue, s *warehouse, sims []seatSim, spec lotSpec, depot *venue.Depot, m *matchSim, rng *rand.Rand) (lotSim, error) {
 	rule := &spec.Rule
-	pieces := warehouse.Pieces
+	pieces := depot.Pieces
 	spec.Footprints = []Footprint{}
 	for i, picked := range previewPieces(len(pieces), rule.PreviewRate, rng.Int64N) {
 		if picked {
@@ -441,7 +441,7 @@ func (sq *squad) playLot(v *venue.Venue, s *session, sims []seatSim, spec lotSpe
 		return start.Add(time.Duration(s.lotRound())*time.Minute + time.Duration(rng.Int64N(int64(time.Minute))))
 	}
 
-	l := lotSim{value: warehouse.Value}
+	l := lotSim{value: depot.Value}
 	var result verdict
 	for {
 		round := s.lotRound()
@@ -454,7 +454,7 @@ func (sq *squad) playLot(v *venue.Venue, s *session, sims []seatSim, spec lotSpe
 			if sims[i].planner && spec.LotsLeft > 0 {
 				view.future = spec.Future
 			}
-			if amount := sq.human.bid(rule, round, warehouse.Value, sims[i].sign, view, rng); amount > p.Bid {
+			if amount := sq.human.bid(rule, round, depot.Value, sims[i].sign, view, rng); amount > p.Bid {
 				s.raise(i, amount, s.Clock())
 			}
 		}
@@ -482,14 +482,14 @@ func (sq *squad) playLot(v *venue.Venue, s *session, sims []seatSim, spec lotSpe
 		}
 	}
 
-	if warehouse.Value > 0 {
+	if depot.Value > 0 {
 		var top int64
 		for _, piece := range pieces {
 			if piece.SellCurrency == v.BidCurrency {
 				top = max(top, piece.SellPrice)
 			}
 		}
-		l.topShare = float64(top) / float64(warehouse.Value)
+		l.topShare = float64(top) / float64(depot.Value)
 	}
 	if result.Outcome == OutcomeSold {
 		sorted := sortBidders(s.bidders())

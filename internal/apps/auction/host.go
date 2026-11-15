@@ -36,11 +36,11 @@ import (
 
 // hostInput 生成一轮提示时的局面
 type hostInput struct {
-	Round     int32           // 即将开始的轮次
-	Items     []WarehouseItem // 货仓里的全部藏品
-	Value     int64           // 货仓价值
-	Expected  int64           // 期望价值, 见 expectedValue
-	Qualities []int16         // 这张地图可能出现的品质, 从低到高; 说错时换成相邻的品质
+	Round     int32       // 即将开始的轮次
+	Items     []DepotItem // 货仓里的全部藏品
+	Value     int64       // 货仓价值
+	Expected  int64       // 期望价值, 见 expectedValue
+	Qualities []int16     // 这张地图可能出现的品质, 从低到高; 说错时换成相邻的品质
 	Rule      *venue.HostRule
 	Persona   string
 	Hype      int32
@@ -51,7 +51,7 @@ type hostInput struct {
 //
 // 提示只涉及开局时就确定的信息, 不涉及其他人的出价; 指认一件藏品时只指第 1 轮扫出轮廓的, 不透露其他藏品的位置。
 func makeHint(in *hostInput, randN func(n int64) int64) (HostHint, bool) {
-	var previewed []WarehouseItem
+	var previewed []DepotItem
 	for _, it := range in.Items {
 		if it.Preview {
 			previewed = append(previewed, it)
@@ -68,7 +68,7 @@ func makeHint(in *hostInput, randN func(n int64) int64) (HostHint, bool) {
 		options = append(options, HostHint{Kind: HostHintCount, Quality: q, Count: n})
 	}
 	if len(in.Items) > 0 {
-		best := slices.MaxFunc(in.Items, func(a, b WarehouseItem) int { return cmp.Compare(a.Quality, b.Quality) })
+		best := slices.MaxFunc(in.Items, func(a, b DepotItem) int { return cmp.Compare(a.Quality, b.Quality) })
 		options = append(options, HostHint{Kind: HostHintBest, Quality: best.Quality})
 	}
 	if len(previewed) > 0 {
@@ -188,7 +188,7 @@ func expectedValue(odds []venue.PieceOdds) int64 {
 }
 
 // hostQualities 可能出现的品质, 从低到高: 公示概率中的品质加上货仓里实际有的
-func hostQualities(odds []venue.PieceOdds, items []WarehouseItem) []int16 {
+func hostQualities(odds []venue.PieceOdds, items []DepotItem) []int16 {
 	var qualities []int16
 	for _, o := range odds {
 		qualities = append(qualities, o.Quality)
@@ -220,7 +220,7 @@ func hypeDelta(raises []int64, expected int64, rounds int32) int32 {
 }
 
 // startHost 开局时选出主持人的性格(仓库结束后才公开), 记录初始热度, 给出第 1 个拍品第 1 轮的提示; 没有开启主持人提示时什么都不做
-func startHost(tx *gorm.DB, a *Match, lot *Lot, items []WarehouseItem) error {
+func startHost(tx *gorm.DB, a *Match, lot *Lot, items []DepotItem) error {
 	rule := &a.Venue.Host
 	if !rule.Enabled {
 		return nil
@@ -265,7 +265,7 @@ func (st *state) hint(tx *gorm.DB, round int32) error {
 }
 
 // giveHint 生成并保存拍品 lot 在仓库第 round 轮的提示, 没有能给的提示时跳过
-func giveHint(tx *gorm.DB, a *Match, lot *Lot, items []WarehouseItem, round int32, last string) error {
+func giveHint(tx *gorm.DB, a *Match, lot *Lot, items []DepotItem, round int32, last string) error {
 	in := &hostInput{
 		Round:     lot.Round(round),
 		Items:     items,

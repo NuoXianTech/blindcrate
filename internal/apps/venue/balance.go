@@ -68,7 +68,7 @@ func (v *Venue) Calibrate(b *settings.BalanceSettings) {
 	for i := range tiers {
 		var weight, total float64
 		for j := range tiers {
-			if tiers[j].Warehouse.Grid == tiers[i].Warehouse.Grid {
+			if tiers[j].Depot.Grid == tiers[i].Depot.Grid {
 				weight += float64(tiers[j].Weight)
 				total += float64(tiers[j].Weight) * float64(v.Simulation.Tiers[j].Ranked.Mean)
 			}
@@ -88,7 +88,7 @@ func (v *Venue) Calibrate(b *settings.BalanceSettings) {
 	if coverage == 0 {
 		coverage = b.CarryCoverage
 	}
-	total := v.SessionMean()
+	total := v.WarehouseMean()
 	r.MaxCarry = max(ofRate(total, coverage), r.StartPrice)
 	r.BotCarry = max(ofRate(r.MaxCarry, b.BotCarryShare), r.StartPrice)
 }
@@ -149,9 +149,9 @@ func (b *Balance) judge(v *Venue, rule *settings.BalanceSettings) {
 	b.Checks = []Check{newCheck(CheckRounds, "", int64(v.Auction.Rounds), n(rule.MinRounds), n(rule.MaxRounds), UnitCount)}
 	// 多个档次时按最小和最大的边长判定
 	tiers := v.Lots.Tiers
-	low, high := tiers[0].Warehouse.Grid, tiers[0].Warehouse.Grid
+	low, high := tiers[0].Depot.Grid, tiers[0].Depot.Grid
 	for _, t := range tiers[1:] {
-		g := t.Warehouse.Grid
+		g := t.Depot.Grid
 		low.Width, low.Height = min(low.Width, g.Width), min(low.Height, g.Height)
 		high.Width, high.Height = max(high.Width, g.Width), max(high.Height, g.Height)
 	}
@@ -165,7 +165,7 @@ func (b *Balance) judge(v *Venue, rule *settings.BalanceSettings) {
 		}
 		b.Checks = append(b.Checks, c)
 	}
-	minSeat := bound(ofRate(v.SessionMean(), rule.MinSeatEV))
+	minSeat := bound(ofRate(v.WarehouseMean(), rule.MinSeatEV))
 	lots := !v.Lots.Single()
 	winRates := map[string]int{SquadRanked: rule.MinRankedWinRate, SquadPve: rule.MinPveWinRate}
 	for _, s := range b.Squads {

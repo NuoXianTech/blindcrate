@@ -458,7 +458,7 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 
 // newLots 生成仓库的全部拍品和藏品: 抽出拍品数, 每个拍品按权重抽一种档次生成货仓, 公示概率按格子大小推断(见 publicLots),
 // 金额取档次按格子大小推导的; 每个拍品按首轮扫描比例抽出第 1 轮扫出轮廓的藏品(见 previewPieces), 按位置排出扫描顺序并快照扫描时长
-func (vm *venueMode) newLots(tx *gorm.DB, matchID uint64) ([]Lot, []WarehouseItem, error) {
+func (vm *venueMode) newLots(tx *gorm.DB, matchID uint64) ([]Lot, []DepotItem, error) {
 	v := vm.venue
 	valueFactor := int32(venue.BasisPoints)
 	if vm.kind == venue.ModePve {
@@ -466,7 +466,7 @@ func (vm *venueMode) newLots(tx *gorm.DB, matchID uint64) ([]Lot, []WarehouseIte
 	}
 	lineup, err := venue.NewLineup(tx, v)
 	if err != nil {
-		return nil, nil, fmt.Errorf("auction: load warehouse rules of venue %s failed: %w", v.Code, err)
+		return nil, nil, fmt.Errorf("auction: load depot rules of venue %s failed: %w", v.Code, err)
 	}
 	tiers := v.Lots.Tiers
 	public := publicLots(tiers, venueLineup{lineup}, valueFactor)
@@ -477,43 +477,43 @@ func (vm *venueMode) newLots(tx *gorm.DB, matchID uint64) ([]Lot, []WarehouseIte
 
 	count := lineup.Count()
 	lots := make([]Lot, count)
-	var rows []WarehouseItem
+	var rows []DepotItem
 	for i := range lots {
 		k := lineup.Pick()
-		warehouse, err := lineup.Tier(k).Generate(valueFactor)
+		depot, err := lineup.Tier(k).Generate(valueFactor)
 		if err != nil {
-			return nil, nil, fmt.Errorf("auction: generate warehouse of venue %s failed: %w", v.Code, err)
+			return nil, nil, fmt.Errorf("auction: generate depot of venue %s failed: %w", v.Code, err)
 		}
 		t := &tiers[k].Auction
 		lots[i] = Lot{
 			MatchID:    matchID,
 			LotNo:      int32(i + 1),
 			Tier:       tiers[k].Code,
-			Grid:       tiers[k].Warehouse.Grid,
+			Grid:       tiers[k].Depot.Grid,
 			Odds:       public[k].odds,
 			StartPrice: t.StartPrice,
 			SpeedFloor: t.SpeedFloor,
-			Value:      warehouse.Value,
-			PieceCount: int32(len(warehouse.Pieces)),
+			Value:      depot.Value,
+			PieceCount: int32(len(depot.Pieces)),
 			Contenders: []int16{},
 		}
 		if i == 0 {
 			lots[i].FirstRound = 1
 		}
 
-		itemIDs := make([]uint64, len(warehouse.Pieces))
-		for j, piece := range warehouse.Pieces {
+		itemIDs := make([]uint64, len(depot.Pieces))
+		for j, piece := range depot.Pieces {
 			itemIDs[j] = piece.ItemID
 		}
 		items, err := item.Resolve(tx, itemIDs)
 		if err != nil {
 			return nil, nil, err
 		}
-		preview := previewPieces(len(warehouse.Pieces), v.Auction.PreviewRate, rand.Int64N)
-		scanOrder := scanOrders(warehouse.Pieces)
-		for j, piece := range warehouse.Pieces {
+		preview := previewPieces(len(depot.Pieces), v.Auction.PreviewRate, rand.Int64N)
+		scanOrder := scanOrders(depot.Pieces)
+		for j, piece := range depot.Pieces {
 			target := items[piece.ItemID]
-			rows = append(rows, WarehouseItem{
+			rows = append(rows, DepotItem{
 				MatchID:      matchID,
 				LotNo:        int32(i + 1),
 				Preview:      preview[j],
@@ -693,10 +693,10 @@ func (st *state) placeBid(tx *gorm.DB, p *Player, amount int64, at time.Time) er
 	return tx.Model(p).Select("bid", "bid_at").Updates(p).Error
 }
 
-// session 各座位和热度在推进规则中的局面, 与 players 的顺序相同; 还没有进入拍品, 见 session.openLot 和 session.resumeLot
-func (st *state) session() *session {
+// warehouse 各座位和热度在推进规则中的局面, 与 players 的顺序相同; 还没有进入拍品, 见 warehouse.openLot 和 warehouse.resumeLot
+func (st *state) warehouse() *warehouse {
 	a := &st.auction
-	s := &session{
+	s := &warehouse{
 		Seats:     make([]seat, len(st.players)),
 		Hosted:    a.Host != "",
 		Hype:      a.Hype,
@@ -746,17 +746,17 @@ func (st *state) resolveRound(tx *gorm.DB, waited bool) (*match.Phase, error) {
 	if err := tx.Where("match_id = ? AND lot_no = ?", st.match.ID, lot.LotNo).Find(&bids).Error; err != nil {
 		return nil, err
 	}
-	s := st.session()
+	s := st.warehouse()
 	s.resumeLot(spec, lot.FirstRound, lot.ExtraRounds, lot.Contenders, bids)
 	return st.advance(tx, s, waited)
 }
 
-// advance 按 s 结束本轮(人机出价并判定, 见 session.closeRound)并写入结果: 当前拍品成交或流拍时结算并进入开箱, 否则进入下一轮
+// advance 按 s 结束本轮(人机出价并判定, 见 warehouse.closeRound)并写入结果: 当前拍品成交或流拍时结算并进入开箱, 否则进入下一轮
 //
 // 开箱阶段的时长为这个拍品的扫描时长之和加上停留时长, 还有下一个拍品时再加上拍品间隔; 最后一个拍品开箱时仓库已结算, 对局随即释放,
 // 玩家可以离开去排下一局。没有真人可以出价的轮次(只有人机并列的加轮、真人的剩余资金都不够起拍价)不等待超时, 直接结束下一轮。
 // waited 为本轮是否等待过真人出价: 是时人机的出价时间见 botBidAt; 否则没有真人可比, 为现在。
-func (st *state) advance(tx *gorm.DB, s *session, waited bool) (*match.Phase, error) {
+func (st *state) advance(tx *gorm.DB, s *warehouse, waited bool) (*match.Phase, error) {
 	a, lot := &st.auction, st.lot
 	rule := st.rule()
 	match.AfterCommit(tx, func(ctx context.Context) { pushViews(ctx, st.match.ID) })
@@ -792,7 +792,7 @@ func (st *state) advance(tx *gorm.DB, s *session, waited bool) (*match.Phase, er
 				phase.Duration += time.Duration(a.Venue.GapSeconds) * time.Second
 				return phase, nil
 			}
-			if err := st.settleSession(tx); err != nil {
+			if err := st.settleWarehouse(tx); err != nil {
 				return nil, err
 			}
 			phase.Release = true
@@ -826,7 +826,7 @@ func (st *state) advance(tx *gorm.DB, s *session, waited bool) (*match.Phase, er
 }
 
 // saveBots 写入人机在 res 这一轮的估值和出价; 决策出错的人机记录日志并视为不加价, 不影响对局
-func (st *state) saveBots(tx *gorm.DB, s *session, res *roundResult) error {
+func (st *state) saveBots(tx *gorm.DB, s *warehouse, res *roundResult) error {
 	for _, f := range res.Failed {
 		logger.ErrorF(tx.Statement.Context, "[Auction] bot of seat %d in match %d failed to decide: %v", f.Seat, st.match.ID, f.Err)
 	}
@@ -857,13 +857,13 @@ func (st *state) saveBots(tx *gorm.DB, s *session, res *roundResult) error {
 	return nil
 }
 
-// startLot 开拍下一个拍品(见 session.openLot): 从上一个拍品的最后一轮之后开始, 清空每个人的出价和估值, 热度回落并给出第 1 轮的提示
+// startLot 开拍下一个拍品(见 warehouse.openLot): 从上一个拍品的最后一轮之后开始, 清空每个人的出价和估值, 热度回落并给出第 1 轮的提示
 func (st *state) startLot(tx *gorm.DB) (*match.Phase, error) {
 	a := &st.auction
 	if int(a.Lot) >= len(st.lots) {
 		return nil, fmt.Errorf("auction: lot %d of match %d not found", a.Lot+1, a.MatchID)
 	}
-	s := st.session()
+	s := st.warehouse()
 	a.Lot++
 	st.lot = &st.lots[a.Lot-1]
 	spec, err := st.lotSpec(tx)
@@ -908,7 +908,7 @@ func (st *state) startLot(tx *gorm.DB) (*match.Phase, error) {
 // scanDuration 开箱时扫描一个拍品的全部藏品的时长
 func scanDuration(tx *gorm.DB, matchID uint64, lotNo int32) (time.Duration, error) {
 	var total int64
-	if err := tx.Model(&WarehouseItem{}).Where("match_id = ? AND lot_no = ?", matchID, lotNo).
+	if err := tx.Model(&DepotItem{}).Where("match_id = ? AND lot_no = ?", matchID, lotNo).
 		Select("COALESCE(SUM(scan_ms), 0)").Scan(&total).Error; err != nil {
 		return 0, err
 	}
@@ -934,7 +934,7 @@ func (st *state) settleLot(tx *gorm.DB, result verdict) error {
 			if err := st.changeWallet(tx, p, 0, -result.Price, wallet.BizMatchBidSettle, lotAction("settle", lot.LotNo)); err != nil {
 				return err
 			}
-			if err := st.grantWarehouse(tx, p, lot.LotNo); err != nil {
+			if err := st.grantDepot(tx, p, lot.LotNo); err != nil {
 				return err
 			}
 		}
@@ -965,11 +965,11 @@ func (st *state) wonProfit(seat int16) int64 {
 	return total
 }
 
-// settleSession 最后一个拍品结算后结算仓库: 写入盈亏和名次, 全部流拍时退还入场费和入场代价, 解冻剩余的带入资金, 写入统计;
+// settleWarehouse 最后一个拍品结算后结算仓库: 写入盈亏和名次, 全部流拍时退还入场费和入场代价, 解冻剩余的带入资金, 写入统计;
 // 排位至少成交一个拍品时结算段位分
 //
 // 练习局只计算盈亏和名次, 不变动资金也不写统计; 人机同。排位中挂机的真人计入统计, 提交后记录挂机次数。
-func (st *state) settleSession(tx *gorm.DB) error {
+func (st *state) settleWarehouse(tx *gorm.DB) error {
 	a := &st.auction
 	now := time.Now()
 	sold := st.soldLots()
@@ -1007,7 +1007,7 @@ func (st *state) settleSession(tx *gorm.DB) error {
 	}
 	var ranks map[int16]int16
 	if sold > 0 {
-		ranks = rankSession(totals)
+		ranks = rankWarehouse(totals)
 	}
 
 	for i := range st.players {
@@ -1128,8 +1128,8 @@ func (st *state) settleRatings(tx *gorm.DB, ranks map[int16]int16, now time.Time
 	return nil
 }
 
-// grantWarehouse 把拍品 lotNo 里的藏品发给成交者, 已下架或已删除的藏品按开局时的回收价折成货币
-func (st *state) grantWarehouse(tx *gorm.DB, p *Player, lotNo int32) error {
+// grantDepot 把拍品 lotNo 里的藏品发给成交者, 已下架或已删除的藏品按开局时的回收价折成货币
+func (st *state) grantDepot(tx *gorm.DB, p *Player, lotNo int32) error {
 	items, err := loadItems(tx, st.match.ID, lotNo)
 	if err != nil {
 		return err
@@ -1257,7 +1257,7 @@ func (st *state) kind() string {
 	return kind
 }
 
-// remarkOf 资金流水的备注, 如 "码头货仓·人机"
+// remarkOf 资金流水的备注, 如 "码头仓库·人机"
 func remarkOf(venueName, kind string) string {
 	return venueName + "·" + venue.ModeName(kind)
 }

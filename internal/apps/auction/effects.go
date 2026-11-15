@@ -63,7 +63,7 @@ type cell struct{ x, y int16 }
 
 // UseContext 对局中使用道具时的上下文, 效果只读不写
 type UseContext struct {
-	Pieces     []WarehouseItem     // 货仓里的全部藏品, 按扫描顺序
+	Pieces     []DepotItem         // 货仓里的全部藏品, 按扫描顺序
 	Value      int64               // 货仓价值
 	Outlined   map[cell]bool       // 使用者已知轮廓的藏品, 按位置; 第 1 轮扫出的和之前用道具看到的
 	Known      map[cell]bool       // 使用者已知品质的藏品, 按位置; 品质从不公开, 只有之前用道具看到的
@@ -72,7 +72,7 @@ type UseContext struct {
 }
 
 // newUseContext 以座位 seat 的视角生成上下文; uses 为这个座位之前用过的道具
-func newUseContext(value int64, items []WarehouseItem, uses []Use, random func(n int64) int64) *UseContext {
+func newUseContext(value int64, items []DepotItem, uses []Use, random func(n int64) int64) *UseContext {
 	ctx := &UseContext{Pieces: items, Value: value, Outlined: map[cell]bool{}, Known: map[cell]bool{}, KnownNames: map[cell]bool{}, Rand: random}
 	for _, it := range items {
 		if it.Preview {
@@ -94,7 +94,7 @@ func newUseContext(value int64, items []WarehouseItem, uses []Use, random func(n
 }
 
 // pieceIntel 看到的一件藏品, 带占的格子; withName 为是否带名称和外观
-func pieceIntel(it *WarehouseItem, withName bool) PieceIntel {
+func pieceIntel(it *DepotItem, withName bool) PieceIntel {
 	intel := PieceIntel{X: it.X, Y: it.Y, Width: it.Width, Height: it.Height, Quality: it.Quality}
 	if withName {
 		intel.Name, intel.ImageURL = it.Name, it.ImageURL
@@ -103,7 +103,7 @@ func pieceIntel(it *WarehouseItem, withName bool) PieceIntel {
 }
 
 // pickPieces 从 candidates 中随机选 n 件, 不够时全选; 会打乱 candidates
-func pickPieces(ctx *UseContext, candidates []WarehouseItem, n int) []WarehouseItem {
+func pickPieces(ctx *UseContext, candidates []DepotItem, n int) []DepotItem {
 	n = min(len(candidates), n)
 	for i := range n {
 		j := i + int(ctx.Rand(int64(len(candidates)-i)))
@@ -130,7 +130,7 @@ type RevealOutlineParams struct {
 
 // revealOutline 从还不知道轮廓的藏品中随机选几件, 只给位置和大小
 func revealOutline(ctx *UseContext, params *RevealOutlineParams) (Intel, error) {
-	var unknown []WarehouseItem
+	var unknown []DepotItem
 	for _, it := range ctx.Pieces {
 		if !ctx.Outlined[cell{it.X, it.Y}] {
 			unknown = append(unknown, it)
@@ -152,7 +152,7 @@ type RevealQualityParams struct {
 
 // revealQuality 从还不知道品质的藏品中随机选几件
 func revealQuality(ctx *UseContext, params *RevealQualityParams) (Intel, error) {
-	var unknown []WarehouseItem
+	var unknown []DepotItem
 	for _, it := range ctx.Pieces {
 		if !ctx.Known[cell{it.X, it.Y}] {
 			unknown = append(unknown, it)
@@ -206,7 +206,7 @@ func (p *RevealNameParams) Validate(tx *gorm.DB) (string, error) {
 
 // revealName 从最低品质及以上、还不知道名称的藏品中随机选几件
 func revealName(ctx *UseContext, params *RevealNameParams) (Intel, error) {
-	var candidates []WarehouseItem
+	var candidates []DepotItem
 	for _, it := range ctx.Pieces {
 		if it.Quality >= params.MinQuality && !ctx.KnownNames[cell{it.X, it.Y}] {
 			candidates = append(candidates, it)
@@ -231,7 +231,7 @@ type ValueRangeParams struct {
 // 随机数不能由对局 ID 等可以推算的值决定, 否则知道算法的人可以从区间反推出真实价值。
 func valueRange(ctx *UseContext, params *ValueRangeParams) (Intel, error) {
 	if ctx.Value < 0 {
-		return Intel{}, errors.New("auction: negative warehouse value")
+		return Intel{}, errors.New("auction: negative depot value")
 	}
 	width := ctx.Value * int64(params.Precision) * 2 / venue.BasisPoints
 	low := ctx.Value - ctx.Rand(width+1)

@@ -42,7 +42,7 @@ const (
 	SlotPoolHasMoney   = "掉落池中有货币条目, 货仓只能放物品"
 	SlotNotCollectible = "第 %d 档: 掉落池中的 %s 不是藏品, 货仓只抽藏品"
 	SlotsEmpty         = "货仓至少要能抽出一件藏品"
-	WarehouseNotFit    = "货仓摆不下抽到的藏品"
+	DepotNotFit        = "货仓摆不下抽到的藏品"
 	FailureRateTooHigh = "货仓摆放失败率为 %.2f%%, 不能超过 1%%, 请加大格子或减少件数"
 	ValueEmpty         = "货仓的期望价值为 0, 请检查藏品的回收货币和回收价"
 	QuickWinInvalid    = "速胜倍率需要 %d 个, 即轮数减 1"

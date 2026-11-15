@@ -150,8 +150,8 @@ type LotView struct {
 	ScanFrom   *time.Time   `json:"scan_from"` // 开始扫描的时间, 即结算时间; 按已过去的时间和每件的扫描时长算出扫描进度
 }
 
-// SessionSeat 仓库结束后公开的一个座位的成绩
-type SessionSeat struct {
+// WarehouseSeat 仓库结束后公开的一个座位的成绩
+type WarehouseSeat struct {
 	Seat   int16 `json:"seat"`
 	Carry  int64 `json:"carry"`
 	Spent  int64 `json:"spent"`
@@ -159,28 +159,28 @@ type SessionSeat struct {
 	Rank   int16 `json:"rank"`
 }
 
-// SessionView 仓库结束后公开的成绩
-type SessionView struct {
-	Outcome string        `json:"outcome"` // sold(至少成交一个拍品)、unsold 或 cancelled
-	Seats   []SessionSeat `json:"seats"`   // 按座位号排序
+// WarehouseView 仓库结束后公开的成绩
+type WarehouseView struct {
+	Outcome string          `json:"outcome"` // sold(至少成交一个拍品)、unsold 或 cancelled
+	Seats   []WarehouseSeat `json:"seats"`   // 按座位号排序
 }
 
 // PublicView 一局暗拍中所有人都看得到的部分
 type PublicView struct {
-	MatchID     uint64       `json:"match_id"`
-	Mode        string       `json:"mode"`
-	Status      string       `json:"status"`
-	Phase       string       `json:"phase"`
-	Round       int32        `json:"round"`     // 仓库内的轮次, 从 1 开始连续编号
-	LotRound    int32        `json:"lot_round"` // 当前拍品的第几轮
-	PhaseEndsAt *time.Time   `json:"phase_ends_at"`
-	Version     int64        `json:"version"` // 与对局的 version 一致, 客户端只采用 version 更大的推送
-	Venue       VenueInfo    `json:"venue"`
-	LotCount    int32        `json:"lot_count"`
-	Lot         int32        `json:"lot"`     // 当前拍品的序号, 从 1 开始
-	Lots        []LotView    `json:"lots"`    // 按序号
-	Host        *HostView    `json:"host"`    // 主持人, 没有主持人提示时为空
-	Session     *SessionView `json:"session"` // 仓库结束后才有
+	MatchID     uint64         `json:"match_id"`
+	Mode        string         `json:"mode"`
+	Status      string         `json:"status"`
+	Phase       string         `json:"phase"`
+	Round       int32          `json:"round"`     // 仓库内的轮次, 从 1 开始连续编号
+	LotRound    int32          `json:"lot_round"` // 当前拍品的第几轮
+	PhaseEndsAt *time.Time     `json:"phase_ends_at"`
+	Version     int64          `json:"version"` // 与对局的 version 一致, 客户端只采用 version 更大的推送
+	Venue       VenueInfo      `json:"venue"`
+	LotCount    int32          `json:"lot_count"`
+	Lot         int32          `json:"lot"`       // 当前拍品的序号, 从 1 开始
+	Lots        []LotView      `json:"lots"`      // 按序号
+	Host        *HostView      `json:"host"`      // 主持人, 没有主持人提示时为空
+	Warehouse   *WarehouseView `json:"warehouse"` // 仓库结束后才有
 }
 
 // AuctionView 玩家看到的一局暗拍
@@ -198,7 +198,7 @@ type AdminView struct {
 }
 
 // view 以 viewerID 的视角查看, 不是这局的真人玩家时返回 nil
-func (st *state) view(viewerID uint64, items []WarehouseItem, uses []Use) *AuctionView {
+func (st *state) view(viewerID uint64, items []DepotItem, uses []Use) *AuctionView {
 	var self *Player
 	entry := []reward.Line{}
 	for i := range st.players {
@@ -246,7 +246,7 @@ func (st *state) view(viewerID uint64, items []WarehouseItem, uses []Use) *Aucti
 }
 
 // publicView 所有人都看得到的部分
-func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
+func (st *state) publicView(items []DepotItem, uses []Use) PublicView {
 	m, a := st.match, &st.auction
 	rule := &a.Venue.Auction
 	ended := a.Outcome != ""
@@ -285,15 +285,15 @@ func (st *state) publicView(items []WarehouseItem, uses []Use) PublicView {
 	if !ended {
 		return view
 	}
-	view.Session = &SessionView{Outcome: a.Outcome, Seats: make([]SessionSeat, len(st.players))}
+	view.Warehouse = &WarehouseView{Outcome: a.Outcome, Seats: make([]WarehouseSeat, len(st.players))}
 	for i, p := range st.players {
-		view.Session.Seats[i] = SessionSeat{Seat: p.Seat, Carry: p.Carry, Spent: p.Spent, Profit: st.wonProfit(p.Seat), Rank: p.Rank}
+		view.Warehouse.Seats[i] = WarehouseSeat{Seat: p.Seat, Carry: p.Carry, Spent: p.Spent, Profit: st.wonProfit(p.Seat), Rank: p.Rank}
 	}
 	return view
 }
 
 // lotView 一个拍品的公开部分; ended 为仓库是否已结束
-func (st *state) lotView(lot *Lot, items []WarehouseItem, uses []Use, ended bool) LotView {
+func (st *state) lotView(lot *Lot, items []DepotItem, uses []Use, ended bool) LotView {
 	view := LotView{
 		LotNo:      lot.LotNo,
 		Grid:       lot.Grid,
@@ -357,7 +357,7 @@ func (st *state) lotView(lot *Lot, items []WarehouseItem, uses []Use, ended bool
 }
 
 // footprints 第 1 轮扫出轮廓的藏品占的格子, 与 items 的顺序相同
-func footprints(items []WarehouseItem) []Footprint {
+func footprints(items []DepotItem) []Footprint {
 	prints := []Footprint{}
 	for _, it := range items {
 		if it.Preview {
@@ -385,12 +385,12 @@ func useCounts(uses []Use, seat int16) []UseCount {
 }
 
 // loadItems 拍品 lotNo 里的藏品, 按扫描顺序; lotNo 为 0 时为全部拍品的, 按序号和扫描顺序
-func loadItems(tx *gorm.DB, matchID uint64, lotNo int32) ([]WarehouseItem, error) {
+func loadItems(tx *gorm.DB, matchID uint64, lotNo int32) ([]DepotItem, error) {
 	query := tx.Where("match_id = ?", matchID)
 	if lotNo > 0 {
 		query = query.Where("lot_no = ?", lotNo)
 	}
-	var items []WarehouseItem
+	var items []DepotItem
 	if err := query.Order("lot_no, scan_order").Find(&items).Error; err != nil {
 		return nil, err
 	}
@@ -398,8 +398,8 @@ func loadItems(tx *gorm.DB, matchID uint64, lotNo int32) ([]WarehouseItem, error
 }
 
 // lotItems items 中拍品 lotNo 的藏品
-func lotItems(items []WarehouseItem, lotNo int32) []WarehouseItem {
-	var out []WarehouseItem
+func lotItems(items []DepotItem, lotNo int32) []DepotItem {
+	var out []DepotItem
 	for _, it := range items {
 		if it.LotNo == lotNo {
 			out = append(out, it)
@@ -420,7 +420,7 @@ func lotUses(uses []Use, lotNo int32) []Use {
 }
 
 // loadDetails 读出展示用的全部藏品、用掉的道具、出价记录、提示、热度变动和入场代价的名称
-func (st *state) loadDetails(tx *gorm.DB) ([]WarehouseItem, []Use, error) {
+func (st *state) loadDetails(tx *gorm.DB) ([]DepotItem, []Use, error) {
 	items, err := loadItems(tx, st.match.ID, 0)
 	if err != nil {
 		return nil, nil, err
@@ -446,7 +446,7 @@ func (st *state) loadDetails(tx *gorm.DB) ([]WarehouseItem, []Use, error) {
 }
 
 // queryState 读出一局暗拍的状态、藏品和用掉的道具, 对局不存在或不是暗拍时返回 match.MatchNotFound
-func queryState(ctx context.Context, matchID uint64) (*state, []WarehouseItem, []Use, error) {
+func queryState(ctx context.Context, matchID uint64) (*state, []DepotItem, []Use, error) {
 	tx := db.DB(ctx)
 	var m match.Match
 	if err := m.Exact(tx, matchID); err != nil {

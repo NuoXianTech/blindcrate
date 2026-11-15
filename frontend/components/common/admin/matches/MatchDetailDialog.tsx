@@ -8,7 +8,7 @@ import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
-import {IntelResult, Warehouse} from '@/components/common/auction';
+import {IntelResult, Depot} from '@/components/common/auction';
 import {useScan} from '@/hooks/use-scan';
 import {OUTCOMES, modeLabel, parseMode} from '@/lib/auction';
 import services from '@/lib/services';
@@ -67,7 +67,7 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
   const currency = auction?.venue.bid_currency ?? '';
   const decimals = decimalsOf(currency);
   // 仓库结束后才有名次和盈亏
-  const settled = !!auction?.session;
+  const settled = !!auction?.warehouse;
   const lotNo = shownLot || auction?.lot || 1;
   const lot = auction?.lots[lotNo - 1];
   const times = [
@@ -224,7 +224,7 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
       ) : (
         auction && lot && (
           <div className="mx-auto w-full max-w-2xl">
-            <AdminWarehouse key={lot.lot_no} view={auction} lot={lot} decimals={decimals} />
+            <AdminDepot key={lot.lot_no} view={auction} lot={lot} decimals={decimals} />
           </div>
         )
       )}
@@ -244,9 +244,9 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
 /**
  * 详情中一个拍品的货仓, 不播放开箱扫描, 结算后直接显示全部藏品
  */
-function AdminWarehouse({view, lot, decimals}: { view: AuctionAdminView; lot: LotView; decimals: number }) {
+function AdminDepot({view, lot, decimals}: { view: AuctionAdminView; lot: LotView; decimals: number }) {
   const scan = useScan(lot, view.venue.bid_currency, true);
-  return <Warehouse view={view} lot={lot} decimals={decimals} scan={scan} />;
+  return <Depot view={view} lot={lot} decimals={decimals} scan={scan} />;
 }
 
 /**

@@ -143,7 +143,7 @@ func runAutoMigrate() {
 		&auction.Lot{},
 		&auction.Player{},
 		&auction.Bid{},
-		&auction.WarehouseItem{},
+		&auction.DepotItem{},
 		&auction.Use{},
 		&auction.CarryPreference{},
 		&auction.SuspectReview{},

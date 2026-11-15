@@ -554,7 +554,7 @@ CREATE TABLE IF NOT EXISTS auction_bids
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_auction_bids_match_id_round_seat ON auction_bids (match_id, round, seat);
 
 -- 暗拍货仓里的藏品, 开局时快照名称、回收价和扫描时长
-CREATE TABLE IF NOT EXISTS auction_warehouse_items
+CREATE TABLE IF NOT EXISTS auction_depot_items
 (
     id            BIGSERIAL PRIMARY KEY,
     match_id      BIGINT        NOT NULL,
@@ -574,7 +574,7 @@ CREATE TABLE IF NOT EXISTS auction_warehouse_items
     sell_price    BIGINT        NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_auction_warehouse_items_match_id ON auction_warehouse_items (match_id);
+CREATE INDEX IF NOT EXISTS idx_auction_depot_items_match_id ON auction_depot_items (match_id);
 
 -- 暗拍中用掉的道具, 结果在使用时算出并保存; 每人每轮同一种道具只用一次
 CREATE TABLE IF NOT EXISTS auction_uses

@@ -91,7 +91,7 @@ func TestPieceOdds(t *testing.T) {
 func TestSwing(t *testing.T) {
 	g := &Generator{
 		currency: "chip",
-		rule: WarehouseRule{
+		rule: DepotRule{
 			Grid: Grid{Width: 10, Height: 10},
 			// 平均系数 (5000 + 15000 × 3) ÷ 4 = 12500
 			Swings: []Swing{{Factor: 5000, Weight: 1}, {Factor: 15000, Weight: 3}},
@@ -180,7 +180,7 @@ func TestPlace(t *testing.T) {
 
 	// 放不下时返回 false
 	if place(Grid{Width: 2, Height: 2}, []Piece{{Width: 2, Height: 2}, {Width: 1, Height: 1}}, rng.Int64N) {
-		t.Error("overfull warehouse placed")
+		t.Error("overfull depot placed")
 	}
 }
 

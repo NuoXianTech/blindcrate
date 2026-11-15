@@ -268,8 +268,8 @@ func validateRules(v *Venue) error {
 	return nil
 }
 
-// validateWarehouse 档位的次数范围需合法, 至少能抽到一件; 没有提交时为 null 的数量波动写为空列表
-func validateWarehouse(w *WarehouseRule) error {
+// validateDepot 档位的次数范围需合法, 至少能抽到一件; 没有提交时为 null 的数量波动写为空列表
+func validateDepot(w *DepotRule) error {
 	if w.Swings == nil {
 		w.Swings = []Swing{}
 	}
@@ -286,7 +286,7 @@ func validateWarehouse(w *WarehouseRule) error {
 	return nil
 }
 
-// validateLots 最少拍品数不能超过最多, 档次代码不能重复; 每个档次的货仓规则见 validateWarehouse
+// validateLots 最少拍品数不能超过最多, 档次代码不能重复; 每个档次的货仓规则见 validateDepot
 func validateLots(r *LotRule) error {
 	if r.Min > r.Max {
 		return invalid(LotRangeInvalid)
@@ -298,7 +298,7 @@ func validateLots(r *LotRule) error {
 			return invalid(TierDuplicate, t.Code)
 		}
 		codes[t.Code] = true
-		if err := validateWarehouse(&t.Warehouse); err != nil {
+		if err := validateDepot(&t.Depot); err != nil {
 			return invalid(TierInvalid, t.Name, err.Error())
 		}
 	}
@@ -416,7 +416,7 @@ func modeScopeName(_ *gorm.DB, scope string) (string, error) {
 	return modeNames[strings.TrimPrefix(scope, "mode:")], nil
 }
 
-// venueScopeName 统计范围 venue:<代码> 和 venue:<代码>:<模式> 的展示名称, 如 "码头货仓"、"码头货仓·排位"
+// venueScopeName 统计范围 venue:<代码> 和 venue:<代码>:<模式> 的展示名称, 如 "码头仓库"、"码头仓库·排位"
 //
 // 已删除的地图仍按原名称展示, 地图不存在时展示统计范围本身。
 func venueScopeName(tx *gorm.DB, scope string) (string, error) {
@@ -538,9 +538,9 @@ func newLotsView(v *Venue) LotsView {
 		total += int64(t.Weight)
 	}
 	for _, t := range v.Lots.Tiers {
-		i := slices.IndexFunc(view.Grids, func(g LotGrid) bool { return g.Grid == t.Warehouse.Grid })
+		i := slices.IndexFunc(view.Grids, func(g LotGrid) bool { return g.Grid == t.Depot.Grid })
 		if i < 0 {
-			view.Grids = append(view.Grids, LotGrid{Grid: t.Warehouse.Grid, StartPrice: t.Auction.StartPrice, SpeedFloor: t.Auction.SpeedFloor})
+			view.Grids = append(view.Grids, LotGrid{Grid: t.Depot.Grid, StartPrice: t.Auction.StartPrice, SpeedFloor: t.Auction.SpeedFloor})
 			i = len(view.Grids) - 1
 		}
 		view.Grids[i].Share += int32(int64(t.Weight) * BasisPoints / max(total, 1))
@@ -619,16 +619,16 @@ func QueryVenue(ctx context.Context, userID uint64, code string) (*VenueDetail, 
 	detail := &VenueDetail{VenueView: *view, LotSlots: []GridOdds{}}
 	weights := map[Grid]int64{}
 	for _, t := range v.Lots.Tiers {
-		weights[t.Warehouse.Grid] += int64(t.Weight)
+		weights[t.Depot.Grid] += int64(t.Weight)
 	}
 	for _, t := range v.Lots.Tiers {
-		grid := t.Warehouse.Grid
+		grid := t.Depot.Grid
 		i := slices.IndexFunc(detail.LotSlots, func(g GridOdds) bool { return g.Grid == grid })
 		if i < 0 {
 			detail.LotSlots = append(detail.LotSlots, GridOdds{Grid: grid, Variants: []VariantOdds{}})
 			i = len(detail.LotSlots) - 1
 		}
-		slots, err := slotOdds(ctx, t.Warehouse.Slots)
+		slots, err := slotOdds(ctx, t.Depot.Slots)
 		if err != nil {
 			return nil, err
 		}

@@ -12147,14 +12147,6 @@ const docTemplate = `{
                     "description": "仓库内的轮次, 从 1 开始连续编号",
                     "type": "integer"
                 },
-                "session": {
-                    "description": "仓库结束后才有",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/auction.SessionView"
-                        }
-                    ]
-                },
                 "status": {
                     "type": "string"
                 },
@@ -12171,6 +12163,14 @@ const docTemplate = `{
                 "version": {
                     "description": "与对局的 version 一致, 客户端只采用 version 更大的推送",
                     "type": "integer"
+                },
+                "warehouse": {
+                    "description": "仓库结束后才有",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/auction.WarehouseView"
+                        }
+                    ]
                 }
             }
         },
@@ -12222,14 +12222,6 @@ const docTemplate = `{
                 "self": {
                     "$ref": "#/definitions/auction.SelfView"
                 },
-                "session": {
-                    "description": "仓库结束后才有",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/auction.SessionView"
-                        }
-                    ]
-                },
                 "status": {
                     "type": "string"
                 },
@@ -12239,6 +12231,14 @@ const docTemplate = `{
                 "version": {
                     "description": "与对局的 version 一致, 客户端只采用 version 更大的推送",
                     "type": "integer"
+                },
+                "warehouse": {
+                    "description": "仓库结束后才有",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/auction.WarehouseView"
+                        }
+                    ]
                 }
             }
         },
@@ -12876,43 +12876,6 @@ const docTemplate = `{
                 }
             }
         },
-        "auction.SessionSeat": {
-            "type": "object",
-            "properties": {
-                "carry": {
-                    "type": "integer"
-                },
-                "profit": {
-                    "description": "拿下的拍品的价值 - 成交价",
-                    "type": "integer"
-                },
-                "rank": {
-                    "type": "integer"
-                },
-                "seat": {
-                    "type": "integer"
-                },
-                "spent": {
-                    "type": "integer"
-                }
-            }
-        },
-        "auction.SessionView": {
-            "type": "object",
-            "properties": {
-                "outcome": {
-                    "description": "sold(至少成交一个拍品)、unsold 或 cancelled",
-                    "type": "string"
-                },
-                "seats": {
-                    "description": "按座位号排序",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/auction.SessionSeat"
-                    }
-                }
-            }
-        },
         "auction.Suspect": {
             "type": "object",
             "properties": {
@@ -13179,6 +13142,43 @@ const docTemplate = `{
                 "rounds": {
                     "description": "每个拍品的轮数",
                     "type": "integer"
+                }
+            }
+        },
+        "auction.WarehouseSeat": {
+            "type": "object",
+            "properties": {
+                "carry": {
+                    "type": "integer"
+                },
+                "profit": {
+                    "description": "拿下的拍品的价值 - 成交价",
+                    "type": "integer"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "seat": {
+                    "type": "integer"
+                },
+                "spent": {
+                    "type": "integer"
+                }
+            }
+        },
+        "auction.WarehouseView": {
+            "type": "object",
+            "properties": {
+                "outcome": {
+                    "description": "sold(至少成交一个拍品)、unsold 或 cancelled",
+                    "type": "string"
+                },
+                "seats": {
+                    "description": "按座位号排序",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.WarehouseSeat"
+                    }
                 }
             }
         },
@@ -19199,6 +19199,36 @@ const docTemplate = `{
                 }
             }
         },
+        "venue.DepotRule": {
+            "type": "object",
+            "properties": {
+                "grid": {
+                    "$ref": "#/definitions/venue.Grid"
+                },
+                "max_rerolls": {
+                    "description": "超过后开局失败",
+                    "type": "integer",
+                    "maximum": 50,
+                    "minimum": 0
+                },
+                "slots": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/venue.Slot"
+                    }
+                },
+                "swings": {
+                    "description": "为空表示不波动",
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                        "$ref": "#/definitions/venue.Swing"
+                    }
+                }
+            }
+        },
         "venue.Grid": {
             "type": "object",
             "properties": {
@@ -19656,13 +19686,13 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 32
                 },
+                "depot": {
+                    "$ref": "#/definitions/venue.DepotRule"
+                },
                 "name": {
                     "description": "只在管理端和仓库结束后显示",
                     "type": "string",
                     "maxLength": 32
-                },
-                "warehouse": {
-                    "$ref": "#/definitions/venue.WarehouseRule"
                 },
                 "weight": {
                     "type": "integer",
@@ -20029,36 +20059,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/venue.ValueRange"
                         }
                     ]
-                }
-            }
-        },
-        "venue.WarehouseRule": {
-            "type": "object",
-            "properties": {
-                "grid": {
-                    "$ref": "#/definitions/venue.Grid"
-                },
-                "max_rerolls": {
-                    "description": "超过后开局失败",
-                    "type": "integer",
-                    "maximum": 50,
-                    "minimum": 0
-                },
-                "slots": {
-                    "type": "array",
-                    "maxItems": 8,
-                    "minItems": 1,
-                    "items": {
-                        "$ref": "#/definitions/venue.Slot"
-                    }
-                },
-                "swings": {
-                    "description": "为空表示不波动",
-                    "type": "array",
-                    "maxItems": 8,
-                    "items": {
-                        "$ref": "#/definitions/venue.Swing"
-                    }
                 }
             }
         },

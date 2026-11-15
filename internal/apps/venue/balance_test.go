@@ -48,7 +48,7 @@ func TestCalibrate(t *testing.T) {
 			AuctionRule{StartPrice: 400, MaxCarry: 20000, BotCarry: 12000, SpeedFloor: 7500},
 		},
 		{
-			"tiny warehouses still start at 1",
+			"tiny depots still start at 1",
 			ValueStats{Mean: 10, P90: 10, CV: 0},
 			AuctionRule{StartPrice: 1, MaxCarry: 20, BotCarry: 12, SpeedFloor: 7},
 		},
@@ -68,7 +68,7 @@ func TestCalibrate(t *testing.T) {
 
 func TestBalanceJudge(t *testing.T) {
 	v := &Venue{
-		Lots:       LotRule{Min: 1, Max: 1, Tiers: []Tier{{Warehouse: WarehouseRule{Grid: Grid{Width: 8, Height: 3}}}}},
+		Lots:       LotRule{Min: 1, Max: 1, Tiers: []Tier{{Depot: DepotRule{Grid: Grid{Width: 8, Height: 3}}}}},
 		Auction:    AuctionRule{Rounds: 5},
 		Pve:        PveRule{PracticeOnly: true},
 		Simulation: Simulation{Ranked: ValueStats{Mean: 10000}},
@@ -104,7 +104,7 @@ func TestBalanceJudge(t *testing.T) {
 		}
 	}
 
-	v.Lots.Tiers[0].Warehouse.Grid.Height = 6
+	v.Lots.Tiers[0].Depot.Grid.Height = 6
 	b.Squads[0].SpeedWin, b.Squads[1].SeatEV = 2000, -400
 	b.judge(v, settings.Balance.Default())
 	if !b.Passed || b.failures() != "" {
@@ -132,8 +132,8 @@ func TestBalanceJudge(t *testing.T) {
 func TestCalibrateVenue(t *testing.T) {
 	v := &Venue{
 		Lots: LotRule{Min: 1, Max: 1, Tiers: []Tier{
-			{Code: "small", Weight: 1, Warehouse: WarehouseRule{Grid: Grid{Width: 4, Height: 4}}},
-			{Code: "big", Weight: 1, Warehouse: WarehouseRule{Grid: Grid{Width: 6, Height: 6}}},
+			{Code: "small", Weight: 1, Depot: DepotRule{Grid: Grid{Width: 4, Height: 4}}},
+			{Code: "big", Weight: 1, Depot: DepotRule{Grid: Grid{Width: 6, Height: 6}}},
 		}},
 		Simulation: Simulation{
 			Ranked: ValueStats{Mean: 10000, P90: 20000},

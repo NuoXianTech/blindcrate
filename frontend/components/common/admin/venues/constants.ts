@@ -54,7 +54,7 @@ export function toRequest(venue: AdminVenue): VenueRequest {
     // 档次的金额由后端推导, 不提交
     lots: {
       ...venue.lots,
-      tiers: venue.lots.tiers.map(({code, name, weight, warehouse}) => ({code, name, weight, warehouse})),
+      tiers: venue.lots.tiers.map(({code, name, weight, depot}) => ({code, name, weight, depot})),
     },
     auction: venue.auction,
     bots: venue.bots,

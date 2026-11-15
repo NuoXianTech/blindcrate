@@ -42,10 +42,10 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
   const router = useRouter();
   const [joining, setJoining] = useState(false);
   const [tiers, setTiers] = useState<Tier[] | null>(null);
-  const {session, self} = view;
+  const {warehouse, self} = view;
   const sold = lot.outcome === AUCTION_OUTCOME.sold;
   // 排位至少成交一个拍品时按名次加减段位分, 全部流拍和练习局不计分
-  const rated = session?.outcome === AUCTION_OUTCOME.sold && parseMode(view.mode)?.kind === 'ranked' && !self.is_practice;
+  const rated = warehouse?.outcome === AUCTION_OUTCOME.sold && parseMode(view.mode)?.kind === 'ranked' && !self.is_practice;
 
   useEffect(() => {
     if (!rated) return;
@@ -70,7 +70,7 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
   } else if (sold) {
     title = `${winner?.nickname ?? `${lot.winner_seat} 号位`} 拍下了这个货仓`;
   } else if (lot.outcome === AUCTION_OUTCOME.unsold) {
-    title = session && refunded ? '全部流拍, 入场代价已退还' : '这个拍品流拍';
+    title = warehouse && refunded ? '全部流拍, 入场代价已退还' : '这个拍品流拍';
   } else {
     title = refunded ? '对局已取消, 入场代价已退还' : '对局已取消, 已成交的拍品不受影响';
   }
@@ -94,7 +94,7 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
   // 整场盈亏要扣掉入场费; 其余的入场代价不是出价货币, 单独列出
   const net = self.profit - self.entry_fee;
   // 全部流拍时名次为 0, 按座位号
-  const standings = session ? [...session.seats].sort((a, b) => a.rank - b.rank || a.seat - b.seat) : [];
+  const standings = warehouse ? [...warehouse.seats].sort((a, b) => a.rank - b.rank || a.seat - b.seat) : [];
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border bg-card p-4">
@@ -115,7 +115,7 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
         ))}
       </dl>
 
-      {session && !scan.complete && (
+      {warehouse && !scan.complete && (
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">我的盈亏</span>
           <span className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -125,7 +125,7 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
         </div>
       )}
 
-      {session && scan.complete && (
+      {warehouse && scan.complete && (
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">
             整场盈亏{self.is_practice && ' (练习局, 仅供参考)'}
@@ -153,7 +153,7 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
         </div>
       )}
 
-      {session && scan.complete && (
+      {warehouse && scan.complete && (
         <ul className="flex flex-col gap-1 text-sm">
           {standings.map((s) => {
             const player = players.find((p) => p.seat === s.seat);
@@ -202,7 +202,7 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
         </div>
       )}
 
-      {!session ? (
+      {!warehouse ? (
         lot.lot_no === view.lot && (
           <span className="text-center text-xs text-muted-foreground">开箱后进入下一个拍品, 带入资金继续沿用</span>
         )

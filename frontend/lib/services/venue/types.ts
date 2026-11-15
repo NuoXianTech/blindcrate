@@ -199,7 +199,7 @@ export interface GridOdds {
 }
 
 /** 货仓的一个档位, 从掉落池抽取若干次 */
-export interface WarehouseSlot {
+export interface DepotSlot {
   /** 掉落池代码, 只能有物品条目 */
   pool: string;
   /** 抽取次数在 [min, max] 内均匀随机 */
@@ -210,18 +210,18 @@ export interface WarehouseSlot {
 }
 
 /** 货仓的一档数量波动, 对应后端 venue.Swing */
-export interface WarehouseSwing {
+export interface DepotSwing {
   /** 抽中这一档时按它缩放各档位的抽取次数, 基点 */
   factor: number;
   weight: number;
 }
 
-/** 货仓生成规则, 对应后端 venue.WarehouseRule */
-export interface WarehouseRule {
+/** 货仓生成规则, 对应后端 venue.DepotRule */
+export interface DepotRule {
   grid: Grid;
-  slots: WarehouseSlot[];
+  slots: DepotSlot[];
   /** 每局按权重抽一档, 为空表示不波动 */
-  swings: WarehouseSwing[];
+  swings: DepotSwing[];
   /** 摆不下时重抽, 超过后开局失败 */
   max_rerolls: number;
 }
@@ -242,7 +242,7 @@ export interface LotTier {
   name: string;
   /** 1-10000 */
   weight: number;
-  warehouse: WarehouseRule;
+  depot: DepotRule;
   /** 保存时推导, 提交的值会被覆盖 */
   auction: TierAuction;
 }

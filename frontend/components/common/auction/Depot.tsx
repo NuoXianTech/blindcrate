@@ -152,7 +152,7 @@ function seenCells(view: AuctionPublicView, lot: LotView, intel?: Map<string, Pi
  * 道具扫出的藏品只有自己看得到, 扫出名称和外观时播放金色扫描;
  * 开箱后按扫描顺序逐件扫描, 扫到时才显示轮廓、外观和回收价, 货仓价值随扫描累加
  */
-export function Warehouse({view, lot, decimals, scan, intel}: {
+export function Depot({view, lot, decimals, scan, intel}: {
   view: AuctionPublicView;
   /** 展示的拍品, 换拍品时需要换 key 重新挂载 */
   lot: LotView;

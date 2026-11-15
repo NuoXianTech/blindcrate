@@ -192,10 +192,10 @@ type Bid struct {
 // TableName 自定义表名
 func (Bid) TableName() string { return "auction_bids" }
 
-// WarehouseItem 一个拍品(货仓)里的一件藏品, 开局时快照名称、回收价和扫描时长; 一个拍品中按位置(X, Y)区分, 位置不重复
-type WarehouseItem struct {
+// DepotItem 一个拍品(货仓)里的一件藏品, 开局时快照名称、回收价和扫描时长; 一个拍品中按位置(X, Y)区分, 位置不重复
+type DepotItem struct {
 	ID           uint64 `gorm:"primaryKey" json:"id"`
-	MatchID      uint64 `gorm:"not null;index:idx_auction_warehouse_items_match_id" json:"match_id"`
+	MatchID      uint64 `gorm:"not null;index:idx_auction_depot_items_match_id" json:"match_id"`
 	LotNo        int32  `gorm:"not null;default:1" json:"lot_no"`
 	Preview      bool   `gorm:"not null;default:false" json:"preview"` // 是否在这个拍品的第 1 轮扫出轮廓(占的格子), 所有人都看得到, 不含品质和名称
 	ScanOrder    int32  `gorm:"not null;default:0" json:"scan_order"`  // 开箱时扫描的顺序, 从 1 开始, 按位置从上到下、从左到右
@@ -213,7 +213,7 @@ type WarehouseItem struct {
 }
 
 // TableName 自定义表名
-func (WarehouseItem) TableName() string { return "auction_warehouse_items" }
+func (DepotItem) TableName() string { return "auction_depot_items" }
 
 // Use 对局中用掉的一个道具, 结果在使用时算出并保存, 之后直接读取; 只作用于使用时的拍品
 //

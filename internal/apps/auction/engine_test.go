@@ -43,9 +43,9 @@ func testSpec(rounds int32, quickWin ...int32) lotSpec {
 	}
 }
 
-// testSession 4 个座位的仓库, 前 humans 个是真人, 每人带 5000; 提交时间按调用的先后递增
-func testSession(humans int, deciders ...bot.Decider[Observation, Decision]) *session {
-	s := &session{Seats: make([]seat, playerCount), Hosted: true, Hype: hypeStart, HypeDecay: 5000}
+// testWarehouse 4 个座位的仓库, 前 humans 个是真人, 每人带 5000; 提交时间按调用的先后递增
+func testWarehouse(humans int, deciders ...bot.Decider[Observation, Decision]) *warehouse {
+	s := &warehouse{Seats: make([]seat, playerCount), Hosted: true, Hype: hypeStart, HypeDecay: 5000}
 	for i := range s.Seats {
 		s.Seats[i] = seat{Seat: int16(i + 1), Human: i < humans, Carry: 5000}
 		if i >= humans {
@@ -67,9 +67,9 @@ func fixedBid(amount int64) bot.Decider[Observation, Decision] {
 	}
 }
 
-// TestSessionTie 最后一轮并列时只让并列的人加轮, 加轮用完后先出价的人成交; 最后一轮和加轮的出价不公开, 加轮不给提示
-func TestSessionTie(t *testing.T) {
-	s := testSession(4)
+// TestWarehouseTie 最后一轮并列时只让并列的人加轮, 加轮用完后先出价的人成交; 最后一轮和加轮的出价不公开, 加轮不给提示
+func TestWarehouseTie(t *testing.T) {
+	s := testWarehouse(4)
 	s.openLot(testSpec(2, 20000))
 	if s.Round != 1 || s.lotRound() != 1 || !s.humanCanBid() {
 		t.Fatalf("after opening: round %d, lot round %d, human can bid %v", s.Round, s.lotRound(), s.humanCanBid())
@@ -113,11 +113,11 @@ func TestSessionTie(t *testing.T) {
 	}
 }
 
-// TestSessionBots 人机的出价不超过剩余资金, 低于起拍价或不高于当前出价时为不加价; 剩余资金不够起拍价的只更新估值;
+// TestWarehouseBots 人机的出价不超过剩余资金, 低于起拍价或不高于当前出价时为不加价; 剩余资金不够起拍价的只更新估值;
 // 决策出错的视为不加价
-func TestSessionBots(t *testing.T) {
+func TestWarehouseBots(t *testing.T) {
 	failing := func(Observation, *rand.Rand) (Decision, error) { return Decision{}, errors.New("boom") }
-	s := testSession(1, fixedBid(9000), fixedBid(50), failing)
+	s := testWarehouse(1, fixedBid(9000), fixedBid(50), failing)
 	s.Seats[1].Carry = 800
 	s.openLot(testSpec(3, 50000, 50000))
 	res := s.closeRound()
@@ -151,14 +151,14 @@ func TestSessionBots(t *testing.T) {
 	}
 }
 
-// TestSessionObservation 人机看到的是公开的信息: 其他人的出价在前 N-1 轮每轮结束后公开, 最后一轮看到的还是第 N-1 轮结束时的
-func TestSessionObservation(t *testing.T) {
+// TestWarehouseObservation 人机看到的是公开的信息: 其他人的出价在前 N-1 轮每轮结束后公开, 最后一轮看到的还是第 N-1 轮结束时的
+func TestWarehouseObservation(t *testing.T) {
 	var seen []Observation
 	watcher := func(obs Observation, _ *rand.Rand) (Decision, error) {
 		seen = append(seen, obs)
 		return Decision{}, nil
 	}
-	s := testSession(3, watcher)
+	s := testWarehouse(3, watcher)
 	spec := testSpec(3, 50000, 50000)
 	spec.Future, spec.LotsLeft, spec.Footprints = 700, 2, []Footprint{{X: 1, Y: 2, Width: 1, Height: 1}}
 	s.openLot(spec)
@@ -184,10 +184,10 @@ func TestSessionObservation(t *testing.T) {
 	}
 }
 
-// TestSessionLots 下一个拍品从上一个的最后一轮之后开始, 剩余资金延续, 出价和估值清零, 热度向开局热度回落;
+// TestWarehouseLots 下一个拍品从上一个的最后一轮之后开始, 剩余资金延续, 出价和估值清零, 热度向开局热度回落;
 // 第一名领先够多时在最后一轮之前成交, 成交价按领先折让; 没有真人可以出价时不用等
-func TestSessionLots(t *testing.T) {
-	s := testSession(2, fixedBid(400), fixedBid(0))
+func TestWarehouseLots(t *testing.T) {
+	s := testWarehouse(2, fixedBid(400), fixedBid(0))
 	first := testSpec(3, 20000, 20000)
 	first.Rule.LeadDiscount = 5000
 	s.openLot(first)
@@ -222,7 +222,7 @@ func TestSessionLots(t *testing.T) {
 		t.Errorf("lot 2: got %+v, want unsold in round 2", res)
 	}
 
-	quiet := testSession(4)
+	quiet := testWarehouse(4)
 	quiet.Hosted, quiet.Round, quiet.Hype = false, 5, 0
 	quiet.openLot(testSpec(2, 20000))
 	quiet.raise(0, 300, quiet.Clock())
@@ -231,8 +231,8 @@ func TestSessionLots(t *testing.T) {
 	}
 }
 
-// TestSessionResume 按出价记录恢复的拍品与一直在内存中推进的结果相同
-func TestSessionResume(t *testing.T) {
+// TestWarehouseResume 按出价记录恢复的拍品与一直在内存中推进的结果相同
+func TestWarehouseResume(t *testing.T) {
 	// 跟着公开的最高价加 100, 结果取决于恢复出的公开出价
 	follower := func(obs Observation, _ *rand.Rand) (Decision, error) {
 		best := int64(0)
@@ -244,13 +244,13 @@ func TestSessionResume(t *testing.T) {
 	spec := testSpec(4, 50000, 50000, 50000)
 	humans := [][]int64{{200, 0}, {0, 450}, {900, 0}, {0, 1200}}
 
-	live := testSession(2, follower, follower)
+	live := testWarehouse(2, follower, follower)
 	live.Round = 6
 	live.openLot(spec)
 	var rows []Bid
 	for n, bids := range humans {
 		// 每一轮都从出价记录恢复一份, 与一直推进的那份比较
-		resumed := testSession(2, follower, follower)
+		resumed := testWarehouse(2, follower, follower)
 		resumed.Round, resumed.Hype = live.Round, live.Hype
 		for i, p := range live.Seats {
 			q := &resumed.Seats[i]

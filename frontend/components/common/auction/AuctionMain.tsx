@@ -26,7 +26,7 @@ import {ItemBar} from './ItemBar';
 import {LotStrip} from './LotStrip';
 import {ResultPanel} from './ResultPanel';
 import {SeatList} from './SeatList';
-import {Warehouse} from './Warehouse';
+import {Depot} from './Depot';
 
 /** 阶段到期后还没收到推送时, 每隔这么久重新拉取一次 */
 const STALE_RELOAD_MS = 3000;
@@ -177,7 +177,7 @@ function AuctionTable({view, match, decimals, remaining, onView}: {
             />
           )}
           <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-            <Warehouse key={`lot:${lot.lot_no}`} view={view} lot={lot} decimals={decimals} scan={scan} intel={intel} />
+            <Depot key={`lot:${lot.lot_no}`} view={view} lot={lot} decimals={decimals} scan={scan} intel={intel} />
             <div className="flex flex-col gap-4">
               {viewing && (
                 <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/60 bg-card px-3 py-2 text-sm">

@@ -300,7 +300,7 @@ export interface LotView {
 }
 
 /** 仓库结束后公开的一个座位的成绩 */
-export interface SessionSeat {
+export interface WarehouseSeat {
   seat: number;
   carry: number;
   spent: number;
@@ -310,11 +310,11 @@ export interface SessionSeat {
 }
 
 /** 仓库结束后公开的成绩 */
-export interface SessionView {
+export interface WarehouseView {
   /** 至少成交一个拍品时为 sold */
   outcome: string;
   /** 按座位号排序 */
-  seats: SessionSeat[];
+  seats: WarehouseSeat[];
 }
 
 /** 一局暗拍(仓库)中所有人都看得到的部分, 对应后端 auction.PublicView */
@@ -339,7 +339,7 @@ export interface AuctionPublicView {
   /** 主持人, 没有主持人提示时为空 */
   host: HostView | null;
   /** 仓库结束后才有 */
-  session: SessionView | null;
+  warehouse: WarehouseView | null;
 }
 
 /** 玩家看到的一局暗拍, 对应后端 auction.AuctionView */

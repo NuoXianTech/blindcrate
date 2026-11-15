@@ -142,10 +142,10 @@ type seatTotal struct {
 	Gap    float64 // 出过价的拍品中 |最后的出价 - 货仓价值| ÷ 货仓价值的平均值, 没出过价时为 -1
 }
 
-// rankSession 仓库的名次, 从 1 开始且不重复: 盈亏从高到低; 相同时出过价的在前, 出价离货仓价值越近越前; 再相同时按座位
+// rankWarehouse 仓库的名次, 从 1 开始且不重复: 盈亏从高到低; 相同时出过价的在前, 出价离货仓价值越近越前; 再相同时按座位
 //
 // 一个拍品时与之前的规则一致: 赚钱的成交者第 1, 其他出过价的人按差距排, 之后是没出过价的人, 亏本的成交者最后。
-func rankSession(totals []seatTotal) map[int16]int16 {
+func rankWarehouse(totals []seatTotal) map[int16]int16 {
 	order := slices.Clone(totals)
 	slices.SortFunc(order, func(a, b seatTotal) int {
 		if c := cmp.Compare(b.Profit, a.Profit); c != 0 {

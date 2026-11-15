@@ -47,7 +47,7 @@ type slotPool struct {
 //
 // 不是并发安全的, 每次开局或模拟各自创建。
 type Generator struct {
-	rule     WarehouseRule
+	rule     DepotRule
 	currency string
 	slots    []slotPool
 	items    map[uint64]*item.Item
@@ -57,7 +57,7 @@ type Generator struct {
 // NewGenerator 读取货仓规则引用的掉落池和物品, 使用 crypto/rand 抽取
 //
 // 掉落池不存在、已停用、没有可抽取的条目, 有货币条目或不是藏品的物品时返回 *InvalidError。
-func NewGenerator(tx *gorm.DB, rule WarehouseRule, bidCurrency string) (*Generator, error) {
+func NewGenerator(tx *gorm.DB, rule DepotRule, bidCurrency string) (*Generator, error) {
 	g := &Generator{rule: rule, currency: bidCurrency, slots: make([]slotPool, len(rule.Slots)), randN: loot.RandInt64N}
 	var itemIDs []uint64
 	for i, slot := range rule.Slots {
@@ -95,25 +95,25 @@ func NewGenerator(tx *gorm.DB, rule WarehouseRule, bidCurrency string) (*Generat
 	return g, nil
 }
 
-// Generate 抽取藏品并摆进格子, 摆不下时整仓重抽, 超过重抽次数上限时返回 WarehouseNotFit
+// Generate 抽取藏品并摆进格子, 摆不下时整仓重抽, 超过重抽次数上限时返回 DepotNotFit
 //
 // valueFactor 为基点, 按它缩放各档位的抽取次数, 小数部分按概率进位; 10000 表示不缩放。
 // 配置了数量波动时先抽一档, 再乘上它的系数, 重抽时不换档。
-func (g *Generator) Generate(valueFactor int32) (*Warehouse, error) {
+func (g *Generator) Generate(valueFactor int32) (*Depot, error) {
 	factor := int32(int64(valueFactor) * g.swing() / BasisPoints)
 	for range g.rule.MaxRerolls + 1 {
 		pieces := g.draw(factor)
 		if place(g.rule.Grid, pieces, g.randN) {
-			warehouse := &Warehouse{Pieces: pieces}
+			depot := &Depot{Pieces: pieces}
 			for _, piece := range pieces {
 				if piece.SellCurrency == g.currency {
-					warehouse.Value += piece.SellPrice
+					depot.Value += piece.SellPrice
 				}
 			}
-			return warehouse, nil
+			return depot, nil
 		}
 	}
-	return nil, errors.New(WarehouseNotFit)
+	return nil, errors.New(DepotNotFit)
 }
 
 // draw 按各档位抽取藏品, 还没有坐标
@@ -272,7 +272,7 @@ func (g *Generator) Simulate(runs int, valueFactor int32) ValueStats {
 }
 
 // simulateValues 用 generate 生成 runs 个货仓, 统计摆放失败率和价值分布
-func simulateValues(runs int, generate func(valueFactor int32) (*Warehouse, error), valueFactor int32) ValueStats {
+func simulateValues(runs int, generate func(valueFactor int32) (*Depot, error), valueFactor int32) ValueStats {
 	values := make([]int64, 0, runs)
 	var (
 		failures int
@@ -280,14 +280,14 @@ func simulateValues(runs int, generate func(valueFactor int32) (*Warehouse, erro
 		total    int64
 	)
 	for range runs {
-		warehouse, err := generate(valueFactor)
+		depot, err := generate(valueFactor)
 		if err != nil {
 			failures++
 			continue
 		}
-		values = append(values, warehouse.Value)
-		pieces += len(warehouse.Pieces)
-		total += warehouse.Value
+		values = append(values, depot.Value)
+		pieces += len(depot.Pieces)
+		total += depot.Value
 	}
 
 	stats := ValueStats{FailureRate: int32(failures * BasisPoints / runs)}
@@ -370,7 +370,7 @@ func NewLineup(tx *gorm.DB, v *Venue) (*Lineup, error) {
 	l := &Lineup{randN: loot.RandInt64N}
 	l.min, l.max = v.Lots.Min, v.Lots.Max
 	for _, t := range v.Lots.Tiers {
-		g, err := NewGenerator(tx, t.Warehouse, v.BidCurrency)
+		g, err := NewGenerator(tx, t.Depot, v.BidCurrency)
 		if err != nil {
 			return nil, err
 		}
@@ -417,7 +417,7 @@ func (l *Lineup) Seeded(seed uint64) *Lineup {
 // Simulate 模拟 runs 个拍品(按权重混合各档次)的价值分布, 不影响 l 之后的生成
 func (l *Lineup) Simulate(runs int, valueFactor int32) ValueStats {
 	fast := l.Seeded(1)
-	return simulateValues(runs, func(valueFactor int32) (*Warehouse, error) {
+	return simulateValues(runs, func(valueFactor int32) (*Depot, error) {
 		return fast.Tier(fast.Pick()).Generate(valueFactor)
 	}, valueFactor)
 }

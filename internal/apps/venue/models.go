@@ -123,11 +123,11 @@ type Swing struct {
 	Weight int32 `json:"weight" label:"权重" binding:"min=1,max=10000"`
 }
 
-// WarehouseRule 货仓生成规则: 各档位抽取的物品合在一起, 按面积从大到小摆进格子, 摆不下时整仓重抽
+// DepotRule 货仓生成规则: 各档位抽取的物品合在一起, 按面积从大到小摆进格子, 摆不下时整仓重抽
 //
 // 配置了数量波动时, 每局先按权重抽一档, 按它的系数缩放各档位的抽取次数; 藏品的多少在出价时可以从格子看出来,
 // 看得懂格子的人能在大货仓多出价、小货仓少出价, 只出固定价格的人多半拍到小货仓。
-type WarehouseRule struct {
+type DepotRule struct {
 	Grid       Grid    `json:"grid" label:"货仓格子"`
 	Slots      []Slot  `json:"slots" label:"档位" binding:"min=1,max=8,dive"`
 	Swings     []Swing `json:"swings" label:"数量波动" binding:"max=8,dive"`          // 为空表示不波动
@@ -157,11 +157,11 @@ func (r *LotRule) MeanCount() float64 {
 
 // Tier 拍品的一种档次; Auction 由保存时推导, 提交的值会被覆盖
 type Tier struct {
-	Code      string        `json:"code" label:"档次代码" binding:"required,max=32"`
-	Name      string        `json:"name" label:"档次名称" binding:"required,max=32"` // 只在管理端和仓库结束后显示
-	Weight    int32         `json:"weight" label:"权重" binding:"min=1,max=10000"`
-	Warehouse WarehouseRule `json:"warehouse" label:"货仓生成规则"`
-	Auction   TierAuction   `json:"auction"`
+	Code    string      `json:"code" label:"档次代码" binding:"required,max=32"`
+	Name    string      `json:"name" label:"档次名称" binding:"required,max=32"` // 只在管理端和仓库结束后显示
+	Weight  int32       `json:"weight" label:"权重" binding:"min=1,max=10000"`
+	Depot   DepotRule   `json:"depot" label:"货仓生成规则"`
+	Auction TierAuction `json:"auction"`
 }
 
 // TierAuction 档次的期望价值, 以及按格子大小推导的金额(格子大小相同的档次相同, 见 Venue.Calibrate)
@@ -171,8 +171,8 @@ type TierAuction struct {
 	SpeedFloor int64 `json:"speed_floor"`
 }
 
-// SessionMean 一个仓库的期望总价值(排位模式): 拍品数的期望 × 单个拍品的期望价值, 一局一个拍品时就是货仓的期望价值
-func (v *Venue) SessionMean() int64 {
+// WarehouseMean 一个仓库的期望总价值(排位模式): 拍品数的期望 × 单个拍品的期望价值, 一局一个拍品时就是货仓的期望价值
+func (v *Venue) WarehouseMean() int64 {
 	return int64(float64(v.Simulation.Ranked.Mean) * v.Lots.MeanCount())
 }
 
@@ -371,8 +371,8 @@ type PieceOdds struct {
 	Price   float64 `json:"price"` // 平均回收价, 出价货币; 回收货币不同的按 0 计
 }
 
-// Warehouse 生成的货仓
-type Warehouse struct {
+// Depot 生成的货仓
+type Depot struct {
 	Pieces []Piece `json:"pieces"` // 按摆放顺序, 面积大的在前
 	Value  int64   `json:"value"`  // 出价货币的回收价之和, 其他货币的物品不计入
 }
