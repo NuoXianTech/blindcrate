@@ -27,9 +27,9 @@ package missionadmin
 import (
 	"context"
 	"errors"
-	"reflect"
 	"strings"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/mission"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -105,7 +105,7 @@ func doUpdateMission(ctx context.Context, missionID uint64, req *MissionRequest)
 		if err := mission.Validate(tx, &target); err != nil {
 			return err
 		}
-		changes = missionChanges(&old, &target)
+		changes = audit.Changes(missionFields(&old), missionFields(&target))
 		if len(changes) == 0 {
 			return nil
 		}
@@ -181,16 +181,4 @@ func missionFields(target *mission.Mission) map[string]interface{} {
 		"sort_order":   target.SortOrder,
 		"is_enabled":   target.IsEnabled,
 	}
-}
-
-// missionChanges 本次修改了哪些字段, 用于操作日志; 奖励和条件中有切片, 按内容比较
-func missionChanges(old, next *mission.Mission) map[string]interface{} {
-	changes := map[string]interface{}{}
-	nextFields := missionFields(next)
-	for key, oldValue := range missionFields(old) {
-		if newValue := nextFields[key]; !reflect.DeepEqual(oldValue, newValue) {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
 }

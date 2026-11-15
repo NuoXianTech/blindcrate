@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -189,7 +190,7 @@ func doUpdateCurrency(ctx context.Context, code string, req *CurrencyRequest) (*
 		if err := CheckCurrencyChange(tx, &old, &target); err != nil {
 			return err
 		}
-		changes = currencyChanges(&old, &target)
+		changes = audit.Changes(currencyFields(&old), currencyFields(&target))
 		if len(changes) == 0 {
 			return nil
 		}
@@ -255,16 +256,4 @@ func currencyFields(target *wallet.Currency) map[string]interface{} {
 		"sort_order": target.SortOrder,
 		"is_enabled": target.IsEnabled,
 	}
-}
-
-// currencyChanges 本次修改了哪些字段, 用于操作日志
-func currencyChanges(old, next *wallet.Currency) map[string]interface{} {
-	changes := map[string]interface{}{}
-	nextFields := currencyFields(next)
-	for key, oldValue := range currencyFields(old) {
-		if newValue := nextFields[key]; oldValue != newValue {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
 }

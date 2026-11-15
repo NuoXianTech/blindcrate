@@ -27,9 +27,9 @@ package venueadmin
 import (
 	"context"
 	"errors"
-	"reflect"
 	"strings"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -99,7 +99,7 @@ func doUpdateVenue(ctx context.Context, venueID uint64, req *VenueRequest) (*ven
 		if err := venue.Validate(tx, &target); err != nil {
 			return err
 		}
-		changes = venueChanges(&old, &target)
+		changes = audit.Changes(venueFields(&old), venueFields(&target))
 		return tx.Save(&target).Error
 	})
 	if err != nil {
@@ -229,16 +229,4 @@ func venueFields(target *venue.Venue) map[string]interface{} {
 		"consumables":    target.Consumables,
 		"host":           target.Host,
 	}
-}
-
-// venueChanges 本次修改了哪些字段, 用于操作日志; 规则中有切片, 按内容比较
-func venueChanges(old, next *venue.Venue) map[string]interface{} {
-	changes := map[string]interface{}{}
-	nextFields := venueFields(next)
-	for key, oldValue := range venueFields(old) {
-		if newValue := nextFields[key]; !reflect.DeepEqual(oldValue, newValue) {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
 }

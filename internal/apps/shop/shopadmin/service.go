@@ -27,10 +27,10 @@ package shopadmin
 import (
 	"context"
 	"errors"
-	"reflect"
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/shop"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -104,7 +104,7 @@ func doUpdateShopItem(ctx context.Context, itemID uint64, req *ShopItemRequest) 
 		if err := shop.Validate(tx, &target); err != nil {
 			return err
 		}
-		changes = shopItemChanges(&old, &target)
+		changes = audit.Changes(shopItemFields(&old), shopItemFields(&target))
 		if len(changes) == 0 {
 			return nil
 		}
@@ -199,18 +199,6 @@ func shopItemFields(target *shop.Item) map[string]interface{} {
 		"starts_at":      formatTime(target.StartsAt),
 		"ends_at":        formatTime(target.EndsAt),
 	}
-}
-
-// shopItemChanges 本次修改了哪些字段, 用于操作日志; 价格和条件中有切片, 按内容比较
-func shopItemChanges(old, next *shop.Item) map[string]interface{} {
-	changes := map[string]interface{}{}
-	nextFields := shopItemFields(next)
-	for key, oldValue := range shopItemFields(old) {
-		if newValue := nextFields[key]; !reflect.DeepEqual(oldValue, newValue) {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
 }
 
 // ShopOrderItem 管理后台展示的订单, 带上用户和退款的管理员的用户名

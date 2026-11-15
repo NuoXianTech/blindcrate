@@ -29,6 +29,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -92,7 +93,7 @@ func doUpdateLeaderboard(ctx context.Context, boardID uint64, req *LeaderboardRe
 		if err := ApplyLeaderboard(tx, &target, req); err != nil {
 			return err
 		}
-		changes = leaderboardChanges(&old, &target)
+		changes = audit.Changes(leaderboardFields(&old), leaderboardFields(&target))
 		if len(changes) == 0 {
 			return nil
 		}
@@ -162,16 +163,4 @@ func leaderboardFields(target *leaderboard.Board) map[string]interface{} {
 		"sort_order":  target.SortOrder,
 		"is_enabled":  target.IsEnabled,
 	}
-}
-
-// leaderboardChanges 本次修改了哪些字段, 用于操作日志
-func leaderboardChanges(old, next *leaderboard.Board) map[string]interface{} {
-	changes := map[string]interface{}{}
-	nextFields := leaderboardFields(next)
-	for key, oldValue := range leaderboardFields(old) {
-		if newValue := nextFields[key]; oldValue != newValue {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
 }

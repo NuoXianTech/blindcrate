@@ -26,13 +26,11 @@ package redeemadmin
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"reflect"
 	"strings"
 	"time"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/redeem"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -168,7 +166,7 @@ func doUpdateBatch(ctx context.Context, batchID uint64, req *BatchRequest) (*red
 		if err := redeem.Validate(tx, &target); err != nil {
 			return err
 		}
-		changes = batchChanges(&old, &target)
+		changes = audit.Changes(batchFields(&old), batchFields(&target))
 		if len(changes) == 0 {
 			return nil
 		}
@@ -235,38 +233,12 @@ func batchFields(target *redeem.Batch) map[string]interface{} {
 	return map[string]interface{}{
 		"name":         target.Name,
 		"reward":       target.Reward,
-		"requirements": requirementFields(target.Requirements),
+		"requirements": target.Requirements,
 		"max_uses":     target.MaxUses,
 		"user_limit":   target.UserLimit,
 		"expires_at":   expiresAt,
 		"is_enabled":   target.IsEnabled,
 	}
-}
-
-// requirementFields 使用条件的类型和解析后的参数
-//
-// 参数是原始 JSON, 从数据库读出的键顺序和空白与请求中的不同, 解析后才能按内容比较。
-func requirementFields(conditions []condition.Condition) []map[string]interface{} {
-	fields := make([]map[string]interface{}, len(conditions))
-	for i, c := range conditions {
-		var params interface{}
-		// 参数已由 condition.Validate 校验过, 解析失败时按空参数比较
-		_ = json.Unmarshal(c.Params, &params)
-		fields[i] = map[string]interface{}{"type": c.Type, "params": params}
-	}
-	return fields
-}
-
-// batchChanges 本次修改了哪些字段, 用于操作日志; 奖励和使用条件中有切片, 按内容比较
-func batchChanges(old, next *redeem.Batch) map[string]interface{} {
-	changes := map[string]interface{}{}
-	nextFields := batchFields(next)
-	for key, oldValue := range batchFields(old) {
-		if newValue := nextFields[key]; !reflect.DeepEqual(oldValue, newValue) {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
 }
 
 // QueryCodes 获取批次的全部兑换码, 按生成顺序排列; 批次不存在或已删除时返回 BatchNotFound
