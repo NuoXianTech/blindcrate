@@ -2981,7 +2981,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "只写一条记录, 玩家打开信箱时放进信箱; 发送后不能修改, 只能撤回。幂等键相同的重复提交返回已有的全服邮件",
+                "description": "只写一条记录, 玩家打开信箱时放进信箱; 发送后不能修改, 只能撤回。幂等键相同的重复提交返回已有的全服邮件, 内容与已发送的不同时返回 409",
                 "consumes": [
                     "application/json"
                 ],
@@ -3036,6 +3036,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mailboxadmin.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/mailboxadmin.Response"
                         }
@@ -5095,7 +5101,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "生成一个批次的兑换码, 共用名称、奖励、使用条件、可使用次数和到期时间: 指定了兑换码时只生成这一个, 否则随机生成 count 个 12 位的兑换码。兑换码与已有的重复时返回 409; 幂等键相同的重复提交返回已有的批次",
+                "description": "生成一个批次的兑换码, 共用名称、奖励、使用条件、可使用次数和到期时间: 指定了兑换码时只生成这一个, 否则随机生成 count 个 12 位的兑换码。兑换码与已有的重复时返回 409; 幂等键相同的重复提交返回已有的批次, 内容与已有的批次不同时返回 409",
                 "consumes": [
                     "application/json"
                 ],

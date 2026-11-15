@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
+	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"gorm.io/gorm"
@@ -382,7 +383,7 @@ func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, ki
 			sims[i].planner = len(kinds) > 1 && rng.Int64N(venue.BasisPoints) < sq.human.PlanShare
 			continue
 		}
-		p.Decide, p.Seed = sq.bots[pickIndex(sq.picks, rng)], rng.Int64()
+		p.Decide, p.Seed = sq.bots[loot.PickIndexWith(sq.picks, rng.Int64N)], rng.Int64()
 		p.Carry = scale(v.Auction.BotCarry, between(rng, cfg.carryFloor, venue.BasisPoints))
 	}
 
@@ -689,20 +690,4 @@ func variation(values []float64) float64 {
 		squares += (v - mean) * (v - mean)
 	}
 	return math.Sqrt(squares/float64(len(values))) / mean
-}
-
-// pickIndex 按权重随机选一个下标, 同 loot.PickIndex, 随机数从 rng 取
-func pickIndex(weights []int64, rng *rand.Rand) int {
-	var total int64
-	for _, w := range weights {
-		total += w
-	}
-	n := rng.Int64N(total)
-	for i, w := range weights {
-		if n < w {
-			return i
-		}
-		n -= w
-	}
-	return len(weights) - 1
 }

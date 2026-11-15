@@ -104,7 +104,7 @@ func Change(tx *gorm.DB, req *ChangeRequest) (*Transaction, bool, error) {
 
 	// 幂等: 同一个 key 的并发请求在咨询锁上排队, 后到的能看到先到的已提交流水
 	if req.IdempotencyKey != "" {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", "blindcrate:wallet:"+req.IdempotencyKey).Error; err != nil {
+		if err := db.Lock(tx, "wallet:"+req.IdempotencyKey); err != nil {
 			return nil, false, err
 		}
 		// 查不到是常态, 用 Find 避免每次都打 record not found 日志
@@ -229,6 +229,18 @@ func checkCurrency(tx *gorm.DB, code string) error {
 		return errors.New(CurrencyDisabled)
 	}
 	return nil
+}
+
+// LockBalances 按货币代码的顺序锁定用户的这些余额, 直到事务结束; 还没有余额的货币没有行可锁
+//
+// 一个事务要分几次变动同一用户的物品和余额时先调用, 见 reward.Lock。
+func LockBalances(tx *gorm.DB, userID uint64, currencies []string) error {
+	if len(currencies) == 0 {
+		return nil
+	}
+	var locked []string
+	return tx.Model(&Balance{}).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("user_id = ? AND currency IN ?", userID, currencies).Order("currency").Pluck("currency", &locked).Error
 }
 
 // applyBalance 原子地变动余额并返回变动后的余额行

@@ -161,7 +161,7 @@ func Purchase(ctx context.Context, userID uint64, req *PurchaseRequest) (*OrderV
 	)
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		// 同一用户的购买在咨询锁上排队, 幂等键和限购计数都不会被并发请求绕过
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", fmt.Sprintf("blindcrate:shop:%d", userID)).Error; err != nil {
+		if err := db.Lock(tx, fmt.Sprintf("shop:%d", userID)); err != nil {
 			return err
 		}
 		if err := tx.Where("user_id = ? AND idempotency_key = ?", userID, req.IdempotencyKey).Limit(1).Find(&order).Error; err != nil {
@@ -248,6 +248,10 @@ func purchase(tx *gorm.DB, userID uint64, req *PurchaseRequest, order *Order) ([
 		if db.IsUniqueViolation(err) {
 			return nil, errors.New(DuplicateRequest)
 		}
+		return nil, err
+	}
+	// 扣价格和发商品是两次变动, 先按统一的顺序锁齐, 否则与同时进行的出售互相等待而死锁
+	if err := reward.Lock(tx, userID, order.Price, order.Goods); err != nil {
 		return nil, err
 	}
 	bizID := strconv.FormatUint(order.ID, 10)
@@ -367,6 +371,10 @@ func Refund(ctx context.Context, operatorID, orderID uint64) (*Order, error) {
 		}
 		if order.Status != StatusPaid {
 			return errors.New(OrderRefunded)
+		}
+		// 与购买的加锁顺序一致: 先商品, 再用户的物品和余额; 商品可能已删除, 用原生 SQL 绕过软删除
+		if err := tx.Exec("SELECT 1 FROM shop_items WHERE id = ? FOR UPDATE", order.ShopItemID).Error; err != nil {
+			return err
 		}
 		bundle, err := reward.Deliverable(tx, order.Price, nil)
 		if err != nil {

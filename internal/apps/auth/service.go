@@ -133,7 +133,7 @@ func doRegister(ctx context.Context, username, password, rawEmail, code string) 
 	user := User{Username: username, PasswordHash: hash, Nickname: username}
 	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		// 事务级咨询锁: 并发注册时保证只有一个人成为第一个用户(管理员)
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext('blindcrate:register'))").Error; err != nil {
+		if err := db.Lock(tx, "register"); err != nil {
 			return err
 		}
 

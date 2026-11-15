@@ -51,6 +51,9 @@ func letterErrorStatus(err error) int {
 	if errors.As(err, &invalid) {
 		return http.StatusBadRequest
 	}
+	if err.Error() == mailbox.IdempotencyConflict {
+		return http.StatusConflict
+	}
 	return 0
 }
 
@@ -238,7 +241,7 @@ type BroadcastRequest struct {
 // CreateMailBroadcast
 // @Tags admin
 // @Summary 发送全服邮件
-// @Description 只写一条记录, 玩家打开信箱时放进信箱; 发送后不能修改, 只能撤回。幂等键相同的重复提交返回已有的全服邮件
+// @Description 只写一条记录, 玩家打开信箱时放进信箱; 发送后不能修改, 只能撤回。幂等键相同的重复提交返回已有的全服邮件, 内容与已发送的不同时返回 409
 // @Accept json
 // @Produce json
 // @Param request body BroadcastRequest true "request body"
@@ -246,6 +249,7 @@ type BroadcastRequest struct {
 // @Failure 400 {object} Response
 // @Failure 401 {object} Response
 // @Failure 403 {object} Response
+// @Failure 409 {object} Response
 // @Failure 500 {object} Response
 // @Router /api/v1/admin/mail-broadcasts [post]
 func CreateMailBroadcast(c *gin.Context) {

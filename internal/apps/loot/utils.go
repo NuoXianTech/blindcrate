@@ -35,6 +35,13 @@ import (
 //
 // 权重需全部大于 0 且之和不溢出, 否则 panic。使用 crypto/rand, 结果无法被预测。
 func PickIndex(weights []int64) int {
+	return PickIndexWith(weights, RandInt64N)
+}
+
+// PickIndexWith 同 PickIndex, 随机数从 randN 取: randN 返回 [0, n) 内的随机数, 只调用一次
+//
+// 需要按种子重放的地方(模拟、测试)传入自己的随机数。
+func PickIndexWith(weights []int64, randN func(n int64) int64) int {
 	var total int64
 	for _, weight := range weights {
 		if weight <= 0 || total > math.MaxInt64-weight {
@@ -46,7 +53,7 @@ func PickIndex(weights []int64) int {
 		panic("loot: empty weights")
 	}
 
-	n := RandInt64N(total)
+	n := randN(total)
 	for i, weight := range weights {
 		if n < weight {
 			return i

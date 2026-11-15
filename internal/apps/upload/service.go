@@ -285,5 +285,5 @@ func checkFormat(cfg *settings.UploadSettings, contentType string) error {
 
 // lockKey 在事务中按存储 key 加咨询锁, 事务结束时释放
 func lockKey(tx *gorm.DB, key string) error {
-	return tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", "blindcrate:upload:"+key).Error
+	return db.Lock(tx, "upload:"+key)
 }

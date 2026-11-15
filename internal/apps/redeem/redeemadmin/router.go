@@ -118,7 +118,7 @@ func batchErrorStatus(err error) int {
 		return http.StatusBadRequest
 	case err.Error() == redeem.BatchNotFound:
 		return http.StatusNotFound
-	case err.Error() == redeem.CodeTaken:
+	case err.Error() == redeem.CodeTaken, err.Error() == redeem.IdempotencyConflict:
 		return http.StatusConflict
 	}
 	return 0
@@ -127,7 +127,7 @@ func batchErrorStatus(err error) int {
 // CreateRedeemBatch
 // @Tags admin
 // @Summary 生成兑换码
-// @Description 生成一个批次的兑换码, 共用名称、奖励、使用条件、可使用次数和到期时间: 指定了兑换码时只生成这一个, 否则随机生成 count 个 12 位的兑换码。兑换码与已有的重复时返回 409; 幂等键相同的重复提交返回已有的批次
+// @Description 生成一个批次的兑换码, 共用名称、奖励、使用条件、可使用次数和到期时间: 指定了兑换码时只生成这一个, 否则随机生成 count 个 12 位的兑换码。兑换码与已有的重复时返回 409; 幂等键相同的重复提交返回已有的批次, 内容与已有的批次不同时返回 409
 // @Accept json
 // @Produce json
 // @Param request body CreateBatchRequest true "request body"

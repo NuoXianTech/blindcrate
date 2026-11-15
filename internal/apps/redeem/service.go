@@ -171,7 +171,7 @@ func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 		delivery *reward.Delivery
 	)
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", fmt.Sprintf("blindcrate:redeem:%d", userID)).Error; err != nil {
+		if err := db.Lock(tx, fmt.Sprintf("redeem:%d", userID)); err != nil {
 			return err
 		}
 		// 输错兑换码、兑换码所在的批次已停用都很常见, 用 Find 查询, 查不到时不会被当成查询错误记进日志
