@@ -27,11 +27,11 @@ package itemadmin
 import (
 	"context"
 	"errors"
-	"reflect"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
@@ -115,7 +115,7 @@ func doUpdateItem(ctx context.Context, itemID uint64, req *ItemRequest) (*item.I
 		if err := ApplyItem(tx, &target, req); err != nil {
 			return err
 		}
-		changes = itemChanges(&old, &target)
+		changes = audit.Changes(itemFields(&old), itemFields(&target))
 		if len(changes) == 0 {
 			return nil
 		}
@@ -231,18 +231,6 @@ func itemFields(target *item.Item) map[string]interface{} {
 	}
 }
 
-// itemChanges 本次修改了哪些字段, 用于操作日志; 效果参数是 map, 按内容比较
-func itemChanges(old, next *item.Item) map[string]interface{} {
-	changes := map[string]interface{}{}
-	nextFields := itemFields(next)
-	for key, oldValue := range itemFields(old) {
-		if newValue := nextFields[key]; !reflect.DeepEqual(oldValue, newValue) {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
-}
-
 // qualityItemCountSQL 使用某品质的未删除物品数
 const qualityItemCountSQL = "SELECT COUNT(*) FROM items WHERE items.quality = qualities.level AND items.deleted_at IS NULL"
 
@@ -292,7 +280,7 @@ func doUpdateQuality(ctx context.Context, level int16, req *QualityRequest) (*it
 		if err := ApplyQuality(&target, req); err != nil {
 			return err
 		}
-		changes = qualityChanges(&old, &target)
+		changes = audit.Changes(qualityFields(&old), qualityFields(&target))
 		if len(changes) == 0 {
 			return nil
 		}
@@ -359,16 +347,4 @@ func qualityFields(target *item.Quality) map[string]interface{} {
 		"scan_ms":    target.ScanMs,
 		"sort_order": target.SortOrder,
 	}
-}
-
-// qualityChanges 本次修改了哪些字段, 用于操作日志
-func qualityChanges(old, next *item.Quality) map[string]interface{} {
-	changes := map[string]interface{}{}
-	nextFields := qualityFields(next)
-	for key, oldValue := range qualityFields(old) {
-		if newValue := nextFields[key]; oldValue != newValue {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
 }

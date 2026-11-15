@@ -28,10 +28,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"strings"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -134,7 +134,7 @@ func doUpdateName(ctx context.Context, nameID uint64, req *NameRequest) (*bot.Na
 		if err := bot.ValidateName(target.Name); err != nil {
 			return err
 		}
-		changes = fieldChanges(nameFields(&old), nameFields(&target))
+		changes = audit.Changes(nameFields(&old), nameFields(&target))
 		if len(changes) == 0 {
 			return nil
 		}
@@ -247,7 +247,7 @@ func doUpdatePersona(ctx context.Context, personaID uint64, req *PersonaRequest)
 		if err := bot.Validate(tx, &target); err != nil {
 			return err
 		}
-		changes = fieldChanges(personaFields(&old), personaFields(&target))
+		changes = audit.Changes(personaFields(&old), personaFields(&target))
 		if len(changes) == 0 {
 			return nil
 		}
@@ -312,15 +312,4 @@ func personaFields(target *bot.Persona) map[string]interface{} {
 		"strategy":    target.Strategy,
 		"params":      target.Params,
 	}
-}
-
-// fieldChanges 本次修改了哪些字段, 用于操作日志; 参数是 map, 按内容比较
-func fieldChanges(old, next map[string]interface{}) map[string]interface{} {
-	changes := map[string]interface{}{}
-	for key, oldValue := range old {
-		if newValue := next[key]; !reflect.DeepEqual(oldValue, newValue) {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
 }

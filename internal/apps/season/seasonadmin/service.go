@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -199,7 +200,7 @@ func updateSeason(tx *gorm.DB, target *season.Season, req *SeasonRequest, now ti
 	if err := season.Validate(target); err != nil {
 		return nil, err
 	}
-	changes := seasonChanges(&old, target)
+	changes := audit.Changes(seasonFields(&old), seasonFields(target))
 	if len(changes) == 0 {
 		return changes, nil
 	}
@@ -245,7 +246,7 @@ func doEndSeason(ctx context.Context, seasonID uint64) (*season.View, map[string
 		}
 		old := target
 		target.EndsAt = now
-		changes = seasonChanges(&old, &target)
+		changes = audit.Changes(seasonFields(&old), seasonFields(&target))
 		return tx.Save(&target).Error
 	})
 	if err != nil {
@@ -276,16 +277,4 @@ func seasonFields(target *season.Season) map[string]interface{} {
 		"rating_carry": target.RatingCarry,
 		"rewards":      target.Rewards,
 	}
-}
-
-// seasonChanges 本次修改了哪些字段, 用于操作日志; 奖励是切片, 按内容比较
-func seasonChanges(old, next *season.Season) map[string]interface{} {
-	changes := map[string]interface{}{}
-	nextFields := seasonFields(next)
-	for key, oldValue := range seasonFields(old) {
-		if newValue := nextFields[key]; !reflect.DeepEqual(oldValue, newValue) {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
 }

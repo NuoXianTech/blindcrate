@@ -33,6 +33,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
@@ -112,7 +113,7 @@ func doUpdateLootPool(ctx context.Context, poolID uint64, req *LootPoolRequest) 
 		if err := ApplyLootPool(&target, req); err != nil {
 			return err
 		}
-		changes = lootPoolChanges(&old, &target)
+		changes = audit.Changes(lootPoolFields(&old), lootPoolFields(&target))
 		if len(changes) == 0 {
 			return nil
 		}
@@ -309,18 +310,6 @@ func lootPoolFields(target *loot.Pool) map[string]interface{} {
 		"description": target.Description,
 		"is_enabled":  target.IsEnabled,
 	}
-}
-
-// lootPoolChanges 本次修改了哪些字段, 用于操作日志
-func lootPoolChanges(old, next *loot.Pool) map[string]interface{} {
-	changes := map[string]interface{}{}
-	nextFields := lootPoolFields(next)
-	for key, oldValue := range lootPoolFields(old) {
-		if newValue := nextFields[key]; oldValue != newValue {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
 }
 
 // lootEntryFields 掉落池条目的内容, 用于操作日志

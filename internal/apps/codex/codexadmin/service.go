@@ -27,9 +27,9 @@ package codexadmin
 import (
 	"context"
 	"errors"
-	"reflect"
 	"strings"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/codex"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -97,7 +97,7 @@ func doUpdateSet(ctx context.Context, setID uint64, req *SetRequest) (*codex.Set
 		if err := codex.Validate(tx, &target, old.ItemIDs); err != nil {
 			return err
 		}
-		changes = setChanges(&old, &target)
+		changes = audit.Changes(setFields(&old), setFields(&target))
 		if len(changes) == 0 {
 			return nil
 		}
@@ -157,16 +157,4 @@ func setFields(target *codex.Set) map[string]interface{} {
 		"sort_order":  target.SortOrder,
 		"is_enabled":  target.IsEnabled,
 	}
-}
-
-// setChanges 本次修改了哪些字段, 用于操作日志; 物品和奖励中有切片, 按内容比较
-func setChanges(old, next *codex.Set) map[string]interface{} {
-	changes := map[string]interface{}{}
-	nextFields := setFields(next)
-	for key, oldValue := range setFields(old) {
-		if newValue := nextFields[key]; !reflect.DeepEqual(oldValue, newValue) {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
 }

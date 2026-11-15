@@ -29,6 +29,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -69,7 +70,7 @@ func doUpdateRankedTier(ctx context.Context, tierID uint64, req *RankedTierReque
 		if err := applyRankedTier(&target, req); err != nil {
 			return err
 		}
-		changes = rankedTierChanges(&old, &target)
+		changes = audit.Changes(rankedTierFields(&old), rankedTierFields(&target))
 		if len(changes) == 0 {
 			return nil
 		}
@@ -125,16 +126,4 @@ func rankedTierFields(target *ranked.Tier) map[string]interface{} {
 		"min_rating": target.MinRating,
 		"color":      target.Color,
 	}
-}
-
-// rankedTierChanges 本次修改了哪些字段, 用于操作日志
-func rankedTierChanges(old, next *ranked.Tier) map[string]interface{} {
-	changes := map[string]interface{}{}
-	nextFields := rankedTierFields(next)
-	for key, oldValue := range rankedTierFields(old) {
-		if newValue := nextFields[key]; oldValue != newValue {
-			changes[key] = map[string]interface{}{"old": oldValue, "new": newValue}
-		}
-	}
-	return changes
 }

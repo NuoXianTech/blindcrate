@@ -31,6 +31,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/redeem"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
@@ -57,14 +58,14 @@ func TestBatchChanges(t *testing.T) {
 	next.Requirements = requirements(`{"metric":"matches","scope":"all","count":3}`)
 	local := expiresAt.In(time.FixedZone("UTC+8", 8*3600))
 	next.ExpiresAt = &local
-	if changes := batchChanges(&old, &next); len(changes) != 0 {
+	if changes := audit.Changes(batchFields(&old), batchFields(&next)); len(changes) != 0 {
 		t.Errorf("same content: got %v", changes)
 	}
 
 	next.Requirements = requirements(`{"metric":"matches","scope":"all","count":5}`)
 	next.MaxUses = 0
 	next.ExpiresAt = nil
-	changed := slices.Sorted(maps.Keys(batchChanges(&old, &next)))
+	changed := slices.Sorted(maps.Keys(audit.Changes(batchFields(&old), batchFields(&next))))
 	if want := []string{"expires_at", "max_uses", "requirements"}; !slices.Equal(changed, want) {
 		t.Errorf("changed: got %v, want %v", changed, want)
 	}
