@@ -13,11 +13,12 @@ import {useQualities} from '@/components/common/site';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {AdminItem, ItemCategory, ItemEffect} from '@/lib/services/item';
+import type {LootPool} from '@/lib/services/loot';
 import type {Currency} from '@/lib/services/wallet';
 import {DeleteItemDialog} from './DeleteItemDialog';
 import {ItemDialog} from './ItemDialog';
 import {ItemRow} from './ItemRow';
-import {PAGE_SIZE, STATUS_FILTERS, toRequest, type StatusFilter} from './constants';
+import {PAGE_SIZE, POOL_LIMIT, STATUS_FILTERS, toRequest, type StatusFilter} from './constants';
 
 /**
  * 物品管理: 搜索、品质、类别和状态筛选, 新建、编辑、上下架、删除
@@ -37,6 +38,7 @@ export function ItemsMain() {
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [categories, setCategories] = useState<ItemCategory[]>([]);
   const [effects, setEffects] = useState<ItemEffect[]>([]);
+  const [pools, setPools] = useState<LootPool[]>([]);
 
   // null: 关闭; "new": 新建; 物品: 编辑
   const [editing, setEditing] = useState<AdminItem | 'new' | null>(null);
@@ -44,11 +46,17 @@ export function ItemsMain() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    Promise.all([services.walletAdmin.listCurrencies(), services.itemAdmin.listItemCategories(), services.itemAdmin.listItemEffects()])
-        .then(([currencyData, categoryData, effectData]) => {
+    Promise.all([
+      services.walletAdmin.listCurrencies(),
+      services.itemAdmin.listItemCategories(),
+      services.itemAdmin.listItemEffects(),
+      services.lootAdmin.listLootPools({current: 1, size: POOL_LIMIT}),
+    ])
+        .then(([currencyData, categoryData, effectData, poolData]) => {
           setCurrencies(currencyData.currencies);
           setCategories(categoryData.categories);
           setEffects(effectData.effects);
+          setPools(poolData.pools);
         })
         .catch((err) => toast.error(toErrorMessage(err)));
   }, [isAdmin]);
@@ -223,6 +231,7 @@ export function ItemsMain() {
         currencies={currencies}
         categories={categories}
         effects={effects}
+        pools={pools}
         onClose={() => setEditing(null)}
         onSaved={load}
       />

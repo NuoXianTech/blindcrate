@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS crate_records;
 DROP TABLE IF EXISTS redeem_records;
 DROP TABLE IF EXISTS redeem_codes;
 DROP TABLE IF EXISTS redeem_batches;

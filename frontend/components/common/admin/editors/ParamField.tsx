@@ -9,6 +9,7 @@ import {useQualities} from '@/components/common/site';
 import {CurrencyIcon} from '@/components/common/wallet';
 import type {ConditionField} from '@/lib/services/condition';
 import type {AdminItem} from '@/lib/services/item';
+import type {LootPool} from '@/lib/services/loot';
 import type {Currency} from '@/lib/services/wallet';
 
 /**
@@ -23,13 +24,15 @@ export interface ParamFieldProps {
   currencies: Currency[];
   /** 统计范围候选项的 datalist ID, 没有 scope 字段时可以不传 */
   scopeListID?: string;
+  /** 掉落池选择器的候选项, 不传时掉落池按代码填写 */
+  pools?: Pick<LootPool, 'code' | 'name' | 'is_enabled'>[];
   disabled?: boolean;
 }
 
 /**
  * 一个参数: 按字段的 input 选择输入控件, 基点参数按百分比输入; 条件、物品的使用效果和人机风格共用
  */
-export function ParamField({id, field, value, onChange, items, currencies, scopeListID, disabled}: ParamFieldProps) {
+export function ParamField({id, field, value, onChange, items, currencies, scopeListID, pools, disabled}: ParamFieldProps) {
   const {qualities} = useQualities();
   const text = typeof value === 'string' ? value : '';
 
@@ -107,6 +110,24 @@ export function ParamField({id, field, value, onChange, items, currencies, scope
             <SelectItem key={c.code} value={c.code}>
               <CurrencyIcon currency={c.code} />
               {c.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  } else if (field.input === 'pool' && pools) {
+    control = (
+      <Select value={text} onValueChange={onChange} disabled={disabled}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue placeholder="选择掉落池" />
+        </SelectTrigger>
+        <SelectContent>
+          {text && !pools.some((p) => p.code === text) && <SelectItem value={text}>未知掉落池 {text}</SelectItem>}
+          {pools.map((p) => (
+            <SelectItem key={p.code} value={p.code}>
+              {p.name}
+              <span className="font-mono text-xs text-muted-foreground">{p.code}</span>
+              {!p.is_enabled && <span className="text-xs text-muted-foreground">已停用</span>}
             </SelectItem>
           ))}
         </SelectContent>

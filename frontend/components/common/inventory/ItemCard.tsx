@@ -1,11 +1,12 @@
-import {Check} from 'lucide-react';
+import {Check, PackageOpen} from 'lucide-react';
 import {cn} from 'cn';
 import {ItemImage} from '@/components/common/item';
 import {useQualities} from '@/components/common/site';
+import {CRATE_EFFECT} from '@/lib/services/crate';
 import type {UserItem} from '@/lib/services/inventory';
 
 /**
- * 网格里的物品卡片: 品质色条 + 图片 + 数量; 多选时右上角显示勾选状态
+ * 网格里的物品卡片: 品质色条 + 图片 + 数量; 箱子左上角有可开启的标记, 多选时右上角显示勾选状态
  */
 export function ItemCard({item, onClick, selected, disabled}: {
   item: UserItem;
@@ -38,6 +39,11 @@ export function ItemCard({item, onClick, selected, disabled}: {
         </span>
       )}
       <span className={cn('h-1 shrink-0', q.bar)} />
+      {item.effect === CRATE_EFFECT && (
+        <span className="absolute top-3 left-2 z-10 flex size-5 items-center justify-center rounded-full bg-background/80 text-primary" title="可以开启">
+          <PackageOpen className="size-3.5" aria-label="可以开启" />
+        </span>
+      )}
       <span className="relative flex aspect-square items-center justify-center p-4">
         <ItemImage item={item} className={cn(item.is_placeholder && 'opacity-60')} />
         <span className="absolute right-2 bottom-2 rounded-md bg-background/80 px-1.5 py-0.5 font-mono text-xs tabular-nums">

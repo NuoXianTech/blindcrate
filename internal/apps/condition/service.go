@@ -79,7 +79,7 @@ var (
 
 // Register 注册一种条件类型, 需要在启动前调用; 类型为空、过长、重复或参数结构体有不支持的字段时 panic
 //
-// P 为参数结构体, 字段 tag 与设置组一致(json、label、help、binding), 另可用 input 指定选择器(currency、item、quality、scope、metric);
+// P 为参数结构体, 字段 tag 与设置组一致(json、label、help、binding), 另可用 input 指定选择器(currency、item、quality、scope、metric、pool);
 // P 的指针可以实现 ParamsValidator。check 只读, 不能有副作用, 返回的 Progress 不需要填 Type。
 func Register[P any](conditionType, label, description string, check func(tx *gorm.DB, userID uint64, params *P) (*Progress, error)) {
 	if conditionType == "" || len(conditionType) > 32 {

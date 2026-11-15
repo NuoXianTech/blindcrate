@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
+	"github.com/NuoXianTech/blindcrate/internal/apps/crate"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item/itemadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
@@ -97,7 +98,11 @@ func init() {
 			}
 			return list, len(list), nil
 		},
-		Decode: DecodeList(itemEntry, nil),
+		Decode: DecodeList(itemEntry, func(req *packItem, section, old, next string) {
+			if section == PackLootPools {
+				crate.RenamePool(req.Effect, req.EffectParams, old, next)
+			}
+		}),
 	})
 	RegisterSection(Section{
 		Code: PackLootPools, Label: "掉落池", Hint: "按代码对应, 含条目; 已删除物品的条目不导出", Order: OrderLootPools, Renamable: true,

@@ -975,3 +975,18 @@ CREATE TABLE IF NOT EXISTS redeem_records
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_redeem_records_code_user ON redeem_records (code_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_redeem_records_batch_user ON redeem_records (batch_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_redeem_records_user_id ON redeem_records (user_id, id);
+
+-- 箱子的开启记录, 一次开启一行; 扣除箱子和发放内容的流水 biz_id 都是这里的 ID
+CREATE TABLE IF NOT EXISTS crate_records
+(
+    id              BIGSERIAL PRIMARY KEY,
+    user_id         BIGINT      NOT NULL,
+    idempotency_key VARCHAR(64) NOT NULL,              -- 幂等键, 同一用户内唯一
+    item_id         BIGINT      NOT NULL,              -- 箱子的物品 ID
+    item_name       VARCHAR(64) NOT NULL,              -- 开启时箱子的名称
+    pool            VARCHAR(64) NOT NULL,              -- 开启时箱子的掉落池代码
+    reward          JSONB       NOT NULL DEFAULT '{}', -- 抽中并发放的内容 reward.Bundle, 只有一项
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_crate_records_idempotency_key ON crate_records (user_id, idempotency_key);

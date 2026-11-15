@@ -5,6 +5,7 @@ import {BotAdminService} from './bot';
 import {CheckinAdminService, CheckinService} from './checkin';
 import {CodexAdminService, CodexService} from './codex';
 import {ConditionAdminService} from './condition';
+import {CrateService} from './crate';
 import {InventoryAdminService, InventoryService} from './inventory';
 import {ItemAdminService} from './item';
 import {LeaderboardAdminService, LeaderboardService} from './leaderboard';
@@ -75,6 +76,8 @@ const services = {
   codex: CodexService,
   /** 兑换码 */
   redeem: RedeemService,
+  /** 箱子 */
+  crate: CrateService,
   /** 公开设置 */
   settings: SettingsService,
   /** 图片上传 */

@@ -240,6 +240,7 @@ type UserItemDetail struct {
 	SellPrice     int64     `json:"sell_price"`
 	Width         int16     `json:"width"`
 	Height        int16     `json:"height"`
+	Effect        string    `json:"effect"` // 使用效果代码, 空表示不能使用, 见 effect 模块; 已删除的物品为空
 	IsEnabled     bool      `json:"is_enabled"`
 	IsPlaceholder bool      `json:"is_placeholder"` // 物品已被删除, 按占位物品展示
 	Quantity      int64     `json:"quantity"`
@@ -295,6 +296,7 @@ func QueryUserItems(ctx context.Context, userID uint64, req *ListItemsRequest) (
 			SellPrice:     target.SellPrice,
 			Width:         target.Width,
 			Height:        target.Height,
+			Effect:        target.Effect,
 			IsEnabled:     target.IsEnabled,
 			IsPlaceholder: target.IsPlaceholder,
 			Quantity:      row.Quantity,

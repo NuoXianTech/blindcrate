@@ -49,7 +49,8 @@ func init() {
 
 // sceneNames 场景的展示名称
 var sceneNames = map[string]string{
-	SceneMatch: "对局中",
+	SceneMatch:     "对局中",
+	SceneInventory: "背包中",
 }
 
 // InvalidError 效果配置不合法, Error 返回的提示可以直接展示给管理员

@@ -3,6 +3,9 @@ import type {AdminItem, ItemRequest} from '@/lib/services/item';
 /** 物品列表每页条数 */
 export const PAGE_SIZE = 20;
 
+/** 效果参数中可选的掉落池最多拉取多少个, 为列表接口的分页上限 */
+export const POOL_LIMIT = 100;
+
 /** 上下架状态筛选 */
 export type StatusFilter = 'all' | 'enabled' | 'disabled';
 
