@@ -25,19 +25,16 @@
 package effect
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"maps"
 	"slices"
 	"strconv"
 	"time"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
-	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"gorm.io/gorm"
 )
@@ -65,9 +62,8 @@ type definition struct {
 	scene       string
 	label       string
 	description string
-	fields      []condition.Field
-	decode      func(params map[string]any, strict bool) (any, error) // 返回参数结构体的指针
-	apply       func(ctx, params any) (any, error)
+	schema      *params.Schema
+	apply       func(ctx, decoded any) (any, error)
 }
 
 var (
@@ -80,9 +76,9 @@ var (
 // Register 注册一种效果, 需要在启动前调用; 代码为空、过长、重复, 场景不存在或参数结构体有不支持的字段时 panic
 //
 // C 为场景提供的上下文, R 为使用的结果, 由场景所在的模块定义, 同一场景的效果使用相同的 C 和 R;
-// P 为参数结构体, 字段 tag 与条件类型相同(json、label、help、binding、input), P 的指针可以实现 condition.ParamsValidator。
+// P 为参数结构体, 字段的 tag 见 params 包, P 的指针可以实现 params.Validator。
 // apply 不能写库, 结果由场景记录。
-func Register[C, P, R any](code, scene, label, description string, apply func(ctx C, params *P) (R, error)) {
+func Register[C, P, R any](code, scene, label, description string, apply func(ctx C, decoded *P) (R, error)) {
 	if code == "" || len(code) > maxCodeLength {
 		panic(fmt.Sprintf("effect: invalid code %q", code))
 	}
@@ -96,28 +92,13 @@ func Register[C, P, R any](code, scene, label, description string, apply func(ct
 		scene:       scene,
 		label:       label,
 		description: description,
-		fields:      condition.FieldsOf[P](code),
-		decode: func(params map[string]any, strict bool) (any, error) {
-			target := new(P)
-			raw, err := json.Marshal(params)
-			if err != nil {
-				return nil, err
-			}
-			dec := json.NewDecoder(bytes.NewReader(raw))
-			if strict {
-				dec.DisallowUnknownFields()
-			}
-			if err := dec.Decode(target); err != nil {
-				return nil, err
-			}
-			return target, nil
-		},
-		apply: func(ctx, params any) (any, error) {
+		schema:      params.New[P](code, params.Plain, nil),
+		apply: func(ctx, decoded any) (any, error) {
 			c, ok := ctx.(C)
 			if !ok {
 				return nil, fmt.Errorf("effect: %s got context %T", code, ctx)
 			}
-			return apply(c, params.(*P))
+			return apply(c, decoded.(*P))
 		},
 	}
 	codeOrder = append(codeOrder, code)
@@ -134,7 +115,7 @@ func Types() []TypeView {
 			SceneName:   sceneNames[def.scene],
 			Label:       def.label,
 			Description: def.description,
-			Fields:      slices.Clone(def.fields),
+			Fields:      def.schema.Fields(),
 		})
 	}
 	return views
@@ -151,9 +132,9 @@ func SceneOf(code string) string {
 // Validate 保存物品前校验类别、效果和参数, 返回规范化后的参数: 按参数结构体重新编码, 没有效果时为空对象
 //
 // 配置不合法时返回 *InvalidError, 提示可以直接展示; 其他错误为查库失败等内部错误。
-func Validate(tx *gorm.DB, category, code string, params map[string]any) (map[string]any, error) {
+func Validate(tx *gorm.DB, category, code string, values map[string]any) (map[string]any, error) {
 	if code == "" {
-		if len(params) > 0 {
+		if len(values) > 0 {
 			return nil, &InvalidError{Reason: ParamsWithoutEffect}
 		}
 		return map[string]any{}, nil
@@ -165,48 +146,28 @@ func Validate(tx *gorm.DB, category, code string, params map[string]any) (map[st
 	if !ok {
 		return nil, &InvalidError{Reason: EffectNotFound}
 	}
-	decoded, err := def.decode(params, true)
-	if err != nil {
+	decoded, problem, err := def.schema.ValidateMap(tx, values)
+	switch {
+	case err != nil:
+		return nil, err
+	case problem == nil:
+		return params.Normalize(decoded)
+	case problem.Malformed:
 		return nil, &InvalidError{Reason: ParamsInvalid}
 	}
-	if err := settings.ValidateStruct(decoded); err != nil {
-		return nil, &InvalidError{Reason: fmt.Sprintf(ParamsRuleInvalid, err.Error())}
-	}
-	if validator, ok := decoded.(condition.ParamsValidator); ok {
-		reason, err := validator.Validate(tx)
-		if err != nil {
-			return nil, err
-		}
-		if reason != "" {
-			return nil, &InvalidError{Reason: fmt.Sprintf(ParamsRuleInvalid, reason)}
-		}
-	}
-	return normalize(decoded)
-}
-
-// normalize 参数结构体转回 map, 数字统一为 float64, 与从数据库读出的一致, 便于比较
-func normalize(decoded any) (map[string]any, error) {
-	raw, err := json.Marshal(decoded)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]any{}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return nil, &InvalidError{Reason: fmt.Sprintf(ParamsRuleInvalid, problem.Reason)}
 }
 
 // Apply 按效果代码执行, 返回使用的结果; 效果不存在或不属于 scene 时返回错误
 //
 // 参数在保存物品时已校验, 这里只解析, 已删除的参数字段忽略。
-func Apply[C, R any](scene, code string, ctx C, params map[string]any) (R, error) {
+func Apply[C, R any](scene, code string, ctx C, values map[string]any) (R, error) {
 	var zero R
 	def, ok := definitions[code]
 	if !ok || def.scene != scene {
 		return zero, fmt.Errorf("effect: %s is not an effect of scene %s", code, scene)
 	}
-	decoded, err := def.decode(params, false)
+	decoded, err := def.schema.DecodeMap(values, false)
 	if err != nil {
 		return zero, fmt.Errorf("effect: decode params of %s failed: %w", code, err)
 	}

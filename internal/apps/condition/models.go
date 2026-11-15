@@ -27,7 +27,7 @@ package condition
 import (
 	"encoding/json"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 )
 
 // Condition 一个条件, 存进各模块的 JSONB 配置
@@ -45,24 +45,10 @@ type Progress struct {
 	Text    string `json:"text"`    // 展示给玩家的描述, 如 "完成 10 局排位(3/10)"
 }
 
-// Field 条件或道具效果参数的描述, 后台据此自动生成表单
-type Field struct {
-	Key     string   `json:"key"`
-	Label   string   `json:"label"`
-	Help    string   `json:"help"`
-	Type    string   `json:"type"`              // string / bool / int
-	Input   string   `json:"input"`             // text / select / switch / number, 或选择器 currency / item / quality / scope / metric / pool
-	Options []Option `json:"options,omitempty"` // 下拉框 select 和选择器 metric 的可选值
-	Unit    string   `json:"unit,omitempty"`    // 整数的单位, 只有 bp(基点)
-}
-
-// Option 选择器的一个可选值, 与设置项的可选值相同
-type Option = settings.Option
-
 // TypeView 后台看到的条件类型
 type TypeView struct {
-	Type        string  `json:"type"`
-	Label       string  `json:"label"`
-	Description string  `json:"description"`
-	Fields      []Field `json:"fields"`
+	Type        string         `json:"type"`
+	Label       string         `json:"label"`
+	Description string         `json:"description"`
+	Fields      []params.Field `json:"fields"` // 参数的表单描述
 }

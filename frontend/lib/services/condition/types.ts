@@ -5,7 +5,7 @@ export interface Condition {
   params: Record<string, string | number | boolean>;
 }
 
-/** 条件参数的描述, 后台据此生成表单, 对应后端 condition.Field */
+/** 条件参数的描述, 后台据此生成表单, 对应后端 params.Field */
 export interface ConditionField {
   key: string;
   label: string;

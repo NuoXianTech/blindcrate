@@ -32,6 +32,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -178,14 +179,14 @@ func amountInRange(amount int64) bool {
 // currencyOptions 设置中可以选的货币: 全部启用的货币, 按排序值排列
 //
 // 对货币加共享锁, 保存设置时货币不会被并发停用, 见 CheckDisable。
-func currencyOptions(tx *gorm.DB) ([]settings.Option, error) {
+func currencyOptions(tx *gorm.DB) ([]params.Option, error) {
 	var currencies []Currency
 	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("is_enabled").Order("sort_order, code").Find(&currencies).Error; err != nil {
 		return nil, err
 	}
-	options := make([]settings.Option, len(currencies))
+	options := make([]params.Option, len(currencies))
 	for i, currency := range currencies {
-		options[i] = settings.Option{Value: currency.Code, Label: currency.Name}
+		options[i] = params.Option{Value: currency.Code, Label: currency.Name}
 	}
 	return options, nil
 }

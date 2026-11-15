@@ -283,7 +283,7 @@ type ListItemEffectsResponseData struct {
 // ListItemEffects
 // @Tags admin
 // @Summary 获取物品的使用效果
-// @Description 由代码注册的全部效果, 按注册顺序; fields 为参数的表单描述, 与条件类型相同
+// @Description 由代码注册的全部效果, 按注册顺序; fields 为参数的表单描述, 写法与条件类型、人机策略相同
 // @Produce json
 // @Success 200 {object} Response{data=ListItemEffectsResponseData}
 // @Failure 401 {object} Response

@@ -1037,9 +1037,9 @@ definitions:
       description:
         type: string
       fields:
-        description: 参数的表单描述, 与条件类型相同
+        description: 参数的表单描述
         items:
-          $ref: '#/definitions/condition.Field'
+          $ref: '#/definitions/params.Field'
         type: array
       label:
         type: string
@@ -1413,37 +1413,6 @@ definitions:
         description: 条件类型, 见 constants.go
         type: string
     type: object
-  condition.Field:
-    properties:
-      help:
-        type: string
-      input:
-        description: text / select / switch / number, 或选择器 currency / item / quality
-          / scope / metric / pool
-        type: string
-      key:
-        type: string
-      label:
-        type: string
-      options:
-        description: 下拉框 select 和选择器 metric 的可选值
-        items:
-          $ref: '#/definitions/condition.Option'
-        type: array
-      type:
-        description: string / bool / int
-        type: string
-      unit:
-        description: 整数的单位, 只有 bp(基点)
-        type: string
-    type: object
-  condition.Option:
-    properties:
-      label:
-        type: string
-      value:
-        type: string
-    type: object
   condition.Progress:
     properties:
       current:
@@ -1465,8 +1434,9 @@ definitions:
       description:
         type: string
       fields:
+        description: 参数的表单描述
         items:
-          $ref: '#/definitions/condition.Field'
+          $ref: '#/definitions/params.Field'
         type: array
       label:
         type: string
@@ -1569,9 +1539,9 @@ definitions:
       description:
         type: string
       fields:
-        description: 参数的表单描述, 与条件类型相同
+        description: 参数的表单描述
         items:
-          $ref: '#/definitions/condition.Field'
+          $ref: '#/definitions/params.Field'
         type: array
       label:
         type: string
@@ -3522,6 +3492,37 @@ definitions:
       renamable:
         type: boolean
     type: object
+  params.Field:
+    properties:
+      help:
+        type: string
+      input:
+        description: text / textarea / password / select / switch / number / list,
+          或选择器 currency / item / quality / scope / metric / pool
+        type: string
+      key:
+        type: string
+      label:
+        type: string
+      options:
+        description: 下拉框和部分选择器的可选值
+        items:
+          $ref: '#/definitions/params.Option'
+        type: array
+      type:
+        description: string / bool / int / int_list
+        type: string
+      unit:
+        description: '整数的单位: bp / second / millisecond'
+        type: string
+    type: object
+  params.Option:
+    properties:
+      label:
+        type: string
+      value:
+        type: string
+    type: object
   ranked.ListTiersResponseData:
     properties:
       tiers:
@@ -4108,23 +4109,26 @@ definitions:
       help:
         type: string
       input:
-        description: text / textarea / password / select / switch / number / list
+        description: text / textarea / password / select / switch / number / list,
+          或选择器 currency / item / quality / scope / metric / pool
         type: string
       key:
         type: string
       label:
         type: string
       options:
-        description: 下拉框的可选值
+        description: 下拉框和部分选择器的可选值
         items:
-          $ref: '#/definitions/settings.Option'
+          $ref: '#/definitions/params.Option'
         type: array
       public:
+        description: 可以公开给前端
         type: boolean
       ref:
         description: 引用其他模块的数据, 如 currency; 可选值在读取时由 RegisterRef 注册的函数生成
         type: string
       secret:
+        description: 密钥, 加密保存, 后台不回显
         type: boolean
       type:
         description: string / bool / int / int_list
@@ -4169,13 +4173,6 @@ definitions:
       version:
         description: 保存时原样提交, 未保存过为 0
         type: integer
-    type: object
-  settings.Option:
-    properties:
-      label:
-        type: string
-      value:
-        type: string
     type: object
   settings.Response:
     properties:
@@ -7095,7 +7092,7 @@ paths:
       - admin
   /api/v1/admin/items/effects:
     get:
-      description: 由代码注册的全部效果, 按注册顺序; fields 为参数的表单描述, 与条件类型相同
+      description: 由代码注册的全部效果, 按注册顺序; fields 为参数的表单描述, 写法与条件类型、人机策略相同
       produces:
       - application/json
       responses:

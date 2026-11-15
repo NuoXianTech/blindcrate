@@ -33,35 +33,26 @@ import (
 	"reflect"
 	"regexp"
 	"slices"
-	"strings"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
-	"github.com/go-playground/locales/zh"
-	ut "github.com/go-playground/universal-translator"
-	"github.com/go-playground/validator/v10"
-	zhtranslations "github.com/go-playground/validator/v10/translations/zh"
 	"gorm.io/gorm"
 )
 
-// Field 设置项的描述, 后台据此自动生成表单
+// Field 设置项的描述, 后台据此自动生成表单; 写法见 params 包, 另支持 ref、secret、public 三个 tag
 type Field struct {
-	Key     string   `json:"key"`
-	Label   string   `json:"label"`
-	Help    string   `json:"help"`
-	Type    string   `json:"type"`              // string / bool / int / int_list
-	Input   string   `json:"input"`             // text / textarea / password / select / switch / number / list
-	Options []Option `json:"options,omitempty"` // 下拉框的可选值
-	Ref     string   `json:"ref,omitempty"`     // 引用其他模块的数据, 如 currency; 可选值在读取时由 RegisterRef 注册的函数生成
-	Unit    string   `json:"unit,omitempty"`    // 整数的单位: bp / second / millisecond
-	Secret  bool     `json:"secret"`
-	Public  bool     `json:"public"`
-	index   int
+	params.Field
+	Ref    string `json:"ref,omitempty"` // 引用其他模块的数据, 如 currency; 可选值在读取时由 RegisterRef 注册的函数生成
+	Secret bool   `json:"secret"`        // 密钥, 加密保存, 后台不回显
+	Public bool   `json:"public"`        // 可以公开给前端
+	index  int
 }
 
-// Option 下拉框的一个可选值
-type Option struct {
-	Value string `json:"value"`
-	Label string `json:"label"`
+// vocabulary 设置组可以使用的写法
+var vocabulary = params.Vocabulary{
+	Units:    []string{params.UnitBasisPoints, params.UnitSecond, params.UnitMillisecond},
+	IntLists: true,
+	Tags:     []string{"ref", "secret", "public"},
 }
 
 // Category 设置组的分类
@@ -105,39 +96,14 @@ var (
 
 	// groups 已注册的设置组, 按分类和 Sort 排列
 	groups     []*group
-	units      = []string{"bp", "second", "millisecond"}
 	keyPattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
 
 	// refs 引用字段的可选值, 按引用名称, 只在启动前写入
 	refs = map[string]RefOptions{}
-
-	validate = validator.New(validator.WithRequiredStructEnabled())
-	trans, _ = ut.New(zh.New()).GetTranslator("zh")
 )
 
-func init() {
-	// 规则写法与 gin 的请求参数校验一致, 校验失败的提示使用字段的 label
-	validate.SetTagName("binding")
-	validate.RegisterTagNameFunc(func(sf reflect.StructField) string {
-		return sf.Tag.Get("label")
-	})
-	if err := zhtranslations.RegisterDefaultTranslations(validate, trans); err != nil {
-		panic(err)
-	}
-
-	// 中文翻译中没有 http_url
-	if err := validate.RegisterTranslation("http_url", trans, func(t ut.Translator) error {
-		return t.Add("http_url", "{0}必须是 http(s) 链接", false)
-	}, func(t ut.Translator, fe validator.FieldError) string {
-		msg, _ := t.T("http_url", fe.Field())
-		return msg
-	}); err != nil {
-		panic(err)
-	}
-}
-
 // RefOptions 生成引用字段的可选值, 如全部启用的货币
-type RefOptions func(tx *gorm.DB) ([]Option, error)
+type RefOptions func(tx *gorm.DB) ([]params.Option, error)
 
 // RegisterRef 注册一种引用, 带 ref tag 的字段在后台显示为下拉框, 保存时只能选可选值; 需要在启动前调用, 重复注册时 panic
 func RegisterRef(name string, options RefOptions) {
@@ -148,7 +114,7 @@ func RegisterRef(name string, options RefOptions) {
 }
 
 // refOptions 引用字段的可选值, 引用没有注册时返回错误
-func refOptions(tx *gorm.DB, name string) ([]Option, error) {
+func refOptions(tx *gorm.DB, name string) ([]params.Option, error) {
 	options, ok := refs[name]
 	if !ok {
 		return nil, fmt.Errorf("settings: ref %s not registered", name)
@@ -204,75 +170,31 @@ func newGroup[T any](def Group[T]) *group {
 		defaults:    func() any { return def.Defaults() },
 	}
 	typ := reflect.TypeFor[T]()
-	for i := range typ.NumField() {
+	for i, described := range params.Describe(typ, def.Key, vocabulary) {
 		sf := typ.Field(i)
 		name := def.Key + "." + sf.Name
 		f := Field{
-			Key:     strings.Split(sf.Tag.Get("json"), ",")[0],
-			Label:   sf.Tag.Get("label"),
-			Help:    sf.Tag.Get("help"),
-			Input:   sf.Tag.Get("input"),
-			Options: ParseOptions(name, sf.Tag.Get("options")),
-			Ref:     sf.Tag.Get("ref"),
-			Unit:    sf.Tag.Get("unit"),
-			Secret:  sf.Tag.Get("secret") == "true",
-			Public:  sf.Tag.Get("public") == "true",
-			index:   i,
-		}
-		switch kind := sf.Type.Kind(); {
-		case kind == reflect.String:
-			f.Type = "string"
-			switch {
-			case f.Secret:
-				f.Input = "password"
-			case len(f.Options) > 0 || f.Ref != "":
-				f.Input = "select"
-			case f.Input == "":
-				f.Input = "text"
-			}
-		case kind == reflect.Bool:
-			f.Type, f.Input = "bool", "switch"
-		case isInt(kind):
-			f.Type, f.Input = "int", "number"
-		case kind == reflect.Slice && isInt(sf.Type.Elem().Kind()):
-			f.Type, f.Input = "int_list", "list"
-		default:
-			panic(fmt.Sprintf("settings: %s: unsupported type %s", name, sf.Type))
+			Field:  described,
+			Ref:    sf.Tag.Get("ref"),
+			Secret: sf.Tag.Get("secret") == "true",
+			Public: sf.Tag.Get("public") == "true",
+			index:  i,
 		}
 		switch {
 		case f.Secret && (f.Type != "string" || len(f.Options) > 0 || f.Ref != ""):
 			panic(fmt.Sprintf("settings: %s: only plain strings can be secret", name))
-		case (len(f.Options) > 0 || f.Ref != "") && f.Type != "string":
+		case f.Ref != "" && f.Type != "string":
 			panic(fmt.Sprintf("settings: %s: only strings can have options", name))
 		case len(f.Options) > 0 && f.Ref != "":
 			panic(fmt.Sprintf("settings: %s: options and ref are exclusive", name))
-		case f.Unit != "" && (!slices.Contains(units, f.Unit) || (f.Type != "int" && f.Type != "int_list")):
-			panic(fmt.Sprintf("settings: %s: unsupported unit %q", name, f.Unit))
+		case f.Secret:
+			f.Input = "password"
+		case f.Ref != "":
+			f.Input = "select"
 		}
 		g.fields = append(g.fields, f)
 	}
 	return g
-}
-
-// isInt 是否为支持的整数类型
-func isInt(kind reflect.Kind) bool {
-	return kind == reflect.Int || kind == reflect.Int32 || kind == reflect.Int64
-}
-
-// ParseOptions 解析 options tag, 格式为 "值:名称,值:名称"; name 只用于出错时的提示, 格式不对时 panic, 需要在启动前调用
-func ParseOptions(name, tag string) []Option {
-	if tag == "" {
-		return nil
-	}
-	var options []Option
-	for _, part := range strings.Split(tag, ",") {
-		value, label, ok := strings.Cut(part, ":")
-		if !ok || value == "" || label == "" {
-			panic(fmt.Sprintf("settings: %s: invalid options %q", name, tag))
-		}
-		options = append(options, Option{Value: value, Label: label})
-	}
-	return options
 }
 
 // findGroup 按 key 查找设置组, 不存在时返回 nil
@@ -371,7 +293,7 @@ func (g *group) merge(tx *gorm.DB, cur any, broken []string, raw json.RawMessage
 
 // validate 按 binding 规则校验, 并检查下拉框和引用字段的值是否在可选值中
 func (g *group) validate(tx *gorm.DB, v any) error {
-	if err := ValidateStruct(v); err != nil {
+	if err := params.ValidateStruct(v); err != nil {
 		return err
 	}
 	rv := reflect.ValueOf(v).Elem()
@@ -387,23 +309,9 @@ func (g *group) validate(tx *gorm.DB, v any) error {
 			}
 		}
 		value := rv.Field(f.index).String()
-		if !slices.ContainsFunc(options, func(o Option) bool { return o.Value == value }) {
+		if !slices.ContainsFunc(options, func(o params.Option) bool { return o.Value == value }) {
 			return fmt.Errorf(OptionInvalid, f.Label)
 		}
-	}
-	return nil
-}
-
-// ValidateStruct 按字段的 binding 规则校验结构体, 校验失败时返回第一个错误的中文提示, 提示中使用字段的 label
-//
-// 其他模块的 JSONB 配置(如条件参数)也用它校验, 规则写法与设置组一致。
-func ValidateStruct(v any) error {
-	if err := validate.Struct(v); err != nil {
-		var errs validator.ValidationErrors
-		if errors.As(err, &errs) {
-			return errors.New(errs[0].Translate(trans))
-		}
-		return err
 	}
 	return nil
 }

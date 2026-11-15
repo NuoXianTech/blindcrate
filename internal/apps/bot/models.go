@@ -28,7 +28,7 @@ import (
 	"maps"
 	"time"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"gorm.io/gorm"
 )
 
@@ -93,9 +93,9 @@ type Weight struct {
 
 // StrategyView 后台看到的决策策略
 type StrategyView struct {
-	Code        string            `json:"code"`
-	Label       string            `json:"label"`
-	Description string            `json:"description"`
-	Fields      []condition.Field `json:"fields"`   // 参数的表单描述, 与条件类型相同
-	Defaults    map[string]any    `json:"defaults"` // 新建风格时的默认参数
+	Code        string         `json:"code"`
+	Label       string         `json:"label"`
+	Description string         `json:"description"`
+	Fields      []params.Field `json:"fields"`   // 参数的表单描述
+	Defaults    map[string]any `json:"defaults"` // 新建风格时的默认参数
 }
