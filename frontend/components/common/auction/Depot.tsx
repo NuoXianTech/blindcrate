@@ -1,7 +1,7 @@
 'use client';
 
 import {useEffect, useState} from 'react';
-import {Eye, Megaphone} from 'lucide-react';
+import {Ban, Eye, Megaphone} from 'lucide-react';
 import {motion, useReducedMotion} from 'motion/react';
 import {cn} from 'cn';
 import {ItemImage} from '@/components/common/item';
@@ -114,6 +114,27 @@ function NamedCell({intel, animate}: { intel: PieceIntel; animate: boolean }) {
   );
 }
 
+/** 道具确定没有藏品的一个格子, 只有自己看得到 */
+function EmptyCell() {
+  return (
+    <div
+      title="仅自己可见: 这一格没有藏品"
+      className="flex size-full items-center justify-center rounded-md border border-dashed border-primary/40 text-muted-foreground"
+    >
+      <Ban className="size-3.5" aria-label="没有藏品" />
+    </div>
+  );
+}
+
+/** 道具给格子加的短标注, 如 "最贵" */
+function NoteMark({note}: { note: string }) {
+  return (
+    <span className="absolute right-1 bottom-0.5 rounded bg-primary px-1 text-[10px] leading-tight text-primary-foreground" title={`仅自己可见: ${note}`}>
+      {note}
+    </span>
+  );
+}
+
 /** 出价时看到的一件藏品: 货仓扫描公开的轮廓, 或道具私下扫出的 */
 interface SeenCell {
   key: string;
@@ -139,6 +160,8 @@ function seenCells(view: AuctionPublicView, lot: LotView, intel?: Map<string, Pi
   }
   for (const [key, p] of intel ?? []) {
     const prev = cells.get(key);
+    // 空格子上不会有藏品, 与公开的轮廓冲突时以轮廓为准
+    if (p.empty && prev) continue;
     cells.set(key, {key, x: p.x, y: p.y, width: p.width, height: p.height, public: !!prev?.public, round: prev?.round, intel: p});
   }
   for (const h of view.host?.hints ?? []) {
@@ -186,6 +209,7 @@ export function Depot({view, lot, decimals, scan, intel}: {
   }
   // 进入时已经扫出的轮廓和名称不再播放扫描, 之后用道具新扫出的才播放
   const [outlined] = useState(() => new Set(cells.map((c) => c.key)));
+  const outlines = cells.filter((c) => !c.intel?.empty);
   const [named] = useState(() => new Set(cells.filter((c) => c.intel?.name).map((c) => c.key)));
 
   useEffect(() => {
@@ -197,7 +221,7 @@ export function Depot({view, lot, decimals, scan, intel}: {
   const nextScan = upcoming <= view.venue.rounds ? upcoming : 0;
 
   const pieces = lot.pieces ?? [];
-  const known = new Set(cells.map((c) => c.key));
+  const known = new Set(outlines.map((c) => c.key));
 
   return (
     <div className="flex flex-col gap-3">
@@ -290,11 +314,25 @@ export function Depot({view, lot, decimals, scan, intel}: {
           }) :
           cells.map((c) => {
             const style = cellStyle(c, grid);
+            if (c.intel?.empty) {
+              return (
+                <motion.div
+                  key={`${c.key}:empty`}
+                  className="absolute p-0.5"
+                  style={style}
+                  initial={reduced || outlined.has(c.key) ? false : {opacity: 0}}
+                  animate={{opacity: 1}}
+                >
+                  <EmptyCell />
+                </motion.div>
+              );
+            }
             if (c.intel?.name) {
               return (
                 <div key={`${c.key}:named`} className="absolute p-0.5" style={style}>
                   <NamedCell intel={c.intel} animate={!reduced && !named.has(c.key)} />
                   {c.hint !== undefined && <HintMark quality={c.hint} />}
+                  {c.intel.note && <NoteMark note={c.intel.note} />}
                 </div>
               );
             }
@@ -329,6 +367,7 @@ export function Depot({view, lot, decimals, scan, intel}: {
                   )}
                 </FogCell>
                 {c.hint !== undefined && <HintMark quality={c.hint} />}
+                {c.intel?.note && <NoteMark note={c.intel.note} />}
               </motion.div>
             );
           })}

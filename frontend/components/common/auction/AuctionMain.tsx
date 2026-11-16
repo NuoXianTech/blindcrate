@@ -154,7 +154,8 @@ function AuctionTable({view, match, decimals, remaining, onView}: {
   const viewing = lot.lot_no !== current.lot_no;
   // 情报只对用在的拍品有意义, 只看查看的拍品的
   const uses = useMemo(() => view.self.uses.filter((u) => u.lot_no === lot.lot_no), [view.self.uses, lot.lot_no]);
-  const intel = useMemo(() => intelPieces(uses.map((u) => u.result)), [uses]);
+  // 格子可以属于别的拍品(如提前看到的下一个拍品), 从全部用过的道具里找
+  const intel = useMemo(() => intelPieces(view.self.uses, lot.lot_no), [view.self.uses, lot.lot_no]);
   const finished = match.status !== MATCH_STATUS.playing;
   const currentScan = useScan(current, view.venue.bid_currency, finished);
   // 其他拍品不播放扫描: 之前的早已扫完, 之后的还没开拍

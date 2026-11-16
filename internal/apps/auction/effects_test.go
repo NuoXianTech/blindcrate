@@ -116,13 +116,13 @@ func TestRevealQuality(t *testing.T) {
 func TestCountQuality(t *testing.T) {
 	ctx := newUseContext(100, testPieces(), 1, nil, first)
 	got, _ := countQuality(ctx, &CountQualityParams{MinQuality: 4})
-	want := Intel{MinQuality: 4, Counts: []QualityCount{{Quality: 5, Count: 1}, {Quality: 4, Count: 2}}}
+	want := Intel{Facts: []Fact{{Kind: FactCounts, Label: labelAtLeast, Quality: 4, Counts: []QualityCount{{Quality: 5, Count: 1}, {Quality: 4, Count: 2}}}}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
 	got, _ = countQuality(ctx, &CountQualityParams{MinQuality: 6})
-	if len(got.Counts) != 0 || got.Counts == nil {
-		t.Errorf("none: got %+v", got.Counts)
+	if len(got.Facts) != 1 || len(got.Facts[0].Counts) != 0 || got.Facts[0].Counts == nil {
+		t.Errorf("none: got %+v", got.Facts)
 	}
 }
 
@@ -141,7 +141,7 @@ func TestRevealName(t *testing.T) {
 		t.Errorf("rest: got %+v, want %+v", got.Pieces, want)
 	}
 	got, _ = revealName(ctx, &RevealNameParams{Count: 1, MinQuality: 6})
-	if len(got.Pieces) != 0 || got.MinQuality != 6 {
+	if len(got.Pieces) != 0 || len(got.Facts) != 1 || got.Facts[0].Quality != 6 || got.Facts[0].Kind != FactText {
 		t.Errorf("none: got %+v", got)
 	}
 }
@@ -162,7 +162,7 @@ func TestValueRange(t *testing.T) {
 		var bound int64
 		ctx := &UseContext{Value: c.value, Rand: func(n int64) int64 { bound = n; return c.offset }}
 		got, err := valueRange(ctx, &ValueRangeParams{Precision: 2000})
-		if err != nil || got.ValueMin != c.min || got.ValueMax != c.max {
+		if err != nil || len(got.Facts) != 1 || got.Facts[0].Min != c.min || got.Facts[0].Max != c.max {
 			t.Errorf("%s: got %+v %v, want [%d, %d]", c.name, got, err, c.min, c.max)
 		}
 		if want := c.value*2*2000/10000 + 1; bound != want {
@@ -171,7 +171,7 @@ func TestValueRange(t *testing.T) {
 	}
 	// 价值较小时下限不低于 0
 	ctx := &UseContext{Value: 100, Rand: func(n int64) int64 { return n - 1 }}
-	if got, _ := valueRange(ctx, &ValueRangeParams{Precision: 10000}); got.ValueMin != 0 || got.ValueMax != 100 {
+	if got, _ := valueRange(ctx, &ValueRangeParams{Precision: 10000}); got.Facts[0].Min != 0 || got.Facts[0].Max != 100 {
 		t.Errorf("clamp: got %+v", got)
 	}
 }

@@ -58,6 +58,9 @@ func registerEffects() {
 		"给出货仓价值的区间, 区间的位置随机, 真实价值不一定在中间", valueRange)
 }
 
+// labelAtLeast 条目标签: 某品质及以上, 品质由 Fact.Quality 给出
+const labelAtLeast = "及以上"
+
 // cell 一件藏品的位置, 一局中不重复
 type cell struct{ x, y int16 }
 
@@ -81,6 +84,10 @@ func newUseContext(value int64, items []DepotItem, round int32, uses []Use, rand
 	}
 	for _, use := range uses {
 		for _, piece := range use.Result.Pieces {
+			// 空格子不是藏品; 其他拍品的格子与这个拍品无关
+			if piece.Empty || (piece.LotNo != 0 && piece.LotNo != use.LotNo) {
+				continue
+			}
 			ctx.Outlined[cell{piece.X, piece.Y}] = true
 			if piece.Quality > 0 {
 				ctx.Known[cell{piece.X, piece.Y}] = true
@@ -185,12 +192,12 @@ func countQuality(ctx *UseContext, params *CountQualityParams) (Intel, error) {
 			counts[it.Quality]++
 		}
 	}
-	intel := Intel{MinQuality: params.MinQuality, Counts: []QualityCount{}}
+	fact := Fact{Kind: FactCounts, Label: labelAtLeast, Quality: params.MinQuality, Counts: []QualityCount{}}
 	for quality, count := range counts {
-		intel.Counts = append(intel.Counts, QualityCount{Quality: quality, Count: count})
+		fact.Counts = append(fact.Counts, QualityCount{Quality: quality, Count: count})
 	}
-	slices.SortFunc(intel.Counts, func(a, b QualityCount) int { return cmp.Compare(b.Quality, a.Quality) })
-	return intel, nil
+	slices.SortFunc(fact.Counts, func(a, b QualityCount) int { return cmp.Compare(b.Quality, a.Quality) })
+	return Intel{Facts: []Fact{fact}}, nil
 }
 
 // RevealNameParams 透视名称的参数
@@ -213,7 +220,10 @@ func revealName(ctx *UseContext, params *RevealNameParams) (Intel, error) {
 		}
 	}
 	picked := pickPieces(ctx, candidates, int(params.Count))
-	intel := Intel{MinQuality: params.MinQuality, Pieces: make([]PieceIntel, len(picked))}
+	if len(picked) == 0 {
+		return Intel{Facts: []Fact{{Kind: FactText, Label: labelAtLeast, Quality: params.MinQuality, Text: "没有找到"}}}, nil
+	}
+	intel := Intel{Pieces: make([]PieceIntel, len(picked))}
 	for i := range picked {
 		intel.Pieces[i] = pieceIntel(&picked[i], true)
 	}
@@ -236,7 +246,7 @@ func valueRange(ctx *UseContext, params *ValueRangeParams) (Intel, error) {
 	width := ctx.Value * int64(params.Precision) * 2 / venue.BasisPoints
 	low := ctx.Value - ctx.Rand(width+1)
 	high := low + width
-	return Intel{ValueMin: max(low, 0), ValueMax: high}, nil
+	return Intel{Facts: []Fact{{Kind: FactAmount, Label: "货仓价值", Min: max(low, 0), Max: high}}}, nil
 }
 
 // sortPieces 按位置从上到下、从左到右排列, 与扫描顺序相同

@@ -12000,6 +12000,42 @@ const docTemplate = `{
                 }
             }
         },
+        "auction.Fact": {
+            "type": "object",
+            "properties": {
+                "counts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auction.QualityCount"
+                    }
+                },
+                "kind": {
+                    "description": "见 Fact 开头的常量",
+                    "type": "string"
+                },
+                "label": {
+                    "description": "如 \"货仓价值\"",
+                    "type": "string"
+                },
+                "max": {
+                    "type": "integer"
+                },
+                "min": {
+                    "type": "integer"
+                },
+                "quality": {
+                    "description": "关联的品质, 展示在标签前, 如 \"紫色 及以上\"",
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "unit": {
+                    "description": "FactRange 的单位, 如 \"件\"",
+                    "type": "string"
+                }
+            }
+        },
         "auction.Footprint": {
             "type": "object",
             "properties": {
@@ -12111,30 +12147,18 @@ const docTemplate = `{
         "auction.Intel": {
             "type": "object",
             "properties": {
-                "counts": {
-                    "description": "最低品质及以上各品质的件数, 品质从高到低, 没有的品质不列出",
+                "facts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/auction.QualityCount"
+                        "$ref": "#/definitions/auction.Fact"
                     }
                 },
-                "min_quality": {
-                    "description": "统计或查看的最低品质",
-                    "type": "integer"
-                },
                 "pieces": {
-                    "description": "看到品质或名称的藏品, 按位置从上到下、从左到右; 没有符合条件的藏品时为空",
+                    "description": "按位置从上到下、从左到右",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auction.PieceIntel"
                     }
-                },
-                "value_max": {
-                    "type": "integer"
-                },
-                "value_min": {
-                    "description": "货仓价值的区间, 出价货币",
-                    "type": "integer"
                 }
             }
         },
@@ -12323,6 +12347,10 @@ const docTemplate = `{
         "auction.PieceIntel": {
             "type": "object",
             "properties": {
+                "empty": {
+                    "description": "确定没有藏品的格子",
+                    "type": "boolean"
+                },
                 "height": {
                     "type": "integer"
                 },
@@ -12330,12 +12358,20 @@ const docTemplate = `{
                     "description": "同 Name",
                     "type": "string"
                 },
+                "lot_no": {
+                    "description": "不是使用道具时的拍品时给出, 如提前看到的下一个拍品",
+                    "type": "integer"
+                },
                 "name": {
                     "description": "只有看名称的道具有",
                     "type": "string"
                 },
+                "note": {
+                    "description": "格子上的短标注, 如 \"最贵\"",
+                    "type": "string"
+                },
                 "quality": {
-                    "description": "0 为只扫出轮廓",
+                    "description": "0 为不知道品质",
                     "type": "integer"
                 },
                 "width": {
