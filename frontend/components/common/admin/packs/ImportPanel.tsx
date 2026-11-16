@@ -183,8 +183,7 @@ export function ImportPanel({onImported}: { onImported: (record: PackImport) => 
           )}
         </div>
         <span className="text-xs text-muted-foreground">
-          导入只新增或覆盖配置, 不会停用或删除已有配置, 也不改动玩家数据; 物品按 ID 对应, 品质按等级, 设置按设置组, 其他配置按代码。
-          导入的设置会保存为新版本, 之后可以在系统设置中回滚
+          导入只新增或覆盖配置, 不会停用或删除已有配置, 也不改动玩家数据; 物品按 ID 对应, 品质按等级, 设置按设置组, 其他配置按代码
         </span>
       </div>
 
@@ -246,7 +245,7 @@ export function ImportPanel({onImported}: { onImported: (record: PackImport) => 
           <AlertDialogHeader>
             <AlertDialogTitle>导入配置包 {manifest?.name}</AlertDialogTitle>
             <AlertDialogDescription>
-              按选择的处理方式在一个事务中导入, 有任何一项无法导入时全部不写入; 覆盖的配置立即生效, 无法撤销, 设置可以在系统设置中回滚。
+              按选择的处理方式在一个事务中导入, 有任何一项无法导入时全部不写入; 覆盖的配置立即生效, 无法撤销。
               {dirty && ' 处理方式修改后还没有重新预览, 导入的结果以实际导入为准。'}
             </AlertDialogDescription>
           </AlertDialogHeader>

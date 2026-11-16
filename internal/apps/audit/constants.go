@@ -99,7 +99,6 @@ const (
 	ActionShopItemDelete        = "admin.shop_item_delete"
 	ActionShopOrderRefund       = "admin.shop_order_refund"
 	ActionSettingsUpdate        = "admin.settings_update"
-	ActionSettingsRollback      = "admin.settings_rollback"
 	ActionSettingsReset         = "admin.settings_reset"
 	ActionMailTest              = "admin.mail_test"
 	ActionPackExport            = "admin.pack_export"

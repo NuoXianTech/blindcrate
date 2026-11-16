@@ -195,7 +195,7 @@ export function VenuesMain() {
                 <VenueRow
                   key={venue.id}
                   venue={venue}
-                  balanceVersion={data?.balance_version ?? 0}
+                  balanceUpdatedAt={data?.balance_updated_at ?? null}
                   items={catalog.items}
                   currencies={catalog.currencies}
                   onEdit={() => setEditing(venue)}

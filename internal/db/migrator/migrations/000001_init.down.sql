@@ -40,7 +40,6 @@ DROP TABLE IF EXISTS inventory_transactions;
 DROP TABLE IF EXISTS inventory_items;
 DROP TABLE IF EXISTS items;
 DROP TABLE IF EXISTS qualities;
-DROP TABLE IF EXISTS setting_revisions;
 DROP TABLE IF EXISTS settings;
 DROP TABLE IF EXISTS wallet_transactions;
 DROP TABLE IF EXISTS wallet_balances;

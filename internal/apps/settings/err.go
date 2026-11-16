@@ -31,9 +31,6 @@ const (
 	SecretKeyMissing   = "未配置 app.secret_key, 无法保存密钥类设置"
 	SecretBroken       = "%s无法解密, 请重新填写或清空后再保存"
 	OptionInvalid      = "%s不是可选的值"
-	VersionConflict    = "设置已被其他人修改, 请刷新后再保存"
-	RevisionNotFound   = "版本不存在"
-	RevisionBroken     = "版本 %d 中的%s无法解密, 不能回滚"
 	QueryFailed        = "获取设置失败"
 	SaveFailed         = "保存设置失败"
 )

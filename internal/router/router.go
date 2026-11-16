@@ -539,9 +539,6 @@ func adminRoutes(r *gin.RouterGroup) {
 		settingsAdminRouter.GET("", settingsadmin.ListSettings)
 		settingsAdminRouter.GET("/:key", settingsadmin.GetSetting)
 		settingsAdminRouter.PUT("/:key", settingsadmin.UpdateSetting)
-		settingsAdminRouter.GET("/:key/revisions", settingsadmin.ListSettingRevisions)
-		settingsAdminRouter.GET("/:key/revisions/:version", settingsadmin.GetSettingRevision)
-		settingsAdminRouter.POST("/:key/rollback", settingsadmin.RollbackSetting)
 		settingsAdminRouter.POST("/:key/reset", settingsadmin.ResetSetting)
 		settingsAdminRouter.POST("/mail/test", ratelimit.ByUser("admin:mail_test", ratelimit.PerMinute(5)), settingsadmin.TestMail)
 	}

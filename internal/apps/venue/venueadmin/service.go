@@ -30,7 +30,6 @@ import (
 	"strings"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
-	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -137,17 +136,13 @@ func doSimulateVenue(ctx context.Context, req *VenueRequest) (*SimulateResponseD
 
 // doRecalibrateVenues 按当前的玩法平衡设置逐个重新推导并验算全部地图, 每个地图单独提交
 //
-// 启用的地图验算未通过时不保存, 保留原来的参数, 需要调整后再保存或先停用; 返回每个地图的结果和用到的设置版本。
+// 启用的地图验算未通过时不保存, 保留原来的参数, 需要调整后再保存或先停用; 返回每个地图的结果。
 func doRecalibrateVenues(ctx context.Context) (*RecalibrateResponseData, error) {
 	var ids []uint64
 	if err := db.DB(ctx).Model(&venue.Venue{}).Order("sort_order, id").Pluck("id", &ids).Error; err != nil {
 		return nil, err
 	}
-	_, version, err := settings.Balance.Load(db.DB(ctx))
-	if err != nil {
-		return nil, err
-	}
-	data := &RecalibrateResponseData{Version: version, Results: make([]RecalibrateResult, 0, len(ids))}
+	data := &RecalibrateResponseData{Results: make([]RecalibrateResult, 0, len(ids))}
 	for _, id := range ids {
 		var target venue.Venue
 		err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {

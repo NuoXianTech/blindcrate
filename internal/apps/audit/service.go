@@ -89,7 +89,6 @@ func init() {
 		{Code: ActionShopItemDelete, Label: "删除商品"},
 		{Code: ActionShopOrderRefund, Label: "订单退款"},
 		{Code: ActionSettingsUpdate, Label: "修改系统设置"},
-		{Code: ActionSettingsRollback, Label: "回滚系统设置"},
 		{Code: ActionSettingsReset, Label: "恢复系统设置默认值"},
 		{Code: ActionMailTest, Label: "发送测试邮件"},
 		{Code: ActionPackExport, Label: "导出配置包"},

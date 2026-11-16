@@ -210,7 +210,7 @@ func (m *matchSim) sold() bool {
 
 // balance 对局验算, 见 venue.Balancer: 4 个真人的参考阵容; 开放了排位时加上 2 个真人和 2 个人机, 开放了人机模式时加上 1 个真人和 3 个人机
 func balance(tx *gorm.DB, v *venue.Venue, l *venue.Lineup, b *settings.BalanceSettings) (*venue.Balance, error) {
-	economy, _, err := settings.Economy.Load(tx)
+	economy, err := settings.Economy.Load(tx)
 	if err != nil {
 		return nil, err
 	}

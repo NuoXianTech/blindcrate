@@ -28,6 +28,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
@@ -35,7 +36,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
-	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -58,8 +58,8 @@ type ListVenuesRequest struct {
 type ListVenuesResponseData struct {
 	Total  int64         `json:"total"`
 	Venues []venue.Venue `json:"venues"`
-	// BalanceVersion 当前玩法平衡设置的版本, 与地图验算时的版本不同时需要重新推导
-	BalanceVersion int64 `json:"balance_version"`
+	// BalanceUpdatedAt 玩法平衡设置上次保存的时间, 未保存过为空; 晚于地图模拟的时间(simulation.simulated_at)时需要重新推导
+	BalanceUpdatedAt *time.Time `json:"balance_updated_at"`
 }
 
 // ListVenues
@@ -87,13 +87,13 @@ func ListVenues(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	_, version, err := settings.Balance.Load(db.DB(ctx))
+	balanceUpdatedAt, err := settings.Balance.UpdatedAt(ctx)
 	if err != nil {
 		logger.ErrorF(ctx, "[ListVenues] load balance settings failed: %v", err)
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListVenuesResponseData{Total: total, Venues: venues, BalanceVersion: version}})
+	c.JSON(http.StatusOK, Response{Data: ListVenuesResponseData{Total: total, Venues: venues, BalanceUpdatedAt: balanceUpdatedAt}})
 }
 
 // VenueRequest 新建、修改或试算地图请求体
@@ -309,7 +309,6 @@ type RecalibrateResult struct {
 
 // RecalibrateResponseData 重新推导的结果
 type RecalibrateResponseData struct {
-	Version int64               `json:"version"` // 用到的玩法平衡设置版本
 	Results []RecalibrateResult `json:"results"`
 }
 
@@ -344,9 +343,8 @@ func RecalibrateVenues(c *gin.Context) {
 		}
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionVenueRecalibrate, audit.TargetVenue, 0, map[string]interface{}{
-		"balance_version": data.Version,
-		"updated":         updated,
+		"updated": updated,
 	})
-	logger.InfoF(ctx, "[RecalibrateVenues] %d recalibrated %d of %d venues with balance version %d", operator.ID, len(updated), len(data.Results), data.Version)
+	logger.InfoF(ctx, "[RecalibrateVenues] %d recalibrated %d of %d venues", operator.ID, len(updated), len(data.Results))
 	c.JSON(http.StatusOK, Response{Data: data})
 }

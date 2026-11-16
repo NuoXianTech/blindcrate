@@ -3938,7 +3938,7 @@
         },
         "/api/v1/admin/packs/import": {
             "post": {
-                "description": "multipart 表单, 在一个事务中按依赖顺序写入, 全部成功或全部回滚; 只新增或覆盖配置, 不会停用或删除已有配置, 也不改动玩家数据, 已有商品的剩余库存保持不变;\n有未跳过的冲突项时返回 409, data 为每一项的结果; 设置按版本保存, 来源为 import, 之后可以回滚",
+                "description": "multipart 表单, 在一个事务中按依赖顺序写入, 全部成功或全部回滚; 只新增或覆盖配置, 不会停用或删除已有配置, 也不改动玩家数据, 已有商品的剩余库存保持不变;\n有未跳过的冲突项时返回 409, data 为每一项的结果",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -6060,7 +6060,7 @@
                 }
             },
             "put": {
-                "description": "保存后立即生效, 并生成一个新版本",
+                "description": "保存后立即生效; 只修改提交的字段, 多人同时保存时改了同一个字段的以后保存的为准",
                 "consumes": [
                     "application/json"
                 ],
@@ -6132,12 +6132,6 @@
                             "$ref": "#/definitions/settingsadmin.Response"
                         }
                     },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -6149,10 +6143,7 @@
         },
         "/api/v1/admin/settings/{key}/reset": {
             "post": {
-                "description": "恢复为代码中的默认值并生成一个新版本, 密钥字段会被清空",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "恢复为代码中的默认值, 立即生效, 密钥字段会被清空",
                 "produces": [
                     "application/json"
                 ],
@@ -6167,15 +6158,6 @@
                         "name": "key",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "request body",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.ResetSettingRequest"
-                        }
                     }
                 ],
                 "responses": {
@@ -6217,263 +6199,6 @@
                     },
                     "404": {
                         "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/admin/settings/{key}/revisions": {
-            "get": {
-                "description": "按版本从新到旧排列, 不含快照内容",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "获取设置组的历史版本",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "setting group key",
-                        "name": "key",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "minimum": 1,
-                        "type": "integer",
-                        "name": "current",
-                        "in": "query"
-                    },
-                    {
-                        "maximum": 100,
-                        "minimum": 1,
-                        "type": "integer",
-                        "name": "size",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/settingsadmin.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/settingsadmin.ListSettingRevisionsResponseData"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/admin/settings/{key}/revisions/{version}": {
-            "get": {
-                "description": "密钥字段不返回明文, 只返回是否已设置",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "获取设置组某个版本的快照",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "setting group key",
-                        "name": "key",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "version",
-                        "name": "version",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/settingsadmin.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/settings.RevisionView"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/admin/settings/{key}/rollback": {
-            "post": {
-                "description": "用旧版本的快照生成一个新版本, 立即生效; 快照中的密钥无法解密时不能回滚",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "回滚设置组",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "setting group key",
-                        "name": "key",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "request body",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.RollbackSettingRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/settingsadmin.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/settings.GroupView"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/settingsadmin.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/settingsadmin.Response"
                         }
@@ -18146,10 +17871,6 @@
                     "description": "密钥字段固定为空字符串",
                     "type": "object",
                     "additionalProperties": true
-                },
-                "version": {
-                    "description": "保存时原样提交, 未保存过为 0",
-                    "type": "integer"
                 }
             }
         },
@@ -18159,71 +17880,6 @@
                 "data": {},
                 "error_msg": {
                     "type": "string"
-                }
-            }
-        },
-        "settings.RevisionView": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "changes": {
-                    "description": "相对上一个版本改动的字段, 格式同操作日志",
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "from_version": {
-                    "description": "回滚时为回滚到的版本, 其他为 0",
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "key": {
-                    "type": "string"
-                },
-                "secrets_broken": {
-                    "description": "无法解密的密钥字段, 有这类字段时不能回滚到此版本",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "secrets_set": {
-                    "description": "密钥字段是否已设置",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "boolean"
-                    }
-                },
-                "updated_by": {
-                    "type": "integer"
-                },
-                "value": {
-                    "description": "密钥字段固定为空字符串",
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "version": {
-                    "type": "integer"
-                }
-            }
-        },
-        "settingsadmin.ListSettingRevisionsResponseData": {
-            "type": "object",
-            "properties": {
-                "revisions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/settingsadmin.SettingRevisionItem"
-                    }
-                },
-                "total": {
-                    "type": "integer"
                 }
             }
         },
@@ -18244,72 +17900,12 @@
                 }
             }
         },
-        "settingsadmin.ResetSettingRequest": {
-            "type": "object",
-            "required": [
-                "version"
-            ],
-            "properties": {
-                "version": {
-                    "description": "当前版本, 已被别人修改时返回 409",
-                    "type": "integer",
-                    "minimum": 0
-                }
-            }
-        },
         "settingsadmin.Response": {
             "type": "object",
             "properties": {
                 "data": {},
                 "error_msg": {
                     "type": "string"
-                }
-            }
-        },
-        "settingsadmin.RollbackSettingRequest": {
-            "type": "object",
-            "required": [
-                "target",
-                "version"
-            ],
-            "properties": {
-                "target": {
-                    "description": "回滚到的版本",
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "version": {
-                    "description": "当前版本, 已被别人修改时返回 409",
-                    "type": "integer",
-                    "minimum": 0
-                }
-            }
-        },
-        "settingsadmin.SettingRevisionItem": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "changes": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "from_version": {
-                    "type": "integer"
-                },
-                "updated_by": {
-                    "type": "integer"
-                },
-                "updated_by_username": {
-                    "description": "系统操作或用户已不存在时为空",
-                    "type": "string"
-                },
-                "version": {
-                    "type": "integer"
                 }
             }
         },
@@ -18328,8 +17924,7 @@
         "settingsadmin.UpdateSettingRequest": {
             "type": "object",
             "required": [
-                "value",
-                "version"
+                "value"
             ],
             "properties": {
                 "clear_secrets": {
@@ -18343,11 +17938,6 @@
                 "value": {
                     "description": "设置组的字段, 只需提交改动的字段, 没有提交的保持不变, 密钥字段留空表示不修改",
                     "type": "object"
-                },
-                "version": {
-                    "description": "读取时的版本, 已被别人修改时返回 409",
-                    "type": "integer",
-                    "minimum": 0
                 }
             }
         },
@@ -19079,10 +18669,6 @@
                 },
                 "target": {
                     "description": "成交价 ÷ 货仓价值的目标, 基点, 为 1 - 出售手续费率, 系统收支在这里平衡",
-                    "type": "integer"
-                },
-                "version": {
-                    "description": "Version 推导和验算时玩法平衡设置的版本, 与当前版本不同时需要重新推导",
                     "type": "integer"
                 }
             }
@@ -20056,9 +19642,9 @@
         "venueadmin.ListVenuesResponseData": {
             "type": "object",
             "properties": {
-                "balance_version": {
-                    "description": "BalanceVersion 当前玩法平衡设置的版本, 与地图验算时的版本不同时需要重新推导",
-                    "type": "integer"
+                "balance_updated_at": {
+                    "description": "BalanceUpdatedAt 玩法平衡设置上次保存的时间, 未保存过为空; 晚于地图模拟的时间(simulation.simulated_at)时需要重新推导",
+                    "type": "string"
                 },
                 "total": {
                     "type": "integer"
@@ -20079,10 +19665,6 @@
                     "items": {
                         "$ref": "#/definitions/venueadmin.RecalibrateResult"
                     }
-                },
-                "version": {
-                    "description": "用到的玩法平衡设置版本",
-                    "type": "integer"
                 }
             }
         },

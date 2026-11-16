@@ -311,8 +311,6 @@ type Balance struct {
 	Squads []SquadStats `json:"squads"` // 参考阵容在前
 	Checks []Check      `json:"checks"`
 	Passed bool         `json:"passed"` // 全部闸门通过, 未通过的地图不能启用
-	// Version 推导和验算时玩法平衡设置的版本, 与当前版本不同时需要重新推导
-	Version int64 `json:"version"`
 }
 
 // SquadStats 一种阵容的验算结果, 金额为出价货币的最小单位, 比例为基点

@@ -36,7 +36,7 @@ export function RecalibrateDialog({open, onClose, onSaved}: {
   const handleConfirm = submit(async () => {
     const result = await services.venueAdmin.recalibrateVenues();
     const updated = result.results.filter((r) => r.updated).length;
-    toast.success(`已按玩法平衡设置 v${result.version} 重新推导 ${updated}/${result.results.length} 个地图`);
+    toast.success(`已按当前的玩法平衡设置重新推导 ${updated}/${result.results.length} 个地图`);
     setData(result);
     onSaved();
   });
@@ -49,7 +49,7 @@ export function RecalibrateDialog({open, onClose, onSaved}: {
           <AlertDialogDescription>
             {data ?
               data.results.every((r) => r.updated) ?
-                `全部地图已按玩法平衡设置 v${data.version} 保存。` :
+                '全部地图已按当前的玩法平衡设置保存。' :
                 '未保存的地图保留原来的参数, 调整后再保存, 或先停用再推导。' :
               '按当前的玩法平衡设置逐个重新模拟货仓、推导拍卖参数并验算对局, 每个地图需要几秒。启用的地图验算未通过时不保存, 保留原来的参数; 进行中的对局不受影响。'}
           </AlertDialogDescription>

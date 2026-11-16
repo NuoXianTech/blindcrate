@@ -32,18 +32,6 @@ const (
 	CategoryGame   = "game"   // 游戏: 经济、对局等玩法参数
 )
 
-// 版本的来源
-const (
-	RevisionUpdate   = "update"   // 保存
-	RevisionRollback = "rollback" // 回滚到某个旧版本
-	RevisionReset    = "reset"    // 恢复默认值
-	RevisionBaseline = "baseline" // 启用版本记录前已保存的内容, 第一次保存时补记为版本 0
-	RevisionImport   = "import"   // 导入配置包
-)
-
-// anyVersion 保存时不检查版本, 用于导入配置包
-const anyVersion int64 = -1
-
 // 设置组的 key
 //
 // 这里只放运行中可以随时修改、改完立即生效的配置;
@@ -64,7 +52,6 @@ const (
 type Setting struct {
 	Key       string    `gorm:"primaryKey;size:64" json:"key"`
 	Value     string    `gorm:"type:jsonb;not null;default:'{}'" json:"value"` // 密钥字段为密文
-	Version   int64     `gorm:"not null;default:0" json:"version"`             // 每次保存加 1, 保存时校验, 防止覆盖别人的修改
 	UpdatedBy uint64    `gorm:"not null;default:0" json:"updated_by"`
 	CreatedAt time.Time `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"not null;default:now();autoUpdateTime" json:"updated_at"`
@@ -72,22 +59,6 @@ type Setting struct {
 
 // TableName 自定义表名
 func (Setting) TableName() string { return "settings" }
-
-// Revision 设置组的一个版本, 每次保存写入一条, 用于查看历史和回滚
-type Revision struct {
-	ID          uint64                 `gorm:"primaryKey" json:"id"`
-	Key         string                 `gorm:"size:64;not null;uniqueIndex:uniq_setting_revisions_key_version,priority:1" json:"key"`
-	Version     int64                  `gorm:"not null;uniqueIndex:uniq_setting_revisions_key_version,priority:2" json:"version"`
-	Value       string                 `gorm:"type:jsonb;not null;default:'{}'" json:"-"`                       // 保存后的完整内容, 密钥字段为密文
-	Changes     map[string]interface{} `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"changes"` // 相对上一个版本改动的字段, 格式同操作日志
-	Action      string                 `gorm:"size:16;not null" json:"action"`
-	FromVersion int64                  `gorm:"not null;default:0" json:"from_version"` // 回滚时为回滚到的版本, 其他为 0
-	UpdatedBy   uint64                 `gorm:"not null;default:0" json:"updated_by"`
-	CreatedAt   time.Time              `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
-}
-
-// TableName 自定义表名
-func (Revision) TableName() string { return "setting_revisions" }
 
 // 全部设置组, 新增设置组时在这里注册
 //

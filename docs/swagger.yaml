@@ -4170,60 +4170,12 @@ definitions:
         additionalProperties: true
         description: 密钥字段固定为空字符串
         type: object
-      version:
-        description: 保存时原样提交, 未保存过为 0
-        type: integer
     type: object
   settings.Response:
     properties:
       data: {}
       error_msg:
         type: string
-    type: object
-  settings.RevisionView:
-    properties:
-      action:
-        type: string
-      changes:
-        additionalProperties: true
-        description: 相对上一个版本改动的字段, 格式同操作日志
-        type: object
-      created_at:
-        type: string
-      from_version:
-        description: 回滚时为回滚到的版本, 其他为 0
-        type: integer
-      id:
-        type: integer
-      key:
-        type: string
-      secrets_broken:
-        description: 无法解密的密钥字段, 有这类字段时不能回滚到此版本
-        items:
-          type: string
-        type: array
-      secrets_set:
-        additionalProperties:
-          type: boolean
-        description: 密钥字段是否已设置
-        type: object
-      updated_by:
-        type: integer
-      value:
-        additionalProperties: true
-        description: 密钥字段固定为空字符串
-        type: object
-      version:
-        type: integer
-    type: object
-  settingsadmin.ListSettingRevisionsResponseData:
-    properties:
-      revisions:
-        items:
-          $ref: '#/definitions/settingsadmin.SettingRevisionItem'
-        type: array
-      total:
-        type: integer
     type: object
   settingsadmin.ListSettingsResponseData:
     properties:
@@ -4236,53 +4188,11 @@ definitions:
           $ref: '#/definitions/settings.GroupView'
         type: array
     type: object
-  settingsadmin.ResetSettingRequest:
-    properties:
-      version:
-        description: 当前版本, 已被别人修改时返回 409
-        minimum: 0
-        type: integer
-    required:
-    - version
-    type: object
   settingsadmin.Response:
     properties:
       data: {}
       error_msg:
         type: string
-    type: object
-  settingsadmin.RollbackSettingRequest:
-    properties:
-      target:
-        description: 回滚到的版本
-        minimum: 0
-        type: integer
-      version:
-        description: 当前版本, 已被别人修改时返回 409
-        minimum: 0
-        type: integer
-    required:
-    - target
-    - version
-    type: object
-  settingsadmin.SettingRevisionItem:
-    properties:
-      action:
-        type: string
-      changes:
-        additionalProperties: true
-        type: object
-      created_at:
-        type: string
-      from_version:
-        type: integer
-      updated_by:
-        type: integer
-      updated_by_username:
-        description: 系统操作或用户已不存在时为空
-        type: string
-      version:
-        type: integer
     type: object
   settingsadmin.TestMailRequest:
     properties:
@@ -4303,13 +4213,8 @@ definitions:
       value:
         description: 设置组的字段, 只需提交改动的字段, 没有提交的保持不变, 密钥字段留空表示不修改
         type: object
-      version:
-        description: 读取时的版本, 已被别人修改时返回 409
-        minimum: 0
-        type: integer
     required:
     - value
-    - version
     type: object
   shop.CreateOrderRequest:
     properties:
@@ -4799,9 +4704,6 @@ definitions:
         type: array
       target:
         description: 成交价 ÷ 货仓价值的目标, 基点, 为 1 - 出售手续费率, 系统收支在这里平衡
-        type: integer
-      version:
-        description: Version 推导和验算时玩法平衡设置的版本, 与当前版本不同时需要重新推导
         type: integer
     type: object
   venue.BotRule:
@@ -5459,9 +5361,9 @@ definitions:
     type: object
   venueadmin.ListVenuesResponseData:
     properties:
-      balance_version:
-        description: BalanceVersion 当前玩法平衡设置的版本, 与地图验算时的版本不同时需要重新推导
-        type: integer
+      balance_updated_at:
+        description: BalanceUpdatedAt 玩法平衡设置上次保存的时间, 未保存过为空; 晚于地图模拟的时间(simulation.simulated_at)时需要重新推导
+        type: string
       total:
         type: integer
       venues:
@@ -5475,9 +5377,6 @@ definitions:
         items:
           $ref: '#/definitions/venueadmin.RecalibrateResult'
         type: array
-      version:
-        description: 用到的玩法平衡设置版本
-        type: integer
     type: object
   venueadmin.RecalibrateResult:
     properties:
@@ -8292,7 +8191,7 @@ paths:
       - multipart/form-data
       description: |-
         multipart 表单, 在一个事务中按依赖顺序写入, 全部成功或全部回滚; 只新增或覆盖配置, 不会停用或删除已有配置, 也不改动玩家数据, 已有商品的剩余库存保持不变;
-        有未跳过的冲突项时返回 409, data 为每一项的结果; 设置按版本保存, 来源为 import, 之后可以回滚
+        有未跳过的冲突项时返回 409, data 为每一项的结果
       parameters:
       - description: 配置包
         in: formData
@@ -9581,7 +9480,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: 保存后立即生效, 并生成一个新版本
+      description: 保存后立即生效; 只修改提交的字段, 多人同时保存时改了同一个字段的以后保存的为准
       parameters:
       - description: setting group key
         in: path
@@ -9622,10 +9521,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/settingsadmin.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -9635,21 +9530,13 @@ paths:
       - admin
   /api/v1/admin/settings/{key}/reset:
     post:
-      consumes:
-      - application/json
-      description: 恢复为代码中的默认值并生成一个新版本, 密钥字段会被清空
+      description: 恢复为代码中的默认值, 立即生效, 密钥字段会被清空
       parameters:
       - description: setting group key
         in: path
         name: key
         required: true
         type: string
-      - description: request body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/settingsadmin.ResetSettingRequest'
       produces:
       - application/json
       responses:
@@ -9676,10 +9563,6 @@ paths:
             $ref: '#/definitions/settingsadmin.Response'
         "404":
           description: Not Found
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "409":
-          description: Conflict
           schema:
             $ref: '#/definitions/settingsadmin.Response'
         "500":
@@ -9687,164 +9570,6 @@ paths:
           schema:
             $ref: '#/definitions/settingsadmin.Response'
       summary: 恢复设置组的默认值
-      tags:
-      - admin
-  /api/v1/admin/settings/{key}/revisions:
-    get:
-      description: 按版本从新到旧排列, 不含快照内容
-      parameters:
-      - description: setting group key
-        in: path
-        name: key
-        required: true
-        type: string
-      - in: query
-        minimum: 1
-        name: current
-        type: integer
-      - in: query
-        maximum: 100
-        minimum: 1
-        name: size
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/settingsadmin.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/settingsadmin.ListSettingRevisionsResponseData'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-      summary: 获取设置组的历史版本
-      tags:
-      - admin
-  /api/v1/admin/settings/{key}/revisions/{version}:
-    get:
-      description: 密钥字段不返回明文, 只返回是否已设置
-      parameters:
-      - description: setting group key
-        in: path
-        name: key
-        required: true
-        type: string
-      - description: version
-        in: path
-        name: version
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/settingsadmin.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/settings.RevisionView'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-      summary: 获取设置组某个版本的快照
-      tags:
-      - admin
-  /api/v1/admin/settings/{key}/rollback:
-    post:
-      consumes:
-      - application/json
-      description: 用旧版本的快照生成一个新版本, 立即生效; 快照中的密钥无法解密时不能回滚
-      parameters:
-      - description: setting group key
-        in: path
-        name: key
-        required: true
-        type: string
-      - description: request body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/settingsadmin.RollbackSettingRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/settingsadmin.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/settings.GroupView'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/settingsadmin.Response'
-      summary: 回滚设置组
       tags:
       - admin
   /api/v1/admin/settings/mail/test:

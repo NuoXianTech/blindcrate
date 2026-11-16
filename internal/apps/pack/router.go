@@ -212,7 +212,7 @@ func PreviewPack(c *gin.Context) {
 // @Tags admin
 // @Summary 导入配置包
 // @Description multipart 表单, 在一个事务中按依赖顺序写入, 全部成功或全部回滚; 只新增或覆盖配置, 不会停用或删除已有配置, 也不改动玩家数据, 已有商品的剩余库存保持不变;
-// @Description 有未跳过的冲突项时返回 409, data 为每一项的结果; 设置按版本保存, 来源为 import, 之后可以回滚
+// @Description 有未跳过的冲突项时返回 409, data 为每一项的结果
 // @Accept multipart/form-data
 // @Produce json
 // @Param file formData file true "配置包"
