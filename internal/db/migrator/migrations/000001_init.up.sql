@@ -118,26 +118,10 @@ CREATE TABLE IF NOT EXISTS settings
 (
     key        VARCHAR(64) PRIMARY KEY,
     value      JSONB       NOT NULL DEFAULT '{}', -- 密钥字段为密文
-    version    BIGINT      NOT NULL DEFAULT 0,    -- 每次保存加 1, 保存时校验, 防止覆盖别人的修改
     updated_by BIGINT      NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
--- 设置组的版本, 每次保存写入一条, 用于查看历史和回滚
-CREATE TABLE IF NOT EXISTS setting_revisions
-(
-    id           BIGSERIAL PRIMARY KEY,
-    key          VARCHAR(64) NOT NULL,
-    version      BIGINT      NOT NULL,
-    value        JSONB       NOT NULL DEFAULT '{}', -- 保存后的完整内容, 密钥字段为密文
-    changes      JSONB       NOT NULL DEFAULT '{}', -- 相对上一个版本改动的字段, 格式同操作日志
-    action       VARCHAR(16) NOT NULL,              -- update / rollback / reset / baseline
-    from_version BIGINT      NOT NULL DEFAULT 0,    -- 回滚时为回滚到的版本
-    updated_by   BIGINT      NOT NULL DEFAULT 0,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_setting_revisions_key_version ON setting_revisions (key, version);
 
 -- 物品品质, 新增品质只需插入一行; 等级越大越稀有, 物品和货仓藏品按等级引用
 CREATE TABLE IF NOT EXISTS qualities

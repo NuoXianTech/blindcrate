@@ -405,8 +405,6 @@ export interface Balance {
   checks: BalanceCheck[];
   /** 全部闸门通过, 未通过的地图不能启用 */
   passed: boolean;
-  /** 推导和验算时玩法平衡设置的版本, 与当前版本不同时需要重新推导 */
-  version: number;
 }
 
 /** 一种档次的价值分布, 对应后端 venue.TierStats */
@@ -480,8 +478,8 @@ export interface ListVenuesParams extends PageParams {
 export interface ListVenuesData {
   total: number;
   venues: AdminVenue[];
-  /** 当前玩法平衡设置的版本 */
-  balance_version: number;
+  /** 玩法平衡设置上次保存的时间, 未保存过为空; 晚于地图模拟的时间(simulation.simulated_at)时需要重新推导 */
+  balance_updated_at: string | null;
 }
 
 /** 一个地图的重新推导结果 */
@@ -496,8 +494,6 @@ export interface RecalibrateResult {
 }
 
 export interface RecalibrateData {
-  /** 用到的玩法平衡设置版本 */
-  version: number;
   results: RecalibrateResult[];
 }
 

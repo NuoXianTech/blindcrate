@@ -1,26 +1,14 @@
-import type {SettingChange, SettingField, SettingGroup, SettingRevisionAction, SettingValue} from '@/lib/services/settings';
+import type {SettingField, SettingGroup} from '@/lib/services/settings';
 
 /** 表单里的值: 开关为布尔, 整数列表为每一项的输入, 其余都按字符串编辑 */
 export type FormValue = string | boolean | string[];
 export type FormValues = Record<string, FormValue>;
-
-/** 版本列表每页条数 */
-export const REVISION_PAGE_SIZE = 10;
 
 /** 整数单位的后缀 */
 export const UNIT_SUFFIX: Record<NonNullable<SettingField['unit']>, string> = {
   bp: '%',
   second: '秒',
   millisecond: '毫秒',
-};
-
-/** 版本来源的名称 */
-export const REVISION_ACTIONS: Record<SettingRevisionAction, string> = {
-  update: '保存',
-  rollback: '回滚',
-  reset: '恢复默认值',
-  baseline: '初始内容',
-  import: '导入配置包',
 };
 
 /** 整数转为输入框的文字, 基点按百分比显示 */
@@ -79,34 +67,4 @@ export function diff(group: SettingGroup, values: FormValues): FormValues {
 export function intError(f: SettingField, index?: number): string {
   const name = index === undefined ? f.label : `${f.label}第 ${index + 1} 项`;
   return f.unit === 'bp' ? `${name}需为数字, 最多两位小数` : `${name}需为整数`;
-}
-
-/** 带单位展示一个整数 */
-function formatUnit(f: SettingField, n: number): string {
-  if (f.unit === 'bp') return `${formatInt(f, n)}%`;
-  return f.unit ? `${n} ${UNIT_SUFFIX[f.unit]}` : String(n);
-}
-
-/** 展示一个值: 开关显示开启/关闭, 整数带单位, 下拉框显示选项名称 */
-export function formatValue(f: SettingField | undefined, v: SettingValue | undefined): string {
-  if (v === undefined || v === null) return '-';
-  if (!f) return Array.isArray(v) ? v.join(', ') : String(v);
-  switch (f.type) {
-    case 'bool':
-      return v ? '开启' : '关闭';
-    case 'int':
-      return formatUnit(f, v as number);
-    case 'int_list':
-      return (v as number[]).length ? (v as number[]).map((n) => formatUnit(f, n)).join(', ') : '(空)';
-    default:
-      if (v === '') return '(空)';
-      return f.options?.find((o) => o.value === v)?.label ?? String(v);
-  }
-}
-
-/** 展示一个字段的修改 */
-export function formatChange(f: SettingField | undefined, change: SettingChange): string {
-  if (change === '<updated>') return '已修改';
-  if (change === '<cleared>') return '已清空';
-  return `${formatValue(f, change.old)} → ${formatValue(f, change.new)}`;
 }

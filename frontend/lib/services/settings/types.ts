@@ -45,8 +45,6 @@ export interface SettingGroup {
   secrets_set: Record<string, boolean>;
   /** 无法解密的密钥字段, 需要重新填写或清空才能保存 */
   secrets_broken: string[] | null;
-  /** 保存时原样提交, 未保存过为 0 */
-  version: number;
   updated_by: number;
   /** 未保存过为空 */
   updated_at: string | null;
@@ -58,48 +56,8 @@ export interface ListSettingsData {
 }
 
 export interface UpdateSettingRequest {
-  /** 读取时的版本, 已被别人修改时返回 409 */
-  version: number;
   /** 只需提交改动的字段, 密钥字段留空表示不修改 */
   value: Record<string, SettingValue>;
   /** 需要清空的密钥字段 */
   clear_secrets?: string[];
-}
-
-/** 版本的来源: 保存、回滚、恢复默认值、启用版本记录前的内容、导入配置包 */
-export type SettingRevisionAction = 'update' | 'rollback' | 'reset' | 'baseline' | 'import';
-
-/** 一个字段的修改, 密钥字段只记录 <updated> 或 <cleared> */
-export type SettingChange = { old: SettingValue; new: SettingValue } | '<updated>' | '<cleared>';
-
-/** 设置组的一个版本, 对应后端 admin.SettingRevisionItem */
-export interface SettingRevision {
-  version: number;
-  action: SettingRevisionAction;
-  /** 回滚时为回滚到的版本 */
-  from_version: number;
-  changes: Record<string, SettingChange>;
-  updated_by: number;
-  /** 系统操作或用户已不存在时为空 */
-  updated_by_username: string;
-  created_at: string;
-}
-
-export interface ListSettingRevisionsParams {
-  current: number;
-  size: number;
-}
-
-export interface ListSettingRevisionsData {
-  total: number;
-  revisions: SettingRevision[];
-}
-
-/** 一个版本的快照, 对应后端 settings.RevisionView */
-export interface SettingRevisionDetail extends Omit<SettingRevision, 'updated_by_username'> {
-  key: string;
-  value: Record<string, SettingValue>;
-  secrets_set: Record<string, boolean>;
-  /** 无法解密的密钥字段, 有这类字段时不能回滚到此版本 */
-  secrets_broken: string[] | null;
 }

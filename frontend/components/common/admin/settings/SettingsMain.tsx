@@ -34,7 +34,7 @@ export function SettingsMain() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold">系统设置</h1>
-        <p className="text-sm text-muted-foreground">保存后立即生效, 每次保存都会生成一个版本, 可以随时回滚</p>
+        <p className="text-sm text-muted-foreground">保存后立即生效</p>
       </div>
       {data ? (
         <Tabs defaultValue={data.categories[0]?.key}>

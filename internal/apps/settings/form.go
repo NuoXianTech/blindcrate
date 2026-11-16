@@ -244,7 +244,6 @@ func (g *group) view(fields []Field, row *Setting, value any, broken []string) G
 		Value:         g.values(value, false),
 		SecretsSet:    g.secretsSet(value),
 		SecretsBroken: broken,
-		Version:       row.Version,
 		UpdatedBy:     row.UpdatedBy,
 	}
 	if row.Key != "" {
@@ -316,7 +315,7 @@ func (g *group) validate(tx *gorm.DB, v any) error {
 	return nil
 }
 
-// diff 本次修改了哪些字段, 用于操作日志和版本记录, 密钥字段不记录内容
+// diff 本次修改了哪些字段, 用于操作日志, 密钥字段不记录内容
 //
 // 无法解密的密钥字段经过 merge 后一定是重新填写或清空, 都算修改, 需要写库覆盖原密文。
 func (g *group) diff(cur any, broken []string, next any) map[string]interface{} {
@@ -362,21 +361,16 @@ func (g *group) encode(v any) (string, error) {
 	return string(raw), nil
 }
 
-// decode 读取当前值, 返回设置值和无法解密的密钥字段, 未保存过时为默认值
-func (g *group) decode(ctx context.Context, row *Setting) (any, []string) {
-	if row.Key == "" {
-		return g.defaults(), nil
-	}
-	return g.decodeValue(ctx, row.Value)
-}
-
-// decodeValue 把存库的 JSON 解析到默认值之上并解密密钥字段, 也用于解析版本快照
+// decode 把库里的 JSON 解析到默认值之上并解密密钥字段, 返回设置值和无法解密的密钥字段
 //
-// 库里没有的字段(新加的字段)保持默认值, 多余的字段(已删除的字段)忽略;
+// 未保存过时为默认值; 库里没有的字段(新加的字段)保持默认值, 多余的字段(已删除的字段)忽略;
 // 无法解密的密钥字段(如 app.secret_key 被修改)按空值使用, 但会阻止保存, 避免把原密文覆盖掉。
-func (g *group) decodeValue(ctx context.Context, raw string) (any, []string) {
+func (g *group) decode(ctx context.Context, row *Setting) (any, []string) {
 	v := g.defaults()
-	if err := json.Unmarshal([]byte(raw), v); err != nil {
+	if row.Key == "" {
+		return v, nil
+	}
+	if err := json.Unmarshal([]byte(row.Value), v); err != nil {
 		logger.ErrorF(ctx, "[Settings] decode %s failed: %v", g.key, err)
 	}
 	var broken []string

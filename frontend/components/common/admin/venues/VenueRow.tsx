@@ -14,8 +14,8 @@ import {MODES} from './constants';
  */
 interface VenueRowProps {
   venue: AdminVenue;
-  /** 当前玩法平衡设置的版本, 地图验算时的版本不同时提示重新推导 */
-  balanceVersion: number;
+  /** 玩法平衡设置上次保存的时间, 未保存过为空; 晚于地图模拟的时间时提示重新推导 */
+  balanceUpdatedAt: string | null;
   items: AdminItem[];
   currencies: Currency[];
   onEdit: () => void;
@@ -26,11 +26,11 @@ interface VenueRowProps {
 /**
  * 地图列表的一行: 名称、开放的模式、入场代价、模拟的价值中位数和操作按钮
  */
-export function VenueRow({venue, balanceVersion, items, currencies, onEdit, onToggle, onDelete}: VenueRowProps) {
+export function VenueRow({venue, balanceUpdatedAt, items, currencies, onEdit, onToggle, onDelete}: VenueRowProps) {
   const bid = currencies.find((c) => c.code === venue.bid_currency);
   const cost = bundleText(venue.entry_cost, items, currencies);
   const modes = MODES.filter((m) => (m.value === 'pve' ? venue.pve_enabled : venue.ranked_enabled));
-  const stale = (venue.simulation.balance?.version ?? 0) !== balanceVersion;
+  const stale = !!balanceUpdatedAt && Date.parse(venue.simulation.simulated_at) < Date.parse(balanceUpdatedAt);
 
   return (
     <TableRow>

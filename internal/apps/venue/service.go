@@ -155,7 +155,7 @@ func Validate(tx *gorm.DB, v *Venue) error {
 		}
 	}
 
-	rule, version, err := settings.Balance.Load(tx)
+	rule, err := settings.Balance.Load(tx)
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,6 @@ func Validate(tx *gorm.DB, v *Venue) error {
 		return err
 	}
 	balance.judge(v, rule)
-	balance.Version = version
 	v.Simulation.Balance = balance
 	if v.IsEnabled && !balance.Passed {
 		return invalid(BalanceFailed, balance.failures())
