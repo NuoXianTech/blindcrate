@@ -24,6 +24,7 @@ import {
   type QueueUpdatedMessage,
 } from '@/lib/services/match';
 import type {Venue} from '@/lib/services/venue';
+import {isDismissed} from './CurrentMatchBanner';
 import {MatchmakingBar} from './MatchmakingBar';
 import {RatingBadge} from './RatingBadge';
 import {SeasonBadge} from './SeasonBadge';
@@ -84,6 +85,8 @@ export function LobbyMain() {
   useWsEvent<MatchView>(MATCH_MESSAGES.updated, (view) => {
     // 已释放的对局只剩开箱展示, 离开后不再拉回去
     if (view.status !== MATCH_STATUS.playing || view.released_at) return;
+    // 断线回来后选择了暂不回去的对局也不再拉回去, 状态栏仍有回到对局的入口
+    if (isDismissed(view.id)) return;
     // 开局后已出队, 先更新状态, 免得回到大厅时按旧的排队状态锁定导航
     setStatus({queue: null, match_id: view.id});
     router.push(matchHref(view.id));

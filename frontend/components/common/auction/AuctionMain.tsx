@@ -8,6 +8,7 @@ import {Button} from '@/components/ui/button';
 import {Skeleton} from '@/components/ui/skeleton';
 import {useAuth} from '@/components/common/auth';
 import {useCountdown} from '@/hooks/use-countdown';
+import {useBlockLeave} from '@/hooks/use-navigation-lock';
 import {useScan} from '@/hooks/use-scan';
 import {useWsConnected, useWsEvent} from '@/hooks/use-ws';
 import {ROUTES} from '@/lib/access';
@@ -160,10 +161,13 @@ function AuctionTable({view, match, decimals, remaining, onView}: {
   const otherScan = useScan(lot, view.venue.bid_currency, true);
   const scan = viewing ? otherScan : currentScan;
   const settled = lot.outcome !== '';
+  // 对局开始后不能回到主界面, 直到对局结束或释放(只剩最后的开箱展示)
+  const locked = !finished && !match.released_at;
+  useBlockLeave(locked, () => toast.info('对局进行中, 结束后才能返回大厅'));
 
   return (
     <>
-      <AuctionHeader view={view} finished={finished} remaining={remaining} />
+      <AuctionHeader view={view} finished={finished} locked={locked} remaining={remaining} />
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4">
           {view.lot_count > 1 && (
