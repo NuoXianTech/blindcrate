@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect, useSyncExternalStore} from 'react';
+import {useEffect, useRef, useSyncExternalStore} from 'react';
 
 /** 正在锁定导航的组件数, 全局共用一份, 由 useLockNavigation 增减 */
 let holders = 0;
@@ -30,5 +30,34 @@ export function useLockNavigation(locked: boolean) {
     if (!locked) return;
     update(1);
     return () => update(-1);
+  }, [locked]);
+}
+
+/**
+ * locked 为 true 时拦住浏览器的后退, 并在刷新或关闭页面前让浏览器确认, 如对局进行中不能回到主界面
+ * 后退: 先压入一条相同地址的历史记录, 后退时回到的还是当前页面, 再压回去并调用 onBlocked
+ */
+export function useBlockLeave(locked: boolean, onBlocked?: () => void) {
+  const blocked = useRef(onBlocked);
+  useEffect(() => {
+    blocked.current = onBlocked;
+  });
+
+  useEffect(() => {
+    if (!locked) return;
+    // 沿用当前的 state, Next.js 靠它识别自己的历史记录
+    const trap = () => window.history.pushState(window.history.state, '', window.location.href);
+    const handlePop = () => {
+      trap();
+      blocked.current?.();
+    };
+    const handleUnload = (e: BeforeUnloadEvent) => e.preventDefault();
+    trap();
+    window.addEventListener('popstate', handlePop);
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      window.removeEventListener('popstate', handlePop);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
   }, [locked]);
 }

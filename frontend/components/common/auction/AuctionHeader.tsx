@@ -14,12 +14,14 @@ import {MATCH_STATUS} from '@/lib/services/match';
 const URGENT_MS = 5000;
 
 /**
- * 拍卖桌顶部: 返回大厅、地图和模式、当前拍品和它的轮次、阶段倒计时
+ * 拍卖桌顶部: 返回大厅、地图和模式、当前拍品和它的轮次、阶段倒计时; 对局进行中不能返回大厅
  */
-export function AuctionHeader({view, finished, remaining}: {
+export function AuctionHeader({view, finished, locked, remaining}: {
   view: AuctionView;
   /** 对局已结束 */
   finished: boolean;
+  /** 对局进行中且还没释放, 不显示返回大厅 */
+  locked: boolean;
   /** 当前阶段剩余的毫秒, 不限时为 null */
   remaining: number | null;
 }) {
@@ -43,11 +45,13 @@ export function AuctionHeader({view, finished, remaining}: {
 
   return (
     <header className="flex items-center gap-3 border-b px-4 py-3">
-      <Button variant="ghost" size="icon-sm" asChild>
-        <Link href={ROUTES.gameHome} aria-label="返回大厅">
-          <ChevronLeft />
-        </Link>
-      </Button>
+      {!locked && (
+        <Button variant="ghost" size="icon-sm" asChild>
+          <Link href={ROUTES.gameHome} aria-label="返回大厅">
+            <ChevronLeft />
+          </Link>
+        </Button>
+      )}
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="flex items-center gap-2">
           <span className="truncate font-bold">{venue.name}</span>
