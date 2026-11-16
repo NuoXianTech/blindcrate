@@ -22,9 +22,10 @@
  * SOFTWARE.
  */
 
-package crate
+package effect
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -34,27 +35,48 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Response 统一的 crate 响应壳, 保持与其他 app 一致
+// Response 统一的 effect 响应壳, 保持与其他 app 一致
 type Response struct {
 	ErrorMsg string      `json:"error_msg"`
 	Data     interface{} `json:"data"`
 }
 
-// GetCrate
-// @Tags crate
-// @Summary 获取箱子和其中可以开出的内容
-// @Description 返回当前用户持有的数量和箱子中每一项的概率, 概率与开启时一致; 物品不是箱子时返回 404, 箱子的掉落池不可用时返回 403
+// respondUseError 把查看和使用的错误转成响应
+func respondUseError(c *gin.Context, name string, err error) {
+	var unusable *UseError
+	if errors.As(err, &unusable) {
+		c.JSON(http.StatusForbidden, Response{ErrorMsg: unusable.Reason})
+		return
+	}
+	switch err.Error() {
+	case ItemNotUsable:
+		c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
+	case inventory.InsufficientQuantity:
+		c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
+	case ChoiceInvalid, InputInvalid:
+		c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
+	case IdempotencyConflict, DuplicateRequest:
+		c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
+	default:
+		logger.ErrorF(c.Request.Context(), "[%s] failed: %v", name, err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+	}
+}
+
+// GetItemUse
+// @Tags inventory
+// @Summary 获取一个可以在背包中使用的物品和使用后可以得到的内容
+// @Description 返回当前用户持有的数量、使用方式和可以得到的内容, 按概率得到时带每一项的概率, 与使用时一致; 物品不能在背包中使用时返回 404, 现在不能使用(如箱子的掉落池不可用)时返回 403
 // @Produce json
 // @Param item_id path int true "item id"
-// @Success 200 {object} Response{data=View}
+// @Success 200 {object} Response{data=UseView}
 // @Failure 400 {object} Response
 // @Failure 401 {object} Response
 // @Failure 403 {object} Response
 // @Failure 404 {object} Response
 // @Failure 500 {object} Response
-// @Router /api/v1/crates/{item_id} [get]
-func GetCrate(c *gin.Context) {
-	ctx := c.Request.Context()
+// @Router /api/v1/inventory/items/{item_id}/use [get]
+func GetItemUse(c *gin.Context) {
 	itemID, err := strconv.ParseUint(c.Param("item_id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
@@ -65,36 +87,23 @@ func GetCrate(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
-	view, err := Query(ctx, user.ID, itemID)
+	view, err := QueryUse(c.Request.Context(), user.ID, itemID)
 	if err != nil {
-		switch err.Error() {
-		case CrateNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case CrateUnavailable:
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[GetCrate] query failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		respondUseError(c, "GetItemUse", err)
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: view})
 }
 
-// OpenCrateRequest 开启请求体
-type OpenCrateRequest struct {
-	IdempotencyKey string `json:"idempotency_key" binding:"required,max=64,printascii"` // 每次开启生成一个, 重复提交只开启一次并返回原来的结果
-}
-
-// OpenCrate
-// @Tags crate
-// @Summary 开启背包中的一个箱子
-// @Description 扣除 1 个箱子并发放抽中的货币或物品, 全部成功或全部失败; 结果在返回前已经结算, 重复提交返回原来的结果。物品不是箱子时返回 404; 背包中没有这个箱子, 或箱子暂时无法开启时返回 403
+// UseItem
+// @Tags inventory
+// @Summary 使用背包中的一个物品
+// @Description 扣除 1 个物品, 发放得到的货币和物品并执行效果, 全部成功或全部失败; 结果在返回前已经结算, 重复提交返回原来的结果。物品不能在背包中使用时返回 404; 背包中没有这个物品, 或现在不能使用时返回 403
 // @Accept json
 // @Produce json
 // @Param item_id path int true "item id"
-// @Param request body OpenCrateRequest true "request body"
-// @Success 200 {object} Response{data=Result}
+// @Param request body InventoryUseRequest true "request body"
+// @Success 200 {object} Response{data=UseResult}
 // @Failure 400 {object} Response
 // @Failure 401 {object} Response
 // @Failure 403 {object} Response
@@ -102,15 +111,15 @@ type OpenCrateRequest struct {
 // @Failure 409 {object} Response
 // @Failure 429 {object} Response
 // @Failure 500 {object} Response
-// @Router /api/v1/crates/{item_id}/open [post]
-func OpenCrate(c *gin.Context) {
+// @Router /api/v1/inventory/items/{item_id}/use [post]
+func UseItem(c *gin.Context) {
 	ctx := c.Request.Context()
 	itemID, err := strconv.ParseUint(c.Param("item_id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
 		return
 	}
-	var req OpenCrateRequest
+	var req InventoryUseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
 		return
@@ -120,24 +129,14 @@ func OpenCrate(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
-	result, replayed, err := Open(ctx, user.ID, itemID, req.IdempotencyKey)
+	result, replayed, err := UseInInventory(ctx, user.ID, itemID, &req)
 	if err != nil {
-		switch err.Error() {
-		case CrateNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case CrateUnavailable, inventory.InsufficientQuantity:
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		case IdempotencyConflict, DuplicateRequest:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[OpenCrate] open failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		respondUseError(c, "UseItem", err)
 		return
 	}
 	// 重复提交只返回原来的结果, 不重复记录
 	if !replayed {
-		logger.InfoF(ctx, "[OpenCrate] %d opened crate %d in record %d", user.ID, itemID, result.ID)
+		logger.InfoF(ctx, "[UseItem] %d used item %d in record %d", user.ID, itemID, result.ID)
 	}
 	c.JSON(http.StatusOK, Response{Data: result})
 }

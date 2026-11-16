@@ -33,6 +33,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
@@ -42,6 +43,8 @@ import (
 func init() {
 	item.RegisterCategory(CategoryConsumable, "道具")
 	stats.RegisterMetric(MetricItemUsed, "使用道具次数")
+	ledger.RegisterBizType(ledger.KindWallet, BizUseReward, "使用物品获得")
+	ledger.RegisterBizType(ledger.KindInventory, BizUseReward, "使用物品获得")
 }
 
 // sceneNames 场景的展示名称
@@ -102,6 +105,9 @@ func Register[C, P, R any](code, scene, label, description string, apply func(ct
 		},
 	}
 	codeOrder = append(codeOrder, code)
+	if scene == SceneInventory {
+		inventory.MarkUsable(code)
+	}
 }
 
 // Types 全部效果类型, 按注册顺序

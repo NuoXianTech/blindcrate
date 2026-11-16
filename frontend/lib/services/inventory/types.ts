@@ -1,5 +1,6 @@
 import type {TransactionActors, TransactionFilters} from '../ledger';
 import type {PageParams} from '../core';
+import type {RewardLine} from '../reward';
 
 /** 背包中的一种物品, 对应后端 inventory.UserItemDetail */
 export interface UserItem {
@@ -17,8 +18,10 @@ export interface UserItem {
   /** 在货仓中占的格数 */
   width: number;
   height: number;
-  /** 使用效果代码, 空表示不能使用; 箱子为 CRATE_EFFECT, 可以在背包中开启 */
+  /** 使用效果代码, 空表示不能使用 */
   effect: string;
+  /** 可以在背包中直接使用, 见 ItemUseView */
+  usable: boolean;
   /** 下架后不会再掉落或发放, 已有的仍在背包中 */
   is_enabled: boolean;
   /** 物品已被删除, 按占位物品展示 */
@@ -27,6 +30,71 @@ export interface UserItem {
   /** 首次获得时间 */
   created_at: string;
   updated_at: string;
+}
+
+/** 在背包中使用物品的方式, 对应后端 effect.Mode*; 按方式展示, 后端新增效果时不用改前端 */
+export const USE_MODE = {
+  /** 得到全部内容, 如礼包 */
+  grant: 'grant',
+  /** 按概率得到其中一项, 如箱子 */
+  random: 'random',
+  /** 自选其中一项 */
+  choose: 'choose',
+  /** 不发放内容, 只执行动作 */
+  action: 'action',
+} as const;
+
+/** 使用后可以得到的一组内容, 对应后端 effect.OptionView */
+export interface UseOption {
+  /** amount 为数量; 按概率得到且数量不固定时为最小数量 */
+  lines: RewardLine[];
+  /** 只有一行时这一行数量的上限, 不大于 amount 时数量固定 */
+  max_amount: number;
+  /** 按概率得到时抽中这一项的概率, 其他方式为 0 */
+  probability: number;
+}
+
+/** 一个可以在背包中使用的物品, 对应后端 effect.UseView */
+export interface ItemUseView {
+  item_id: number;
+  name: string;
+  description: string;
+  quality: number;
+  image_url: string;
+  /** 背包中的数量 */
+  quantity: number;
+  effect: string;
+  /** 效果的名称, 如 "开启箱子" */
+  label: string;
+  /** 见 USE_MODE */
+  mode: string;
+  /** 一句话说明使用后会发生什么 */
+  summary: string;
+  /** 使用时需要填写的文本, 不需要时为 null */
+  input: { label: string; placeholder: string; max_length: number } | null;
+  /** 可以得到的内容; random 时按品质从高到低, 概率之和为 1 */
+  options: UseOption[];
+}
+
+export interface UseItemRequest {
+  /** 每次使用生成一个, 重复提交只使用一次并返回原来的结果 */
+  idempotency_key: string;
+  /** 自选时选第几项, 从 0 开始 */
+  choice?: number;
+  /** 需要填写文本时的内容 */
+  input?: string;
+}
+
+/** 使用一次的结果, 对应后端 effect.UseResult */
+export interface ItemUseResult {
+  /** 使用记录 ID */
+  id: number;
+  /** 得到并已经发放的货币和物品, 没有时为空 */
+  received: RewardLine[];
+  /** 效果给出的一句结果, 没有时为空 */
+  message: string;
+  /** 使用后背包中剩余的数量 */
+  quantity: number;
 }
 
 export interface ListUserItemsParams extends PageParams {

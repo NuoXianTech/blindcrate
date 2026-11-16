@@ -7,22 +7,23 @@ import {nanoid} from 'nanoid';
 import {toast} from 'sonner';
 import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
-import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
-import {Skeleton} from '@/components/ui/skeleton';
+import {DialogFooter} from '@/components/ui/dialog';
 import {SubmitButton} from '@/components/common/form';
 import {ItemImage} from '@/components/common/item';
 import {useQualities} from '@/components/common/site';
 import {CurrencyIcon} from '@/components/common/wallet';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
-import type {CrateOpenResult, CrateView} from '@/lib/services/crate';
+import type {ItemUseResult, ItemUseView} from '@/lib/services/inventory';
 import type {RewardLine} from '@/lib/services/reward';
 import {CrateReel} from './CrateReel';
 import {
   amountText,
   buildReel,
+  type CratePrize,
   formatProbability,
   idleReel,
+  prizesOf,
   randomJitter,
   reelOffset,
   SPIN_EASE,
@@ -31,46 +32,12 @@ import {
   WIN_INDEX,
 } from './reel';
 
-/**
- * 开箱对话框的Props接口
- */
-interface CrateDialogProps {
-  /** 要开启的箱子, null 时关闭 */
-  crate: { item_id: number; name: string } | null;
-  onClose: () => void;
-  /** 每开启一次后调用, 用于刷新背包 */
-  onOpened: () => void;
-}
-
-/**
- * 开箱对话框: 公示箱子中每一项的概率, 开启后播放滚动动画揭晓抽中的一项
- */
-export function CrateDialog({crate, onClose, onOpened}: CrateDialogProps) {
-  // 从点击开启到揭晓之前不能关闭, 否则已经发放的结果没有展示
-  const [locked, setLocked] = useState(false);
-
-  return (
-    <Dialog open={!!crate} onOpenChange={(open) => !open && !locked && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" showCloseButton={!locked}>
-        {crate && (
-          <>
-            <DialogHeader>
-              <DialogTitle>开启 {crate.name}</DialogTitle>
-              <DialogDescription>每次消耗 1 个, 按下方公示的概率开出其中一项, 直接放进背包或钱包</DialogDescription>
-            </DialogHeader>
-            {/* 每次打开都重新挂载, 重新读取箱子的内容 */}
-            <CrateStage key={crate.item_id} itemID={crate.item_id} onClose={onClose} onOpened={onOpened} onLockedChange={setLocked} />
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 /** 一次开启: 滚动条上的每一格和开启的结果 */
 interface Spin {
   tiles: RewardLine[];
-  result: CrateOpenResult;
+  result: ItemUseResult;
+  /** 抽中的一项 */
+  prize: RewardLine;
 }
 
 /** 正在播放的滚动 */
@@ -79,18 +46,20 @@ interface Playback {
 }
 
 /**
- * 开箱的主体: 滚动条、结果、箱内物品和按钮
+ * 按概率得到一项的物品(箱子)的使用界面: 公示每一项的概率, 开启后播放滚动动画揭晓抽中的一项
+ * 滚动条、结果、箱内物品和按钮; 放在背包的使用对话框里, 见 UseDialog
  */
-function CrateStage({itemID, onClose, onOpened, onLockedChange}: {
-  itemID: number;
+export function CrateStage({view, onClose, onUsed, onLockedChange}: {
+  view: ItemUseView;
   onClose: () => void;
-  onOpened: () => void;
+  /** 每开启一次后调用, 用于刷新背包 */
+  onUsed: () => void;
+  /** 从点击开启到揭晓之前不能关闭, 否则已经发放的结果没有展示 */
   onLockedChange: (locked: boolean) => void;
 }) {
   const reduced = useReducedMotion();
-  const [view, setView] = useState<CrateView | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState(0);
+  const prizes = useMemo(() => prizesOf(view), [view]);
+  const [quantity, setQuantity] = useState(view.quantity);
   // 幂等键在开启成功后才换新的, 请求失败后重试不会多开一个
   const [idempotencyKey, setIdempotencyKey] = useState(() => nanoid());
   const [spin, setSpin] = useState<Spin | null>(null);
@@ -102,24 +71,10 @@ function CrateStage({itemID, onClose, onOpened, onLockedChange}: {
   const playback = useRef<Playback | null>(null);
   const restAt = useRef(reelOffset(START_INDEX));
 
-  useEffect(() => {
-    let alive = true;
-    services.crate.getCrate(itemID)
-        .then((data) => {
-          if (!alive) return;
-          setView(data);
-          setQuantity(data.quantity);
-        })
-        .catch((err) => alive && setError(toErrorMessage(err)));
-    return () => {
-      alive = false;
-    };
-  }, [itemID]);
-
   // 关闭时停掉还在播放的滚动
   useEffect(() => () => playback.current?.stop(), []);
 
-  const idleTiles = useMemo(() => (view ? idleReel(view.prizes) : []), [view]);
+  const idleTiles = useMemo(() => idleReel(prizes), [prizes]);
 
   const settle = () => {
     setSpinning(false);
@@ -128,12 +83,12 @@ function CrateStage({itemID, onClose, onOpened, onLockedChange}: {
 
   // 连续点击时可能发出两次请求, 幂等键相同, 只会开启一次
   const handleOpen = async () => {
-    if (!view || pending) return;
+    if (pending) return;
     setPending(true);
     onLockedChange(true);
-    let result: CrateOpenResult;
+    let result: ItemUseResult;
     try {
-      result = await services.crate.open(view.item_id, idempotencyKey);
+      result = await services.inventory.use(view.item_id, {idempotency_key: idempotencyKey});
     } catch (err) {
       toast.error(toErrorMessage(err));
       setPending(false);
@@ -144,8 +99,9 @@ function CrateStage({itemID, onClose, onOpened, onLockedChange}: {
     setPending(false);
     setIdempotencyKey(nanoid());
     setQuantity(result.quantity);
-    setSpin({tiles: buildReel(view.prizes, result.prize), result});
-    onOpened();
+    const prize = result.received[0] ?? prizes[0];
+    setSpin({tiles: buildReel(prizes, prize), result, prize});
+    onUsed();
 
     const to = reelOffset(WIN_INDEX, randomJitter());
     restAt.current = to;
@@ -166,36 +122,14 @@ function CrateStage({itemID, onClose, onOpened, onLockedChange}: {
     settle();
   };
 
-  if (error) {
-    return (
-      <>
-        <p className="rounded-lg border bg-card px-4 py-6 text-center text-sm text-muted-foreground">{error}</p>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            关闭
-          </Button>
-        </DialogFooter>
-      </>
-    );
-  }
-  if (!view) {
-    return (
-      <>
-        <Skeleton className="h-36 rounded-xl" />
-        <Skeleton className="h-14 rounded-lg" />
-        <Skeleton className="h-32 rounded-lg" />
-      </>
-    );
-  }
-
-  const revealed = spin && !spinning ? spin.result : null;
+  const revealed = spin && !spinning ? spin : null;
   return (
     <>
       <CrateReel tiles={spin?.tiles ?? idleTiles} x={x} wonIndex={revealed ? WIN_INDEX : null} />
 
       <div role="status" aria-live="polite" className="flex min-h-14 items-center justify-center rounded-lg border bg-card px-4 py-2">
         {revealed ? (
-          <RevealedPrize key={revealed.id} prize={revealed.prize} animated={!reduced} />
+          <RevealedPrize key={revealed.result.id} prize={revealed.prize} animated={!reduced} />
         ) : (
           <span className="text-sm text-muted-foreground">
             {spinning || pending ? '正在开启…' : quantity > 0 ? '点击开启, 揭晓这一次开出的内容' : '背包中没有这个箱子了'}
@@ -203,7 +137,7 @@ function CrateStage({itemID, onClose, onOpened, onLockedChange}: {
         )}
       </div>
 
-      <PrizeList view={view} />
+      <PrizeList prizes={prizes} />
 
       <DialogFooter className="sm:items-center">
         <span className="text-sm text-muted-foreground sm:mr-auto">
@@ -257,7 +191,7 @@ function RevealedPrize({prize, animated}: { prize: RewardLine; animated: boolean
 /**
  * 箱内物品: 每一项的数量和概率
  */
-function PrizeList({view}: { view: CrateView }) {
+function PrizeList({prizes}: { prizes: CratePrize[] }) {
   const {qualityOf} = useQualities();
   return (
     <div className="flex flex-col gap-2">
@@ -266,7 +200,7 @@ function PrizeList({view}: { view: CrateView }) {
         <span className="text-xs text-muted-foreground">开启一次得到其中一项</span>
       </div>
       <ul className="grid max-h-44 grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2">
-        {view.prizes.map((prize, i) => (
+        {prizes.map((prize, i) => (
           <li key={i} className="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5 text-sm">
             <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background p-0.5">
               {prize.currency ? <CurrencyIcon currency={prize.currency} className="size-4" /> : <ItemImage item={prize} />}

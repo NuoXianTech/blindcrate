@@ -1,2 +1,2 @@
-export {CrateDialog} from './CrateDialog';
+export {CrateStage} from './CrateStage';
 export {CrateReel} from './CrateReel';

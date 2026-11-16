@@ -9095,172 +9095,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/crates/{item_id}": {
-            "get": {
-                "description": "返回当前用户持有的数量和箱子中每一项的概率, 概率与开启时一致; 物品不是箱子时返回 404, 箱子的掉落池不可用时返回 403",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "crate"
-                ],
-                "summary": "获取箱子和其中可以开出的内容",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "item id",
-                        "name": "item_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/crate.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/crate.View"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/crate.Response"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/crate.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/crate.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/crate.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/crate.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/crates/{item_id}/open": {
-            "post": {
-                "description": "扣除 1 个箱子并发放抽中的货币或物品, 全部成功或全部失败; 结果在返回前已经结算, 重复提交返回原来的结果。物品不是箱子时返回 404; 背包中没有这个箱子, 或箱子暂时无法开启时返回 403",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "crate"
-                ],
-                "summary": "开启背包中的一个箱子",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "item id",
-                        "name": "item_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "request body",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/crate.OpenCrateRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/crate.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/crate.Result"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/crate.Response"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/crate.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/crate.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/crate.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/crate.Response"
-                        }
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
-                        "schema": {
-                            "$ref": "#/definitions/crate.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/crate.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/health": {
             "get": {
                 "produces": [
@@ -9397,6 +9231,170 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/inventory.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/inventory/items/{item_id}/use": {
+            "get": {
+                "description": "返回当前用户持有的数量、使用方式和可以得到的内容, 按概率得到时带每一项的概率, 与使用时一致; 物品不能在背包中使用时返回 404, 现在不能使用(如箱子的掉落池不可用)时返回 403",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "获取一个可以在背包中使用的物品和使用后可以得到的内容",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "item id",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/effect.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/effect.UseView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/effect.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/effect.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/effect.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/effect.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/effect.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "扣除 1 个物品, 发放得到的货币和物品并执行效果, 全部成功或全部失败; 结果在返回前已经结算, 重复提交返回原来的结果。物品不能在背包中使用时返回 404; 背包中没有这个物品, 或现在不能使用时返回 403",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "使用背包中的一个物品",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "item id",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/effect.InventoryUseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/effect.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/effect.UseResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/effect.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/effect.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/effect.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/effect.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/effect.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/effect.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/effect.Response"
                         }
                     }
                 }
@@ -14010,115 +14008,70 @@ const docTemplate = `{
                 }
             }
         },
-        "crate.OpenCrateRequest": {
+        "effect.Input": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "max_length": {
+                    "description": "最多多少个字符",
+                    "type": "integer"
+                },
+                "placeholder": {
+                    "type": "string"
+                }
+            }
+        },
+        "effect.InventoryUseRequest": {
             "type": "object",
             "required": [
                 "idempotency_key"
             ],
             "properties": {
+                "choice": {
+                    "description": "自选时选第几项, 从 0 开始, 顺序与预览相同",
+                    "type": "integer",
+                    "minimum": 0
+                },
                 "idempotency_key": {
-                    "description": "每次开启生成一个, 重复提交只开启一次并返回原来的结果",
+                    "description": "每次使用生成一个, 重复提交只使用一次并返回原来的结果",
                     "type": "string",
                     "maxLength": 64
+                },
+                "input": {
+                    "description": "需要填写文本时的内容",
+                    "type": "string",
+                    "maxLength": 255
                 }
             }
         },
-        "crate.Prize": {
+        "effect.OptionView": {
             "type": "object",
             "properties": {
-                "amount": {
-                    "description": "货币金额或物品数量",
-                    "type": "integer"
-                },
-                "currency": {
-                    "description": "与 item_id 二选一",
-                    "type": "string"
-                },
-                "decimals": {
-                    "description": "货币的展示用小数位, 物品为 0",
-                    "type": "integer"
-                },
-                "image_url": {
-                    "type": "string"
-                },
-                "item_id": {
-                    "type": "integer"
+                "lines": {
+                    "description": "amount 为数量; 按概率得到且数量不固定时为最小数量",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
                 },
                 "max_amount": {
-                    "description": "每次掉落的最大数量, 与 amount 相同时数量固定",
+                    "description": "只有一行时这一行数量的上限, 不大于 amount 时数量固定",
                     "type": "integer"
-                },
-                "name": {
-                    "type": "string"
                 },
                 "probability": {
-                    "description": "开启一次抽中这一项的概率",
+                    "description": "按概率得到时抽中这一项的概率, 其他方式为 0",
                     "type": "number"
-                },
-                "quality": {
-                    "description": "物品的品质等级, 货币为 0",
-                    "type": "integer"
                 }
             }
         },
-        "crate.Response": {
+        "effect.Response": {
             "type": "object",
             "properties": {
                 "data": {},
                 "error_msg": {
                     "type": "string"
-                }
-            }
-        },
-        "crate.Result": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "description": "开启记录 ID",
-                    "type": "integer"
-                },
-                "prize": {
-                    "description": "抽中并已经发放的货币或物品, amount 为这次得到的数量",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/reward.Line"
-                        }
-                    ]
-                },
-                "quantity": {
-                    "description": "开启后背包中剩余的箱子数",
-                    "type": "integer"
-                }
-            }
-        },
-        "crate.View": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "image_url": {
-                    "type": "string"
-                },
-                "item_id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "prizes": {
-                    "description": "按品质从高到低, 货币排在最后; 概率之和为 1",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/crate.Prize"
-                    }
-                },
-                "quality": {
-                    "type": "integer"
-                },
-                "quantity": {
-                    "description": "背包中的数量",
-                    "type": "integer"
                 }
             }
         },
@@ -14147,6 +14100,85 @@ const docTemplate = `{
                 },
                 "scene_name": {
                     "description": "场景的展示名称, 如 \"对局中\"",
+                    "type": "string"
+                }
+            }
+        },
+        "effect.UseResult": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "使用记录 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "效果给出的一句结果, 没有时为空",
+                    "type": "string"
+                },
+                "quantity": {
+                    "description": "使用后背包中剩余的数量",
+                    "type": "integer"
+                },
+                "received": {
+                    "description": "得到并已经发放的货币和物品, 没有时为空",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reward.Line"
+                    }
+                }
+            }
+        },
+        "effect.UseView": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "effect": {
+                    "description": "效果代码",
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "input": {
+                    "description": "使用时需要填写的文本, 不需要时为 null",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/effect.Input"
+                        }
+                    ]
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "label": {
+                    "description": "效果的名称, 如 \"开启箱子\"",
+                    "type": "string"
+                },
+                "mode": {
+                    "description": "使用方式: grant 得到全部内容, random 按概率得到一项, choose 自选一项, action 只执行动作",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "options": {
+                    "description": "可以得到的内容; random 时按品质从高到低, 货币排在最后, 概率之和为 1",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/effect.OptionView"
+                    }
+                },
+                "quality": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "description": "背包中的数量",
+                    "type": "integer"
+                },
+                "summary": {
+                    "description": "一句话说明使用后会发生什么",
                     "type": "string"
                 }
             }
@@ -14518,6 +14550,10 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "usable": {
+                    "description": "可以在背包中直接使用, 见 MarkUsable",
+                    "type": "boolean"
                 },
                 "width": {
                     "type": "integer"

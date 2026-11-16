@@ -100,14 +100,14 @@ func TestRenamePool(t *testing.T) {
 
 // TestPick 每次只抽中一项, 数量在这一项的范围内
 func TestPick(t *testing.T) {
-	contents := &Contents{Entries: []loot.EntryDetail{
+	entries := []loot.EntryDetail{
 		{Entry: loot.Entry{ItemID: 7, Weight: 1, MinQuantity: 1, MaxQuantity: 1}},
 		{Entry: loot.Entry{ItemID: 8, Weight: 5, MinQuantity: 2, MaxQuantity: 4}},
 		{Entry: loot.Entry{Currency: "chip", Weight: 3, MinQuantity: 100, MaxQuantity: 200}},
-	}}
+	}
 	seen := map[string]bool{}
 	for range 500 {
-		drop := loot.Draw(contents.Entries).Bundle()
+		drop := loot.Draw(entries).Bundle()
 		switch {
 		case len(drop.Items) == 1 && len(drop.Currencies) == 0:
 			line := drop.Items[0]
@@ -130,9 +130,9 @@ func TestPick(t *testing.T) {
 		t.Errorf("seen = %v, want all 3 entries", seen)
 	}
 
-	only := &Contents{Entries: []loot.EntryDetail{{Entry: loot.Entry{Currency: "chip", Weight: 1, MinQuantity: 5, MaxQuantity: 5}}}}
+	only := []loot.EntryDetail{{Entry: loot.Entry{Currency: "chip", Weight: 1, MinQuantity: 5, MaxQuantity: 5}}}
 	want := reward.Bundle{Currencies: []reward.CurrencyLine{{Currency: "chip", Amount: 5}}}
-	if got := loot.Draw(only.Entries).Bundle(); !reflect.DeepEqual(got, want) {
+	if got := loot.Draw(only).Bundle(); !reflect.DeepEqual(got, want) {
 		t.Errorf("single entry: got %+v, want %+v", got, want)
 	}
 }

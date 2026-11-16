@@ -6,7 +6,6 @@ import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Skeleton} from '@/components/ui/skeleton';
 import {useAuth} from '@/components/common/auth';
-import {CrateDialog} from '@/components/common/crate';
 import {Pagination} from '@/components/common/layout';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
@@ -18,6 +17,7 @@ import {formatAmount} from '@/lib/utils';
 import {ItemCard} from './ItemCard';
 import {ItemDetailDialog} from './ItemDetailDialog';
 import {SellDialog} from './SellDialog';
+import {UseDialog} from './UseDialog';
 import {ITEM_PAGE_SIZE, MAX_SELL_LINES, MAX_SELL_QUANTITY} from './constants';
 import {sellTotals, type SellLine} from './sell';
 
@@ -39,7 +39,7 @@ export function ItemGrid({currencies, onViewRecords}: {
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<Map<number, UserItem>>(new Map());
   const [selling, setSelling] = useState<SellLine[] | null>(null);
-  const [crate, setCrate] = useState<UserItem | null>(null);
+  const [using, setUsing] = useState<UserItem | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -184,12 +184,12 @@ export function ItemGrid({currencies, onViewRecords}: {
           setSelected(null);
           setSelling([{item, quantity: 1}]);
         }}
-        onOpenCrate={(item) => {
+        onUse={(item) => {
           setSelected(null);
-          setCrate(item);
+          setUsing(item);
         }}
       />
-      <CrateDialog crate={crate} onClose={() => setCrate(null)} onOpened={load} />
+      <UseDialog item={using} onClose={() => setUsing(null)} onUsed={load} />
       <SellDialog lines={selling} currencies={currencies} onClose={() => setSelling(null)} onSold={handleSold} />
     </div>
   );

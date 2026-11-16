@@ -28,8 +28,9 @@
 //   - 物品: items.effect 为效果代码, items.effect_params 为参数; 藏品不能带效果, 其他类别的物品配置效果后就可以使用
 //   - 场景: 效果在哪里使用, 由场景所在的模块决定什么时候能用、限制次数、提供上下文并记录结果, 见 Scene 开头的常量
 //   - 使用: 场景在自己的事务中先用 Consume 扣除一个并累加统计, 再用 Apply 按效果代码执行; 需要退还时用 Refund
+//   - 背包场景: 使用流程和接口是通用的, 见 UseInInventory; 效果只给出一个 Plan 说明使用后得到什么、做什么, 不用自己写接口、记录和流水
 //
-// 新增一种效果只需在场景所在的模块注册; 新增一种场景需要在这里加常量, 并在场景模块中实现使用流程。
+// 新增一种效果只需在任意模块注册, 对局场景的返回 auction.Intel, 背包场景的返回 *Plan; 新增一种场景需要在这里加常量, 并在场景模块中实现使用流程。
 package effect
 
 // CategoryConsumable 物品类别: 道具, 主要用于带效果的消耗品, 由本模块注册
@@ -38,8 +39,13 @@ const CategoryConsumable = "consumable"
 // 场景
 const (
 	SceneMatch     = "match"     // 暗拍的出价阶段, 上下文和结果由 auction 定义
-	SceneInventory = "inventory" // 在背包中直接使用, 如开启箱子, 上下文和结果由 crate 定义
+	SceneInventory = "inventory" // 在背包中直接使用, 如开启箱子, 上下文为 *InventoryContext, 结果为 *Plan
 )
+
+// BizUseReward 流水业务类型: 在背包中使用物品得到的货币和物品, biz_id 为使用记录 ID; 扣除物品记为 inventory.BizItemUse, biz_id 相同
+//
+// 效果可以在 Plan.BizType 中换成自己登记的业务类型。
+const BizUseReward = "item_use_reward"
 
 // MetricItemUsed 统计指标: 使用物品的次数, 每用一个累加 1; 按物品统计的指标见 MetricUse
 const MetricItemUsed = "item_used"

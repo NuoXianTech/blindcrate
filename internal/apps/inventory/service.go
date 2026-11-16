@@ -240,6 +240,14 @@ func (t *Transaction) sameChange(req *ChangeRequest) bool {
 		t.Remark == req.Remark
 }
 
+// usableEffects 可以在背包中直接使用的效果代码, 只在启动前写入
+var usableEffects = map[string]bool{}
+
+// MarkUsable 登记一种可以在背包中直接使用的效果, 由 effect 模块在注册背包场景的效果时调用, 需要在启动前调用
+func MarkUsable(effectCode string) {
+	usableEffects[effectCode] = true
+}
+
 // UserItemDetail 背包中的一种物品, 附带物品信息
 type UserItemDetail struct {
 	ItemID        uint64    `json:"item_id"`
@@ -253,6 +261,7 @@ type UserItemDetail struct {
 	Width         int16     `json:"width"`
 	Height        int16     `json:"height"`
 	Effect        string    `json:"effect"` // 使用效果代码, 空表示不能使用, 见 effect 模块; 已删除的物品为空
+	Usable        bool      `json:"usable"` // 可以在背包中直接使用, 见 MarkUsable
 	IsEnabled     bool      `json:"is_enabled"`
 	IsPlaceholder bool      `json:"is_placeholder"` // 物品已被删除, 按占位物品展示
 	Quantity      int64     `json:"quantity"`
@@ -309,6 +318,7 @@ func QueryUserItems(ctx context.Context, userID uint64, req *ListItemsRequest) (
 			Width:         target.Width,
 			Height:        target.Height,
 			Effect:        target.Effect,
+			Usable:        usableEffects[target.Effect],
 			IsEnabled:     target.IsEnabled,
 			IsPlaceholder: target.IsPlaceholder,
 			Quantity:      row.Quantity,
