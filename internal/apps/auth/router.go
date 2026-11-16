@@ -81,7 +81,7 @@ func Login(c *gin.Context) {
 	user, err := doLogin(ctx, req.Username, req.Password)
 	if err != nil {
 		if err.Error() == InvalidCredentials || err.Error() == BannedAccount {
-			audit.Record(c, 0, audit.ScopeUser, audit.ActionLoginFailed, "", 0, map[string]interface{}{"identifier": req.Username, "reason": err.Error()})
+			audit.Record(c, 0, audit.ScopeUser, ActionLoginFailed, "", 0, map[string]interface{}{"identifier": req.Username, "reason": err.Error()})
 		}
 		if err.Error() == InvalidCredentials {
 			c.JSON(http.StatusUnauthorized, Response{ErrorMsg: InvalidCredentials})
@@ -110,7 +110,7 @@ func Login(c *gin.Context) {
 		logger.ErrorF(ctx, "[Login] track session failed: %v", err)
 	}
 	LogForAudit(ctx, user, c)
-	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionLogin, audit.TargetUser, user.ID, nil)
+	audit.Record(c, user.ID, audit.ScopeUser, ActionLogin, TargetUser, user.ID, nil)
 	logger.InfoF(ctx, "[Login] %d %s", user.ID, user.Username)
 	c.JSON(
 		http.StatusOK,
@@ -236,7 +236,7 @@ func Register(c *gin.Context) {
 	if user.Email != "" {
 		changes["email"] = user.Email
 	}
-	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionRegister, audit.TargetUser, user.ID, changes)
+	audit.Record(c, user.ID, audit.ScopeUser, ActionRegister, TargetUser, user.ID, changes)
 	logger.InfoF(ctx, "[Register] %d %s", user.ID, user.Username)
 	c.JSON(
 		http.StatusCreated,
@@ -271,7 +271,7 @@ func Logout(c *gin.Context) {
 		return
 	}
 	if userID > 0 {
-		audit.Record(c, userID, audit.ScopeUser, audit.ActionLogout, audit.TargetUser, userID, nil)
+		audit.Record(c, userID, audit.ScopeUser, ActionLogout, TargetUser, userID, nil)
 	}
 	if userID > 0 && sessionID != "" {
 		if err := untrackSession(ctx, userID, sessionID); err != nil {
@@ -327,7 +327,7 @@ func ChangePassword(c *gin.Context) {
 	if err := RevokeUserSessions(ctx, user.ID, sessions.Default(c).ID()); err != nil {
 		logger.ErrorF(ctx, "[ChangePassword] revoke sessions failed: %v", err)
 	}
-	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionChangePassword, audit.TargetUser, user.ID, nil)
+	audit.Record(c, user.ID, audit.ScopeUser, ActionChangePassword, TargetUser, user.ID, nil)
 	logger.InfoF(ctx, "[ChangePassword] %d %s", user.ID, user.Username)
 	c.JSON(http.StatusOK, Response{})
 }
@@ -427,7 +427,7 @@ func VerifyEmail(c *gin.Context) {
 		}
 		return
 	}
-	audit.Record(c, user.ID, audit.ScopeUser, audit.ActionVerifyEmail, audit.TargetUser, user.ID, map[string]interface{}{"email": req.Email})
+	audit.Record(c, user.ID, audit.ScopeUser, ActionVerifyEmail, TargetUser, user.ID, map[string]interface{}{"email": req.Email})
 	logger.InfoF(ctx, "[VerifyEmail] %d %s", user.ID, user.Username)
 	c.JSON(http.StatusOK, Response{})
 }
@@ -507,7 +507,7 @@ func UpdateUserInfo(c *gin.Context) {
 		}
 		return
 	}
-	audit.Record(c, updated.ID, audit.ScopeUser, audit.ActionUpdateProfile, audit.TargetUser, updated.ID, ProfileChanges(req.Nickname, req.AvatarURL))
+	audit.Record(c, updated.ID, audit.ScopeUser, ActionUpdateProfile, TargetUser, updated.ID, ProfileChanges(req.Nickname, req.AvatarURL))
 	logger.InfoF(ctx, "[UpdateUserInfo] %d %s", updated.ID, updated.Username)
 	c.JSON(
 		http.StatusOK,

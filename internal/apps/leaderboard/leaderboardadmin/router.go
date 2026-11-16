@@ -173,7 +173,7 @@ func CreateLeaderboard(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLeaderboardCreate, audit.TargetLeaderboard, created.ID, leaderboardFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, leaderboard.ActionLeaderboardCreate, leaderboard.TargetLeaderboard, created.ID, leaderboardFields(created))
 	logger.InfoF(ctx, "[CreateLeaderboard] %d created leaderboard %d %s", operator.ID, created.ID, created.Code)
 	c.JSON(http.StatusOK, Response{Data: created})
 }
@@ -218,7 +218,7 @@ func UpdateLeaderboard(c *gin.Context) {
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLeaderboardUpdate, audit.TargetLeaderboard, updated.ID, changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, leaderboard.ActionLeaderboardUpdate, leaderboard.TargetLeaderboard, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateLeaderboard] %d updated leaderboard %d %s", operator.ID, updated.ID, updated.Code)
 	}
 	c.JSON(http.StatusOK, Response{Data: updated})
@@ -259,7 +259,7 @@ func DeleteLeaderboard(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLeaderboardDelete, audit.TargetLeaderboard, deleted.ID, leaderboardFields(deleted))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, leaderboard.ActionLeaderboardDelete, leaderboard.TargetLeaderboard, deleted.ID, leaderboardFields(deleted))
 	logger.InfoF(ctx, "[DeleteLeaderboard] %d deleted leaderboard %d %s", operator.ID, deleted.ID, deleted.Code)
 	c.JSON(http.StatusOK, Response{})
 }

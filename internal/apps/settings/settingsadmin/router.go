@@ -146,7 +146,7 @@ func UpdateSetting(c *gin.Context) {
 		c.JSON(settingErrorStatus(err), Response{ErrorMsg: err.Error()})
 		return
 	}
-	recordSettingChange(c, operator.ID, audit.ActionSettingsUpdate, group, changes)
+	recordSettingChange(c, operator.ID, settings.ActionSettingsUpdate, group, changes)
 	c.JSON(http.StatusOK, Response{Data: group})
 }
 
@@ -175,7 +175,7 @@ func ResetSetting(c *gin.Context) {
 		c.JSON(settingErrorStatus(err), Response{ErrorMsg: err.Error()})
 		return
 	}
-	recordSettingChange(c, operator.ID, audit.ActionSettingsReset, group, changes)
+	recordSettingChange(c, operator.ID, settings.ActionSettingsReset, group, changes)
 	c.JSON(http.StatusOK, Response{Data: group})
 }
 
@@ -197,7 +197,7 @@ func recordSettingChange(c *gin.Context, operatorID uint64, action string, group
 	if len(changes) == 0 {
 		return
 	}
-	audit.Record(c, operatorID, audit.ScopeAdmin, action, audit.TargetSetting, 0, map[string]interface{}{
+	audit.Record(c, operatorID, audit.ScopeAdmin, action, settings.TargetSetting, 0, map[string]interface{}{
 		"key":     group.Key,
 		"changes": changes,
 	})
@@ -253,7 +253,7 @@ func TestMail(c *gin.Context) {
 	if sendErr != nil {
 		detail["error"] = sendErr.Error()
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionMailTest, audit.TargetSetting, 0, detail)
+	audit.Record(c, operator.ID, audit.ScopeAdmin, settings.ActionMailTest, settings.TargetSetting, 0, detail)
 	if sendErr != nil {
 		logger.WarnF(ctx, "[TestMail] %d send to %s failed: %v", operator.ID, to, sendErr)
 		c.JSON(http.StatusBadGateway, Response{ErrorMsg: fmt.Sprintf("%s: %s", MailTestFailed, sendErr.Error())})

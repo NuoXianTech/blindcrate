@@ -39,3 +39,19 @@ const (
 
 // PlaceholderSellPrice 占位物品的售价, 物品被删除或不存在时背包中的该物品按占位物品展示和结算
 const PlaceholderSellPrice int64 = 1
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetItem    = "item"
+	TargetQuality = "quality"
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionItemCreate    = "admin.item_create"
+	ActionItemUpdate    = "admin.item_update"
+	ActionItemDelete    = "admin.item_delete"
+	ActionQualityCreate = "admin.quality_create"
+	ActionQualityUpdate = "admin.quality_update"
+	ActionQualityDelete = "admin.quality_delete"
+)

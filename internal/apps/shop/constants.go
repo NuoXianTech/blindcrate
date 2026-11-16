@@ -52,3 +52,17 @@ const (
 	MaxQuantity  = 99        // 一次最多购买的份数
 	maxLimit     = 1_000_000 // 限购数量和库存的上限
 )
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetShopItem  = "shop_item"
+	TargetShopOrder = "shop_order"
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionShopItemCreate  = "admin.shop_item_create"
+	ActionShopItemUpdate  = "admin.shop_item_update"
+	ActionShopItemDelete  = "admin.shop_item_delete"
+	ActionShopOrderRefund = "admin.shop_order_refund"
+)

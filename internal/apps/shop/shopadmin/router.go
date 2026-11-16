@@ -159,7 +159,7 @@ func CreateShopItem(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionShopItemCreate, audit.TargetShopItem, created.ID, shopItemFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopItemCreate, shop.TargetShopItem, created.ID, shopItemFields(created))
 	logger.InfoF(ctx, "[CreateShopItem] %d created shop item %d %s", operator.ID, created.ID, created.Code)
 	c.JSON(http.StatusOK, Response{Data: created})
 }
@@ -203,7 +203,7 @@ func UpdateShopItem(c *gin.Context) {
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionShopItemUpdate, audit.TargetShopItem, updated.ID, changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopItemUpdate, shop.TargetShopItem, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateShopItem] %d updated shop item %d %s", operator.ID, updated.ID, updated.Code)
 	}
 	c.JSON(http.StatusOK, Response{Data: updated})
@@ -244,7 +244,7 @@ func DeleteShopItem(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionShopItemDelete, audit.TargetShopItem, deleted.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopItemDelete, shop.TargetShopItem, deleted.ID, map[string]interface{}{
 		"code": deleted.Code,
 		"name": deleted.Name,
 	})
@@ -336,7 +336,7 @@ func RefundShopOrder(c *gin.Context) {
 		}
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionShopOrderRefund, audit.TargetShopOrder, order.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopOrderRefund, shop.TargetShopOrder, order.ID, map[string]interface{}{
 		"user_id":   order.UserID,
 		"item_code": order.ItemCode,
 		"quantity":  order.Quantity,

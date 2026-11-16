@@ -34,6 +34,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
@@ -44,6 +45,13 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func init() {
+	audit.RegisterAction(ActionShopItemCreate, "新建商品")
+	audit.RegisterAction(ActionShopItemUpdate, "修改商品")
+	audit.RegisterAction(ActionShopItemDelete, "删除商品")
+	audit.RegisterAction(ActionShopOrderRefund, "订单退款")
+}
 
 // codePattern 商品代码, 小写字母、数字和下划线; 拼上前缀后不能超过 stats.metric 的长度
 var codePattern = regexp.MustCompile(`^[a-z0-9_]{1,32}$`)

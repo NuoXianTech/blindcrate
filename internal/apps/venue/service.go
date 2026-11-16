@@ -36,6 +36,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
@@ -50,6 +51,10 @@ import (
 )
 
 func init() {
+	audit.RegisterAction(ActionVenueCreate, "新建地图")
+	audit.RegisterAction(ActionVenueUpdate, "修改地图")
+	audit.RegisterAction(ActionVenueDelete, "删除地图")
+	audit.RegisterAction(ActionVenueRecalibrate, "重新推导地图")
 	condition.RegisterScopeNamer("mode", modeScopeName)
 	condition.RegisterScopeNamer("venue", venueScopeName)
 }

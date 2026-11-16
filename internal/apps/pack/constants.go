@@ -81,3 +81,14 @@ const (
 	PackActionSkip      = "skip"      // 跳过, 不导入
 	PackActionRename    = "rename"    // 以新的代码导入, 包中引用它的配置一起改为新代码; 只有 Section.Renamable 的配置种类可以改名
 )
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetPack = "pack" // 导出时 target_id 固定为 0, 导入时为导入记录的 ID
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionPackExport = "admin.pack_export"
+	ActionPackImport = "admin.pack_import"
+)

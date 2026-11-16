@@ -47,3 +47,16 @@ const (
 	maxRewardLines  = 8       // 每档最多的行数
 	maxRewardRating = 1000000 // 分数线的上限, 与段位的分数线一致
 )
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetSeason = "season"
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionSeasonCreate = "admin.season_create"
+	ActionSeasonUpdate = "admin.season_update"
+	ActionSeasonDelete = "admin.season_delete"
+	ActionSeasonEnd    = "admin.season_end"
+)

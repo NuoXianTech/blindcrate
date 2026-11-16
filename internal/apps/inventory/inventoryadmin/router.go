@@ -139,7 +139,7 @@ func AdjustUserInventory(c *gin.Context) {
 	// 重复提交只返回原流水, 不重复记录和推送
 	if !replayed {
 		inventory.PushChanges(ctx, txn)
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionInventoryAdjust, audit.TargetUser, userID, map[string]interface{}{
+		audit.Record(c, operator.ID, audit.ScopeAdmin, inventory.ActionInventoryAdjust, auth.TargetUser, userID, map[string]interface{}{
 			"transaction_id": txn.ID,
 			"item_id":        txn.ItemID,
 			"item_name":      txn.ItemName,

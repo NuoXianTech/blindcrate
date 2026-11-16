@@ -150,7 +150,7 @@ func CreateSeason(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSeasonCreate, audit.TargetSeason, created.ID, seasonFields(&created.Season))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, season.ActionSeasonCreate, season.TargetSeason, created.ID, seasonFields(&created.Season))
 	logger.InfoF(ctx, "[CreateSeason] %d created season %d %s", operator.ID, created.ID, created.Code)
 	c.JSON(http.StatusOK, Response{Data: created})
 }
@@ -195,7 +195,7 @@ func UpdateSeason(c *gin.Context) {
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSeasonUpdate, audit.TargetSeason, updated.ID, changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, season.ActionSeasonUpdate, season.TargetSeason, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateSeason] %d updated season %d %s", operator.ID, updated.ID, updated.Code)
 	}
 	c.JSON(http.StatusOK, Response{Data: updated})
@@ -237,7 +237,7 @@ func DeleteSeason(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSeasonDelete, audit.TargetSeason, deleted.ID, seasonFields(deleted))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, season.ActionSeasonDelete, season.TargetSeason, deleted.ID, seasonFields(deleted))
 	logger.InfoF(ctx, "[DeleteSeason] %d deleted season %d %s", operator.ID, deleted.ID, deleted.Code)
 	c.JSON(http.StatusOK, Response{})
 }
@@ -278,7 +278,7 @@ func EndSeason(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSeasonEnd, audit.TargetSeason, ended.ID, changes)
+	audit.Record(c, operator.ID, audit.ScopeAdmin, season.ActionSeasonEnd, season.TargetSeason, ended.ID, changes)
 	logger.InfoF(ctx, "[EndSeason] %d ended season %d %s", operator.ID, ended.ID, ended.Code)
 	c.JSON(http.StatusOK, Response{Data: ended})
 }

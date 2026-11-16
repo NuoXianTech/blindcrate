@@ -32,6 +32,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -39,6 +40,22 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/mail"
 	"gorm.io/gorm"
 )
+
+func init() {
+	audit.RegisterAction(ActionLogin, "登录")
+	audit.RegisterAction(ActionLoginFailed, "登录失败")
+	audit.RegisterAction(ActionRegister, "注册")
+	audit.RegisterAction(ActionLogout, "退出登录")
+	audit.RegisterAction(ActionChangePassword, "修改密码")
+	audit.RegisterAction(ActionVerifyEmail, "绑定邮箱")
+	audit.RegisterAction(ActionUpdateProfile, "修改资料")
+	audit.RegisterAction(ActionUserUpdate, "修改用户资料")
+	audit.RegisterAction(ActionUserBan, "封禁用户")
+	audit.RegisterAction(ActionUserUnban, "解除封禁")
+	audit.RegisterAction(ActionUserDisable, "停用用户")
+	audit.RegisterAction(ActionUserEnable, "启用用户")
+	audit.RegisterAction(ActionUserPasswordUpdate, "修改用户密码")
+}
 
 // RegisterHook 在注册的事务内、创建用户之后执行, 返回错误时注册失败并回滚
 type RegisterHook func(tx *gorm.DB, user *User) error

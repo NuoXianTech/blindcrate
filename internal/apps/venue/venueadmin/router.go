@@ -166,7 +166,7 @@ func CreateVenue(c *gin.Context) {
 		}
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionVenueCreate, audit.TargetVenue, created.ID, venueFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, venue.ActionVenueCreate, venue.TargetVenue, created.ID, venueFields(created))
 	logger.InfoF(ctx, "[CreateVenue] %d created venue %d %s", operator.ID, created.ID, created.Code)
 	c.JSON(http.StatusOK, Response{Data: created})
 }
@@ -214,7 +214,7 @@ func UpdateVenue(c *gin.Context) {
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionVenueUpdate, audit.TargetVenue, updated.ID, changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, venue.ActionVenueUpdate, venue.TargetVenue, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateVenue] %d updated venue %d %s", operator.ID, updated.ID, updated.Code)
 	}
 	c.JSON(http.StatusOK, Response{Data: updated})
@@ -255,7 +255,7 @@ func DeleteVenue(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionVenueDelete, audit.TargetVenue, deleted.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, venue.ActionVenueDelete, venue.TargetVenue, deleted.ID, map[string]interface{}{
 		"code": deleted.Code,
 		"name": deleted.Name,
 	})
@@ -342,7 +342,7 @@ func RecalibrateVenues(c *gin.Context) {
 			updated = append(updated, r.Code)
 		}
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionVenueRecalibrate, audit.TargetVenue, 0, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, venue.ActionVenueRecalibrate, venue.TargetVenue, 0, map[string]interface{}{
 		"updated": updated,
 	})
 	logger.InfoF(ctx, "[RecalibrateVenues] %d recalibrated %d of %d venues", operator.ID, len(updated), len(data.Results))

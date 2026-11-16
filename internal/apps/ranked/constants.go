@@ -57,3 +57,17 @@ const (
 	// afkBanKeyPrefix 禁赛中的用户, 过期时间即禁赛结束的时间
 	afkBanKeyPrefix = "blindcrate:ranked:afk_ban:"
 )
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetRankedTier = "ranked_tier"
+	TargetSuspect    = "suspect" // target_id 为较小的用户 ID, 另一个见 detail.user_b
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionRankedTierCreate = "admin.ranked_tier_create"
+	ActionRankedTierUpdate = "admin.ranked_tier_update"
+	ActionRankedTierDelete = "admin.ranked_tier_delete"
+	ActionSuspectReview    = "admin.suspect_review"
+)

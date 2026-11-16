@@ -33,6 +33,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
@@ -42,6 +43,10 @@ import (
 )
 
 func init() {
+	audit.RegisterAction(ActionRankedTierCreate, "新建段位")
+	audit.RegisterAction(ActionRankedTierUpdate, "修改段位")
+	audit.RegisterAction(ActionRankedTierDelete, "删除段位")
+	audit.RegisterAction(ActionSuspectReview, "处理可疑账号")
 	condition.Register(TypeMinRating, "段位分", "当前赛季的段位分不少于指定值, 本赛季还没打过排位时按初始分计算", checkMinRating)
 	stats.RegisterMetric(MetricAfk, "排位挂机次数")
 }

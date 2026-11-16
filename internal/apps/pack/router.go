@@ -104,7 +104,7 @@ func ExportPack(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionPackExport, audit.TargetPack, 0, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, ActionPackExport, TargetPack, 0, map[string]interface{}{
 		"name":   strings.TrimSpace(req.Name),
 		"counts": counts,
 		"size":   len(data),
@@ -251,7 +251,7 @@ func ImportPack(c *gin.Context) {
 		}
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionPackImport, audit.TargetPack, record.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, ActionPackImport, TargetPack, record.ID, map[string]interface{}{
 		"name":    record.Name,
 		"author":  record.Author,
 		"version": record.Version,

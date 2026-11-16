@@ -31,6 +31,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
@@ -40,6 +41,9 @@ import (
 )
 
 func init() {
+	audit.RegisterAction(ActionWalletAdjust, "调整余额")
+	audit.RegisterAction(ActionCurrencyCreate, "新建货币")
+	audit.RegisterAction(ActionCurrencyUpdate, "修改货币")
 	settings.RegisterRef(RefCurrency, currencyOptions)
 	// 本模块和早期模块的业务类型, 新模块在自己的 init 中登记
 	for _, t := range []ledger.BizType{

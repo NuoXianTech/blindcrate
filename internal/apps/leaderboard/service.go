@@ -33,6 +33,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
@@ -41,6 +42,12 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
+
+func init() {
+	audit.RegisterAction(ActionLeaderboardCreate, "新建榜单")
+	audit.RegisterAction(ActionLeaderboardUpdate, "修改榜单")
+	audit.RegisterAction(ActionLeaderboardDelete, "删除榜单")
+}
 
 // codePattern 榜单代码, 小写字母、数字和下划线
 var codePattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)

@@ -132,7 +132,7 @@ func UpdateUser(c *gin.Context) {
 		}
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionUserUpdate, audit.TargetUser, updated.ID, auth.ProfileChanges(req.Nickname, req.AvatarURL))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, auth.ActionUserUpdate, auth.TargetUser, updated.ID, auth.ProfileChanges(req.Nickname, req.AvatarURL))
 	logger.InfoF(ctx, "[UpdateUser] %d updated %d %s", operator.ID, updated.ID, updated.Username)
 	c.JSON(
 		http.StatusOK,
@@ -202,7 +202,7 @@ func BanUser(c *gin.Context) {
 	if err := ws.DisconnectUser(ctx, userID); err != nil {
 		logger.ErrorF(ctx, "[BanUser] disconnect websocket failed: %v", err)
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionUserBan, audit.TargetUser, userID, map[string]interface{}{"banned_until": req.BannedUntil, "reason": req.Reason})
+	audit.Record(c, operator.ID, audit.ScopeAdmin, auth.ActionUserBan, auth.TargetUser, userID, map[string]interface{}{"banned_until": req.BannedUntil, "reason": req.Reason})
 	logger.InfoF(ctx, "[BanUser] %d banned %d until %s", operator.ID, userID, req.BannedUntil.Format(time.RFC3339))
 	c.JSON(http.StatusOK, Response{})
 }
@@ -243,7 +243,7 @@ func UnbanUser(c *gin.Context) {
 		}
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionUserUnban, audit.TargetUser, userID, nil)
+	audit.Record(c, operator.ID, audit.ScopeAdmin, auth.ActionUserUnban, auth.TargetUser, userID, nil)
 	logger.InfoF(ctx, "[UnbanUser] %d unbanned %d", operator.ID, userID)
 	c.JSON(http.StatusOK, Response{})
 }
@@ -302,11 +302,11 @@ func SetUserDisabled(c *gin.Context) {
 			logger.ErrorF(ctx, "[SetUserDisabled] disconnect websocket failed: %v", err)
 		}
 	}
-	action := audit.ActionUserEnable
+	action := auth.ActionUserEnable
 	if *req.Disabled {
-		action = audit.ActionUserDisable
+		action = auth.ActionUserDisable
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, action, audit.TargetUser, userID, nil)
+	audit.Record(c, operator.ID, audit.ScopeAdmin, action, auth.TargetUser, userID, nil)
 	logger.InfoF(ctx, "[SetUserDisabled] %d set %d disabled=%t", operator.ID, userID, *req.Disabled)
 	c.JSON(http.StatusOK, Response{})
 }
@@ -360,7 +360,7 @@ func SetUserPassword(c *gin.Context) {
 	if err := auth.RevokeUserSessions(ctx, userID, ""); err != nil {
 		logger.ErrorF(ctx, "[SetUserPassword] revoke sessions failed: %v", err)
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionUserPasswordUpdate, audit.TargetUser, userID, nil)
+	audit.Record(c, operator.ID, audit.ScopeAdmin, auth.ActionUserPasswordUpdate, auth.TargetUser, userID, nil)
 	logger.InfoF(ctx, "[SetUserPassword] %d set password of %d", operator.ID, userID)
 	c.JSON(http.StatusOK, Response{})
 }

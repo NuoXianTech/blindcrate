@@ -58,3 +58,15 @@ const (
 
 // MaxAmount 单笔变动金额上限, 防止异常请求一次写入过大金额
 const MaxAmount int64 = 1_000_000_000_000
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetCurrency = "currency" // target_id 固定为 0, 货币代码见 detail.code
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionWalletAdjust   = "admin.wallet_adjust"
+	ActionCurrencyCreate = "admin.currency_create"
+	ActionCurrencyUpdate = "admin.currency_update"
+)

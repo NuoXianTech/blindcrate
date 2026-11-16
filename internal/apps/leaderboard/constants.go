@@ -60,3 +60,15 @@ const (
 
 // cacheKeyPrefix 前 N 名的缓存, 后接榜单代码、修改时间和统计周期, 修改榜单后自然失效
 const cacheKeyPrefix = "blindcrate:leaderboard:"
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetLeaderboard = "leaderboard"
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionLeaderboardCreate = "admin.leaderboard_create"
+	ActionLeaderboardUpdate = "admin.leaderboard_update"
+	ActionLeaderboardDelete = "admin.leaderboard_delete"
+)

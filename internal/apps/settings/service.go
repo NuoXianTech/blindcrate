@@ -30,10 +30,17 @@ import (
 	"errors"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"gorm.io/gorm"
 )
+
+func init() {
+	audit.RegisterAction(ActionSettingsUpdate, "修改系统设置")
+	audit.RegisterAction(ActionSettingsReset, "恢复系统设置默认值")
+	audit.RegisterAction(ActionMailTest, "发送测试邮件")
+}
 
 // GroupView 管理后台看到的设置组, 包含表单描述和当前值
 type GroupView struct {

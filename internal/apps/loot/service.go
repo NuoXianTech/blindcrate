@@ -28,12 +28,20 @@ import (
 	"context"
 	"errors"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 )
+
+func init() {
+	audit.RegisterAction(ActionLootPoolCreate, "新建掉落池")
+	audit.RegisterAction(ActionLootPoolUpdate, "修改掉落池")
+	audit.RegisterAction(ActionLootPoolDelete, "删除掉落池")
+	audit.RegisterAction(ActionLootPoolEntriesUpdate, "修改掉落池条目")
+}
 
 // EntryDetail 掉落池条目, 附带物品或货币信息和当前的概率
 type EntryDetail struct {

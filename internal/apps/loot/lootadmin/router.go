@@ -132,7 +132,7 @@ func CreateLootPool(c *gin.Context) {
 		}
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLootPoolCreate, audit.TargetLootPool, created.ID, lootPoolFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, loot.ActionLootPoolCreate, loot.TargetLootPool, created.ID, lootPoolFields(created))
 	logger.InfoF(ctx, "[CreateLootPool] %d created loot pool %d %s", operator.ID, created.ID, created.Code)
 	c.JSON(http.StatusOK, Response{Data: created})
 }
@@ -182,7 +182,7 @@ func UpdateLootPool(c *gin.Context) {
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLootPoolUpdate, audit.TargetLootPool, updated.ID, changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, loot.ActionLootPoolUpdate, loot.TargetLootPool, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateLootPool] %d updated loot pool %d %s", operator.ID, updated.ID, updated.Code)
 	}
 	c.JSON(http.StatusOK, Response{Data: updated})
@@ -228,7 +228,7 @@ func DeleteLootPool(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLootPoolDelete, audit.TargetLootPool, deleted.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, loot.ActionLootPoolDelete, loot.TargetLootPool, deleted.ID, map[string]interface{}{
 		"code":        deleted.Code,
 		"name":        deleted.Name,
 		"entry_count": entries,
@@ -331,7 +331,7 @@ func ReplaceLootPoolEntries(c *gin.Context) {
 		}
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLootPoolEntriesUpdate, audit.TargetLootPool, pool.ID, changes)
+	audit.Record(c, operator.ID, audit.ScopeAdmin, loot.ActionLootPoolEntriesUpdate, loot.TargetLootPool, pool.ID, changes)
 	logger.InfoF(ctx, "[ReplaceLootPoolEntries] %d replaced loot pool %d %s with %d entries", operator.ID, pool.ID, pool.Code, len(entries))
 	c.JSON(http.StatusOK, Response{Data: LootPoolEntriesResponseData{Pool: *pool, Entries: entries}})
 }

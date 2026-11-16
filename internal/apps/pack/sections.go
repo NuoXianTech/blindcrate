@@ -33,6 +33,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/crate"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
@@ -55,6 +56,8 @@ import (
 
 // 内置的配置种类, 其他模块的配置种类在各自的 init 中注册
 func init() {
+	audit.RegisterAction(ActionPackExport, "导出配置包")
+	audit.RegisterAction(ActionPackImport, "导入配置包")
 	RegisterSection(Section{
 		Code: PackCurrencies, Label: "货币", Hint: "按代码对应", Order: OrderCurrencies,
 		Export: func(_ context.Context, tx *gorm.DB, _ func(string) string) (any, int, error) {

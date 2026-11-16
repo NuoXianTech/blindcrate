@@ -30,3 +30,16 @@ const (
 	// MaxRollTimes 一次最多抽取的次数
 	MaxRollTimes = 100
 )
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetLootPool = "loot_pool"
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionLootPoolCreate        = "admin.loot_pool_create"
+	ActionLootPoolUpdate        = "admin.loot_pool_update"
+	ActionLootPoolDelete        = "admin.loot_pool_delete"
+	ActionLootPoolEntriesUpdate = "admin.loot_pool_entries_update"
+)

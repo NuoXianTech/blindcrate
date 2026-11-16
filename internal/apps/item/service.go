@@ -32,11 +32,21 @@ import (
 	"slices"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func init() {
+	audit.RegisterAction(ActionItemCreate, "新建物品")
+	audit.RegisterAction(ActionItemUpdate, "修改物品")
+	audit.RegisterAction(ActionItemDelete, "删除物品")
+	audit.RegisterAction(ActionQualityCreate, "新建品质")
+	audit.RegisterAction(ActionQualityUpdate, "修改品质")
+	audit.RegisterAction(ActionQualityDelete, "删除品质")
+}
 
 // Placeholder 生成占位物品, 保留原物品 ID, 按 currency 回收
 func Placeholder(id uint64, currency string) *Item {

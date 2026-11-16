@@ -124,7 +124,7 @@ func CreateRankedTier(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionRankedTierCreate, audit.TargetRankedTier, created.ID, rankedTierFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, ranked.ActionRankedTierCreate, ranked.TargetRankedTier, created.ID, rankedTierFields(created))
 	logger.InfoF(ctx, "[CreateRankedTier] %d created ranked tier %d %s", operator.ID, created.ID, created.Name)
 	c.JSON(http.StatusOK, Response{Data: created})
 }
@@ -169,7 +169,7 @@ func UpdateRankedTier(c *gin.Context) {
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionRankedTierUpdate, audit.TargetRankedTier, updated.ID, changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, ranked.ActionRankedTierUpdate, ranked.TargetRankedTier, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateRankedTier] %d updated ranked tier %d %s", operator.ID, updated.ID, updated.Name)
 	}
 	c.JSON(http.StatusOK, Response{Data: updated})
@@ -210,7 +210,7 @@ func DeleteRankedTier(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionRankedTierDelete, audit.TargetRankedTier, deleted.ID, rankedTierFields(deleted))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, ranked.ActionRankedTierDelete, ranked.TargetRankedTier, deleted.ID, rankedTierFields(deleted))
 	logger.InfoF(ctx, "[DeleteRankedTier] %d deleted ranked tier %d %s", operator.ID, deleted.ID, deleted.Name)
 	c.JSON(http.StatusOK, Response{})
 }
@@ -296,7 +296,7 @@ func ReviewRankedSuspect(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSuspectReview, audit.TargetSuspect, req.UserA, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, ranked.ActionSuspectReview, ranked.TargetSuspect, req.UserA, map[string]interface{}{
 		"user_b":        req.UserB,
 		"last_match_id": req.LastMatchID,
 		"note":          note,

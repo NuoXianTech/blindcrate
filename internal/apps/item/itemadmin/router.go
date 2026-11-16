@@ -148,7 +148,7 @@ func CreateItem(c *gin.Context) {
 		}
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionItemCreate, audit.TargetItem, created.ID, itemFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionItemCreate, item.TargetItem, created.ID, itemFields(created))
 	logger.InfoF(ctx, "[CreateItem] %d created item %d %s", operator.ID, created.ID, created.Name)
 	c.JSON(http.StatusOK, Response{Data: created})
 }
@@ -203,7 +203,7 @@ func UpdateItem(c *gin.Context) {
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionItemUpdate, audit.TargetItem, updated.ID, changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionItemUpdate, item.TargetItem, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateItem] %d updated item %d %s", operator.ID, updated.ID, updated.Name)
 	}
 	c.JSON(http.StatusOK, Response{Data: updated})
@@ -249,7 +249,7 @@ func DeleteItem(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionItemDelete, audit.TargetItem, deleted.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionItemDelete, item.TargetItem, deleted.ID, map[string]interface{}{
 		"name":         deleted.Name,
 		"holder_count": holders,
 	})
@@ -383,7 +383,7 @@ func CreateQuality(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionQualityCreate, audit.TargetQuality, uint64(created.Level), qualityFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionQualityCreate, item.TargetQuality, uint64(created.Level), qualityFields(created))
 	logger.InfoF(ctx, "[CreateQuality] %d created quality %d %s", operator.ID, created.Level, created.Code)
 	c.JSON(http.StatusOK, Response{Data: created})
 }
@@ -427,7 +427,7 @@ func UpdateQuality(c *gin.Context) {
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionQualityUpdate, audit.TargetQuality, uint64(updated.Level), changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionQualityUpdate, item.TargetQuality, uint64(updated.Level), changes)
 		logger.InfoF(ctx, "[UpdateQuality] %d updated quality %d %s", operator.ID, updated.Level, updated.Code)
 	}
 	c.JSON(http.StatusOK, Response{Data: updated})
@@ -469,7 +469,7 @@ func DeleteQuality(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionQualityDelete, audit.TargetQuality, uint64(deleted.Level), qualityFields(deleted))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionQualityDelete, item.TargetQuality, uint64(deleted.Level), qualityFields(deleted))
 	logger.InfoF(ctx, "[DeleteQuality] %d deleted quality %d %s", operator.ID, deleted.Level, deleted.Code)
 	c.JSON(http.StatusOK, Response{})
 }

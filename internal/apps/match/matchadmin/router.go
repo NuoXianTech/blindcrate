@@ -134,7 +134,7 @@ func CancelMatch(c *gin.Context) {
 		}
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionMatchCancel, audit.TargetMatch, cancelled.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, match.ActionMatchCancel, match.TargetMatch, cancelled.ID, map[string]interface{}{
 		"mode":   cancelled.Mode,
 		"phase":  cancelled.Phase,
 		"round":  cancelled.Round,

@@ -32,6 +32,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
@@ -42,6 +43,7 @@ import (
 )
 
 func init() {
+	audit.RegisterAction(ActionMatchCancel, "取消对局")
 	task.Register(task.Job{Type: task.TypeMatchPhaseTimeout, Handler: HandlePhaseTimeout})
 	task.Register(task.Job{Type: task.TypeMatchBotFill, Handler: HandleBotFill})
 	// 巡检到期未推进的对局和排队, 失败时等下一次巡检, 不重试

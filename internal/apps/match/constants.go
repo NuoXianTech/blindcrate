@@ -84,3 +84,13 @@ const (
 	// deviceCookieAge 设备标识的有效期, 秒
 	deviceCookieAge = 365 * 24 * 60 * 60
 )
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetMatch = "match"
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionMatchCancel = "admin.match_cancel"
+)

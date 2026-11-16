@@ -88,3 +88,16 @@ const (
 	UnitBP     = "bp"     // 基点
 	UnitAmount = "amount" // 出价货币的最小单位
 )
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetVenue = "venue"
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionVenueCreate      = "admin.venue_create"
+	ActionVenueUpdate      = "admin.venue_update"
+	ActionVenueDelete      = "admin.venue_delete"
+	ActionVenueRecalibrate = "admin.venue_recalibrate"
+)

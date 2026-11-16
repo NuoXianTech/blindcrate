@@ -32,6 +32,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
@@ -39,6 +40,10 @@ import (
 )
 
 func init() {
+	audit.RegisterAction(ActionSeasonCreate, "新建赛季")
+	audit.RegisterAction(ActionSeasonUpdate, "修改赛季")
+	audit.RegisterAction(ActionSeasonDelete, "删除赛季")
+	audit.RegisterAction(ActionSeasonEnd, "提前结束赛季")
 	// 进行中的赛季在结算对局时额外写入赛季周期
 	stats.RegisterPeriod(func(tx *gorm.DB, at time.Time) (string, error) {
 		current, err := Current(tx, at)
