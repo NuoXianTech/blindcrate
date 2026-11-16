@@ -6,7 +6,7 @@ import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
 import {Skeleton} from '@/components/ui/skeleton';
 import {useAuth} from '@/components/common/auth';
-import {useCaptcha} from '@/components/common/captcha';
+import {useCaptchaDialog} from '@/components/common/captcha';
 import {ItemImage} from '@/components/common/item';
 import {RewardResultDialog} from '@/components/common/reward';
 import {CurrencyIcon} from '@/components/common/wallet';
@@ -85,7 +85,7 @@ export function CheckinCard({onCheckedIn}: {
   const [status, setStatus] = useState<CheckinStatus | null>(null);
   const [failed, setFailed] = useState(false);
   const {pending: submitting, submit} = useSubmit();
-  const captcha = useCaptcha('checkin', {appearance: 'interaction-only'});
+  const captcha = useCaptchaDialog('checkin');
   const [result, setResult] = useState<CheckinResult | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const todayRef = useRef<HTMLDivElement>(null);
@@ -120,7 +120,8 @@ export function CheckinCard({onCheckedIn}: {
   }, [status?.today]);
 
   const checkin = submit(async () => {
-    const token = captcha.take();
+    // 开启人机验证时先弹出验证, 没有完成就关闭弹窗则不签到
+    const token = await captcha.verify();
     try {
       setResult(await services.checkin.checkin(token));
       onCheckedIn?.();
@@ -133,7 +134,7 @@ export function CheckinCard({onCheckedIn}: {
   if (!status) return <Skeleton className="h-36 rounded-xl" />;
   if (!status.enabled || !status.days.length) return null;
 
-  const canCheckin = !status.checked_in && !submitting && captcha.ready;
+  const canCheckin = !status.checked_in && !submitting;
   return (
     <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -152,9 +153,6 @@ export function CheckinCard({onCheckedIn}: {
           {status.checked_in ? '今日已签到' : '签到'}
         </Button>
       </div>
-
-      {/* 已签到后不再需要验证 */}
-      {!status.checked_in && captcha.widget}
 
       <div ref={listRef} className="relative flex gap-2 overflow-x-auto pb-1">
         {status.days.map((d) => {
@@ -178,6 +176,8 @@ export function CheckinCard({onCheckedIn}: {
         description={result && `已连续签到 ${result.streak} 天, 领取了第 ${result.day} 天的奖励`}
         onClose={() => setResult(null)}
       />
+
+      {captcha.dialog}
     </section>
   );
 }

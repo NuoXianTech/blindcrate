@@ -7,13 +7,16 @@ import {toErrorMessage} from '@/lib/services/core';
 /** 校验未通过, 提示文案直接展示给用户 */
 class FormError extends Error {}
 
+/** 用户自己取消了操作(如关闭人机验证弹窗), 中断提交且不提示 */
+export class CancelledError extends Error {}
+
 /** 校验结果为错误文案时中断提交, 用法: check(checkUsername(name)) */
 export function check(message: string | null | undefined): void {
   if (message) throw new FormError(message);
 }
 
 /**
- * 表单提交: 管理提交中状态、防止重复提交, 校验失败和请求失败都以右下角提示框展示
+ * 表单提交: 管理提交中状态、防止重复提交, 校验失败和请求失败都以右下角提示框展示, 用户自己取消(CancelledError)时不提示
  * 用法: <form onSubmit={submit(async () => { check(...); await api(); })}>
  * 也可以用在按钮的 onClick 上, 会阻止默认行为(如 AlertDialogAction 点击后自动关闭)
  */
@@ -31,7 +34,7 @@ export function useSubmit() {
         try {
           await action();
         } catch (err) {
-          toast.error(err instanceof FormError ? err.message : toErrorMessage(err));
+          if (!(err instanceof CancelledError)) toast.error(err instanceof FormError ? err.message : toErrorMessage(err));
         } finally {
           running.current = false;
           setPending(false);
