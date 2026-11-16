@@ -151,7 +151,7 @@ func UpdateUser(c *gin.Context) {
 
 // BanUserRequest 封禁用户请求体
 type BanUserRequest struct {
-	BannedUntil time.Time `json:"banned_until" binding:"required"` // RFC3339, 必须晚于当前时间; 永久封禁请使用停用
+	BannedUntil time.Time `json:"banned_until" binding:"required"` // RFC3339, 必须晚于当前时间, 最多 3650 天之后; 永久封禁请使用停用
 	Reason      string    `json:"reason" binding:"max=255"`
 }
 
@@ -185,7 +185,7 @@ func BanUser(c *gin.Context) {
 	}
 	if err := doBanUser(ctx, operator.ID, userID, req.BannedUntil, req.Reason); err != nil {
 		switch err.Error() {
-		case admin.CannotOperateSelf, BanUntilInvalid:
+		case admin.CannotOperateSelf, BanUntilInvalid, BanTooLong:
 			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
 		case auth.UserNotFound:
 			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})

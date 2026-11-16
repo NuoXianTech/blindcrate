@@ -86,10 +86,17 @@ func updateOtherUser(ctx context.Context, operatorID, userID uint64, values map[
 	return nil
 }
 
-// doBanUser 封禁用户到指定时间
+// maxBanDuration 封禁时长的上限, 多留一分钟给请求在路上的时间
+const maxBanDuration = 3650*24*time.Hour + time.Minute
+
+// doBanUser 封禁用户到指定时间, 最多 3650 天
 func doBanUser(ctx context.Context, operatorID, userID uint64, until time.Time, reason string) error {
-	if !until.After(time.Now()) {
+	now := time.Now()
+	if !until.After(now) {
 		return errors.New(BanUntilInvalid)
+	}
+	if until.After(now.Add(maxBanDuration)) {
+		return errors.New(BanTooLong)
 	}
 	return updateOtherUser(ctx, operatorID, userID, map[string]interface{}{"banned_until": until, "ban_reason": reason})
 }

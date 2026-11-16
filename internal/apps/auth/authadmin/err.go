@@ -26,4 +26,5 @@ package authadmin
 
 const (
 	BanUntilInvalid = "封禁截止时间必须晚于当前时间"
+	BanTooLong      = "封禁时长最多 3650 天"
 )
