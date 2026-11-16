@@ -168,7 +168,14 @@ function DerivedRule({derived, currency, stale, lots}: {
       {
         label: '首轮扫描比例',
         value: derived.preview_rate > 0 ? formatRate(derived.preview_rate) : '不扫',
-        help: '第 1 轮每件藏品按这个概率扫出轮廓, 至少一件; 其余藏品直到开箱都不公开, 件数也不公开',
+        help: '第 1 轮每件藏品按这个概率扫出轮廓, 至少一件; 件数不公开',
+      },
+      {
+        label: '再次扫描',
+        value: derived.rescan_every > 0 && derived.rescan_rate > 0 ?
+          `每 ${derived.rescan_every} 轮 · ${formatRate(derived.rescan_rate)}` :
+          '不再扫描',
+        help: '每隔这么多轮在一轮开始时再扫描一次, 还没扫出的每件藏品按这个概率扫出轮廓; 在系统设置的玩法平衡中修改',
       },
     ] :
     [];

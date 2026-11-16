@@ -53,12 +53,12 @@ type seat struct {
 
 // lotSpec 一个拍品开拍时就确定的信息
 type lotSpec struct {
-	Rule       venue.AuctionRule // 这个拍品的拍卖参数
-	Grid       venue.Grid
-	Odds       []venue.PieceOdds // 按格子大小推断的公示分布
-	Footprints []Footprint       // 第 1 轮扫出轮廓的藏品占的格子
-	Future     int64             // 之后的拍品按格子大小推断的期望价值之和
-	LotsLeft   int32             // 之后还有几个拍品
+	Rule     venue.AuctionRule // 这个拍品的拍卖参数
+	Grid     venue.Grid
+	Odds     []venue.PieceOdds // 按格子大小推断的公示分布
+	Outlines []Footprint       // 会扫出轮廓的藏品, 带扫出的轮次; 每轮只把已经扫出的交给人机
+	Future   int64             // 之后的拍品按格子大小推断的期望价值之和
+	LotsLeft int32             // 之后还有几个拍品
 }
 
 // warehouse 一个仓库的局面: 座位、热度和当前拍品的进度
@@ -216,7 +216,7 @@ func (s *warehouse) closeRound() roundResult {
 			Round:      round,
 			Rules:      *rule,
 			Grid:       s.lot.Grid,
-			Footprints: s.lot.Footprints,
+			Footprints: visibleOutlines(s.lot.Outlines, round),
 			Odds:       s.lot.Odds,
 			Carry:      p.Carry,
 			Bid:        p.Bid,

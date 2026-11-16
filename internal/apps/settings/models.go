@@ -156,6 +156,8 @@ var (
 				SpeedFloorRate:      7500,
 				MaxLeadDiscount:     3000,
 				PreviewRate:         3000,
+				RescanEvery:         2,
+				RescanRate:          1500,
 				CarryCoverage:       3000,
 				BotCarryShare:       6000,
 				BotCarryFloor:       7000,
@@ -300,7 +302,9 @@ type BalanceSettings struct {
 	BotCarryShare   int `json:"bot_carry_share" label:"仓库: 人机带入比例" help:"一局多个拍品的地图, 人机带入资金的上限占带入资金上限的比例" binding:"min=1000,max=10000" unit:"bp"`
 	BotCarryFloor   int `json:"bot_carry_floor" label:"仓库: 人机带入下限" help:"每个人机的带入资金在人机带入资金 × [下限, 100%] 内随机, 真人不能从人机花掉的钱推出它还剩多少" binding:"min=1000,max=10000" unit:"bp"`
 	HypeLotDecay    int `json:"hype_lot_decay" label:"仓库: 热度回落" help:"每个拍品开场时热度向 50 回落的比例, 避免一个热门拍品把后面全部点燃" binding:"min=0,max=10000" unit:"bp"`
-	PreviewRate     int `json:"preview_rate" label:"首轮扫描比例" help:"第 1 轮每件藏品按这个概率扫出轮廓(只有占的格子, 没有品质和名称), 至少扫出一件; 其余的直到开箱都不公开, 件数也不公开, 只能靠道具看到; 0 表示不扫" binding:"min=0,max=10000" unit:"bp"`
+	PreviewRate     int `json:"preview_rate" label:"首轮扫描比例" help:"第 1 轮每件藏品按这个概率扫出轮廓(只有占的格子, 没有品质和名称), 至少扫出一件; 其余的要等再次扫描或开箱才公开, 件数也不公开; 0 表示不扫" binding:"min=0,max=10000" unit:"bp"`
+	RescanEvery     int `json:"rescan_every" label:"再次扫描间隔" help:"每隔这么多轮在一轮开始时再扫描一次货仓, 如 2 表示第 3、5、7 轮, 加轮也算; 让中后期也有新的公开信息; 0 表示只在第 1 轮扫描" binding:"min=0,max=10"`
+	RescanRate      int `json:"rescan_rate" label:"再次扫描比例" help:"每次再扫描时, 还没扫出轮廓的每件藏品按这个概率扫出轮廓, 可能一件也扫不出; 越高后面几轮看到的越全, 人机的估值也越准; 0 表示不再扫描" binding:"min=0,max=10000" unit:"bp"`
 
 	MinRounds           int `json:"min_rounds" label:"轮数下限" help:"轮数太少时出价来不及拉开, 速胜和追价都没有余地" binding:"min=1,max=10,ltefield=MaxRounds"`
 	MaxRounds           int `json:"max_rounds" label:"轮数上限" binding:"min=1,max=10"`

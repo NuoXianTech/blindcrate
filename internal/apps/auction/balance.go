@@ -370,7 +370,7 @@ func (sq *squad) run(v *venue.Venue, tiers []venue.Tier, source lineup, seed uin
 	return matches, nil
 }
 
-// play 模拟一个仓库, 按对局的规则推进(见 warehouse): 首轮扫出的轮廓见 previewPieces;
+// play 模拟一个仓库, 按对局的规则推进(见 warehouse): 每轮扫出的轮廓见 outlineRounds;
 // 真人带满上限, 人机带 BotCarry × [carryFloor, 100%]; 成交价按 v.Auction 的领先折让从剩余资金扣除
 func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, kinds []int, depots []*venue.Depot, rng *rand.Rand, cfg simConfig) (matchSim, error) {
 	sims := make([]seatSim, playerCount)
@@ -423,10 +423,10 @@ func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, ki
 func (sq *squad) playLot(v *venue.Venue, s *warehouse, sims []seatSim, spec lotSpec, depot *venue.Depot, m *matchSim, rng *rand.Rand) (lotSim, error) {
 	rule := &spec.Rule
 	pieces := depot.Pieces
-	spec.Footprints = []Footprint{}
-	for i, picked := range previewPieces(len(pieces), rule.PreviewRate, rng.Int64N) {
-		if picked {
-			spec.Footprints = append(spec.Footprints, Footprint{X: pieces[i].X, Y: pieces[i].Y, Width: pieces[i].Width, Height: pieces[i].Height})
+	spec.Outlines = nil
+	for i, round := range outlineRounds(len(pieces), rule, rng.Int64N) {
+		if round > 0 {
+			spec.Outlines = append(spec.Outlines, Footprint{X: pieces[i].X, Y: pieces[i].Y, Width: pieces[i].Width, Height: pieces[i].Height, Round: round})
 		}
 	}
 	s.openLot(spec)

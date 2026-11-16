@@ -135,6 +135,36 @@ func previewPieces(n int, rate int32, randN func(n int64) int64) []bool {
 	return picked
 }
 
+// outlineRounds 每件藏品在拍品的第几轮扫出轮廓, 0 表示不扫出; 开局时一次抽好, 之后每轮只是按轮次公开
+//
+// 第 1 轮见 previewPieces; 之后每隔 rule.RescanEvery 轮再扫描一次, 直到最后一个加轮, 还没扫出的每件按 rule.RescanRate 的概率扫出,
+// 可以一件也扫不出, 否则从"这次没有新轮廓"能推出已经全部扫出。
+func outlineRounds(n int, rule *venue.AuctionRule, randN func(n int64) int64) []int32 {
+	rounds := make([]int32, n)
+	for i, picked := range previewPieces(n, rule.PreviewRate, randN) {
+		if picked {
+			rounds[i] = 1
+		}
+	}
+	for k := int32(1); k <= rule.Rescans(rule.Rounds+rule.MaxExtraRounds); k++ {
+		for i := range rounds {
+			if rounds[i] == 0 && randN(venue.BasisPoints) < int64(rule.RescanRate) {
+				rounds[i] = 1 + k*rule.RescanEvery
+			}
+		}
+	}
+	return rounds
+}
+
+// hiddenShare 拍品的第 round 轮每件藏品还没扫出轮廓的概率, 0-1; 忽略第 1 轮至少扫出一件的保底
+func hiddenShare(rule *venue.AuctionRule, round int32) float64 {
+	share := float64(venue.BasisPoints-rule.PreviewRate) / venue.BasisPoints
+	for range rule.Rescans(round) {
+		share *= float64(venue.BasisPoints-rule.RescanRate) / venue.BasisPoints
+	}
+	return share
+}
+
 // seatTotal 仓库结算时一个座位的成绩
 type seatTotal struct {
 	Seat   int16

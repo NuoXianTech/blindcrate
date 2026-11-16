@@ -81,6 +81,10 @@ export interface AuctionVenue {
   lead_discount: number;
   /** 首轮扫描比例, 基点: 每个拍品的第 1 轮每件藏品按这个概率扫出轮廓, 至少一件 */
   preview_rate: number;
+  /** 每隔几轮在一轮开始时再扫描一次, 加轮也算; 0 表示不再扫描 */
+  rescan_every: number;
+  /** 再次扫描比例, 基点: 每次再扫描时还没扫出的每件藏品按这个概率扫出轮廓 */
+  rescan_rate: number;
   /** 这个模式每局(整个仓库)最多使用几个道具, 0 表示不能用 */
   max_uses: number;
   /** 可以用的道具, 为空表示所有对局中可用的道具 */
@@ -237,12 +241,14 @@ export interface AuctionPiece {
   scan_ms: number;
 }
 
-/** 第 1 轮扫出轮廓的一件藏品占的格子, 不包含品质、名称和回收价, 以位置 (x, y) 区分 */
+/** 扫出轮廓的一件藏品占的格子, 不包含品质、名称和回收价, 以位置 (x, y) 区分 */
 export interface Footprint {
   x: number;
   y: number;
   width: number;
   height: number;
+  /** 在拍品的第几轮扫出, 第 1 轮为首轮扫描, 之后为再次扫描 */
+  round: number;
 }
 
 /** 拍品开箱后公开的一个座位的出价 */

@@ -457,7 +457,7 @@ func (vm *venueMode) Start(tx *gorm.DB, m *match.Match, players []match.Player) 
 }
 
 // newLots 生成仓库的全部拍品和藏品: 抽出拍品数, 每个拍品按权重抽一种档次生成货仓, 公示概率按格子大小推断(见 publicLots),
-// 金额取档次按格子大小推导的; 每个拍品按首轮扫描比例抽出第 1 轮扫出轮廓的藏品(见 previewPieces), 按位置排出扫描顺序并快照扫描时长
+// 金额取档次按格子大小推导的; 每个拍品抽好每件藏品在第几轮扫出轮廓(见 outlineRounds), 按位置排出扫描顺序并快照扫描时长
 func (vm *venueMode) newLots(tx *gorm.DB, matchID uint64) ([]Lot, []DepotItem, error) {
 	v := vm.venue
 	valueFactor := int32(venue.BasisPoints)
@@ -509,14 +509,14 @@ func (vm *venueMode) newLots(tx *gorm.DB, matchID uint64) ([]Lot, []DepotItem, e
 		if err != nil {
 			return nil, nil, err
 		}
-		preview := previewPieces(len(depot.Pieces), v.Auction.PreviewRate, rand.Int64N)
+		outlined := outlineRounds(len(depot.Pieces), &v.Auction, rand.Int64N)
 		scanOrder := scanOrders(depot.Pieces)
 		for j, piece := range depot.Pieces {
 			target := items[piece.ItemID]
 			rows = append(rows, DepotItem{
 				MatchID:      matchID,
 				LotNo:        int32(i + 1),
-				Preview:      preview[j],
+				OutlineRound: outlined[j],
 				ScanOrder:    scanOrder[j],
 				ScanMs:       scanDurations[piece.Quality],
 				ItemID:       piece.ItemID,
@@ -730,7 +730,7 @@ func (st *state) lotSpec(tx *gorm.DB) (lotSpec, error) {
 		if err != nil {
 			return lotSpec{}, err
 		}
-		spec.Footprints = footprints(items)
+		spec.Outlines = outlines(items)
 	}
 	return spec, nil
 }
@@ -1436,7 +1436,7 @@ func UseItem(ctx context.Context, userID uint64, req *UseRequest) (*AuctionView,
 		if err != nil {
 			return nil, err
 		}
-		useCtx := newUseContext(st.lot.Value, items, lotUses(uses, st.lot.LotNo), rand.Int64N)
+		useCtx := newUseContext(st.lot.Value, items, st.lot.Round(m.Round), lotUses(uses, st.lot.LotNo), rand.Int64N)
 		intel, err := effect.Apply[*UseContext, Intel](effect.SceneMatch, target.Effect, useCtx, target.EffectParams)
 		if err != nil {
 			return nil, err

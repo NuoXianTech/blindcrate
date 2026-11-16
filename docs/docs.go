@@ -8138,7 +8138,7 @@ const docTemplate = `{
         },
         "/api/v1/auctions/{match_id}": {
             "get": {
-                "description": "进行中时只公开货仓大小、第 1 轮扫出的轮廓和自己的出价、反馈与情报, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用",
+                "description": "进行中时只公开货仓大小、已经扫出的轮廓和自己的出价、反馈与情报, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用",
                 "produces": [
                     "application/json"
                 ],
@@ -12006,6 +12006,10 @@ const docTemplate = `{
                 "height": {
                     "type": "integer"
                 },
+                "round": {
+                    "description": "在拍品的第几轮扫出, 第 1 轮为首轮扫描, 之后为再次扫描",
+                    "type": "integer"
+                },
                 "width": {
                     "type": "integer"
                 },
@@ -12045,7 +12049,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "x": {
-                    "description": "指认的藏品的位置, 是第 1 轮扫出轮廓的一件",
+                    "description": "指认的藏品的位置, 是给出提示时已经扫出轮廓的一件",
                     "type": "integer"
                 },
                 "y": {
@@ -12258,7 +12262,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "footprints": {
-                    "description": "第 1 轮扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开",
+                    "description": "到当前轮为止扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/auction.Footprint"
@@ -12863,6 +12867,14 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "rescan_every": {
+                    "description": "每隔几轮再扫描一次, 0 表示不再扫描, 见 venue.AuctionRule",
+                    "type": "integer"
+                },
+                "rescan_rate": {
+                    "description": "再次扫描比例, 基点: 每次再扫描时还没扫出的每件藏品按这个概率扫出轮廓",
+                    "type": "integer"
                 },
                 "rounds": {
                     "description": "每个拍品的轮数",
@@ -18625,6 +18637,14 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "rescan_every": {
+                    "description": "每隔几轮再扫描一次: 第 1 + 间隔、1 + 2 × 间隔... 轮开始时再扫一次, 加轮也算; 0 表示不再扫描",
+                    "type": "integer"
+                },
+                "rescan_rate": {
+                    "description": "再次扫描比例, 基点: 每次再扫描时还没扫出的每件藏品按这个概率公开占的格子",
+                    "type": "integer"
                 },
                 "reveal_seconds": {
                     "description": "全部藏品扫描完后再停留的时长, 扫描时长见品质的 scan_ms",

@@ -47,23 +47,23 @@ func TestAppraise(t *testing.T) {
 		name       string
 		perception string
 		footprints []Footprint
-		rate       int32
+		hidden     float64 // 每件还没扫出的概率
 		want       float64
 	}{
-		{"size", PerceptionSize, []Footprint{{Width: 1, Height: 1}}, 10000, 240},
-		{"size by shape", PerceptionSize, []Footprint{{Width: 2, Height: 1}, {Width: 1, Height: 2}}, 10000, 3200},
-		{"size unknown shape", PerceptionSize, []Footprint{{Width: 3, Height: 3}}, 10000, average},
-		{"area merges shapes", PerceptionArea, []Footprint{{Width: 1, Height: 2}}, 10000, 1700 / 1.5},
-		{"quality ignores size", PerceptionQuality, []Footprint{{Width: 1, Height: 2}}, 10000, average},
-		{"nothing previewed", PerceptionSize, nil, 0, 2900},
-		{"unseen at the expected value", PerceptionSize, []Footprint{{Width: 1, Height: 1}}, 3000, 240 + 2900*0.7},
+		{"size", PerceptionSize, []Footprint{{Width: 1, Height: 1}}, 0, 240},
+		{"size by shape", PerceptionSize, []Footprint{{Width: 2, Height: 1}, {Width: 1, Height: 2}}, 0, 3200},
+		{"size unknown shape", PerceptionSize, []Footprint{{Width: 3, Height: 3}}, 0, average},
+		{"area merges shapes", PerceptionArea, []Footprint{{Width: 1, Height: 2}}, 0, 1700 / 1.5},
+		{"quality ignores size", PerceptionQuality, []Footprint{{Width: 1, Height: 2}}, 0, average},
+		{"nothing previewed", PerceptionSize, nil, 1, 2900},
+		{"unseen at the expected value", PerceptionSize, []Footprint{{Width: 1, Height: 1}}, 0.7, 240 + 2900*0.7},
 	}
 	for _, c := range cases {
-		if got := appraise(testOdds, c.footprints, c.perception, c.rate); math.Abs(got-c.want) > 1e-6 {
+		if got := appraise(testOdds, c.footprints, c.perception, c.hidden); math.Abs(got-c.want) > 1e-6 {
 			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
 		}
 	}
-	if got := appraise(nil, []Footprint{{Width: 1, Height: 1}}, PerceptionSize, 3000); got != 0 {
+	if got := appraise(nil, []Footprint{{Width: 1, Height: 1}}, PerceptionSize, 0.7); got != 0 {
 		t.Errorf("no odds: got %v, want 0", got)
 	}
 }

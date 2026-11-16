@@ -147,7 +147,7 @@ func TestMakeHint(t *testing.T) {
 	// 没有扫出轮廓时不指认单件: 候选为 件数、最好、价值
 	in = testHost(venue.HostSteady, 0)
 	for i := range in.Items {
-		in.Items[i].Preview = false
+		in.Items[i].OutlineRound = 0
 	}
 	got, _ = makeHint(in, sequence(2))
 	if got.Kind != HostHintValue {

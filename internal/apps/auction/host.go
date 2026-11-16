@@ -49,11 +49,11 @@ type hostInput struct {
 
 // makeHint 生成一条提示: 列出这一轮能给的提示, 随机选一种, 再按撒谎率决定是否说错; 没有能给的提示时返回 false
 //
-// 提示只涉及开局时就确定的信息, 不涉及其他人的出价; 指认一件藏品时只指第 1 轮扫出轮廓的, 不透露其他藏品的位置。
+// 提示只涉及开局时就确定的信息, 不涉及其他人的出价; 指认一件藏品时只指这一轮已经扫出轮廓的, 不透露其他藏品的位置。
 func makeHint(in *hostInput, randN func(n int64) int64) (HostHint, bool) {
 	var previewed []DepotItem
 	for _, it := range in.Items {
-		if it.Preview {
+		if it.Outlined(in.Round) {
 			previewed = append(previewed, it)
 		}
 	}
@@ -305,7 +305,7 @@ type HintView struct {
 	Kind     string `json:"kind"`  // 见 constants.go 的 HostHint
 	Quality  int16  `json:"quality"`
 	Count    int32  `json:"count"`
-	X        int16  `json:"x"` // 指认的藏品的位置, 是第 1 轮扫出轮廓的一件
+	X        int16  `json:"x"` // 指认的藏品的位置, 是给出提示时已经扫出轮廓的一件
 	Y        int16  `json:"y"`
 	Above    bool   `json:"above"`
 	Truthful *bool  `json:"truthful"` // 是否属实, 仓库结束后才公开

@@ -49,17 +49,20 @@ type VenueInfo struct {
 	MaxCarry       int64    `json:"max_carry"`     // 带入资金上限
 	LeadDiscount   int32    `json:"lead_discount"` // 领先折让, 基点
 	PreviewRate    int32    `json:"preview_rate"`  // 首轮扫描比例, 基点: 每个拍品的第 1 轮每件藏品按这个概率扫出轮廓, 至少一件
+	RescanEvery    int32    `json:"rescan_every"`  // 每隔几轮再扫描一次, 0 表示不再扫描, 见 venue.AuctionRule
+	RescanRate     int32    `json:"rescan_rate"`   // 再次扫描比例, 基点: 每次再扫描时还没扫出的每件藏品按这个概率扫出轮廓
 	MaxUses        int32    `json:"max_uses"`      // 这个模式每局(整个仓库)最多使用几个道具, 0 表示不能用
 	AllowedItems   []uint64 `json:"allowed_items"` // 可以用的道具, 为空表示所有对局中可用的道具
 	GapSeconds     int32    `json:"gap_seconds"`   // 拍品开箱后停留多久进入下一个
 }
 
-// Footprint 第 1 轮扫出轮廓的一件藏品占的格子, 不包含品质、名称、回收价和扫描顺序, 以位置(X, Y)区分
+// Footprint 扫出轮廓的一件藏品占的格子, 不包含品质、名称、回收价和扫描顺序, 以位置(X, Y)区分
 type Footprint struct {
 	X      int16 `json:"x"`
 	Y      int16 `json:"y"`
 	Width  int16 `json:"width"`
 	Height int16 `json:"height"`
+	Round  int32 `json:"round"` // 在拍品的第几轮扫出, 第 1 轮为首轮扫描, 之后为再次扫描
 }
 
 // SelfView 自己在这局中的状态
@@ -130,14 +133,14 @@ type PieceView struct {
 	ScanMs       int32  `json:"scan_ms"`    // 扫描这件的时长, 毫秒
 }
 
-// LotView 公开的一个拍品: 格子大小和金额开局时公开, 第 1 轮的轮廓开拍后公开, 价值、藏品和每个座位的出价开箱后公开, 档次仓库结束后公开
+// LotView 公开的一个拍品: 格子大小和金额开局时公开, 轮廓开拍后按轮次公开, 价值、藏品和每个座位的出价开箱后公开, 档次仓库结束后公开
 type LotView struct {
 	LotNo      int32        `json:"lot_no"`
 	Grid       venue.Grid   `json:"grid"`
 	StartPrice int64        `json:"start_price"`
 	SpeedFloor int64        `json:"speed_floor"` // 速胜下限
 	FirstRound int32        `json:"first_round"` // 开拍时的轮次, 还没开拍时为 0
-	Footprints []Footprint  `json:"footprints"`  // 第 1 轮扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开
+	Footprints []Footprint  `json:"footprints"`  // 到当前轮为止扫出轮廓的藏品占的格子, 按位置从上到下、从左到右; 件数开箱前不公开
 	Contenders []int16      `json:"contenders"`  // 加轮时可以出价的座位, 为空表示所有人
 	Bids       []PublicBid  `json:"bids"`        // 已公开的出价, 按轮次和座位
 	Outcome    string       `json:"outcome"`     // 结算前为空, 之后为 sold、unsold 或 cancelled
@@ -270,6 +273,8 @@ func (st *state) publicView(items []DepotItem, uses []Use) PublicView {
 			MaxCarry:       rule.MaxCarry,
 			LeadDiscount:   rule.LeadDiscount,
 			PreviewRate:    rule.PreviewRate,
+			RescanEvery:    rule.RescanEvery,
+			RescanRate:     rule.RescanRate,
 			MaxUses:        a.Venue.Consumables.MaxPerMatch(st.kind()),
 			AllowedItems:   a.Venue.Consumables.Allowed,
 			GapSeconds:     a.Venue.GapSeconds,
@@ -292,6 +297,17 @@ func (st *state) publicView(items []DepotItem, uses []Use) PublicView {
 	return view
 }
 
+// lotRounds 拍品 lot 已经进行到第几轮(拍品内): 当前拍品为当前轮次, 之前的拍品为它结束时的轮次
+func (st *state) lotRounds(lot *Lot) int32 {
+	last := st.match.Round
+	for i := range st.lots {
+		if next := &st.lots[i]; next.LotNo == lot.LotNo+1 && next.FirstRound > 0 {
+			last = next.FirstRound - 1
+		}
+	}
+	return lot.Round(last)
+}
+
 // lotView 一个拍品的公开部分; ended 为仓库是否已结束
 func (st *state) lotView(lot *Lot, items []DepotItem, uses []Use, ended bool) LotView {
 	view := LotView{
@@ -310,7 +326,7 @@ func (st *state) lotView(lot *Lot, items []DepotItem, uses []Use, ended bool) Lo
 	if lot.FirstRound == 0 {
 		return view
 	}
-	view.Footprints = footprints(items)
+	view.Footprints = visibleOutlines(outlines(items), st.lotRounds(lot))
 	settled := lot.Outcome != ""
 	// 前 N-1 轮结束后公开, 结算后全部公开
 	shownBefore := publicBefore(st.match.Round, lot.FirstRound, st.auction.Venue.Auction.Rounds)
@@ -356,12 +372,23 @@ func (st *state) lotView(lot *Lot, items []DepotItem, uses []Use, ended bool) Lo
 	return view
 }
 
-// footprints 第 1 轮扫出轮廓的藏品占的格子, 与 items 的顺序相同
-func footprints(items []DepotItem) []Footprint {
-	prints := []Footprint{}
+// outlines 会扫出轮廓的藏品占的格子, 带扫出的轮次, 与 items 的顺序相同; 不能直接给玩家, 见 visibleOutlines
+func outlines(items []DepotItem) []Footprint {
+	var list []Footprint
 	for _, it := range items {
-		if it.Preview {
-			prints = append(prints, Footprint{X: it.X, Y: it.Y, Width: it.Width, Height: it.Height})
+		if it.OutlineRound > 0 {
+			list = append(list, Footprint{X: it.X, Y: it.Y, Width: it.Width, Height: it.Height, Round: it.OutlineRound})
+		}
+	}
+	return list
+}
+
+// visibleOutlines 拍品的第 round 轮已经扫出轮廓的藏品占的格子, 与 list 的顺序相同
+func visibleOutlines(list []Footprint, round int32) []Footprint {
+	prints := []Footprint{}
+	for _, f := range list {
+		if f.Round <= round {
+			prints = append(prints, f)
 		}
 	}
 	return prints
