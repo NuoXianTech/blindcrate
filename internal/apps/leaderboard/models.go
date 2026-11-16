@@ -30,7 +30,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Board 排行榜, 按某个统计范围、周期和指标排名
+// Board 排行榜, 没有内置数据, 由管理员在榜单管理中新建或从配置包导入; 按某个统计范围、周期和指标排名
 type Board struct {
 	ID          uint64    `gorm:"primaryKey" json:"id"`
 	Code        string    `gorm:"size:64;not null;uniqueIndex:uniq_leaderboards_code" json:"code"` // 自然键, 如 ranked_wins

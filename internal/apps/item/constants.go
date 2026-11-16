@@ -29,8 +29,8 @@ const (
 	CategoryCollectible = "collectible" // 藏品: 货仓只抽藏品
 )
 
-// PlaceholderQuality 占位物品的品质等级, 对应最低一档品质
-const PlaceholderQuality int16 = 1
+// PlaceholderQuality 占位物品的品质等级: 0 表示没有品质, 品质都由管理员配置, 等级从 1 开始
+const PlaceholderQuality int16 = 0
 
 // 品质特效, 空表示纯色
 const (

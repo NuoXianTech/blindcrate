@@ -71,7 +71,7 @@ type Category struct {
 	Label string `json:"label"` // 后台展示的名称, 如 "藏品"
 }
 
-// Quality 物品品质, 新增品质只需插入一行
+// Quality 物品品质, 没有内置数据, 由管理员在品质管理中新建或从配置包导入
 //
 // 等级越大越稀有, 物品、货仓藏品按等级引用品质; 颜色和名称由前端从接口读取。
 type Quality struct {

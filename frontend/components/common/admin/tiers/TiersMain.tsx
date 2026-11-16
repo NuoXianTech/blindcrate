@@ -46,7 +46,8 @@ export function TiersMain() {
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold">段位管理</h1>
           <p className="text-sm text-muted-foreground">
-            段位分不低于分数线时属于这个段位, 低于最低的分数线时没有段位; 段位按段位分实时计算, 修改后所有人的段位随即变化
+            没有内置的段位, 可以新建或从配置包导入; 段位分不低于分数线时属于这个段位, 低于最低的分数线时没有段位;
+            段位按段位分实时计算, 修改后所有人的段位随即变化
           </p>
         </div>
         <Button onClick={() => setEditing('new')}>
@@ -79,7 +80,7 @@ export function TiersMain() {
                 />
               ))
             ) : (
-              <TableEmpty colSpan={4}>还没有段位, 所有人都显示为无段位</TableEmpty>
+              <TableEmpty colSpan={4}>还没有段位, 所有人都显示为无段位; 新建段位或在导入导出中导入配置包</TableEmpty>
             )}
           </TableBody>
         </Table>

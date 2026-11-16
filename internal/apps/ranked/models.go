@@ -44,7 +44,7 @@ type Rating struct {
 // TableName 自定义表名
 func (Rating) TableName() string { return "ranked_ratings" }
 
-// Tier 段位, 段位分不低于分数线时属于分数线最高的那个段位; 低于最低的分数线时没有段位
+// Tier 段位, 没有内置数据, 由管理员在段位管理中新建或从配置包导入; 段位分不低于分数线时属于分数线最高的那个段位; 低于最低的分数线时没有段位
 type Tier struct {
 	ID        uint64    `gorm:"primaryKey" json:"id"`
 	Name      string    `gorm:"size:32;not null" json:"name"`

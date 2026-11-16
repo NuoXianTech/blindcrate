@@ -24,12 +24,6 @@
 
 package wallet
 
-// 货币代码
-const (
-	CurrencyChip = "chip" // 筹码, 默认的基础货币, 见 settings.EconomySettings
-	CurrencyGold = "gold" // 金条, 珍贵货币
-)
-
 // RefCurrency 设置中引用货币的字段, 可选值为全部启用的货币, 见 settings.RegisterRef
 const RefCurrency = "currency"
 

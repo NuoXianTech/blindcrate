@@ -27,7 +27,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* 物品品质: 灰 · 绿 · 蓝 · 紫 · 红 · 金, 炫彩是渐变, 见 .quality-rainbow */
+  /* 主题的强调色, 用于盈亏、完成、热度等; 物品品质的颜色由管理员配置, 见 lib/quality.ts, 炫彩特效的渐变见 .quality-rainbow */
   --color-quality-gray: var(--quality-gray);
   --color-quality-green: var(--quality-green);
   --color-quality-blue: var(--quality-blue);

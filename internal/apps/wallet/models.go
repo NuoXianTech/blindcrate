@@ -30,7 +30,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Currency 货币定义
+// Currency 货币定义, 没有内置数据, 由管理员在货币管理中新建或从配置包导入
 type Currency struct {
 	Code      string    `gorm:"primaryKey;size:32" json:"code"`
 	Name      string    `gorm:"size:32;not null" json:"name"`

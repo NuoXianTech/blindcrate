@@ -262,7 +262,7 @@ type UserItemDetail struct {
 
 // QueryUserItems 获取用户背包中数量大于 0 的物品, 按品质从高到低排序
 //
-// 已删除的物品按占位物品返回, 品质筛选和排序也按占位物品的品质处理。
+// 已删除的物品按占位物品返回; 占位物品没有品质, 排在最后, 按品质筛选时不会出现。
 func QueryUserItems(ctx context.Context, userID uint64, req *ListItemsRequest) (int64, []UserItemDetail, error) {
 	offset := (req.Current - 1) * req.Size
 

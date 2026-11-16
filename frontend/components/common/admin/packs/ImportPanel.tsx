@@ -1,6 +1,7 @@
 'use client';
 
 import {useRef, useState} from 'react';
+import {useRouter} from 'next/navigation';
 import {FileArchive, LoaderCircle, RefreshCw, Upload} from 'lucide-react';
 import {toast} from 'sonner';
 import {
@@ -22,6 +23,7 @@ import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import {ApiError} from '@/lib/services/core';
 import type {PackAction, PackActionType, PackEntryResult, PackImport, PackPreview, PackStatus} from '@/lib/services/pack';
+import {refreshQualities} from '@/lib/site-actions';
 import {formatDateTime} from '@/lib/utils';
 import {PackEntriesTable} from './PackEntriesTable';
 import {ACTION_LABELS, MAX_PACK_SIZE, STATUS_LABELS, entryID, formatSize} from './constants';
@@ -40,6 +42,7 @@ const DEFAULT_CHOICE: Choice = {action: 'overwrite', code: ''};
  * 导入配置包: 上传后预览每一项与已有配置的比较结果, 逐项选择导入、跳过或改名导入, 确认后在一个事务中导入
  */
 export function ImportPanel({onImported}: { onImported: (record: PackImport) => void }) {
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const {sections} = usePackSections();
   const [file, setFile] = useState<File | null>(null);
@@ -95,6 +98,9 @@ export function ImportPanel({onImported}: { onImported: (record: PackImport) => 
       setFile(null);
       setPreview(null);
       setChoices({});
+      // 配置包里可能有品质: 刷新服务端缓存的品质, 全站的名称和颜色随即更新; 刷新失败不算导入失败, 缓存过一会儿也会自动更新
+      await refreshQualities().catch(() => undefined);
+      router.refresh();
       onImported(record);
     } catch (err) {
       // 有冲突时 data 为每一项的结果, 换成最新的结果以便逐项处理

@@ -57,7 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs (target_type, tar
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created_at ON audit_logs (action, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at);
 
--- 货币定义, 新增货币只需插入一行
+-- 货币定义, 没有内置数据, 由管理员在货币管理中新建或从配置包导入; 基础货币在系统设置中选择
 CREATE TABLE IF NOT EXISTS currencies
 (
     code       VARCHAR(32) PRIMARY KEY,               -- 货币代码, 如 chip / gold
@@ -68,11 +68,6 @@ CREATE TABLE IF NOT EXISTS currencies
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-INSERT INTO currencies (code, name, decimals, sort_order)
-VALUES ('chip', '筹码', 0, 10), -- 基础货币
-       ('gold', '金条', 0, 20)  -- 珍贵货币
-ON CONFLICT (code) DO NOTHING;
 
 -- 用户余额, 每个用户每种货币一行, 首次入账时创建
 CREATE TABLE IF NOT EXISTS wallet_balances
@@ -123,7 +118,7 @@ CREATE TABLE IF NOT EXISTS settings
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 物品品质, 新增品质只需插入一行; 等级越大越稀有, 物品和货仓藏品按等级引用
+-- 物品品质, 没有内置数据, 由管理员在品质管理中新建或从配置包导入; 等级越大越稀有, 物品和货仓藏品按等级引用
 CREATE TABLE IF NOT EXISTS qualities
 (
     level      SMALLINT PRIMARY KEY,
@@ -138,16 +133,6 @@ CREATE TABLE IF NOT EXISTS qualities
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_qualities_code ON qualities (code);
-
-INSERT INTO qualities (level, code, name, color, effect, scan_ms, sort_order)
-VALUES (1, 'gray', '灰色', '#a1a5ab', '', 400, 10),
-       (2, 'green', '绿色', '#4bcb71', '', 500, 20),
-       (3, 'blue', '蓝色', '#3ba6f5', '', 700, 30),
-       (4, 'purple', '紫色', '#ad74ff', '', 1000, 40),
-       (5, 'gold', '金色', '#fab72a', '', 1500, 50),
-       (6, 'red', '红色', '#f94144', '', 2000, 60),
-       (7, 'rainbow', '炫彩', '#ff6ad5', 'rainbow', 3000, 70)
-ON CONFLICT (level) DO NOTHING;
 
 -- 物品定义, 删除为软删除, ID 不会被新物品复用; 已删除的物品在玩家背包中按占位物品处理
 CREATE TABLE IF NOT EXISTS items
@@ -330,7 +315,7 @@ CREATE TABLE IF NOT EXISTS stats
 -- 排行榜按范围、周期和指标取数值最大的若干行
 CREATE INDEX IF NOT EXISTS idx_stats_board ON stats (scope, period, metric, value DESC);
 
--- 排行榜, 由管理员配置, 按 stats 中的某个指标或赛季的段位分排名
+-- 排行榜, 没有内置数据, 由管理员在榜单管理中新建或从配置包导入; 按 stats 中的某个指标或赛季的段位分排名
 CREATE TABLE IF NOT EXISTS leaderboards
 (
     id          BIGSERIAL PRIMARY KEY,
@@ -349,13 +334,6 @@ CREATE TABLE IF NOT EXISTS leaderboards
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_leaderboards_code ON leaderboards (code);
-
-INSERT INTO leaderboards (code, name, description, metric, scope, period, size, min_matches, sort_order, is_enabled)
-VALUES ('ranked_wins', '排位胜场', '排位中拿到第一名的次数', 'wins', 'mode:ranked', 'total', 100, 0, 10, TRUE),
-       ('daily_profit_chip', '今日收益', '今天所有对局的筹码净收益, 至少完成 3 局才上榜', 'profit:chip', 'all', 'day', 100, 3, 20, TRUE),
-       ('bid_won', '成交次数', '累计拍下货仓的次数', 'bid_won', 'all', 'total', 100, 0, 30, TRUE),
-       ('season_rating', '赛季段位分', '本赛季的段位分', 'rating', 'all', 'season', 100, 0, 40, TRUE)
-ON CONFLICT (code) DO NOTHING;
 
 -- 赛季, 时间不能互相重叠; 状态由时间推算, 赛季奖励发完后写入 settled_at
 CREATE TABLE IF NOT EXISTS seasons
@@ -393,7 +371,7 @@ CREATE TABLE IF NOT EXISTS ranked_ratings
 -- 段位分排行榜按赛季取分数最高的若干行
 CREATE INDEX IF NOT EXISTS idx_ranked_ratings_board ON ranked_ratings (season_id, rating DESC);
 
--- 段位, 段位分不低于分数线时属于分数线最高的那个段位; 低于最低的分数线时没有段位
+-- 段位, 没有内置数据, 由管理员在段位管理中新建或从配置包导入; 段位分不低于分数线时属于分数线最高的那个段位; 低于最低的分数线时没有段位
 CREATE TABLE IF NOT EXISTS ranked_tiers
 (
     id         BIGSERIAL PRIMARY KEY,
@@ -406,15 +384,6 @@ CREATE TABLE IF NOT EXISTS ranked_tiers
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_ranked_tiers_min_rating ON ranked_tiers (min_rating);
-
-INSERT INTO ranked_tiers (name, min_rating, color)
-VALUES ('青铜', 0, '#b08d57'),
-       ('白银', 1100, '#a8b4c0'),
-       ('黄金', 1250, '#fab72a'),
-       ('铂金', 1400, '#3fc1b0'),
-       ('钻石', 1600, '#3ba6f5'),
-       ('大师', 1800, '#ad74ff')
-ON CONFLICT (min_rating) DO NOTHING;
 
 -- 地图(拍卖场), 每张地图有人机和排位两种玩法; 软删除, 代码在已删除的地图中也唯一
 CREATE TABLE IF NOT EXISTS venues
@@ -844,7 +813,7 @@ CREATE TABLE IF NOT EXISTS codex_claims
     PRIMARY KEY (set_id, user_id)
 );
 
--- 人机的昵称库, 开局时从启用的昵称中随机选取; 删除为物理删除, 已开局的对局中保存的是昵称本身
+-- 人机的昵称库, 没有内置数据, 由管理员在人机管理中添加或从配置包导入; 开局时从启用的昵称中随机选取; 删除为物理删除, 已开局的对局中保存的是昵称本身
 CREATE TABLE IF NOT EXISTS bot_names
 (
     id         BIGSERIAL PRIMARY KEY,
@@ -856,34 +825,7 @@ CREATE TABLE IF NOT EXISTS bot_names
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_bot_names_name ON bot_names (name);
 
-INSERT INTO bot_names (name, is_enabled)
-VALUES ('橘子汽水', TRUE),
-       ('晚风', TRUE),
-       ('不吃香菜', TRUE),
-       ('摸鱼达人', TRUE),
-       ('小熊软糖', TRUE),
-       ('夜猫子', TRUE),
-       ('一只咸鱼', TRUE),
-       ('清风徐来', TRUE),
-       ('芝士就是力量', TRUE),
-       ('拾光者', TRUE),
-       ('奶茶续命', TRUE),
-       ('长安', TRUE),
-       ('今天也要加油', TRUE),
-       ('星河', TRUE),
-       ('柠檬不萌', TRUE),
-       ('南城', TRUE),
-       ('白开水', TRUE),
-       ('鹿鸣', TRUE),
-       ('慢半拍', TRUE),
-       ('云朵', TRUE),
-       ('抹茶控', TRUE),
-       ('北岛', TRUE),
-       ('早睡早起', TRUE),
-       ('小满', TRUE)
-ON CONFLICT (name) DO NOTHING;
-
--- 人机风格: 一种决策策略和它的参数, 地图按模式配置出场的风格和权重; 软删除, 代码在已删除的风格中也唯一
+-- 人机风格: 一种决策策略和它的参数, 没有内置数据, 由管理员在人机管理中新建或从配置包导入; 地图按模式配置出场的风格和权重; 软删除, 代码在已删除的风格中也唯一
 CREATE TABLE IF NOT EXISTS bot_personas
 (
     id          BIGSERIAL PRIMARY KEY,
@@ -899,15 +841,6 @@ CREATE TABLE IF NOT EXISTS bot_personas
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_bot_personas_code ON bot_personas (code);
 CREATE INDEX IF NOT EXISTS idx_bot_personas_deleted_at ON bot_personas (deleted_at);
-
-INSERT INTO bot_personas (code, name, description, strategy, params)
-VALUES ('steady', '稳健', '按尺寸和品质估值, 逐轮加价, 不轻易追高', 'auction_basic',
-        '{"perception": "size", "bias": 1000, "open_factor": 4200, "close_factor": 7800, "max_factor": 8800, "jitter": 300, "jump_chance": 0, "jump_factor": 9000, "chase": 1500, "guard": true}'),
-       ('aggressive', '激进', '只看已公开的品质估值, 出价高, 偶尔首轮抢拍', 'auction_basic',
-        '{"perception": "quality", "bias": 2000, "open_factor": 5000, "close_factor": 8800, "max_factor": 9800, "jitter": 800, "jump_chance": 1200, "jump_factor": 9000, "chase": 2500, "guard": true}'),
-       ('novice', '新手', '只看已公开的品质估值, 估值偏差大, 不防速胜', 'auction_basic',
-        '{"perception": "quality", "bias": 3500, "open_factor": 4000, "close_factor": 7400, "max_factor": 8400, "jitter": 1000, "jump_chance": 500, "jump_factor": 7500, "chase": 1000, "guard": false}')
-ON CONFLICT (code) DO NOTHING;
 
 -- 兑换码批次, 一次生成的兑换码共用名称、奖励、使用条件、可使用次数和到期时间; 删除为软删除, 批次中的兑换码不能再兑换
 CREATE TABLE IF NOT EXISTS redeem_batches

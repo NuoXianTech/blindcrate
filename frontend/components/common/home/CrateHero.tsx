@@ -2,23 +2,22 @@
 
 import {motion, useReducedMotion} from 'motion/react';
 import {cn} from 'cn';
+import {useQualities} from '@/components/common/site';
 
-/** 7 级品质, 从低到高, 与 README 一致 */
-const QUALITIES = [
-  {label: '灰', className: 'bg-quality-gray'},
-  {label: '绿', className: 'bg-quality-green'},
-  {label: '蓝', className: 'bg-quality-blue'},
-  {label: '紫', className: 'bg-quality-purple'},
-  {label: '红', className: 'bg-quality-red'},
-  {label: '金', className: 'bg-quality-gold'},
-  {label: '炫彩', className: 'quality-rainbow'},
-];
+/** 阶梯最多显示几级品质, 品质更多时只显示最高的几级 */
+const MAX_STEPS = 9;
+/** 最矮和最高的色条的高度, 像素 */
+const MIN_HEIGHT = 24;
+const MAX_HEIGHT = 96;
 
 const LID_DELAY = 0.4;
 
-/** 首页主视觉: 箱盖打开一次, 品质阶梯从箱口升起 */
+/** 首页主视觉: 箱盖打开一次, 品质阶梯从箱口升起; 品质由管理员配置, 还没有品质时只有箱子 */
 export function CrateHero() {
   const reduced = useReducedMotion();
+  const {qualities} = useQualities();
+  const steps = [...qualities].sort((a, b) => a.level - b.level).slice(-MAX_STEPS);
+  const stepHeight = steps.length > 1 ? (MAX_HEIGHT - MIN_HEIGHT) / (steps.length - 1) : 0;
   // 减少动态效果时直接显示打开后的状态
   const t = (delay: number, duration: number) => (reduced ? {duration: 0} : {delay, duration, ease: [0.22, 1, 0.36, 1] as const});
 
@@ -34,12 +33,12 @@ export function CrateHero() {
 
       {/* 品质阶梯: 越高品质越高 */}
       <div className="absolute bottom-[4.5rem] flex items-end gap-1.5">
-        {QUALITIES.map((q, i) => (
+        {steps.map((q, i) => (
           <motion.div
-            key={q.label}
-            title={`${q.label}色品质`}
-            className={cn('w-5 rounded-t-sm', q.className)}
-            style={{height: 24 + i * 12}}
+            key={q.level}
+            title={q.name}
+            className={cn('w-5 rounded-t-sm', q.bar)}
+            style={{height: MIN_HEIGHT + i * stepHeight}}
             initial={{y: 40, opacity: 0}}
             animate={{y: 0, opacity: 1}}
             transition={t(LID_DELAY + 0.25 + i * 0.07, 0.6)}

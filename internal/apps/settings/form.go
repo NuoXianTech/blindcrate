@@ -290,7 +290,7 @@ func (g *group) merge(tx *gorm.DB, cur any, broken []string, raw json.RawMessage
 	return next, nil
 }
 
-// validate 按 binding 规则校验, 并检查下拉框和引用字段的值是否在可选值中
+// validate 按 binding 规则校验, 并检查下拉框和引用字段的值是否在可选值中; 引用字段可以为空, 表示没有选择, 必填的由 binding 规则限制
 func (g *group) validate(tx *gorm.DB, v any) error {
 	if err := params.ValidateStruct(v); err != nil {
 		return err
@@ -308,6 +308,9 @@ func (g *group) validate(tx *gorm.DB, v any) error {
 			}
 		}
 		value := rv.Field(f.index).String()
+		if f.Ref != "" && value == "" {
+			continue
+		}
 		if !slices.ContainsFunc(options, func(o params.Option) bool { return o.Value == value }) {
 			return fmt.Errorf(OptionInvalid, f.Label)
 		}

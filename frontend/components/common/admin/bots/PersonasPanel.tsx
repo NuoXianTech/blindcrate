@@ -166,7 +166,7 @@ export function PersonasPanel() {
                 );
               })
             ) : (
-              <TableEmpty colSpan={4}>没有找到风格</TableEmpty>
+              <TableEmpty colSpan={4}>{keyword ? '没有找到风格' : '还没有风格, 新建风格或在导入导出中导入配置包'}</TableEmpty>
             )}
           </TableBody>
         </Table>

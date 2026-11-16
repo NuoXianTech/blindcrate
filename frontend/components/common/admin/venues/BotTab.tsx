@@ -137,7 +137,11 @@ function WeightList({mode, enabled, drafts, personas, onChange, disabled}: Weigh
           />
         ))}
         {drafts.length === 0 && (
-          <p className="py-2 text-sm text-muted-foreground">{enabled ? '至少需要一种风格' : '没有配置风格'}</p>
+          <p className="py-2 text-sm text-muted-foreground">
+            {personas.length === 0 ?
+              '还没有人机风格, 请先在人机管理中新建或导入配置包' :
+              enabled ? '至少需要一种风格' : '没有配置风格'}
+          </p>
         )}
         <div>
           <Button
@@ -145,7 +149,7 @@ function WeightList({mode, enabled, drafts, personas, onChange, disabled}: Weigh
             variant="outline"
             size="sm"
             onClick={() => onChange([...drafts, {key: nanoid(), persona: unused?.code ?? '', weight: '10'}])}
-            disabled={disabled || drafts.length >= MAX_BOT_PERSONAS}
+            disabled={disabled || personas.length === 0 || drafts.length >= MAX_BOT_PERSONAS}
           >
             <Plus />
             添加风格
