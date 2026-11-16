@@ -54,6 +54,28 @@ func GetUserIDFromContext(c *gin.Context) uint64 {
 	return GetUserIDFromSession(session)
 }
 
+// sessionStamp 账号的标识: 注册时间, 精确到微秒(数据库保存的精度)
+//
+// session 存在 Redis, 用户存在数据库。数据库重建、恢复备份或换库而 Redis 没有清空时,
+// 新注册的账号会用到旧账号的 ID, 只按 ID 认人的话旧 session 会直接进入新账号。
+// ID 相同的两个账号注册时间不同, 所以登录时把它写入 session, 之后每次请求都核对。
+func sessionStamp(user *User) int64 {
+	return user.CreatedAt.UnixMicro()
+}
+
+// setSessionUser 把登录的用户写入 session, 调用方负责保存
+func setSessionUser(s sessions.Session, user *User) {
+	s.Set(UserIDKey, user.ID)
+	s.Set(UserNameKey, user.Username)
+	s.Set(UserStampKey, sessionStamp(user))
+}
+
+// sessionMatchesUser session 是不是登录这个账号时建立的; 没有账号标识的旧 session 也不算
+func sessionMatchesUser(s sessions.Session, user *User) bool {
+	stamp, ok := s.Get(UserStampKey).(int64)
+	return ok && stamp == sessionStamp(user)
+}
+
 // GetUserFromContext 从Context中获取User对象
 func GetUserFromContext(c *gin.Context) (*User, bool) {
 	user, exists := c.Get(UserObjKey)

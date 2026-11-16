@@ -30,7 +30,9 @@ import "time"
 const (
 	UserNameKey = "username"
 	UserIDKey   = "user_id"
-	UserObjKey  = "user_obj"
+	// UserStampKey 登录时账号的标识, 见 sessionStamp
+	UserStampKey = "user_stamp"
+	UserObjKey   = "user_obj"
 )
 
 const (

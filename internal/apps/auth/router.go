@@ -100,8 +100,7 @@ func Login(c *gin.Context) {
 		return
 	}
 	session := sessions.Default(c)
-	session.Set(UserIDKey, user.ID)
-	session.Set(UserNameKey, user.Username)
+	setSessionUser(session, user)
 	if err := session.Save(); err != nil {
 		logger.ErrorF(ctx, "[Login] save session failed: %v", err)
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
@@ -223,8 +222,7 @@ func Register(c *gin.Context) {
 		return
 	}
 	session := sessions.Default(c)
-	session.Set(UserIDKey, user.ID)
-	session.Set(UserNameKey, user.Username)
+	setSessionUser(session, user)
 	if err := session.Save(); err != nil {
 		logger.ErrorF(ctx, "[Register] save session failed: %v", err)
 		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
