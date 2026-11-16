@@ -54,7 +54,7 @@ func (r *AuctionRule) Calibrate(stats ValueStats, b *settings.BalanceSettings) {
 	if b.SpeedFloorEnabled {
 		r.SpeedFloor = ofRate(stats.Mean, b.SpeedFloorRate)
 	}
-	r.PreviewRate = int32(b.PreviewRate)
+	r.PreviewRate, r.RescanEvery, r.RescanRate = int32(b.PreviewRate), int32(b.RescanEvery), int32(b.RescanRate)
 }
 
 // Calibrate 推导地图的金额: 各档次的起拍价和速胜下限按格子大小推导, 地图的起拍价取各档次中最低的;

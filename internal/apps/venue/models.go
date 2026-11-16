@@ -200,6 +200,16 @@ type AuctionRule struct {
 	SpeedFloor   int64 `json:"speed_floor"`   // 速胜下限, 速胜时第一名的出价不能低于它
 	LeadDiscount int32 `json:"lead_discount"` // 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让), 不低于起拍价
 	PreviewRate  int32 `json:"preview_rate"`  // 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率公开占的格子, 至少一件; 0 表示不公开
+	RescanEvery  int32 `json:"rescan_every"`  // 每隔几轮再扫描一次: 第 1 + 间隔、1 + 2 × 间隔... 轮开始时再扫一次, 加轮也算; 0 表示不再扫描
+	RescanRate   int32 `json:"rescan_rate"`   // 再次扫描比例, 基点: 每次再扫描时还没扫出的每件藏品按这个概率公开占的格子
+}
+
+// Rescans 拍品的第 round 轮开始时已经再扫描过几次, 不含第 1 轮的扫描
+func (r *AuctionRule) Rescans(round int32) int32 {
+	if r.RescanEvery <= 0 || r.RescanRate <= 0 || round <= 1 {
+		return 0
+	}
+	return (round - 1) / r.RescanEvery
 }
 
 // BotBudget 人机的带入资金; 推导出它之前保存的地图为带入资金上限

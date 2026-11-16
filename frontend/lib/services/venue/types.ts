@@ -80,8 +80,12 @@ export interface AuctionRule {
   speed_floor: number;
   /** 领先折让, 基点: 成交价 = 第二名的出价 + 领先部分 × (1 - 折让) */
   lead_discount: number;
-  /** 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件; 其余直到开箱都不公开 */
+  /** 首轮扫描比例, 基点: 第 1 轮每件藏品按这个概率扫出轮廓, 至少一件 */
   preview_rate: number;
+  /** 每隔几轮在一轮开始时再扫描一次, 加轮也算; 0 表示不再扫描 */
+  rescan_every: number;
+  /** 再次扫描比例, 基点: 每次再扫描时还没扫出的每件藏品按这个概率扫出轮廓 */
+  rescan_rate: number;
 }
 
 /**

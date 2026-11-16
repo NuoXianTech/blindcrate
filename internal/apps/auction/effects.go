@@ -65,17 +65,17 @@ type cell struct{ x, y int16 }
 type UseContext struct {
 	Pieces     []DepotItem         // 货仓里的全部藏品, 按扫描顺序
 	Value      int64               // 货仓价值
-	Outlined   map[cell]bool       // 使用者已知轮廓的藏品, 按位置; 第 1 轮扫出的和之前用道具看到的
+	Outlined   map[cell]bool       // 使用者已知轮廓的藏品, 按位置; 到这一轮为止扫出的和之前用道具看到的
 	Known      map[cell]bool       // 使用者已知品质的藏品, 按位置; 品质从不公开, 只有之前用道具看到的
 	KnownNames map[cell]bool       // 使用者已知名称的藏品, 按位置
 	Rand       func(n int64) int64 // 返回 [0, n) 的随机数, 测试时可以替换
 }
 
-// newUseContext 以座位 seat 的视角生成上下文; uses 为这个座位之前用过的道具
-func newUseContext(value int64, items []DepotItem, uses []Use, random func(n int64) int64) *UseContext {
+// newUseContext 以座位 seat 的视角生成上下文; round 为拍品的当前轮次, uses 为这个座位之前用过的道具
+func newUseContext(value int64, items []DepotItem, round int32, uses []Use, random func(n int64) int64) *UseContext {
 	ctx := &UseContext{Pieces: items, Value: value, Outlined: map[cell]bool{}, Known: map[cell]bool{}, KnownNames: map[cell]bool{}, Rand: random}
 	for _, it := range items {
-		if it.Preview {
+		if it.Outlined(round) {
 			ctx.Outlined[cell{it.X, it.Y}] = true
 		}
 	}

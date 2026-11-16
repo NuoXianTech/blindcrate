@@ -143,6 +143,8 @@ function DetailContent({code, decimals}: { code: string; decimals: number }) {
             {v.auction.preview_rate > 0 ?
               `第 1 轮每件藏品有 ${formatRate(v.auction.preview_rate)} 的概率扫出轮廓, 至少一件` :
               '开局不扫描, 只知道货仓大小'}
+            {v.auction.rescan_every > 0 && v.auction.rescan_rate > 0 &&
+              `; 之后每 ${v.auction.rescan_every} 轮再扫描一次, 还没扫出的每件有 ${formatRate(v.auction.rescan_rate)} 的概率扫出`}
             <p className="text-xs text-muted-foreground">
               只看得到占的格子; 件数、品质和名称直到开箱都不公开, 只能靠道具看到
             </p>

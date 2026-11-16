@@ -160,7 +160,9 @@ func TestWarehouseObservation(t *testing.T) {
 	}
 	s := testWarehouse(3, watcher)
 	spec := testSpec(3, 50000, 50000)
-	spec.Future, spec.LotsLeft, spec.Footprints = 700, 2, []Footprint{{X: 1, Y: 2, Width: 1, Height: 1}}
+	// 第 3 轮再扫出一件, 人机到那一轮才看得到
+	spec.Future, spec.LotsLeft = 700, 2
+	spec.Outlines = []Footprint{{X: 1, Y: 2, Width: 1, Height: 1, Round: 1}, {X: 3, Y: 0, Width: 2, Height: 1, Round: 3}}
 	s.openLot(spec)
 	for round, bids := range [][]int64{{200, 0, 0}, {300, 250, 0}, {900, 800, 700}} {
 		for i, amount := range bids {
@@ -178,7 +180,7 @@ func TestWarehouseObservation(t *testing.T) {
 		if obs.Round != int32(i+1) || !reflect.DeepEqual(obs.Others, others[i]) {
 			t.Errorf("round %d: observed round %d, others %v, want %v", i+1, obs.Round, obs.Others, others[i])
 		}
-		if obs.Carry != 5000 || obs.Future != 700 || obs.LotsLeft != 2 || len(obs.Footprints) != 1 || obs.Rules.StartPrice != 100 || obs.Seed != 3 {
+		if obs.Carry != 5000 || obs.Future != 700 || obs.LotsLeft != 2 || len(obs.Footprints) != 1+i/2 || obs.Rules.StartPrice != 100 || obs.Seed != 3 {
 			t.Errorf("round %d: observation %+v", i+1, obs)
 		}
 	}

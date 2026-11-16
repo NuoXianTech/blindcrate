@@ -25,6 +25,7 @@
 package auction
 
 import (
+	"math"
 	"math/rand/v2"
 	"reflect"
 	"slices"
@@ -199,6 +200,49 @@ func TestSettlePrice(t *testing.T) {
 	rule.QuickWin = []int32{20000, 16000}
 	if got := judge(&rule, 1, 0, []bidder{{1, 1000, at(2)}, {2, 500, at(1)}}); got.Price != 900 {
 		t.Errorf("quick win price: got %+v, want 900", got)
+	}
+}
+
+func TestOutlineRounds(t *testing.T) {
+	rule := venue.AuctionRule{Rounds: 5, MaxExtraRounds: 1, PreviewRate: 3000, RescanEvery: 2, RescanRate: 5000}
+	// 第 1 轮扫出第 1 件; 第 3 轮再扫剩下的 3 件, 扫出第 2 件; 第 5 轮再扫剩下的 2 件, 扫出第 4 件
+	got := outlineRounds(4, &rule, sequence(0, 9999, 9999, 9999, 4999, 5000, 5000, 9999, 0))
+	if !slices.Equal(got, []int32{1, 3, 0, 5}) {
+		t.Errorf("rescans: got %v", got)
+	}
+	// 间隔或比例为 0 时只有第 1 轮
+	for _, off := range []venue.AuctionRule{
+		{Rounds: 5, PreviewRate: 3000, RescanRate: 5000},
+		{Rounds: 5, PreviewRate: 3000, RescanEvery: 2},
+	} {
+		if got := outlineRounds(3, &off, sequence(0, 9999, 9999)); !slices.Equal(got, []int32{1, 0, 0}) {
+			t.Errorf("rescan off: got %v", got)
+		}
+	}
+	// 加轮也算: 3 轮加 2 个加轮, 每 2 轮一次, 第 3、5 轮再扫描
+	extra := venue.AuctionRule{Rounds: 3, MaxExtraRounds: 2, RescanEvery: 2, RescanRate: venue.BasisPoints}
+	if extra.Rescans(1) != 0 || extra.Rescans(2) != 0 || extra.Rescans(3) != 1 || extra.Rescans(5) != 2 {
+		t.Errorf("rescans by round: %d %d %d %d", extra.Rescans(1), extra.Rescans(2), extra.Rescans(3), extra.Rescans(5))
+	}
+	if got := outlineRounds(2, &extra, first); !slices.Equal(got, []int32{3, 3}) {
+		t.Errorf("no preview, full rescan: got %v", got)
+	}
+	// 还没扫出的概率: 首轮 70%, 每次再扫描剩下一半
+	for round, want := range map[int32]float64{1: 0.7, 2: 0.7, 3: 0.35, 4: 0.35, 5: 0.175, 6: 0.175} {
+		if got := hiddenShare(&rule, round); math.Abs(got-want) > 1e-9 {
+			t.Errorf("hidden share in round %d: got %v, want %v", round, got, want)
+		}
+	}
+	// 已经扫出的才公开, 没到轮次的不带出去
+	items := []DepotItem{{X: 0, Width: 1, Height: 1, OutlineRound: 1}, {X: 1, Width: 2, Height: 1}, {X: 3, Width: 1, Height: 2, OutlineRound: 3}}
+	if got := visibleOutlines(outlines(items), 2); !slices.Equal(got, []Footprint{{X: 0, Width: 1, Height: 1, Round: 1}}) {
+		t.Errorf("round 2: got %+v", got)
+	}
+	if got := visibleOutlines(outlines(items), 3); len(got) != 2 || got[1] != (Footprint{X: 3, Width: 1, Height: 2, Round: 3}) {
+		t.Errorf("round 3: got %+v", got)
+	}
+	if items[2].Outlined(2) || !items[2].Outlined(3) || items[1].Outlined(9) {
+		t.Error("Outlined should follow the outline round")
 	}
 }
 

@@ -97,6 +97,11 @@ func (l *Lot) CanBid(seat int16) bool {
 	return len(l.Contenders) == 0 || slices.Contains(l.Contenders, seat)
 }
 
+// Outlined 这件藏品的轮廓在拍品的第 round 轮是否已经扫出
+func (it *DepotItem) Outlined(round int32) bool {
+	return it.OutlineRound > 0 && it.OutlineRound <= round
+}
+
 // Round 仓库的第 round 轮是这个拍品的第几轮
 func (l *Lot) Round(round int32) int32 {
 	return round - l.FirstRound + 1
@@ -197,9 +202,9 @@ type DepotItem struct {
 	ID           uint64 `gorm:"primaryKey" json:"id"`
 	MatchID      uint64 `gorm:"not null;index:idx_auction_depot_items_match_id" json:"match_id"`
 	LotNo        int32  `gorm:"not null;default:1" json:"lot_no"`
-	Preview      bool   `gorm:"not null;default:false" json:"preview"` // 是否在这个拍品的第 1 轮扫出轮廓(占的格子), 所有人都看得到, 不含品质和名称
-	ScanOrder    int32  `gorm:"not null;default:0" json:"scan_order"`  // 开箱时扫描的顺序, 从 1 开始, 按位置从上到下、从左到右
-	ScanMs       int32  `gorm:"not null;default:0" json:"scan_ms"`     // 开箱时扫描这件的时长, 毫秒, 开局时按品质快照
+	OutlineRound int32  `gorm:"not null;default:0" json:"outline_round"` // 在这个拍品的第几轮扫出轮廓(占的格子), 之后所有人都看得到, 不含品质和名称; 0 表示不扫出, 开局时抽好, 见 outlineRounds
+	ScanOrder    int32  `gorm:"not null;default:0" json:"scan_order"`    // 开箱时扫描的顺序, 从 1 开始, 按位置从上到下、从左到右
+	ScanMs       int32  `gorm:"not null;default:0" json:"scan_ms"`       // 开箱时扫描这件的时长, 毫秒, 开局时按品质快照
 	ItemID       uint64 `gorm:"not null" json:"item_id"`
 	Name         string `gorm:"size:64;not null" json:"name"`
 	ImageURL     string `gorm:"size:1024;not null;default:''" json:"image_url"`

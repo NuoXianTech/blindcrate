@@ -44,14 +44,14 @@ const (
 )
 
 // Observation 人机每轮决策时看到的信息, 与同座位的真人在这一轮出价时看到的相同:
-// 当前拍品的拍卖规则(含首轮扫描比例)和按格子大小推断的公示概率, 第 1 轮扫出轮廓的藏品占的格子, 自己的剩余资金和出价,
+// 当前拍品的拍卖规则(含扫描比例)和按格子大小推断的公示概率, 到这一轮为止扫出轮廓的藏品占的格子, 自己的剩余资金和出价,
 // 其他人已公开的出价(前 N-1 轮每轮结束后公开), 之后的拍品按格子大小推断的期望价值;
 // 不包含货仓价值、件数、品质、档次、藏品名称和其他人当前轮的出价。策略不能修改观察。
 type Observation struct {
 	Round      int32             `json:"round"` // 第几轮, 大于规则的轮数时为加轮, 此时自己与其他可以出价的人并列最高
 	Rules      venue.AuctionRule `json:"rules"`
 	Grid       venue.Grid        `json:"grid"`
-	Footprints []Footprint       `json:"footprints"` // 第 1 轮扫出轮廓的藏品占的格子
+	Footprints []Footprint       `json:"footprints"` // 到这一轮为止扫出轮廓的藏品占的格子
 	Odds       []venue.PieceOdds `json:"odds"`       // 按公示概率算出的藏品分布, 多档次时按格子大小推断的各档次混合
 	Carry      int64             `json:"carry"`      // 剩余资金, 这个拍品出价的上限
 	Bid        int64             `json:"bid"`        // 自己在这个拍品的当前出价, 0 表示还没出过价
@@ -128,7 +128,7 @@ func registerStrategies() {
 func decideBasic(obs Observation, p *basicParams, rng *rand.Rand) Decision {
 	rules := &obs.Rules
 	personal := rand.New(rand.NewPCG(uint64(obs.Seed), 0))
-	appraisal := appraise(obs.Odds, obs.Footprints, p.Perception, rules.PreviewRate)
+	appraisal := appraise(obs.Odds, obs.Footprints, p.Perception, hiddenShare(rules, obs.Round))
 	estimate := int64(appraisal * float64(venue.BasisPoints+spread(personal, p.Bias)) / venue.BasisPoints)
 	decision := Decision{Estimate: estimate}
 	carry := obs.Carry
@@ -189,11 +189,11 @@ func budget(carry, estimate, future, pace int64) int64 {
 }
 
 // appraise 按公开信息估算货仓价值: 扫出轮廓的每件按估值方式归类, 取公示概率下同类藏品按期望件数加权的平均回收价;
-// 没扫出的按期望价值 × (1 - 首轮扫描比例) 估算
+// 没扫出的按期望价值 × 还没扫出的概率估算
 //
-// 每件藏品扫不扫出与它是什么无关, 没扫出的部分平均就是期望价值的 (1 - 比例); 不看尺寸或公示概率中没有同类时按全部藏品的平均价。
-// 扫出的件数也透露了总件数, 这里不利用, 留给真人。previewRate 为基点。
-func appraise(odds []venue.PieceOdds, footprints []Footprint, perception string, previewRate int32) float64 {
+// 每件藏品扫不扫出与它是什么无关, 没扫出的部分平均就是期望价值 × hidden(每件到这一轮还没扫出的概率, 见 hiddenShare); 不看尺寸或公示概率中没有同类时按全部藏品的平均价。
+// 扫出的件数也透露了总件数, 这里不利用, 留给真人。
+func appraise(odds []venue.PieceOdds, footprints []Footprint, perception string, hidden float64) float64 {
 	type key struct{ width, height int16 }
 	type group struct{ count, value float64 }
 	keyOf := func(width, height int16) key {
@@ -222,7 +222,7 @@ func appraise(odds []venue.PieceOdds, footprints []Footprint, perception string,
 	if all.count <= 0 {
 		return 0
 	}
-	total := all.value * float64(venue.BasisPoints-previewRate) / venue.BasisPoints
+	total := all.value * hidden
 	for _, f := range footprints {
 		if g, ok := groups[keyOf(f.Width, f.Height)]; ok && g.count > 0 {
 			total += g.value / g.count

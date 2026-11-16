@@ -60,7 +60,7 @@ func TestCalibrate(t *testing.T) {
 		c.want.Rounds, c.want.QuickWin = rule.Rounds, rule.QuickWin
 		if !slices.Equal(rule.QuickWin, []int32{23000, 18975, 18630, 17825}) || rule.EntryFee != 0 || rule.StartPrice != c.want.StartPrice ||
 			rule.MaxCarry != c.want.MaxCarry || rule.BotCarry != c.want.BotCarry || rule.SpeedFloor != c.want.SpeedFloor || rule.LeadDiscount != 0 ||
-			rule.PreviewRate != 3000 {
+			rule.PreviewRate != 3000 || rule.RescanEvery != 2 || rule.RescanRate != 1500 {
 			t.Errorf("%s: got %+v, want %+v", c.name, rule, c.want)
 		}
 	}

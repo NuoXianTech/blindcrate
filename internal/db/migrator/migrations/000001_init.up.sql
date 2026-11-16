@@ -512,7 +512,7 @@ CREATE TABLE IF NOT EXISTS auction_depot_items
     id            BIGSERIAL PRIMARY KEY,
     match_id      BIGINT        NOT NULL,
     lot_no        INTEGER       NOT NULL DEFAULT 1,
-    preview       BOOLEAN       NOT NULL DEFAULT FALSE, -- 是否在这个拍品的第 1 轮扫出轮廓(占的格子), 所有人都看得到
+    outline_round INTEGER       NOT NULL DEFAULT 0,     -- 在这个拍品的第几轮扫出轮廓(占的格子), 之后所有人都看得到; 0 表示不扫出
     scan_order    INTEGER       NOT NULL DEFAULT 0,     -- 开箱时扫描的顺序, 从 1 开始, 按位置从上到下、从左到右
     scan_ms       INTEGER       NOT NULL DEFAULT 0,     -- 开箱时扫描这件的时长, 毫秒, 开局时按品质快照
     item_id       BIGINT        NOT NULL,
