@@ -57,6 +57,27 @@ func init() {
 	audit.RegisterAction(ActionVenueRecalibrate, "重新推导地图")
 	condition.RegisterScopeNamer("mode", modeScopeName)
 	condition.RegisterScopeNamer("venue", venueScopeName)
+	stats.RegisterScopeOptions(scopeOptions)
+}
+
+// scopeOptions 统计范围的候选项: 每种模式、每张地图和地图的每种模式
+func scopeOptions(tx *gorm.DB) ([]params.Option, error) {
+	modes := []string{ModePve, ModeRanked}
+	var options []params.Option
+	for _, mode := range modes {
+		options = append(options, params.Option{Value: stats.ScopeMode(mode), Label: "全部" + modeNames[mode] + "对局"})
+	}
+	var venues []Venue
+	if err := tx.Select("code", "name").Order("sort_order, id").Find(&venues).Error; err != nil {
+		return nil, err
+	}
+	for _, v := range venues {
+		options = append(options, params.Option{Value: stats.ScopeVenue(v.Code), Label: v.Name})
+		for _, mode := range modes {
+			options = append(options, params.Option{Value: stats.ScopeVenueMode(v.Code, mode), Label: v.Name + " " + modeNames[mode]})
+		}
+	}
+	return options, nil
 }
 
 // codePattern 地图代码, 小写字母、数字和下划线; 玩法代码最长 32, 需要留出 "ranked:" 前缀

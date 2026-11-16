@@ -24,8 +24,8 @@
 
 package wallet
 
-// RefCurrency 设置中引用货币的字段, 可选值为全部启用的货币, 见 settings.RegisterRef
-const RefCurrency = "currency"
+// SourceCurrency 可选值来源: 全部启用的货币, 值为货币代码; 参数字段用 input:"currency" 引用, 设置组用 ref:"currency"
+const SourceCurrency = "currency"
 
 // 业务类型, 每种会变动余额的业务一个
 const (

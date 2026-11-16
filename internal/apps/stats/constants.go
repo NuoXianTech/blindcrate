@@ -35,6 +35,12 @@ package stats
 // ScopeAll 统计范围: 全部对局
 const ScopeAll = "all"
 
+// 可选值来源, 参数字段用 input tag 引用, 见 params.RegisterSource
+const (
+	SourceMetric = "metric" // 已注册的计数指标, 值为指标的 key
+	SourceScope  = "scope"  // 统计范围, 候选项见 RegisterScopeOptions, 也可以手动填写
+)
+
 // PeriodTotal 统计周期: 累计
 const PeriodTotal = "total"
 

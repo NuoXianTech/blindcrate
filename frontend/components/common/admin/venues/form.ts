@@ -237,7 +237,7 @@ export function toVenueForm(venue: VenueRequest | null, {currencies, types, base
     rankedEnabled: v.ranked_enabled,
     bidCurrency: v.bid_currency,
     entryCost: toBundleDrafts(v.entry_cost, currencies),
-    requirements: toConditionDrafts(v.requirements ?? [], types),
+    requirements: toConditionDrafts(v.requirements ?? [], types, currencies),
     lotMin: String(v.lots.min),
     lotMax: String(v.lots.max),
     tiers: v.lots.tiers.map((t) => ({
@@ -405,7 +405,7 @@ export function toVenueRequest(form: VenueForm, currencies: Currency[], types: C
     ranked_enabled: form.rankedEnabled,
     bid_currency: form.bidCurrency,
     entry_cost: fromBundleDrafts(form.entryCost, currencies, '入场代价'),
-    requirements: fromConditionDrafts(form.requirements, types, '入场条件'),
+    requirements: fromConditionDrafts(form.requirements, types, '入场条件', currencies),
     lots: fromLots(form),
     auction: {
       rounds,

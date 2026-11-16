@@ -30,9 +30,11 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -46,6 +48,40 @@ func init() {
 	audit.RegisterAction(ActionQualityCreate, "新建品质")
 	audit.RegisterAction(ActionQualityUpdate, "修改品质")
 	audit.RegisterAction(ActionQualityDelete, "删除品质")
+	params.RegisterSource(SourceItem, params.Source{Options: itemOptions})
+	params.RegisterSource(SourceQuality, params.Source{Options: qualityOptions})
+}
+
+// itemOptions 可以选的物品: 全部没有删除的物品, 按品质从高到低; 已下架的不能新选
+func itemOptions(tx *gorm.DB) ([]params.Option, error) {
+	var items []Item
+	if err := tx.Select("id", "name", "quality", "is_enabled").Order("quality DESC, id").Find(&items).Error; err != nil {
+		return nil, err
+	}
+	options := make([]params.Option, len(items))
+	for i, it := range items {
+		options[i] = params.Option{
+			Value:    strconv.FormatUint(it.ID, 10),
+			Label:    it.Name,
+			Hint:     "#" + strconv.FormatUint(it.ID, 10),
+			Quality:  it.Quality,
+			Disabled: !it.IsEnabled,
+		}
+	}
+	return options, nil
+}
+
+// qualityOptions 可以选的品质, 按等级从低到高
+func qualityOptions(tx *gorm.DB) ([]params.Option, error) {
+	var qualities []Quality
+	if err := tx.Order("level").Find(&qualities).Error; err != nil {
+		return nil, err
+	}
+	options := make([]params.Option, len(qualities))
+	for i, q := range qualities {
+		options[i] = params.Option{Value: strconv.Itoa(int(q.Level)), Label: q.Name, Quality: q.Level}
+	}
+	return options, nil
 }
 
 // Placeholder 生成占位物品, 保留原物品 ID, 按 currency 回收

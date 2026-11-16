@@ -23,8 +23,6 @@ export const MAX_TAB_LENGTH = 16;
 /** 限购和库存的上限 */
 export const MAX_LIMIT = 1_000_000;
 
-/** 条件编辑器中统计范围用到的地图数上限 */
-export const VENUE_LIMIT = 100;
 
 /** 商品转为修改接口的请求体, 修改接口需要提交全部字段 */
 export function toRequest(item: AdminShopItem): ShopItemRequest {

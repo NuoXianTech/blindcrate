@@ -123,7 +123,7 @@ function MissionForm({target, options, onClose, onSaved}: Omit<MissionDialogProp
   const [sortOrder, setSortOrder] = useState(String(source?.sort_order ?? 0));
   const [isEnabled, setIsEnabled] = useState(source?.is_enabled ?? true);
   const [reward, setReward] = useState(() => toBundleDrafts(source?.reward ?? {}, currencies));
-  const [requirements, setRequirements] = useState(() => toConditionDrafts(source?.requirements ?? [], types));
+  const [requirements, setRequirements] = useState(() => toConditionDrafts(source?.requirements ?? [], types, currencies));
 
   const currency = metricCurrency(metric, currencies);
   const unknownMetric = metric && !metrics.some((m) => m.key === metric);
@@ -143,7 +143,7 @@ function MissionForm({target, options, onClose, onSaved}: Omit<MissionDialogProp
       metric,
       target: goal!,
       reward: fromBundleDrafts(reward, currencies, '奖励'),
-      requirements: fromConditionDrafts(requirements, types, '任务条件'),
+      requirements: fromConditionDrafts(requirements, types, '任务条件', currencies),
       sort_order: sort!,
       is_enabled: isEnabled,
     };
@@ -298,7 +298,6 @@ function MissionForm({target, options, onClose, onSaved}: Omit<MissionDialogProp
           types={types}
           items={items}
           currencies={currencies}
-          scopes={scopes}
           max={MAX_REQUIREMENTS}
           empty="没有任务条件, 所有玩家都能领取"
           disabled={pending}

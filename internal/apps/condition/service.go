@@ -68,7 +68,7 @@ var (
 
 // Register 注册一种条件类型, 需要在启动前调用; 类型为空、过长、重复或参数结构体有不支持的字段时 panic
 //
-// P 为参数结构体, 字段的 tag 见 params 包, 可用 input 指定选择器(currency、item、quality、scope、metric、pool);
+// P 为参数结构体, 字段的 tag 见 params 包, 可用 input 引用可选值来源(如 currency、item、quality、scope、metric);
 // P 的指针可以实现 params.Validator。check 只读, 不能有副作用, 返回的 Progress 不需要填 Type。
 func Register[P any](conditionType, label, description string, check func(tx *gorm.DB, userID uint64, decoded *P) (*Progress, error)) {
 	if conditionType == "" || len(conditionType) > 32 {
@@ -98,24 +98,18 @@ func RegisterScopeNamer(prefix string, namer ScopeNamer) {
 	scopeNamers[prefix] = namer
 }
 
-// Types 全部条件类型, 按注册顺序; 选择器 metric 的可选值为已注册的计数指标
-func Types() []TypeView {
-	var metricOptions []params.Option
-	for _, m := range stats.Metrics() {
-		metricOptions = append(metricOptions, params.Option{Value: m.Key, Label: m.Label})
-	}
+// Types 全部条件类型, 按注册顺序; 参数的表单描述带当前的可选值
+func Types(tx *gorm.DB) ([]TypeView, error) {
 	views := make([]TypeView, 0, len(typeOrder))
 	for _, conditionType := range typeOrder {
 		def := definitions[conditionType]
-		fields := def.schema.Fields()
-		for i := range fields {
-			if fields[i].Input == "metric" {
-				fields[i].Options = metricOptions
-			}
+		fields, err := def.schema.Form(tx)
+		if err != nil {
+			return nil, err
 		}
 		views = append(views, TypeView{Type: conditionType, Label: def.label, Description: def.description, Fields: fields})
 	}
-	return views
+	return views, nil
 }
 
 // Validate 保存配置前校验条件列表

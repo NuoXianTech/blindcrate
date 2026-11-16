@@ -1,20 +1,13 @@
 'use client';
 
-import {useId} from 'react';
 import {Plus, Trash2} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import type {ConditionType} from '@/lib/services/condition';
 import type {AdminItem} from '@/lib/services/item';
 import type {Currency} from '@/lib/services/wallet';
-import {newConditionDraft, type ConditionDraft} from './drafts';
+import {MAX_PARAM_ITEMS, newConditionDraft, type ConditionDraft} from './drafts';
 import {ParamField} from './ParamField';
-
-/** 统计范围的候选项 */
-export interface ScopeOption {
-  value: string;
-  label: string;
-}
 
 /**
  * 条件编辑器的Props接口
@@ -22,28 +15,29 @@ export interface ScopeOption {
 interface ConditionEditorProps {
   drafts: ConditionDraft[];
   onChange: (drafts: ConditionDraft[]) => void;
-  /** 后端提供的条件类型, 据此生成参数表单 */
+  /** 后端提供的条件类型, 据此生成参数表单, 下拉框的可选值已经填好 */
   types: ConditionType[];
+  /** 物品和货币目录, 只有带奖励参数的条件用到 */
   items: AdminItem[];
   currencies: Currency[];
-  /** 统计范围输入框的候选项, 也可以手动输入 */
-  scopes: ScopeOption[];
   max: number;
   /** 没有任何条件时的提示 */
   empty: string;
+  /** 嵌套在另一个条件里: 不能再选带一组条件的类型, 最多嵌套一层 */
+  nested?: boolean;
   disabled?: boolean;
 }
 
 /**
  * 编辑一组条件, 如地图的入场条件; 参数表单由条件类型的字段描述生成
  */
-export function ConditionEditor({drafts, onChange, types, items, currencies, scopes, max, empty, disabled}: ConditionEditorProps) {
-  const scopeListID = useId();
+export function ConditionEditor({drafts, onChange, types: allTypes, items, currencies, max, empty, nested, disabled}: ConditionEditorProps) {
+  const types = nested ? allTypes.filter((t) => !t.fields.some((f) => f.type === 'conditions')) : allTypes;
   const update = (key: string, patch: Partial<ConditionDraft>) =>
     onChange(drafts.map((d) => (d.key === key ? {...d, ...patch} : d)));
   const changeType = (draft: ConditionDraft, value: string) => {
     const type = types.find((t) => t.type === value);
-    if (type) update(draft.key, {...newConditionDraft(type, currencies), key: draft.key});
+    if (type) update(draft.key, {...newConditionDraft(type), key: draft.key});
   };
 
   return (
@@ -92,7 +86,19 @@ export function ConditionEditor({drafts, onChange, types, items, currencies, sco
                     onChange={(value) => update(d.key, {params: {...d.params, [field.key]: value}})}
                     items={items}
                     currencies={currencies}
-                    scopeListID={scopeListID}
+                    renderConditions={nested ? undefined : (inner, setInner) => (
+                      <ConditionEditor
+                        drafts={inner}
+                        onChange={setInner}
+                        types={allTypes}
+                        items={items}
+                        currencies={currencies}
+                        max={MAX_PARAM_ITEMS}
+                        empty="还没有条件"
+                        nested
+                        disabled={disabled}
+                      />
+                    )}
                     disabled={disabled}
                   />
                 ))}
@@ -103,20 +109,12 @@ export function ConditionEditor({drafts, onChange, types, items, currencies, sco
       })}
       {drafts.length === 0 && <p className="py-2 text-sm text-muted-foreground">{empty}</p>}
 
-      <datalist id={scopeListID}>
-        {scopes.map((s) => (
-          <option key={s.value} value={s.value}>
-            {s.label}
-          </option>
-        ))}
-      </datalist>
-
       <div>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => types[0] && onChange([...drafts, newConditionDraft(types[0], currencies)])}
+          onClick={() => types[0] && onChange([...drafts, newConditionDraft(types[0])])}
           disabled={disabled || drafts.length >= max || !types.length}
         >
           <Plus />

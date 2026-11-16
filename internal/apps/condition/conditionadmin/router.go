@@ -27,7 +27,10 @@ package conditionadmin
 import (
 	"net/http"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/db"
+	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -45,12 +48,20 @@ type ListConditionTypesResponseData struct {
 // ListConditionTypes
 // @Tags admin
 // @Summary 获取全部条件类型
-// @Description 包含每种条件的参数表单描述, 用于条件编辑器; input 为 currency、item、scope 的字段需要用选择器填写
+// @Description 包含每种条件的参数表单描述, 用于条件编辑器; 下拉框和输入建议的可选值(货币、物品、统计范围等)已经填好
 // @Produce json
 // @Success 200 {object} Response{data=ListConditionTypesResponseData}
 // @Failure 401 {object} Response
 // @Failure 403 {object} Response
+// @Failure 500 {object} Response
 // @Router /api/v1/admin/conditions/types [get]
 func ListConditionTypes(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{Data: ListConditionTypesResponseData{Types: condition.Types()}})
+	ctx := c.Request.Context()
+	types, err := condition.Types(db.DB(ctx))
+	if err != nil {
+		logger.ErrorF(ctx, "[ListConditionTypes] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: ListConditionTypesResponseData{Types: types}})
 }

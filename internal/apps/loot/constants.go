@@ -43,3 +43,6 @@ const (
 	ActionLootPoolDelete        = "admin.loot_pool_delete"
 	ActionLootPoolEntriesUpdate = "admin.loot_pool_entries_update"
 )
+
+// SourcePool 可选值来源: 全部掉落池, 值为掉落池代码; 参数字段用 input:"pool" 引用, 见 params.RegisterSource
+const SourcePool = "pool"

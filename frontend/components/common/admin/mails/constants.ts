@@ -12,9 +12,6 @@ export const MAX_RECIPIENTS = 1000;
 export const MAX_ATTACHMENT_LINES = 8;
 export const MAX_REQUIREMENTS = 16;
 
-/** 条件编辑器中统计范围用到的地图数上限 */
-export const VENUE_LIMIT = 100;
-
 /** 下拉框里的"全部"选项 */
 export const ALL = 'all';
 

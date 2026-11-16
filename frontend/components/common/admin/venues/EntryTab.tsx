@@ -1,6 +1,6 @@
 'use client';
 
-import {BundleEditor, ConditionEditor, type ScopeOption} from '@/components/common/admin/editors';
+import {BundleEditor, ConditionEditor} from '@/components/common/admin/editors';
 import type {ConditionType} from '@/lib/services/condition';
 import type {AdminItem} from '@/lib/services/item';
 import type {Currency} from '@/lib/services/wallet';
@@ -11,11 +11,10 @@ import type {FormTabProps} from './form';
 /**
  * 入场: 入场代价和入场条件
  */
-export function EntryTab({form, onChange, disabled, items, currencies, types, scopes}: FormTabProps & {
+export function EntryTab({form, onChange, disabled, items, currencies, types}: FormTabProps & {
   items: AdminItem[];
   currencies: Currency[];
   types: ConditionType[];
-  scopes: ScopeOption[];
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -40,7 +39,6 @@ export function EntryTab({form, onChange, disabled, items, currencies, types, sc
           types={types}
           items={items}
           currencies={currencies}
-          scopes={scopes}
           max={MAX_REQUIREMENTS}
           empty="没有入场条件, 所有玩家都能加入"
           disabled={disabled}

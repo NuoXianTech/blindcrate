@@ -19,9 +19,6 @@ export const MAX_REQUIREMENTS = 16;
 /** 输入框中的兑换码最多的字符数, 含分隔用的空格和连字符 */
 export const MAX_CODE_INPUT = 64;
 
-/** 条件编辑器中统计范围用到的地图数上限 */
-export const VENUE_LIMIT = 100;
-
 /** 状态筛选 */
 export type StatusFilter = typeof ALL | RedeemBatchStatus;
 

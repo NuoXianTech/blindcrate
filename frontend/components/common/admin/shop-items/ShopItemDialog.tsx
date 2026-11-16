@@ -15,7 +15,6 @@ import {
   fromConditionDrafts,
   toBundleDrafts,
   toConditionDrafts,
-  type ScopeOption,
 } from '@/components/common/admin/editors';
 import {FieldGroup, InputField, SwitchField} from '@/components/common/admin/venues/Fields';
 import {ImageUploadField, SubmitButton} from '@/components/common/form';
@@ -30,12 +29,11 @@ import {fromLocalInput, parseAmount, toLocalInput} from '@/lib/utils';
 import {checkImageURL} from '@/lib/validation';
 import {CODE_PATTERN, MAX_BUNDLE_LINES, MAX_LIMIT, MAX_REQUIREMENTS, MAX_TAB_LENGTH} from './constants';
 
-/** 编辑商品用到的物品、货币、条件类型、统计范围和已有页签 */
+/** 编辑商品用到的物品、货币、条件类型和已有页签 */
 export interface ShopItemOptions {
   items: AdminItem[];
   currencies: Currency[];
   types: ConditionType[];
-  scopes: ScopeOption[];
   tabs: string[];
   loaded: boolean;
 }
@@ -105,7 +103,7 @@ function ShopItemForm({target, options, onClose, onSaved}: Omit<ShopItemDialogPr
   // 编辑和复制时以已有商品为初始值, 复制时代码留空
   const source = target.mode === 'new' ? null : target.item;
   const editing = target.mode === 'edit' ? target.item : null;
-  const {items, currencies, types, scopes} = options;
+  const {items, currencies, types} = options;
 
   const [code, setCode] = useState(editing?.code ?? '');
   const [name, setName] = useState(source?.name ?? '');
@@ -117,7 +115,7 @@ function ShopItemForm({target, options, onClose, onSaved}: Omit<ShopItemDialogPr
   const [goods, setGoods] = useState(() => toBundleDrafts(source?.goods ?? {}, currencies));
   const [price, setPrice] = useState(() => toBundleDrafts(source?.price ?? {}, currencies));
   const [originalPrice, setOriginalPrice] = useState(() => toBundleDrafts(source?.original_price ?? {}, currencies));
-  const [requirements, setRequirements] = useState(() => toConditionDrafts(source?.requirements ?? [], types));
+  const [requirements, setRequirements] = useState(() => toConditionDrafts(source?.requirements ?? [], types, currencies));
   const [limitTotal, setLimitTotal] = useState(String(source?.limits.total ?? 0));
   const [limitDaily, setLimitDaily] = useState(String(source?.limits.daily ?? 0));
   const [limitSeason, setLimitSeason] = useState(String(source?.limits.season ?? 0));
@@ -147,7 +145,7 @@ function ShopItemForm({target, options, onClose, onSaved}: Omit<ShopItemDialogPr
       goods: fromBundleDrafts(goods, currencies, '商品'),
       price: fromBundleDrafts(price, currencies, '价格'),
       original_price: fromBundleDrafts(originalPrice, currencies, '原价'),
-      requirements: fromConditionDrafts(requirements, types, '购买条件'),
+      requirements: fromConditionDrafts(requirements, types, '购买条件', currencies),
       limits: {
         total: parseLimit(limitTotal, '每人限购'),
         daily: parseLimit(limitDaily, '每天限购'),
@@ -297,7 +295,6 @@ function ShopItemForm({target, options, onClose, onSaved}: Omit<ShopItemDialogPr
           types={types}
           items={items}
           currencies={currencies}
-          scopes={scopes}
           max={MAX_REQUIREMENTS}
           empty="没有购买条件, 所有玩家都能购买"
           disabled={pending}

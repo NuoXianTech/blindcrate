@@ -33,6 +33,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
+	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -463,7 +464,15 @@ func DeleteBotPersona(c *gin.Context) {
 // @Success 200 {object} Response{data=[]bot.StrategyView}
 // @Failure 401 {object} Response
 // @Failure 403 {object} Response
+// @Failure 500 {object} Response
 // @Router /api/v1/admin/bot/strategies [get]
 func ListBotStrategies(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{Data: bot.Strategies()})
+	ctx := c.Request.Context()
+	strategies, err := bot.Strategies(db.DB(ctx))
+	if err != nil {
+		logger.ErrorF(ctx, "[ListBotStrategies] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: strategies})
 }

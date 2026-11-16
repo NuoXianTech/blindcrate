@@ -33,11 +33,50 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/task/schedule"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func init() {
+	params.RegisterSource(SourceMetric, params.Source{Options: metricOptions, First: true})
+	params.RegisterSource(SourceScope, params.Source{Options: scopeOptions, Free: true, Default: ScopeAll})
+}
+
+// metricOptions 可以选的计数指标, 按注册顺序
+func metricOptions(_ *gorm.DB) ([]params.Option, error) {
+	options := make([]params.Option, len(metrics))
+	for i, m := range metrics {
+		options[i] = params.Option{Value: m.Key, Label: m.Label}
+	}
+	return options, nil
+}
+
+// ScopeOptions 生成一类统计范围的候选项, 如每种模式、每张地图
+type ScopeOptions func(tx *gorm.DB) ([]params.Option, error)
+
+// scopeProviders 统计范围候选项的提供方, 按登记顺序, 只在启动前写入
+var scopeProviders []ScopeOptions
+
+// RegisterScopeOptions 登记一类统计范围的候选项, 由定义模式和地图的模块调用, 需要在启动前调用
+func RegisterScopeOptions(provider ScopeOptions) {
+	scopeProviders = append(scopeProviders, provider)
+}
+
+// scopeOptions 统计范围的候选项: 全部对局, 以及各模块登记的; 只是输入建议, 也可以手动填写
+func scopeOptions(tx *gorm.DB) ([]params.Option, error) {
+	options := []params.Option{{Value: ScopeAll, Label: "全部对局"}}
+	for _, provider := range scopeProviders {
+		more, err := provider(tx)
+		if err != nil {
+			return nil, err
+		}
+		options = append(options, more...)
+	}
+	return options, nil
+}
 
 // ScopeMode 统计范围: 某种模式的对局, 如 mode:ranked
 func ScopeMode(mode string) string {

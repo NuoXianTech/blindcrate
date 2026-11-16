@@ -887,6 +887,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/botadmin.Response"
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/botadmin.Response"
+                        }
                     }
                 }
             }
@@ -1306,7 +1312,7 @@ const docTemplate = `{
         },
         "/api/v1/admin/conditions/types": {
             "get": {
-                "description": "包含每种条件的参数表单描述, 用于条件编辑器; input 为 currency、item、scope 的字段需要用选择器填写",
+                "description": "包含每种条件的参数表单描述, 用于条件编辑器; 下拉框和输入建议的可选值(货币、物品、统计范围等)已经填好",
                 "produces": [
                     "application/json"
                 ],
@@ -1341,6 +1347,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/conditionadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/conditionadmin.Response"
                         }
@@ -1920,6 +1932,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/itemadmin.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/itemadmin.Response"
                         }
@@ -16973,11 +16991,15 @@ const docTemplate = `{
         "params.Field": {
             "type": "object",
             "properties": {
+                "default": {
+                    "description": "新建时的默认值, 由可选值来源给出",
+                    "type": "string"
+                },
                 "help": {
                     "type": "string"
                 },
                 "input": {
-                    "description": "text / textarea / password / select / switch / number / list, 或选择器 currency / item / quality / scope / metric / pool",
+                    "description": "text / textarea / datetime / password / select / suggest / multiselect / switch / number / list, 或 RegisterKind 登记的类型; Resolve 之前还可以是可选值来源的名称",
                     "type": "string"
                 },
                 "key": {
@@ -16987,14 +17009,18 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "options": {
-                    "description": "下拉框和部分选择器的可选值",
+                    "description": "下拉框、多选和输入建议的可选值",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/params.Option"
                     }
                 },
+                "required": {
+                    "description": "binding 规则中有 required: 字符串不能为空, 列表不能为空",
+                    "type": "boolean"
+                },
                 "type": {
-                    "description": "string / bool / int / int_list",
+                    "description": "string / bool / int / int_list / string_list, 或 RegisterKind 登记的类型",
                     "type": "string"
                 },
                 "unit": {
@@ -17006,8 +17032,20 @@ const docTemplate = `{
         "params.Option": {
             "type": "object",
             "properties": {
+                "disabled": {
+                    "description": "不能新选, 已经选了的照常展示, 如已下架的物品",
+                    "type": "boolean"
+                },
+                "hint": {
+                    "description": "次要的说明, 如代码",
+                    "type": "string"
+                },
                 "label": {
                     "type": "string"
+                },
+                "quality": {
+                    "description": "按这个品质的颜色展示, 0 为不着色",
+                    "type": "integer"
                 },
                 "value": {
                     "type": "string"
@@ -17876,11 +17914,15 @@ const docTemplate = `{
         "settings.Field": {
             "type": "object",
             "properties": {
+                "default": {
+                    "description": "新建时的默认值, 由可选值来源给出",
+                    "type": "string"
+                },
                 "help": {
                     "type": "string"
                 },
                 "input": {
-                    "description": "text / textarea / password / select / switch / number / list, 或选择器 currency / item / quality / scope / metric / pool",
+                    "description": "text / textarea / datetime / password / select / suggest / multiselect / switch / number / list, 或 RegisterKind 登记的类型; Resolve 之前还可以是可选值来源的名称",
                     "type": "string"
                 },
                 "key": {
@@ -17890,7 +17932,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "options": {
-                    "description": "下拉框和部分选择器的可选值",
+                    "description": "下拉框、多选和输入建议的可选值",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/params.Option"
@@ -17901,15 +17943,19 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "ref": {
-                    "description": "引用其他模块的数据, 如 currency; 可选值在读取时由 RegisterRef 注册的函数生成",
+                    "description": "引用其他模块的数据, 如 currency; 可选值在读取时由 params.RegisterSource 登记的来源生成",
                     "type": "string"
+                },
+                "required": {
+                    "description": "binding 规则中有 required: 字符串不能为空, 列表不能为空",
+                    "type": "boolean"
                 },
                 "secret": {
                     "description": "密钥, 加密保存, 后台不回显",
                     "type": "boolean"
                 },
                 "type": {
-                    "description": "string / bool / int / int_list",
+                    "description": "string / bool / int / int_list / string_list, 或 RegisterKind 登记的类型",
                     "type": "string"
                 },
                 "unit": {

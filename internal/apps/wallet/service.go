@@ -44,7 +44,7 @@ func init() {
 	audit.RegisterAction(ActionWalletAdjust, "调整余额")
 	audit.RegisterAction(ActionCurrencyCreate, "新建货币")
 	audit.RegisterAction(ActionCurrencyUpdate, "修改货币")
-	settings.RegisterRef(RefCurrency, currencyOptions)
+	params.RegisterSource(SourceCurrency, params.Source{Options: currencyOptions, First: true})
 	// 本模块和早期模块的业务类型, 新模块在自己的 init 中登记
 	for _, t := range []ledger.BizType{
 		{Code: BizAdminAdjust, Label: "管理员调整"},
@@ -180,7 +180,7 @@ func amountInRange(amount int64) bool {
 	return amount >= -MaxAmount && amount <= MaxAmount
 }
 
-// currencyOptions 设置中可以选的货币: 全部启用的货币, 按排序值排列
+// currencyOptions 可以选的货币: 全部启用的货币, 按排序值排列
 //
 // 对货币加共享锁, 保存设置时货币不会被并发停用, 见 CheckDisable。
 func currencyOptions(tx *gorm.DB) ([]params.Option, error) {
@@ -190,7 +190,7 @@ func currencyOptions(tx *gorm.DB) ([]params.Option, error) {
 	}
 	options := make([]params.Option, len(currencies))
 	for i, currency := range currencies {
-		options[i] = params.Option{Value: currency.Code, Label: currency.Name}
+		options[i] = params.Option{Value: currency.Code, Label: currency.Name, Hint: currency.Code}
 	}
 	return options, nil
 }

@@ -108,21 +108,25 @@ func Register[C, P, R any](code, scene, label, description string, apply func(ct
 	}
 }
 
-// Types 全部效果类型, 按注册顺序
-func Types() []TypeView {
+// Types 全部效果类型, 按注册顺序; 参数的表单描述带当前的可选值
+func Types(tx *gorm.DB) ([]TypeView, error) {
 	views := make([]TypeView, 0, len(codeOrder))
 	for _, code := range codeOrder {
 		def := definitions[code]
+		fields, err := def.schema.Form(tx)
+		if err != nil {
+			return nil, err
+		}
 		views = append(views, TypeView{
 			Code:        code,
 			Scene:       def.scene,
 			SceneName:   sceneNames[def.scene],
 			Label:       def.label,
 			Description: def.description,
-			Fields:      def.schema.Fields(),
+			Fields:      fields,
 		})
 	}
-	return views
+	return views, nil
 }
 
 // SceneOf 效果所属的场景, 效果不存在时为空

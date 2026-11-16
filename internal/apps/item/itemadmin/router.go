@@ -34,6 +34,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
+	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -288,9 +289,17 @@ type ListItemEffectsResponseData struct {
 // @Success 200 {object} Response{data=ListItemEffectsResponseData}
 // @Failure 401 {object} Response
 // @Failure 403 {object} Response
+// @Failure 500 {object} Response
 // @Router /api/v1/admin/items/effects [get]
 func ListItemEffects(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{Data: ListItemEffectsResponseData{Effects: effect.Types()}})
+	ctx := c.Request.Context()
+	effects, err := effect.Types(db.DB(ctx))
+	if err != nil {
+		logger.ErrorF(ctx, "[ListItemEffects] query failed: %v", err)
+		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		return
+	}
+	c.JSON(http.StatusOK, Response{Data: ListItemEffectsResponseData{Effects: effects}})
 }
 
 // ListQualitiesResponseData 品质列表

@@ -7,7 +7,6 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Table, TableBody, TableHead, TableHeader, TableRow} from '@/components/ui/table';
-import {scopeOptions} from '@/components/common/admin/editors';
 import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
@@ -15,11 +14,10 @@ import services from '@/lib/services';
 import type {ConditionType} from '@/lib/services/condition';
 import {toErrorMessage} from '@/lib/services/core';
 import type {AdminShopItem, ListAdminShopItemsData} from '@/lib/services/shop';
-import type {AdminVenue} from '@/lib/services/venue';
 import {DeleteShopItemDialog} from './DeleteShopItemDialog';
 import {ShopItemDialog, type ShopItemOptions, type ShopItemTarget} from './ShopItemDialog';
 import {ShopItemRow} from './ShopItemRow';
-import {ALL, PAGE_SIZE, STATUS_FILTERS, VENUE_LIMIT, toRequest, type StatusFilter} from './constants';
+import {ALL, PAGE_SIZE, STATUS_FILTERS, toRequest, type StatusFilter} from './constants';
 
 /**
  * 商品管理: 搜索、按页签和上架状态筛选, 新建、编辑、复制、上下架、删除
@@ -39,7 +37,6 @@ export function ShopItemsMain() {
 
   const catalog = useAdminCatalog();
   const [types, setTypes] = useState<ConditionType[] | null>(null);
-  const [venues, setVenues] = useState<AdminVenue[] | null>(null);
 
   const [editing, setEditing] = useState<ShopItemTarget | null>(null);
   const [deleting, setDeleting] = useState<AdminShopItem | null>(null);
@@ -71,14 +68,11 @@ export function ShopItemsMain() {
     void load();
   }, [load]);
 
-  // 条件类型和地图只在编辑购买条件时用到, 挂载时拉取一次
+  // 条件类型只在编辑购买条件时用到, 挂载时拉取一次
   useEffect(() => {
     if (!isAdmin) return;
-    Promise.all([services.conditionAdmin.listConditionTypes(), services.venueAdmin.listVenues({current: 1, size: VENUE_LIMIT})])
-        .then(([typeData, venueData]) => {
-          setTypes(typeData.types);
-          setVenues(venueData.venues);
-        })
+    services.conditionAdmin.listConditionTypes()
+        .then((typeData) => setTypes(typeData.types))
         .catch((err) => toast.error(toErrorMessage(err)));
   }, [isAdmin]);
 
@@ -87,10 +81,9 @@ export function ShopItemsMain() {
     items: catalog.items,
     currencies: catalog.currencies,
     types: types ?? [],
-    scopes: scopeOptions(venues ?? []),
     tabs: tabs ?? [],
-    loaded: catalog.loaded && types !== null && venues !== null,
-  }), [catalog.items, catalog.currencies, catalog.loaded, types, venues, tabs]);
+    loaded: catalog.loaded && types !== null,
+  }), [catalog.items, catalog.currencies, catalog.loaded, types, tabs]);
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

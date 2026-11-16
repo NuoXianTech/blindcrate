@@ -30,6 +30,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -41,6 +42,23 @@ func init() {
 	audit.RegisterAction(ActionLootPoolUpdate, "修改掉落池")
 	audit.RegisterAction(ActionLootPoolDelete, "删除掉落池")
 	audit.RegisterAction(ActionLootPoolEntriesUpdate, "修改掉落池条目")
+	params.RegisterSource(SourcePool, params.Source{Options: poolOptions})
+}
+
+// poolOptions 可以选的掉落池, 按代码排列; 已停用的也可以选, 启用后生效
+func poolOptions(tx *gorm.DB) ([]params.Option, error) {
+	var pools []Pool
+	if err := tx.Order("code").Find(&pools).Error; err != nil {
+		return nil, err
+	}
+	options := make([]params.Option, len(pools))
+	for i, pool := range pools {
+		options[i] = params.Option{Value: pool.Code, Label: pool.Name, Hint: pool.Code}
+		if !pool.IsEnabled {
+			options[i].Hint += " 已停用"
+		}
+	}
+	return options, nil
 }
 
 // EntryDetail 掉落池条目, 附带物品或货币信息和当前的概率

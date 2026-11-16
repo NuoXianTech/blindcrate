@@ -55,3 +55,9 @@ const (
 	ActionQualityUpdate = "admin.quality_update"
 	ActionQualityDelete = "admin.quality_delete"
 )
+
+// 可选值来源, 参数字段用 input tag 引用, 见 params.RegisterSource
+const (
+	SourceItem    = "item"    // 全部没有删除的物品, 值为物品 ID
+	SourceQuality = "quality" // 全部品质, 值为品质等级
+)

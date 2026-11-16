@@ -3556,23 +3556,30 @@ definitions:
     type: object
   params.Field:
     properties:
+      default:
+        description: 新建时的默认值, 由可选值来源给出
+        type: string
       help:
         type: string
       input:
-        description: text / textarea / password / select / switch / number / list,
-          或选择器 currency / item / quality / scope / metric / pool
+        description: text / textarea / datetime / password / select / suggest / multiselect
+          / switch / number / list, 或 RegisterKind 登记的类型; Resolve 之前还可以是可选值来源的名称
         type: string
       key:
         type: string
       label:
         type: string
       options:
-        description: 下拉框和部分选择器的可选值
+        description: 下拉框、多选和输入建议的可选值
         items:
           $ref: '#/definitions/params.Option'
         type: array
+      required:
+        description: 'binding 规则中有 required: 字符串不能为空, 列表不能为空'
+        type: boolean
       type:
-        description: string / bool / int / int_list
+        description: string / bool / int / int_list / string_list, 或 RegisterKind
+          登记的类型
         type: string
       unit:
         description: '整数的单位: bp / second / millisecond'
@@ -3580,8 +3587,17 @@ definitions:
     type: object
   params.Option:
     properties:
+      disabled:
+        description: 不能新选, 已经选了的照常展示, 如已下架的物品
+        type: boolean
+      hint:
+        description: 次要的说明, 如代码
+        type: string
       label:
         type: string
+      quality:
+        description: 按这个品质的颜色展示, 0 为不着色
+        type: integer
       value:
         type: string
     type: object
@@ -4168,18 +4184,21 @@ definitions:
     type: object
   settings.Field:
     properties:
+      default:
+        description: 新建时的默认值, 由可选值来源给出
+        type: string
       help:
         type: string
       input:
-        description: text / textarea / password / select / switch / number / list,
-          或选择器 currency / item / quality / scope / metric / pool
+        description: text / textarea / datetime / password / select / suggest / multiselect
+          / switch / number / list, 或 RegisterKind 登记的类型; Resolve 之前还可以是可选值来源的名称
         type: string
       key:
         type: string
       label:
         type: string
       options:
-        description: 下拉框和部分选择器的可选值
+        description: 下拉框、多选和输入建议的可选值
         items:
           $ref: '#/definitions/params.Option'
         type: array
@@ -4187,13 +4206,17 @@ definitions:
         description: 可以公开给前端
         type: boolean
       ref:
-        description: 引用其他模块的数据, 如 currency; 可选值在读取时由 RegisterRef 注册的函数生成
+        description: 引用其他模块的数据, 如 currency; 可选值在读取时由 params.RegisterSource 登记的来源生成
         type: string
+      required:
+        description: 'binding 规则中有 required: 字符串不能为空, 列表不能为空'
+        type: boolean
       secret:
         description: 密钥, 加密保存, 后台不回显
         type: boolean
       type:
-        description: string / bool / int / int_list
+        description: string / bool / int / int_list / string_list, 或 RegisterKind
+          登记的类型
         type: string
       unit:
         description: '整数的单位: bp / second / millisecond'
@@ -6339,6 +6362,10 @@ paths:
           description: Forbidden
           schema:
             $ref: '#/definitions/botadmin.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/botadmin.Response'
       summary: 获取人机决策策略
       tags:
       - admin
@@ -6602,7 +6629,7 @@ paths:
       - admin
   /api/v1/admin/conditions/types:
     get:
-      description: 包含每种条件的参数表单描述, 用于条件编辑器; input 为 currency、item、scope 的字段需要用选择器填写
+      description: 包含每种条件的参数表单描述, 用于条件编辑器; 下拉框和输入建议的可选值(货币、物品、统计范围等)已经填好
       produces:
       - application/json
       responses:
@@ -6621,6 +6648,10 @@ paths:
             $ref: '#/definitions/conditionadmin.Response'
         "403":
           description: Forbidden
+          schema:
+            $ref: '#/definitions/conditionadmin.Response'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/conditionadmin.Response'
       summary: 获取全部条件类型
@@ -7078,6 +7109,10 @@ paths:
             $ref: '#/definitions/itemadmin.Response'
         "403":
           description: Forbidden
+          schema:
+            $ref: '#/definitions/itemadmin.Response'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/itemadmin.Response'
       summary: 获取物品的使用效果

@@ -1,8 +1,8 @@
-import type {ConditionField} from '../condition';
+import type {ConditionField, ParamValue} from '../condition';
 import type {PageParams} from '../core';
 
 /** 策略参数, 结构由决策策略决定; 基点参数为整数 */
-export type BotParams = Record<string, string | number | boolean>;
+export type BotParams = Record<string, ParamValue>;
 
 /** 人机昵称, 对应后端 bot.Name */
 export interface BotName {

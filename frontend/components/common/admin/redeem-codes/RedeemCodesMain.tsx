@@ -4,17 +4,14 @@ import {useEffect, useMemo, useState} from 'react';
 import {ScrollText, Ticket} from 'lucide-react';
 import {toast} from 'sonner';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
-import {scopeOptions} from '@/components/common/admin/editors';
 import {useAuth} from '@/components/common/auth';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import services from '@/lib/services';
 import type {ConditionType} from '@/lib/services/condition';
 import {toErrorMessage} from '@/lib/services/core';
-import type {AdminVenue} from '@/lib/services/venue';
 import type {BatchOptions} from './BatchDialog';
 import {BatchesPanel} from './BatchesPanel';
 import {RecordsPanel} from './RecordsPanel';
-import {VENUE_LIMIT} from './constants';
 
 /**
  * 兑换码: 兑换码批次和兑换记录两个页签
@@ -24,16 +21,12 @@ export function RedeemCodesMain() {
   const isAdmin = !!me?.is_admin;
   const catalog = useAdminCatalog();
   const [types, setTypes] = useState<ConditionType[] | null>(null);
-  const [venues, setVenues] = useState<AdminVenue[] | null>(null);
 
-  // 条件类型和地图只在编辑使用条件时用到, 挂载时拉取一次
+  // 条件类型只在编辑使用条件时用到, 挂载时拉取一次
   useEffect(() => {
     if (!isAdmin) return;
-    Promise.all([services.conditionAdmin.listConditionTypes(), services.venueAdmin.listVenues({current: 1, size: VENUE_LIMIT})])
-        .then(([typeData, venueData]) => {
-          setTypes(typeData.types);
-          setVenues(venueData.venues);
-        })
+    services.conditionAdmin.listConditionTypes()
+        .then((typeData) => setTypes(typeData.types))
         .catch((err) => toast.error(toErrorMessage(err)));
   }, [isAdmin]);
 
@@ -41,9 +34,8 @@ export function RedeemCodesMain() {
     items: catalog.items,
     currencies: catalog.currencies,
     types: types ?? [],
-    scopes: scopeOptions(venues ?? []),
-    loaded: catalog.loaded && types !== null && venues !== null,
-  }), [catalog, types, venues]);
+    loaded: catalog.loaded && types !== null,
+  }), [catalog, types]);
 
   return (
     <div className="flex flex-col gap-4">

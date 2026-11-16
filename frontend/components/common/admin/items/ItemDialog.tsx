@@ -17,7 +17,6 @@ import {useQualities, useSite} from '@/components/common/site';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminItem, ItemCategory, ItemEffect, ItemRequest} from '@/lib/services/item';
-import type {LootPool} from '@/lib/services/loot';
 import type {Currency} from '@/lib/services/wallet';
 import {amountInput, parseAmount} from '@/lib/utils';
 import {checkImageURL} from '@/lib/validation';
@@ -35,8 +34,8 @@ interface ItemDialogProps {
   categories: ItemCategory[];
   /** 可选的使用效果 */
   effects: ItemEffect[];
-  /** 效果参数中可选的掉落池, 如箱子的掉落池 */
-  pools: LootPool[];
+  /** 物品目录, 效果参数里的奖励(如礼包的内容)从中选择 */
+  items: AdminItem[];
   onClose: () => void;
   /** 保存成功后刷新列表 */
   onSaved: () => void;
@@ -66,7 +65,7 @@ export function ItemDialog({item, ...props}: ItemDialogProps) {
 /**
  * 物品表单, item 为 null 时新建
  */
-function ItemForm({item, currencies, categories, effects, pools, onClose, onSaved}: Omit<ItemDialogProps, 'item'> & {
+function ItemForm({item, items, currencies, categories, effects, onClose, onSaved}: Omit<ItemDialogProps, 'item'> & {
   item: AdminItem | null;
 }) {
   const {pending, submit} = useSubmit();
@@ -91,7 +90,7 @@ function ItemForm({item, currencies, categories, effects, pools, onClose, onSave
   const [enabled, setEnabled] = useState(item?.is_enabled ?? true);
   const [effectCode, setEffectCode] = useState(item?.effect || NO_EFFECT);
   const [effectParams, setEffectParams] = useState<ParamsDraft>(
-      () => toParamsDraft(effects.find((e) => e.code === item?.effect)?.fields ?? [], item?.effect_params),
+      () => toParamsDraft(effects.find((e) => e.code === item?.effect)?.fields ?? [], item?.effect_params, {currencies}),
   );
   // 藏品不能配置使用效果, 切换到藏品时提交空效果
   const usable = category !== COLLECTIBLE;
@@ -100,7 +99,7 @@ function ItemForm({item, currencies, categories, effects, pools, onClose, onSave
   const changeEffect = (code: string) => {
     setEffectCode(code);
     const next = effects.find((e) => e.code === code);
-    setEffectParams(next ? newParamsDraft(next.fields, currencies) : {});
+    setEffectParams(next ? newParamsDraft(next.fields) : {});
   };
 
   const handleSubmit = submit(async () => {
@@ -122,7 +121,7 @@ function ItemForm({item, currencies, categories, effects, pools, onClose, onSave
     check(body.effect && !effect ? '使用效果不存在, 请重新选择' : null);
     check(quality ? null : '还没有品质, 请先在品质管理中新建或导入配置包');
     check(sellCurrency ? null : '还没有货币, 请先在货币管理中新建或导入配置包');
-    if (effect) body.effect_params = fromParamsDraft(effect.fields, effectParams, '效果参数');
+    if (effect) body.effect_params = fromParamsDraft(effect.fields, effectParams, '效果参数', {currencies});
     check(CODE_PATTERN.test(body.code) ? null : '物品代码需为 1-64 个小写字母、数字或下划线');
     check(body.name.length === 0 || [...body.name].length > 64 ? '物品名称需为 1-64 个字符' : null);
     check([...body.description].length > 255 ? '描述最多 255 个字符' : null);
@@ -301,9 +300,8 @@ function ItemForm({item, currencies, categories, effects, pools, onClose, onSave
                   field={field}
                   value={effectParams[field.key]}
                   onChange={(value) => setEffectParams((prev) => ({...prev, [field.key]: value}))}
-                  items={[]}
+                  items={items}
                   currencies={currencies}
-                  pools={pools}
                   disabled={pending}
                 />
               ))}
