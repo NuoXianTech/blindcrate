@@ -143,7 +143,7 @@ func Serve() {
 	// 补充中间件
 	r.Use(otelgin.Middleware(config.Config.App.AppName), loggerMiddleware())
 
-	apiGroup := r.Group(config.Config.App.APIPrefix)
+	apiGroup := r.Group(config.Config.App.APIPrefix, noStoreMiddleware())
 	{
 		if config.Config.App.Env == "development" {
 			// Swagger

@@ -67,14 +67,20 @@ func LoginRequired() gin.HandlerFunc {
 		if tx.Error != nil {
 			// 用户已不存在: 清掉失效的 session, 按未登录处理
 			if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-				session := sessions.Default(c)
-				session.Clear()
-				_ = session.Save()
+				dropSession(c)
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_msg": UnAuthorized, "data": nil})
 				return
 			}
 			logger.ErrorF(ctx, "[LoginRequired] query user %d failed: %v", userId, tx.Error)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error_msg": InternalError, "data": nil})
+			return
+		}
+
+		// session 不是登录这个账号时建立的(数据库重建后 ID 被新账号用到): 不能进入别人的账号, 按未登录处理
+		if !sessionMatchesUser(sessions.Default(c), &user) {
+			logger.WarnF(ctx, "[LoginRequired] session of user %d does not belong to this account, dropped", userId)
+			dropSession(c)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_msg": UnAuthorized, "data": nil})
 			return
 		}
 
@@ -96,4 +102,11 @@ func LoginRequired() gin.HandlerFunc {
 		// next
 		c.Next()
 	}
+}
+
+// dropSession 清空当前请求的 session, 之后按未登录处理
+func dropSession(c *gin.Context) {
+	session := sessions.Default(c)
+	session.Clear()
+	_ = session.Save()
 }

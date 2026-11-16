@@ -83,6 +83,14 @@ func loggerMiddleware() gin.HandlerFunc {
 	}
 }
 
+// noStoreMiddleware 接口的响应与登录的用户有关, 不允许浏览器、反向代理和 CDN 缓存, 否则一个用户的响应会发给另一个用户
+func noStoreMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store")
+		c.Next()
+	}
+}
+
 func isProbePath(path string) bool {
 	return path == config.Config.App.APIPrefix+"/v1/health" ||
 		path == config.Config.App.APIPrefix+"/v1/ready"
