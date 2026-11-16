@@ -37,7 +37,6 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
-	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -45,8 +44,7 @@ import (
 )
 
 func init() {
-	ledger.RegisterBizType(ledger.KindWallet, BizRedeem, "兑换码")
-	ledger.RegisterBizType(ledger.KindInventory, BizRedeem, "兑换码")
+	reward.RegisterBizType(BizRedeem, "兑换码")
 	audit.RegisterAction(ActionCreate, "生成兑换码")
 	audit.RegisterAction(ActionUpdate, "修改兑换码批次")
 	audit.RegisterAction(ActionDelete, "删除兑换码批次")

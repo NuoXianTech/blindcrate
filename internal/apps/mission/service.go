@@ -36,7 +36,6 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
-	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
@@ -47,8 +46,7 @@ import (
 )
 
 func init() {
-	ledger.RegisterBizType(ledger.KindWallet, BizReward, "任务奖励")
-	ledger.RegisterBizType(ledger.KindInventory, BizReward, "任务奖励")
+	reward.RegisterBizType(BizReward, "任务奖励")
 	audit.RegisterAction(ActionCreate, "新建任务")
 	audit.RegisterAction(ActionUpdate, "修改任务")
 	audit.RegisterAction(ActionDelete, "删除任务")

@@ -31,7 +31,6 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
-	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
@@ -43,8 +42,7 @@ import (
 
 func init() {
 	audit.RegisterAction(ActionUpdateDays, "修改签到奖励")
-	ledger.RegisterBizType(ledger.KindWallet, BizCheckin, "签到奖励")
-	ledger.RegisterBizType(ledger.KindInventory, BizCheckin, "签到奖励")
+	reward.RegisterBizType(BizCheckin, "签到奖励")
 	stats.RegisterMetric(MetricCheckins, "签到天数")
 	// 只需要今天和昨天的签到记录来计算连续天数, 更早的随按天统计一起清理
 	stats.RegisterCleanup(Record{}.TableName(), "period")

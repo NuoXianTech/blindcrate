@@ -39,7 +39,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
-	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -50,8 +49,7 @@ import (
 )
 
 func init() {
-	ledger.RegisterBizType(ledger.KindWallet, BizClaim, "邮件附件")
-	ledger.RegisterBizType(ledger.KindInventory, BizClaim, "邮件附件")
+	reward.RegisterBizType(BizClaim, "邮件附件")
 	audit.RegisterAction(ActionSend, "发送邮件")
 	audit.RegisterAction(ActionBroadcast, "发送全服邮件")
 	audit.RegisterAction(ActionRevoke, "撤回全服邮件")

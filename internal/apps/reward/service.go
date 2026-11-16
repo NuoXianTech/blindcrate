@@ -32,15 +32,24 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"gorm.io/gorm"
 )
+
+// RegisterBizType 登记一种既会变动货币也会变动物品的流水业务类型, 钱包和背包各登记一次, 名称相同; 需要在启动前调用
+//
+// 用 Apply 或 Deliver 发放的业务都用它登记, 只变动其中一种的用 ledger.RegisterBizType。
+func RegisterBizType(code, label string) {
+	ledger.RegisterBizType(ledger.KindWallet, code, label)
+	ledger.RegisterBizType(ledger.KindInventory, code, label)
+}
 
 // ApplyRequest 一次发放或扣除
 type ApplyRequest struct {
 	UserID         uint64
 	Bundle         Bundle
-	BizType        string // 业务类型, 需要用 ledger.RegisterBizType 登记(早期的在 wallet 和 inventory 的 constants.go 中), 最长 32
+	BizType        string // 业务类型, 需要用 RegisterBizType 登记(早期的在 wallet 和 inventory 的 constants.go 中), 最长 32
 	BizID          string // 业务单号, 最长 64
 	IdempotencyKey string // 非空时同一个 key 只生效一次, 需带业务前缀保证全局唯一, 最长 MaxIdempotencyKeyLength
 	OperatorID     uint64 // 操作人, 0 表示系统

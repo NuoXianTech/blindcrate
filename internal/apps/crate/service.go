@@ -29,7 +29,6 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
-	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"gorm.io/gorm"
@@ -39,8 +38,7 @@ func init() {
 	item.RegisterCategory(Category, "箱子")
 	effect.Register(EffectOpen, effect.SceneInventory, "开启箱子",
 		"在背包中开启, 从掉落池中按概率抽取一项货币或物品, 每次消耗 1 个", open)
-	ledger.RegisterBizType(ledger.KindWallet, BizDrop, "箱子掉落")
-	ledger.RegisterBizType(ledger.KindInventory, BizDrop, "箱子掉落")
+	reward.RegisterBizType(BizDrop, "箱子掉落")
 }
 
 // poolPattern 掉落池代码, 与掉落池的校验一致
