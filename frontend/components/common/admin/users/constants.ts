@@ -22,6 +22,13 @@ export const BAN_DURATIONS = [
   {value: '30d', label: '30 天', ms: 30 * 86400_000},
 ];
 
+/** 自定义天数的选项值 */
+export const BAN_CUSTOM = 'custom';
+/** 封禁天数的上限, 与后端一致 */
+export const MAX_BAN_DAYS = 3650;
+/** 一天的毫秒数 */
+export const DAY_MS = 86400_000;
+
 /** 与后端 wallet.MaxAmount、inventory.MaxQuantity 一致 */
 export const MAX_AMOUNT = 1_000_000_000_000;
 export const MAX_QUANTITY = 1_000_000;

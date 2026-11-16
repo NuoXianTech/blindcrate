@@ -8,14 +8,14 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {SubmitButton} from '@/components/common/form';
-import {useSubmit} from '@/hooks/use-submit';
+import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminUser} from '@/lib/services/auth';
-import {BAN_DURATIONS, banUntil} from './constants';
+import {BAN_CUSTOM, BAN_DURATIONS, DAY_MS, MAX_BAN_DAYS, banUntil} from './constants';
 import type {UserDialogProps} from './EditUserDialog';
 
 /**
- * 封禁用户: 选择时长和原因, 到期自动解除
+ * 封禁用户: 选择时长或自定义天数, 填写原因, 到期自动解除
  */
 export function BanUserDialog({user, onClose, onSaved}: UserDialogProps) {
   return (
@@ -37,10 +37,19 @@ export function BanUserDialog({user, onClose, onSaved}: UserDialogProps) {
 function BanUserForm({user, onClose, onSaved}: UserDialogProps & { user: AdminUser }) {
   const {pending, submit} = useSubmit();
   const [duration, setDuration] = useState(BAN_DURATIONS[1].value);
+  const [days, setDays] = useState('');
   const [reason, setReason] = useState('');
+  const custom = duration === BAN_CUSTOM;
 
   const handleSubmit = submit(async () => {
-    const ms = BAN_DURATIONS.find((d) => d.value === duration)!.ms;
+    let ms: number;
+    if (custom) {
+      const n = Number(days);
+      check(/^\d+$/.test(days.trim()) && n >= 1 && n <= MAX_BAN_DAYS ? null : `封禁天数需为 1-${MAX_BAN_DAYS} 的整数`);
+      ms = n * DAY_MS;
+    } else {
+      ms = BAN_DURATIONS.find((d) => d.value === duration)!.ms;
+    }
     await services.authAdmin.banUser(user.id, banUntil(ms), reason.trim());
     toast.success(`已封禁 ${user.username}`);
     onSaved();
@@ -61,8 +70,20 @@ function BanUserForm({user, onClose, onSaved}: UserDialogProps & { user: AdminUs
                 {d.label}
               </SelectItem>
             ))}
+            <SelectItem value={BAN_CUSTOM}>自定义天数</SelectItem>
           </SelectContent>
         </Select>
+        {custom && (
+          <Input
+            inputMode="numeric"
+            aria-label="封禁天数"
+            placeholder={`1-${MAX_BAN_DAYS} 天`}
+            value={days}
+            onChange={(e) => setDays(e.target.value)}
+            disabled={pending}
+            autoFocus
+          />
+        )}
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="ban-reason">原因</Label>

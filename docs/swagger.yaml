@@ -939,7 +939,7 @@ definitions:
   authadmin.BanUserRequest:
     properties:
       banned_until:
-        description: RFC3339, 必须晚于当前时间; 永久封禁请使用停用
+        description: RFC3339, 必须晚于当前时间, 最多 3650 天之后; 永久封禁请使用停用
         type: string
       reason:
         maxLength: 255
