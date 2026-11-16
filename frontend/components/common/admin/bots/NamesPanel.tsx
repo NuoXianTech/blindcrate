@@ -181,7 +181,9 @@ export function NamesPanel() {
                 </TableRow>
               ))
             ) : (
-              <TableEmpty colSpan={4}>没有找到昵称</TableEmpty>
+              <TableEmpty colSpan={4}>
+                {keyword || status !== 'all' ? '没有找到昵称' : '还没有昵称, 人机暂时用“玩家”加四位数字; 添加昵称或在导入导出中导入配置包'}
+              </TableEmpty>
             )}
           </TableBody>
         </Table>

@@ -97,7 +97,7 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
   const pending = save.pending || simulate.pending;
   const {economy} = useSite();
   const [form, setForm] = useState<VenueForm>(() =>
-    toVenueForm(venue ? toRequest(venue) : null, {currencies, types, personas, baseCurrency: economy.base_currency}),
+    toVenueForm(venue ? toRequest(venue) : null, {currencies, types, baseCurrency: economy.base_currency}),
   );
   const [tab, setTab] = useState('basic');
   const [simulation, setSimulation] = useState<Simulation | null>(venue?.simulation ?? null);

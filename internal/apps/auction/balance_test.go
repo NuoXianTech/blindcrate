@@ -26,14 +26,11 @@ package auction
 
 import (
 	"cmp"
-	"encoding/json"
 	"errors"
 	"math"
 	"math/rand/v2"
-	"os"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
@@ -239,38 +236,31 @@ func standardVenue() *venue.Venue {
 	return v
 }
 
-// seedDeciders 初始化脚本中的人机风格, 准备好决策, 见 TestSeedPersonas
-func seedDeciders(t *testing.T, codes ...string) []bot.Decider[Observation, Decision] {
+// referenceDeciders 参考风格, 准备好决策, 见 referencePersonas
+func referenceDeciders(t *testing.T, codes ...string) []bot.Decider[Observation, Decision] {
 	t.Helper()
-	raw, err := os.ReadFile("../../db/migrator/migrations/000001_init.up.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, section, _ := strings.Cut(string(raw), "INSERT INTO bot_personas")
-	section, _, _ = strings.Cut(section, ";")
 	snapshots := map[string]*bot.Snapshot{}
-	for _, m := range seedPersonaPattern.FindAllStringSubmatch(section, -1) {
-		params := map[string]any{}
-		if err := json.Unmarshal([]byte(m[5]), &params); err != nil {
-			t.Fatalf("%s: %v", m[1], err)
-		}
-		snapshots[m[1]] = &bot.Snapshot{Code: m[1], Strategy: m[4], Params: params}
+	for _, p := range referencePersonas() {
+		snapshot := p.Snapshot()
+		snapshots[p.Code] = &snapshot
 	}
 	deciders := make([]bot.Decider[Observation, Decision], len(codes))
 	for i, code := range codes {
 		if snapshots[code] == nil {
-			t.Fatalf("seed persona %s not found", code)
+			t.Fatalf("reference persona %s not found", code)
 		}
-		if deciders[i], err = bot.Prepare[Observation, Decision](snapshots[code]); err != nil {
+		decider, err := bot.Prepare[Observation, Decision](snapshots[code])
+		if err != nil {
 			t.Fatal(err)
 		}
+		deciders[i] = decider
 	}
 	return deciders
 }
 
-// standardSquads 参考阵容、2 个真人和 2 个人机、1 个真人和 3 个人机, 人机为初始化脚本中的三种风格, 权重相同
+// standardSquads 参考阵容、2 个真人和 2 个人机、1 个真人和 3 个人机, 人机为三种参考风格, 权重相同
 func standardSquads(t *testing.T) []squad {
-	deciders := seedDeciders(t, "steady", "aggressive", "novice")
+	deciders := referenceDeciders(t, "steady", "aggressive", "novice")
 	picks := []int64{1, 1, 1}
 	human := newHumanModel(settings.Balance.Default())
 	return []squad{

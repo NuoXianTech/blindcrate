@@ -32,7 +32,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Name 人机的一个昵称, 开局时从启用的昵称中随机选取; 删除为物理删除, 已开局的对局中保存的是昵称本身
+// Name 人机的一个昵称, 没有内置数据, 由管理员在人机管理中添加或从配置包导入; 开局时从启用的昵称中随机选取; 删除为物理删除, 已开局的对局中保存的是昵称本身
 type Name struct {
 	ID        uint64    `gorm:"primaryKey" json:"id"`
 	Name      string    `gorm:"size:32;not null;uniqueIndex:uniq_bot_names_name" json:"name"`
@@ -49,7 +49,7 @@ func (n *Name) Exact(tx *gorm.DB, id uint64) error {
 	return tx.Where("id = ?", id).First(n).Error
 }
 
-// Persona 人机风格: 一种决策策略和它的参数, 地图按模式配置出场的风格和权重
+// Persona 人机风格: 一种决策策略和它的参数, 没有内置数据, 由管理员在人机管理中新建或从配置包导入; 地图按模式配置出场的风格和权重
 //
 // 删除为软删除, 代码在已删除的风格中也唯一; 被地图引用时不能删除。
 type Persona struct {

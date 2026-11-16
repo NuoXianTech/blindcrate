@@ -177,7 +177,9 @@ export function LeaderboardsMain() {
                 />
               ))
             ) : (
-              <TableEmpty colSpan={7}>没有找到榜单</TableEmpty>
+              <TableEmpty colSpan={7}>
+                {keyword || status !== 'all' ? '没有找到榜单' : '还没有榜单, 新建榜单或在导入导出中导入配置包'}
+              </TableEmpty>
             )}
           </TableBody>
         </Table>

@@ -38,7 +38,7 @@ func init() {
 	auth.OnRegister(grantSignup)
 }
 
-// grantSignup 在注册的事务内发放新手资金, 金额为 0 时不发放
+// grantSignup 在注册的事务内发放新手资金, 金额为 0 或没有选择基础货币时不发放
 //
 // 发放失败只记录日志, 不影响注册; 在保存点中执行, 失败时只回滚发放本身。
 // 新用户还没有连接, 不推送余额变动。
@@ -49,7 +49,7 @@ func grantSignup(tx *gorm.DB, user *auth.User) error {
 		logger.ErrorF(ctx, "[Economy] grant signup to %d failed: %v", user.ID, err)
 		return nil
 	}
-	if economy.SignupGrant == 0 {
+	if economy.SignupGrant == 0 || economy.BaseCurrency == "" {
 		return nil
 	}
 

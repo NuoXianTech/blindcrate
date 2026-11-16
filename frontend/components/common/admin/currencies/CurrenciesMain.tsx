@@ -61,7 +61,7 @@ export function CurrenciesMain() {
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold">货币管理</h1>
-          <p className="text-sm text-muted-foreground">金额按最小单位的整数存储, 小数位只影响展示; 基础货币在系统设置中选择</p>
+          <p className="text-sm text-muted-foreground">没有内置的货币, 可以新建或从配置包导入; 金额按最小单位的整数存储, 小数位只影响展示; 基础货币在系统设置中选择</p>
         </div>
         <Button onClick={() => setEditing('new')}>
           <Plus />
@@ -95,7 +95,7 @@ export function CurrenciesMain() {
                 />
               ))
             ) : (
-              <TableEmpty colSpan={6}>还没有货币</TableEmpty>
+              <TableEmpty colSpan={6}>还没有货币, 新建货币或在导入导出中导入配置包</TableEmpty>
             )}
           </TableBody>
         </Table>

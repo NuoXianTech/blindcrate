@@ -18,7 +18,8 @@ export function BotsMain() {
       <div className="flex flex-col gap-0.5">
         <h1 className="text-2xl font-bold">人机管理</h1>
         <p className="text-sm text-muted-foreground">
-          人机只按公开信息出价, 风格决定估值方式和出价节奏; 开局时为每个人机选一种风格和一个昵称
+          没有内置的风格和昵称, 可以新建或从配置包导入; 人机只按公开信息出价, 风格决定估值方式和出价节奏;
+          开局时为每个人机选一种风格和一个昵称
         </p>
       </div>
       <Tabs defaultValue="personas">

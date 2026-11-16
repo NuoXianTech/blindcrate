@@ -11,7 +11,6 @@ import {
   type ConditionDraft,
 } from '@/components/common/admin/editors';
 import {check} from '@/hooks/use-submit';
-import type {BotPersona} from '@/lib/services/bot';
 import type {ConditionType} from '@/lib/services/condition';
 import type {BotWeight, VenueRequest, DepotRule} from '@/lib/services/venue';
 import type {Currency} from '@/lib/services/wallet';
@@ -194,11 +193,8 @@ const DEFAULT_REQUEST: VenueRequest = {
     quick_win: RECOMMENDED_QUICK_WIN.slice(0, 4),
     max_extra_rounds: 1,
   },
-  // 种子数据中的三种风格
-  bots: {
-    pve: [{persona: 'novice', weight: 50}, {persona: 'steady', weight: 30}, {persona: 'aggressive', weight: 20}],
-    ranked: [{persona: 'steady', weight: 50}, {persona: 'aggressive', weight: 30}, {persona: 'novice', weight: 20}],
-  },
+  // 人机风格没有内置数据, 新建时为空, 由管理员从已有的风格中添加
+  bots: {pve: [], ranked: []},
   pve: {practice_only: false, daily_profit_cap: 0, value_factor: 8000},
   consumables: {pve: {max_per_match: 0}, ranked: {max_per_match: 0}, allowed: []},
   host: {enabled: true, personas: [], lie_rate: 1800, high_quality: 0},
@@ -217,21 +213,17 @@ export interface VenueFormOptions {
   currencies: Currency[];
   /** 条件类型, 提供条件参数的表单描述 */
   types: ConditionType[];
-  personas: BotPersona[];
   baseCurrency: string;
 }
 
 /**
  * 地图转为表单, venue 为空时新建
- * 新建时出价货币为基础货币, 基础货币不存在时换成第一个货币, 金额按它的小数位换算;
- * 人机风格只保留默认配置中仍然存在的风格
+ * 新建时出价货币为基础货币, 基础货币不存在时换成第一个货币, 金额按它的小数位换算
  */
-export function toVenueForm(venue: VenueRequest | null, {currencies, types, personas, baseCurrency}: VenueFormOptions): VenueForm {
-  const exists = (w: BotWeight) => personas.some((p) => p.code === w.persona);
+export function toVenueForm(venue: VenueRequest | null, {currencies, types, baseCurrency}: VenueFormOptions): VenueForm {
   const v = venue ?? {
     ...DEFAULT_REQUEST,
     bid_currency: currencies.some((c) => c.code === baseCurrency) ? baseCurrency : currencies[0]?.code ?? '',
-    bots: {pve: DEFAULT_REQUEST.bots.pve.filter(exists), ranked: DEFAULT_REQUEST.bots.ranked.filter(exists)},
   };
   const decimals = decimalsOf(currencies, v.bid_currency);
   return {

@@ -25,12 +25,8 @@
 package auction
 
 import (
-	"encoding/json"
 	"math"
 	"math/rand/v2"
-	"os"
-	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
@@ -224,28 +220,24 @@ func TestBasicParamsValidate(t *testing.T) {
 	}
 }
 
-// seedPersonaPattern 初始化脚本中的一个风格: 代码、名称、说明、策略、参数
-var seedPersonaPattern = regexp.MustCompile(`\('([a-z0-9_]+)', '([^']*)', '([^']*)', '([a-z0-9_]+)',\s*'(\{[^']*\})'\)`)
+// referencePersonas 测试用的三种参考风格: 稳健、激进、新手; 人机风格没有内置数据, 这里的参数只用于验算
+func referencePersonas() []bot.Persona {
+	basic := func(code, name, perception string, bias, open, closing, limit, jitter, jumpChance, jumpFactor, chase int, guard bool) bot.Persona {
+		return bot.Persona{Code: code, Name: name, Strategy: StrategyBasic, Params: map[string]any{
+			"perception": perception, "bias": bias, "open_factor": open, "close_factor": closing, "max_factor": limit,
+			"jitter": jitter, "jump_chance": jumpChance, "jump_factor": jumpFactor, "chase": chase, "guard": guard,
+		}}
+	}
+	return []bot.Persona{
+		basic("steady", "稳健", "size", 1000, 4200, 7800, 8800, 300, 0, 9000, 1500, true),
+		basic("aggressive", "激进", "quality", 2000, 5000, 8800, 9800, 800, 1200, 9000, 2500, true),
+		basic("novice", "新手", "quality", 3500, 4000, 7400, 8400, 1000, 500, 7500, 1000, false),
+	}
+}
 
-// TestSeedPersonas 初始化脚本中的风格和基础策略的默认参数都能通过保存风格时的校验
-func TestSeedPersonas(t *testing.T) {
-	raw, err := os.ReadFile("../../db/migrator/migrations/000001_init.up.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, section, _ := strings.Cut(string(raw), "INSERT INTO bot_personas")
-	section, _, _ = strings.Cut(section, ";")
-	var personas []bot.Persona
-	for _, m := range seedPersonaPattern.FindAllStringSubmatch(section, -1) {
-		params := map[string]any{}
-		if err := json.Unmarshal([]byte(m[5]), &params); err != nil {
-			t.Fatalf("%s: %v", m[1], err)
-		}
-		personas = append(personas, bot.Persona{Code: m[1], Name: m[2], Description: m[3], Strategy: m[4], Params: params})
-	}
-	if len(personas) == 0 {
-		t.Fatal("no seed personas found")
-	}
+// TestReferencePersonas 参考风格和基础策略的默认参数都能通过保存风格时的校验
+func TestReferencePersonas(t *testing.T) {
+	personas := referencePersonas()
 	for _, s := range bot.Strategies() {
 		if s.Code == StrategyBasic {
 			personas = append(personas, bot.Persona{Code: "defaults", Name: "默认参数", Strategy: s.Code, Params: s.Defaults})

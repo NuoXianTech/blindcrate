@@ -230,7 +230,7 @@ export function AuthForm({mode}: { mode: Mode }) {
                 />
               </>
             )}
-            {mode === 'register' && economy.signup_grant > 0 && (
+            {mode === 'register' && economy.signup_grant > 0 && economy.base_currency && (
               <p className="flex items-center justify-center gap-1.5 rounded-lg border bg-card px-3 py-2 text-sm">
                 注册即送
                 <CurrencyIcon currency={economy.base_currency} className="size-4" />

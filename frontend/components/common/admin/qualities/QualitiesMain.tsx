@@ -49,7 +49,9 @@ export function QualitiesMain() {
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold">品质管理</h1>
-          <p className="text-sm text-muted-foreground">等级越大越稀有; 品质的名称和颜色全站通用, 扫描时长决定开箱时每件藏品扫多久</p>
+          <p className="text-sm text-muted-foreground">
+            没有内置的品质, 可以新建或从配置包导入; 等级越大越稀有, 品质的名称和颜色全站通用, 扫描时长决定开箱时每件藏品扫多久
+          </p>
         </div>
         <Button onClick={() => setEditing('new')}>
           <Plus />
@@ -78,7 +80,7 @@ export function QualitiesMain() {
                 <QualityRow key={q.level} quality={q} onEdit={() => setEditing(q)} onDelete={() => setDeleting(q)} />
               ))
             ) : (
-              <TableEmpty colSpan={7}>还没有品质</TableEmpty>
+              <TableEmpty colSpan={7}>还没有品质, 新建品质或在导入导出中导入配置包</TableEmpty>
             )}
           </TableBody>
         </Table>

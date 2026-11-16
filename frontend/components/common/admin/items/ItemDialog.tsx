@@ -75,10 +75,14 @@ function ItemForm({item, currencies, categories, effects, pools, onClose, onSave
   const [code, setCode] = useState(item?.code ?? '');
   const [name, setName] = useState(item?.name ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
-  const [quality, setQuality] = useState(String(item?.quality ?? qualities[0]?.level ?? 1));
+  // 品质没有内置数据, 还没有品质时为空, 提交时提示先新建
+  const [quality, setQuality] = useState(String(item?.quality ?? qualities[0]?.level ?? ''));
   const [category, setCategory] = useState(item?.category ?? categories[0]?.code ?? 'collectible');
   const [imageURL, setImageURL] = useState(item?.image_url ?? '');
-  const [sellCurrency, setSellCurrency] = useState(item?.sell_currency ?? economy.base_currency);
+  const [sellCurrency, setSellCurrency] = useState(
+      // 没有选择基础货币时换成第一个货币
+      item?.sell_currency ?? (currencies.some((c) => c.code === economy.base_currency) ? economy.base_currency : currencies[0]?.code ?? ''),
+  );
   const currency = currencies.find((c) => c.code === sellCurrency);
   const decimals = currency?.decimals ?? 0;
   const [sellPrice, setSellPrice] = useState(item ? amountInput(item.sell_price, decimals) : '0');
@@ -116,6 +120,8 @@ function ItemForm({item, currencies, categories, effects, pools, onClose, onSave
       effect_params: {},
     };
     check(body.effect && !effect ? '使用效果不存在, 请重新选择' : null);
+    check(quality ? null : '还没有品质, 请先在品质管理中新建或导入配置包');
+    check(sellCurrency ? null : '还没有货币, 请先在货币管理中新建或导入配置包');
     if (effect) body.effect_params = fromParamsDraft(effect.fields, effectParams, '效果参数');
     check(CODE_PATTERN.test(body.code) ? null : '物品代码需为 1-64 个小写字母、数字或下划线');
     check(body.name.length === 0 || [...body.name].length > 64 ? '物品名称需为 1-64 个字符' : null);
@@ -164,7 +170,7 @@ function ItemForm({item, currencies, categories, effects, pools, onClose, onSave
           <Label>品质</Label>
           <Select value={quality} onValueChange={setQuality} disabled={pending}>
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue placeholder={qualities.length ? '选择品质' : '还没有品质'} />
             </SelectTrigger>
             <SelectContent>
               {qualities.map((q) => (

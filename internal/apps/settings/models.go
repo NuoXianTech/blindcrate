@@ -134,8 +134,8 @@ var (
 		Category:    CategoryGame,
 		Sort:        10,
 		Defaults: func() *EconomySettings {
-			// 基础货币默认为种子数据中的筹码 chip
-			return &EconomySettings{BaseCurrency: "chip", SellFeeRate: 200, SignupGrant: 5000, PveDailyProfitCap: 5000}
+			// 货币没有内置数据, 基础货币默认为空, 由管理员新建货币后选择
+			return &EconomySettings{SellFeeRate: 200, SignupGrant: 5000, PveDailyProfitCap: 5000}
 		},
 	})
 	Balance = Register(Group[BalanceSettings]{
@@ -275,7 +275,7 @@ type UploadSettings struct {
 
 // EconomySettings 经济: 基础货币、出售手续费、新手资金和人机模式的收益上限
 type EconomySettings struct {
-	BaseCurrency      string `json:"base_currency" label:"基础货币" help:"新手资金和已删除物品的回收价使用的货币, 也是新建物品和地图时默认选中的货币" binding:"required,max=32" ref:"currency" public:"true"`
+	BaseCurrency      string `json:"base_currency" label:"基础货币" help:"新手资金和已删除物品的回收价使用的货币, 也是新建物品和地图时默认选中的货币; 没有选择时不发放新手资金, 已删除的物品不能出售" binding:"max=32" ref:"currency" public:"true"`
 	SellFeeRate       int    `json:"sell_fee_rate" label:"出售手续费率" help:"卖出物品时按卖出金额扣除的比例, 最高 20%" binding:"min=0,max=2000" unit:"bp" public:"true"`
 	SignupGrant       int    `json:"signup_grant" label:"新手资金" help:"新用户注册时发放的基础货币, 0 表示不发放" binding:"min=0,max=1000000000" public:"true"`
 	PveDailyProfitCap int    `json:"pve_daily_profit_cap" label:"人机每日收益上限" help:"玩家当天在人机模式的净收益达到上限后, 当天剩下的人机对局变为练习局, 不扣入场费也不发藏品; 按各地图的出价货币分别计算; 0 表示不限制, 地图可以单独设置更低的上限" binding:"min=0,max=1000000000" public:"true"`
