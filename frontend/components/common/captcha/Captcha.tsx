@@ -8,9 +8,6 @@ import {check} from '@/hooks/use-submit';
 /** 需要人机验证的场景, 与后端 captcha 的场景一致, 每个场景在系统设置中单独开关 */
 export type CaptchaScene = 'login' | 'register' | 'checkin' | 'shop';
 
-/** always 始终显示组件; interaction-only 只在需要用户点击时显示, 多数情况下在后台自动完成 */
-type CaptchaAppearance = 'always' | 'interaction-only';
-
 /** Cloudflare Turnstile 的脚本, 由组件自己调用 render; 脚本和验证用的 iframe 都由浏览器直接从 Cloudflare 加载, 不经过后端 */
 const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
@@ -39,7 +36,7 @@ let loading: Promise<void> | null = null;
  * 加载 Turnstile 的脚本, 完成后 window.turnstile 可用
  * 不用 next/script: 它不通知在脚本加载期间才挂载的组件, 加载失败后也不会再加载, 只能刷新页面
  */
-function loadTurnstile(): Promise<void> {
+export function loadTurnstile(): Promise<void> {
   if (window.turnstile) return Promise.resolve();
   loading ??= new Promise<void>((resolve, reject) => {
     const script = document.createElement('script');
@@ -67,7 +64,6 @@ interface CaptchaProps {
   siteKey: string;
   /** 验证通过时给出令牌, 令牌过期、出错或重置时给出空字符串 */
   onToken: (token: string) => void;
-  appearance?: CaptchaAppearance;
   className?: string;
   ref?: Ref<CaptchaHandle>;
 }
@@ -75,7 +71,7 @@ interface CaptchaProps {
 /**
  * Cloudflare Turnstile 人机验证组件; 脚本加载不出来或验证出错时在组件下方给出提示和重试, 不让提交按钮无故不可用
  */
-export function Captcha({siteKey, onToken, appearance = 'always', className, ref}: CaptchaProps) {
+export function Captcha({siteKey, onToken, className, ref}: CaptchaProps) {
   const box = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
   const [status, setStatus] = useState<'loading' | 'slow' | 'failed' | 'ready'>('loading');
@@ -110,13 +106,11 @@ export function Captcha({siteKey, onToken, appearance = 'always', className, ref
       'theme': 'dark',
       'size': 'flexible',
       'language': 'zh-cn',
-      'appearance': appearance,
       'callback': (token: string) => {
         setError('');
         emit(token);
       },
       'expired-callback': () => emit(''),
-      // interaction-only 时组件不显示, 出错只能靠下方的提示
       'error-callback': (code: string) => {
         setError(String(code));
         emit('');
@@ -128,7 +122,7 @@ export function Captcha({siteKey, onToken, appearance = 'always', className, ref
       turnstile.remove(id);
       emit('');
     };
-  }, [status, siteKey, appearance]);
+  }, [status, siteKey]);
 
   useImperativeHandle(ref, () => ({
     reset: () => {
@@ -171,13 +165,14 @@ export function Captcha({siteKey, onToken, appearance = 'always', className, ref
 }
 
 /**
- * 某个场景的人机验证, 用法:
+ * 某个场景的人机验证, 组件一直显示在表单里, 用法:
  *   const captcha = useCaptcha('login');
  *   await services.auth.login(body, captcha.take());
  *   ... {captcha.widget} ...
  * 场景没有开启时 widget 为 null, take 返回 undefined, ready 始终为 true
+ * 点一下按钮就执行的操作(签到、购买等)用 useCaptchaDialog, 点击后才弹出验证
  */
-export function useCaptcha(scene: CaptchaScene, options?: { appearance?: CaptchaAppearance; className?: string }): {
+export function useCaptcha(scene: CaptchaScene, options?: { className?: string }): {
   /** 可以提交: 没有开启或已拿到令牌 */
   ready: boolean;
   /** 取出令牌用于一次请求并重置组件; 还没有拿到令牌时中断提交, 需要在 useSubmit 的 submit 中调用 */
@@ -199,7 +194,7 @@ export function useCaptcha(scene: CaptchaScene, options?: { appearance?: Captcha
   }, [enabled, token]);
 
   const widget = enabled ? (
-    <Captcha ref={handle} siteKey={captcha.site_key} onToken={setToken} appearance={options?.appearance} className={options?.className} />
+    <Captcha ref={handle} siteKey={captcha.site_key} onToken={setToken} className={options?.className} />
   ) : null;
   return {ready: !enabled || token !== '', take, widget};
 }
