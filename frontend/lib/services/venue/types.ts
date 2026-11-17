@@ -98,7 +98,7 @@ export interface HostRule {
   personas: string[];
   /** 提示说错的概率, 基点, 不超过 2500; 按性格和热度调整 */
   lie_rate: number;
-  /** 提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; 也是"高品质件数"提示统计的最低品质 */
+  /** 提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; "件数"提示数哪个品质由后端按拍品的公示分布选, 与它无关 */
   high_quality: number;
 }
 
@@ -368,6 +368,12 @@ export interface SquadStats {
   hype_cold: number;
   /** 结束时热度的平均值, 0-100 */
   hype_end: number;
+  /** 1 号真人换成盲狙(最后一轮才出价, 压着别人已公开的最高价, 不看货仓)时每局的平均盈亏, 口径同 seat_ev; 没有人机时为 0 */
+  snipe_ev: number;
+  /** 1 号真人换成知情狙击(知道货仓价值, 同样只在最后一轮出价)时每局的平均盈亏, 信息优势的上限; 没有人机时为 0 */
+  insider_ev: number;
+  /** 便宜货仓(价值不到公示期望的 60%)中人机的最高出价不低于回收价、真人拍下只会亏的比例, 只看每局的第一个拍品; 没有人机时为 0 */
+  cheap_blocked: number;
 }
 
 /** 验算闸门, 对应后端 venue 的 Check */
@@ -381,7 +387,9 @@ export type CheckCode =
   | 'speed_win'
   | 'appraise_bias'
   | 'seat_ev'
-  | 'win_rate';
+  | 'win_rate'
+  | 'snipe_edge'
+  | 'cheap_blocked';
 
 /** 验算的一项闸门, 对应后端 venue.Check */
 export interface BalanceCheck {

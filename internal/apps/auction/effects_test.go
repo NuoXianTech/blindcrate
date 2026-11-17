@@ -60,7 +60,7 @@ func first(int64) int64 { return 0 }
 
 func TestUseContextKnown(t *testing.T) {
 	uses := []Use{{Result: Intel{Pieces: []PieceIntel{intelAt(1, 4, ""), intelAt(3, 5, "d"), intelAt(5, 0, "")}}}}
-	ctx := newUseContext(100, testPieces(), 1, uses, first)
+	ctx := newUseContext(100, 80, testPieces(), 1, uses, first)
 	// 第 1 轮扫出的 0、2 加上之前看到的, 只扫出轮廓的不算已知品质
 	if want := map[cell]bool{{0, 0}: true, {1, 0}: true, {2, 0}: true, {3, 0}: true, {5, 0}: true}; !reflect.DeepEqual(ctx.Outlined, want) {
 		t.Errorf("outlined: got %v, want %v", ctx.Outlined, want)
@@ -76,7 +76,7 @@ func TestUseContextKnown(t *testing.T) {
 func TestRevealOutline(t *testing.T) {
 	// 跳过第 1 轮扫出的 0、2 和之前看到的 1, 只给轮廓
 	uses := []Use{{Result: Intel{Pieces: []PieceIntel{intelAt(1, 4, "")}}}}
-	ctx := newUseContext(100, testPieces(), 1, uses, first)
+	ctx := newUseContext(100, 80, testPieces(), 1, uses, first)
 	got, _ := revealOutline(ctx, &RevealOutlineParams{Count: 2})
 	want := []PieceIntel{intelAt(3, 0, ""), intelAt(4, 0, "")}
 	if !reflect.DeepEqual(got.Pieces, want) {
@@ -88,7 +88,7 @@ func TestRevealOutline(t *testing.T) {
 		t.Errorf("got %d pieces, want 3", len(got.Pieces))
 	}
 	// 第 3 轮再次扫描扫出的 5 也跳过
-	got, _ = revealOutline(newUseContext(100, testPieces(), 3, uses, first), &RevealOutlineParams{Count: 10})
+	got, _ = revealOutline(newUseContext(100, 80, testPieces(), 3, uses, first), &RevealOutlineParams{Count: 10})
 	if len(got.Pieces) != 2 {
 		t.Errorf("round 3: got %d pieces, want 2", len(got.Pieces))
 	}
@@ -96,7 +96,7 @@ func TestRevealOutline(t *testing.T) {
 
 func TestRevealQuality(t *testing.T) {
 	// 随机数为 0 时依次选剩下的第一件, 结果按位置排列, 带轮廓不带名称
-	ctx := newUseContext(100, testPieces(), 1, nil, first)
+	ctx := newUseContext(100, 80, testPieces(), 1, nil, first)
 	got, _ := revealQuality(ctx, &RevealQualityParams{Count: 2})
 	want := []PieceIntel{intelAt(0, 1, ""), intelAt(1, 4, "")}
 	if !reflect.DeepEqual(got.Pieces, want) {
@@ -105,7 +105,7 @@ func TestRevealQuality(t *testing.T) {
 
 	// 已经看过的跳过, 不够时有几件给几件; 首轮扫出的轮廓不算知道品质
 	uses := []Use{{Result: Intel{Pieces: []PieceIntel{intelAt(1, 4, ""), intelAt(3, 5, ""), intelAt(4, 4, ""), intelAt(5, 3, "")}}}}
-	ctx = newUseContext(100, testPieces(), 1, uses, first)
+	ctx = newUseContext(100, 80, testPieces(), 1, uses, first)
 	got, _ = revealQuality(ctx, &RevealQualityParams{Count: 5})
 	want = []PieceIntel{intelAt(0, 1, ""), intelAt(2, 2, "")}
 	if !reflect.DeepEqual(got.Pieces, want) {
@@ -114,7 +114,7 @@ func TestRevealQuality(t *testing.T) {
 }
 
 func TestCountQuality(t *testing.T) {
-	ctx := newUseContext(100, testPieces(), 1, nil, first)
+	ctx := newUseContext(100, 80, testPieces(), 1, nil, first)
 	got, _ := countQuality(ctx, &CountQualityParams{MinQuality: 4})
 	want := Intel{Facts: []Fact{{Kind: FactCounts, Label: labelAtLeast, Quality: 4, Counts: []QualityCount{{Quality: 5, Count: 1}, {Quality: 4, Count: 2}}}}}
 	if !reflect.DeepEqual(got, want) {
@@ -127,7 +127,7 @@ func TestCountQuality(t *testing.T) {
 }
 
 func TestRevealName(t *testing.T) {
-	ctx := newUseContext(100, testPieces(), 1, nil, first)
+	ctx := newUseContext(100, 80, testPieces(), 1, nil, first)
 	got, _ := revealName(ctx, &RevealNameParams{Count: 2, MinQuality: 4})
 	want := []PieceIntel{intelAt(1, 4, "b"), intelAt(3, 5, "d")}
 	if !reflect.DeepEqual(got.Pieces, want) {
@@ -135,7 +135,7 @@ func TestRevealName(t *testing.T) {
 	}
 
 	// 已知名称的跳过; 没有符合条件的藏品时为空
-	ctx = newUseContext(100, testPieces(), 1, []Use{{Result: got}}, first)
+	ctx = newUseContext(100, 80, testPieces(), 1, []Use{{Result: got}}, first)
 	got, _ = revealName(ctx, &RevealNameParams{Count: 2, MinQuality: 4})
 	if want := []PieceIntel{intelAt(4, 4, "e")}; !reflect.DeepEqual(got.Pieces, want) {
 		t.Errorf("rest: got %+v, want %+v", got.Pieces, want)
@@ -147,6 +147,7 @@ func TestRevealName(t *testing.T) {
 }
 
 func TestValueRange(t *testing.T) {
+	// 期望价值 10000、误差 20% 时区间宽 4000, 与货仓实际值多少无关: 从区间的宽度推不出货仓价值
 	cases := []struct {
 		name     string
 		value    int64
@@ -156,23 +157,29 @@ func TestValueRange(t *testing.T) {
 		{"value at top", 10000, 4000, 6000, 10000},
 		{"value at bottom", 10000, 0, 10000, 14000},
 		{"value in middle", 10000, 1500, 8500, 12500},
-		{"zero value", 0, 0, 0, 0},
+		{"cheap depot", 2000, 1500, 500, 4500},
+		{"valuable depot", 30000, 1500, 28500, 32500},
+		{"lower bound not below zero", 2000, 3000, 0, 3000},
+		{"zero value", 0, 0, 0, 4000},
 	}
 	for _, c := range cases {
 		var bound int64
-		ctx := &UseContext{Value: c.value, Rand: func(n int64) int64 { bound = n; return c.offset }}
+		ctx := &UseContext{Value: c.value, Expected: 10000, Rand: func(n int64) int64 { bound = n; return c.offset }}
 		got, err := valueRange(ctx, &ValueRangeParams{Precision: 2000})
 		if err != nil || len(got.Facts) != 1 || got.Facts[0].Min != c.min || got.Facts[0].Max != c.max {
 			t.Errorf("%s: got %+v %v, want [%d, %d]", c.name, got, err, c.min, c.max)
 		}
-		if want := c.value*2*2000/10000 + 1; bound != want {
-			t.Errorf("%s: rand bound got %d, want %d", c.name, bound, want)
+		if bound != 4001 {
+			t.Errorf("%s: rand bound got %d, want 4001", c.name, bound)
 		}
 	}
-	// 价值较小时下限不低于 0
-	ctx := &UseContext{Value: 100, Rand: func(n int64) int64 { return n - 1 }}
-	if got, _ := valueRange(ctx, &ValueRangeParams{Precision: 10000}); got.Facts[0].Min != 0 || got.Facts[0].Max != 100 {
-		t.Errorf("clamp: got %+v", got)
+	// 空货仓的期望价值和货仓价值都是 0
+	if got, err := valueRange(&UseContext{Rand: first}, &ValueRangeParams{Precision: 2000}); err != nil || got.Facts[0].Min != 0 || got.Facts[0].Max != 0 {
+		t.Errorf("empty: got %+v %v", got, err)
+	}
+	// 没有期望价值时区间没有宽度, 等于直接说出货仓价值, 不给
+	if got, err := valueRange(&UseContext{Value: 100, Rand: first}, &ValueRangeParams{Precision: 2000}); err == nil {
+		t.Errorf("no expected value: got %+v", got)
 	}
 }
 

@@ -26,6 +26,8 @@ const CHECK_NAMES: Record<CheckCode, string> = {
   appraise_bias: '人机估值偏差',
   seat_ev: '真人盈亏',
   win_rate: '真人胜率',
+  snipe_edge: '盲狙优势',
+  cheap_blocked: '便宜货仓拍不到的比例',
 };
 
 /** 基点转为百分比文本 */
@@ -160,6 +162,9 @@ function BalanceStats({balance, amount, lots}: {
     {label: '末轮前出价占比', value: (s) => (s.early_share ? percent(s.early_share) : '-')},
     {label: '真人每局盈亏', value: (s) => amount(s.seat_ev)},
     {label: '成交时盈亏', value: (s) => amount(s.winner_ev)},
+    {label: '盲狙每局盈亏', value: (s) => (s.humans < 4 ? amount(s.snipe_ev ?? 0) : '-')},
+    {label: '知情狙击每局盈亏', value: (s) => (s.humans < 4 ? amount(s.insider_ev ?? 0) : '-')},
+    {label: '便宜货仓拍不到', value: (s) => (s.humans < 4 ? percent(s.cheap_blocked ?? 0) : '-')},
     {label: '热度 火热 / 冷清', value: (s) => `${percent(s.hype_hot ?? 0)} / ${percent(s.hype_cold ?? 0)}`},
   ];
   const failed = balance.checks.filter((c) => !c.passed);
@@ -175,7 +180,8 @@ function BalanceStats({balance, amount, lots}: {
       </div>
       <p className="text-xs text-muted-foreground">
         每种阵容模拟 {balance.runs} 局; 真人按模拟的估值误差出价, 人机按地图配置的风格出价; 成交价 ÷ 价值的目标为{' '}
-        {percent(balance.target)}(扣掉出售手续费), 藏品按扣掉手续费后的回收价计算盈亏
+        {percent(balance.target)}(扣掉出售手续费), 藏品按扣掉手续费后的回收价计算盈亏。有人机的阵容再把 1 号真人换成只在最后一轮出价的狙击各模拟一遍:
+        盲狙压着别人已公开的最高价出价、不看货仓, 知情狙击知道货仓价值、不会买亏; 便宜货仓指价值不到公示期望 60% 的, 人机的最高出价不低于回收价时算拍不到
       </p>
       <div className="overflow-x-auto">
         <div
@@ -202,7 +208,7 @@ function BalanceStats({balance, amount, lots}: {
       </div>
       <div className="flex flex-col gap-1 border-t pt-2">
         <span className="text-xs text-muted-foreground">
-          闸门: 结构类只看 4 个真人, 有人机的阵容看人机估值和真人盈亏{lots && '; 多拍品时真人胜率看仓库第 1 名率'}
+          闸门: 结构类只看 4 个真人, 有人机的阵容看人机估值、真人盈亏和盲狙比模拟真人多赚多少{lots && '; 多拍品时真人胜率看仓库第 1 名率'}
         </span>
         {balance.checks.map((c) => (
           <CheckRow key={`${c.code}-${c.squad ?? ''}`} check={c} amount={amount} />

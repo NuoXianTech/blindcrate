@@ -280,7 +280,7 @@ type HostRule struct {
 	Enabled     bool     `json:"enabled" label:"主持人提示"`                                             // 关闭时没有提示和热度
 	Personas    []string `json:"personas" label:"性格" binding:"max=3,dive,oneof=steady showman sly"` // 为空表示全部性格
 	LieRate     int32    `json:"lie_rate" label:"撒谎率" binding:"min=0,max=2500"`                     // 基点, 提示说错的概率, 按性格和热度调整, 不超过 25%
-	HighQuality int16    `json:"high_quality" label:"高品质" binding:"min=0"`                          // 提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; 也是"高品质件数"提示统计的最低品质
+	HighQuality int16    `json:"high_quality" label:"高品质" binding:"min=0"`                          // 提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; "件数"提示数哪个品质由拍卖模块按公示分布选, 与它无关
 }
 
 // ValueStats 模拟货仓的价值分布, 价值为出价货币的回收价之和
@@ -345,6 +345,9 @@ type SquadStats struct {
 	HypeHot      int32  `json:"hype_hot"`      // 每轮结束后热度火热(不低于 70)的比例, 加轮和成交的那一轮不算
 	HypeCold     int32  `json:"hype_cold"`     // 同上, 冷清(不高于 30)的比例
 	HypeEnd      int32  `json:"hype_end"`      // 结束时热度的平均值, 0-100
+	SnipeEV      int64  `json:"snipe_ev"`      // 1 号真人换成盲狙(最后一轮才出价, 压着别人已公开的最高价, 不看货仓)时每局的平均盈亏, 口径同 SeatEV; 没有人机时为 0
+	InsiderEV    int64  `json:"insider_ev"`    // 1 号真人换成知情狙击(知道货仓价值, 同样只在最后一轮出价)时每局的平均盈亏, 信息优势的上限; 没有人机时为 0
+	CheapBlocked int32  `json:"cheap_blocked"` // 便宜货仓(价值不到公示期望的 60%)中人机的最高出价不低于回收价、真人拍下只会亏的比例, 只看每局的第一个拍品; 没有人机时为 0
 }
 
 // Check 验算的一项闸门

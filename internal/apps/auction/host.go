@@ -36,29 +36,39 @@ import (
 
 // hostInput 生成一轮提示时的局面
 type hostInput struct {
-	Round     int32       // 即将开始的轮次
-	Items     []DepotItem // 货仓里的全部藏品
-	Value     int64       // 货仓价值
-	Expected  int64       // 期望价值, 见 expectedValue
-	Qualities []int16     // 这张地图可能出现的品质, 从低到高; 说错时换成相邻的品质
-	Rule      *venue.HostRule
-	Persona   string
-	Hype      int32
-	Last      string // 上一条提示的类型, 能选别的时不连续出同一种
+	Round        int32       // 即将开始的轮次
+	Items        []DepotItem // 货仓里的全部藏品
+	Value        int64       // 货仓价值
+	Expected     int64       // 期望价值, 见 expectedValue
+	Qualities    []int16     // 这张地图可能出现的品质, 从低到高; 说错时换成相邻的品质
+	CountQuality int16       // "件数"提示统计的最低品质, 见 hintCountQuality; 0 表示不给这种提示
+	Rule         *venue.HostRule
+	Persona      string
+	Hype         int32
+	Given        []HostHint // 这个拍品已经给过的提示, 按轮次
 }
 
 // makeHint 生成一条提示: 列出这一轮能给的提示, 随机选一种, 再按撒谎率决定是否说错; 没有能给的提示时返回 false
 //
 // 提示只涉及开局时就确定的信息, 不涉及其他人的出价; 指认一件藏品时只指这一轮已经扫出轮廓的, 不透露其他藏品的位置。
+// 件数、最好的品质和价值高低在一个拍品里不会变, 每个拍品各只说一次, 重复说只是让人多一次机会分辨真假; 指认藏品时不指已经指过的。
+// 能选别的时不连续出同一种。
 func makeHint(in *hostInput, randN func(n int64) int64) (HostHint, bool) {
-	var previewed []DepotItem
+	said, pointed, last := map[string]bool{}, map[cell]bool{}, ""
+	for _, h := range in.Given {
+		said[h.Kind], last = true, h.Kind
+		if h.Kind == HostHintPiece {
+			pointed[cell{h.X, h.Y}] = true
+		}
+	}
+	var fresh []DepotItem
 	for _, it := range in.Items {
-		if it.Outlined(in.Round) {
-			previewed = append(previewed, it)
+		if it.Outlined(in.Round) && !pointed[cell{it.X, it.Y}] {
+			fresh = append(fresh, it)
 		}
 	}
 	var options []HostHint
-	if q := hintQuality(in); q > 0 {
+	if q := in.CountQuality; q > 0 && !said[HostHintCount] {
 		var n int32
 		for _, it := range in.Items {
 			if it.Quality >= q {
@@ -67,19 +77,19 @@ func makeHint(in *hostInput, randN func(n int64) int64) (HostHint, bool) {
 		}
 		options = append(options, HostHint{Kind: HostHintCount, Quality: q, Count: n})
 	}
-	if len(in.Items) > 0 {
+	if len(in.Items) > 0 && !said[HostHintBest] {
 		best := slices.MaxFunc(in.Items, func(a, b DepotItem) int { return cmp.Compare(a.Quality, b.Quality) })
 		options = append(options, HostHint{Kind: HostHintBest, Quality: best.Quality})
 	}
-	if len(previewed) > 0 {
-		piece := previewed[randN(int64(len(previewed)))]
+	if len(fresh) > 0 {
+		piece := fresh[randN(int64(len(fresh)))]
 		options = append(options, HostHint{Kind: HostHintPiece, Quality: piece.Quality, X: piece.X, Y: piece.Y})
 	}
-	if in.Expected > 0 {
+	if in.Expected > 0 && !said[HostHintValue] {
 		options = append(options, HostHint{Kind: HostHintValue, Above: in.Value > in.Expected})
 	}
 	if len(options) > 1 {
-		options = slices.DeleteFunc(options, func(h HostHint) bool { return h.Kind == in.Last })
+		options = slices.DeleteFunc(options, func(h HostHint) bool { return h.Kind == last })
 	}
 	if len(options) == 0 {
 		return HostHint{}, false
@@ -93,15 +103,28 @@ func makeHint(in *hostInput, randN func(n int64) int64) (HostHint, bool) {
 	return hint, true
 }
 
-// hintQuality "高品质件数"提示统计的最低品质: 配置的高品质, 没有配置时为可能出现的品质的中位数
-func hintQuality(in *hostInput) int16 {
-	if in.Rule.HighQuality > 0 {
-		return in.Rule.HighQuality
+// hintCountQuality "件数"提示统计的最低品质: 公示概率下不低于它的藏品的期望件数最接近 1 件的品质, 远近按倍数比, 一样近时取低的;
+// 期望件数不在 [hintCountMin, hintCountMax] 内的品质不用, 都不在时返回 0, 不给这种提示
+//
+// 每个拍品按自己的公示分布选, 不用地图配置的高品质: 期望件数接近 0 的品质说出来几乎总是 0 件, 说了等于没说,
+// 说错时又总是凭空多出一件; 期望 1 件左右时有没有、有几件才有信息量。
+func hintCountQuality(odds []venue.PieceOdds) int16 {
+	best, gap := int16(0), math.Inf(1)
+	for _, q := range hostQualities(odds, nil) {
+		var count float64
+		for _, o := range odds {
+			if o.Quality >= q {
+				count += o.Count
+			}
+		}
+		if count < hintCountMin || count > hintCountMax {
+			continue
+		}
+		if g := math.Abs(math.Log(count)); g < gap {
+			best, gap = q, g
+		}
 	}
-	if len(in.Qualities) == 0 {
-		return 0
-	}
-	return in.Qualities[len(in.Qualities)/2]
+	return best
 }
 
 // lieRate 这条提示说错的概率, 基点: 稳重的减半, 煽动的在热度高时、狡黠的在热度低时 × 1.5, 涉及高品质时再 × 1.5, 不超过 maxLieRate
@@ -236,7 +259,8 @@ func startHost(tx *gorm.DB, a *Match, lot *Lot, items []DepotItem) error {
 	if err := tx.Create(&HypeEvent{MatchID: a.MatchID, LotNo: lot.LotNo, Delta: hypeStart, Hype: hypeStart}).Error; err != nil {
 		return err
 	}
-	return giveHint(tx, a, lot, items, lot.FirstRound, "")
+	_, err := giveHint(tx, a, lot, items, lot.FirstRound, nil)
+	return err
 }
 
 // recordHype 记录当前拍品上热度的一次变动, hype 为变动后的热度; round 为结束的轮次, 拍品开场(热度回落)时为 0
@@ -250,39 +274,57 @@ func (st *state) recordHype(tx *gorm.DB, round, raises, hype int32) error {
 	return tx.Model(a).Select("hype").Updates(a).Error
 }
 
-// hint 给出当前拍品在仓库第 round 轮的提示, 能选别的时不与这个拍品的上一条同一种
-func (st *state) hint(tx *gorm.DB, round int32) error {
+// hint 给出当前拍品在 s 的当前轮次的提示(见 makeHint), 并交给 s, 这一轮人机决策时也看得到
+func (st *state) hint(tx *gorm.DB, s *warehouse) error {
 	a, lot := &st.auction, st.lot
 	items, err := loadItems(tx, a.MatchID, lot.LotNo)
 	if err != nil {
 		return err
 	}
-	var last HostHint
-	if err := tx.Where("match_id = ? AND lot_no = ?", a.MatchID, lot.LotNo).Order("round DESC").Limit(1).Find(&last).Error; err != nil {
+	given, err := loadHints(tx, a.MatchID, lot.LotNo)
+	if err != nil {
 		return err
 	}
-	return giveHint(tx, a, lot, items, round, last.Kind)
+	hint, err := giveHint(tx, a, lot, items, s.Round, given)
+	if err != nil || hint == nil {
+		return err
+	}
+	s.addHint(publicHint(hint))
+	return nil
 }
 
-// giveHint 生成并保存拍品 lot 在仓库第 round 轮的提示, 没有能给的提示时跳过
-func giveHint(tx *gorm.DB, a *Match, lot *Lot, items []DepotItem, round int32, last string) error {
+// giveHint 生成并保存拍品 lot 在仓库第 round 轮的提示, given 为这个拍品已经给过的; 没有能给的提示时返回 nil
+func giveHint(tx *gorm.DB, a *Match, lot *Lot, items []DepotItem, round int32, given []HostHint) (*HostHint, error) {
 	in := &hostInput{
-		Round:     lot.Round(round),
-		Items:     items,
-		Value:     lot.Value,
-		Expected:  expectedValue(lot.Odds),
-		Qualities: hostQualities(lot.Odds, items),
-		Rule:      &a.Venue.Host,
-		Persona:   a.Host,
-		Hype:      a.Hype,
-		Last:      last,
+		Round:        lot.Round(round),
+		Items:        items,
+		Value:        lot.Value,
+		Expected:     expectedValue(lot.Odds),
+		Qualities:    hostQualities(lot.Odds, items),
+		CountQuality: hintCountQuality(lot.Odds),
+		Rule:         &a.Venue.Host,
+		Persona:      a.Host,
+		Hype:         a.Hype,
+		Given:        given,
 	}
 	hint, ok := makeHint(in, rand.Int64N)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	hint.MatchID, hint.LotNo, hint.Round = a.MatchID, lot.LotNo, round
-	return tx.Create(&hint).Error
+	if err := tx.Create(&hint).Error; err != nil {
+		return nil, err
+	}
+	return &hint, nil
+}
+
+// loadHints 拍品 lotNo 已经给过的提示, 按轮次
+func loadHints(tx *gorm.DB, matchID uint64, lotNo int32) ([]HostHint, error) {
+	var hints []HostHint
+	if err := tx.Where("match_id = ? AND lot_no = ?", matchID, lotNo).Order("round").Find(&hints).Error; err != nil {
+		return nil, err
+	}
+	return hints, nil
 }
 
 // loadHost 一局的提示和热度变动, 按时间
@@ -319,21 +361,34 @@ type HostView struct {
 	Hypes   []HypeEvent `json:"hypes"` // 热度的每次变动, 按时间
 }
 
+// publicHint 一条提示在仓库结束前公开的部分, 不含是否属实
+func publicHint(h *HostHint) HintView {
+	return HintView{LotNo: h.LotNo, Round: h.Round, Kind: h.Kind, Quality: h.Quality, Count: h.Count, X: h.X, Y: h.Y, Above: h.Above}
+}
+
+// publicHints 见 publicHint
+func publicHints(hints []HostHint) []HintView {
+	views := make([]HintView, len(hints))
+	for i := range hints {
+		views[i] = publicHint(&hints[i])
+	}
+	return views
+}
+
 // hostView 主持人的公开状态; reveal 为是否公开性格和提示是否属实
 func hostView(a *Match, hints []HostHint, hypes []HypeEvent, reveal bool) *HostView {
 	if a.Host == "" {
 		return nil
 	}
-	view := &HostView{Hype: a.Hype, Hints: make([]HintView, len(hints)), Hypes: hypes}
+	view := &HostView{Hype: a.Hype, Hints: publicHints(hints), Hypes: hypes}
 	if reveal {
 		view.Persona = a.Host
 	}
 	if view.Hypes == nil {
 		view.Hypes = []HypeEvent{}
 	}
-	for i, h := range hints {
-		view.Hints[i] = HintView{LotNo: h.LotNo, Round: h.Round, Kind: h.Kind, Quality: h.Quality, Count: h.Count, X: h.X, Y: h.Y, Above: h.Above}
-		if reveal {
+	if reveal {
+		for i := range hints {
 			view.Hints[i].Truthful = &hints[i].Truthful
 		}
 	}

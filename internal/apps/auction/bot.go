@@ -44,14 +44,15 @@ const (
 )
 
 // Observation 人机每轮决策时看到的信息, 与同座位的真人在这一轮出价时看到的相同:
-// 当前拍品的拍卖规则(含扫描比例)和按格子大小推断的公示概率, 到这一轮为止扫出轮廓的藏品占的格子, 自己的剩余资金和出价,
-// 其他人已公开的出价(前 N-1 轮每轮结束后公开), 之后的拍品按格子大小推断的期望价值;
-// 不包含货仓价值、件数、品质、档次、藏品名称和其他人当前轮的出价。策略不能修改观察。
+// 当前拍品的拍卖规则(含扫描比例)和按格子大小推断的公示概率, 到这一轮为止扫出轮廓的藏品占的格子, 主持人对这个拍品已经公开的提示,
+// 自己的剩余资金和出价, 其他人已公开的出价(前 N-1 轮每轮结束后公开), 之后的拍品按格子大小推断的期望价值;
+// 不包含货仓价值、件数、品质、档次、藏品名称、提示的真假、主持人的性格和其他人当前轮的出价。策略不能修改观察。
 type Observation struct {
 	Round      int32             `json:"round"` // 第几轮, 大于规则的轮数时为加轮, 此时自己与其他可以出价的人并列最高
 	Rules      venue.AuctionRule `json:"rules"`
 	Grid       venue.Grid        `json:"grid"`
 	Footprints []Footprint       `json:"footprints"` // 到这一轮为止扫出轮廓的藏品占的格子
+	Hints      []HintView        `json:"hints"`      // 主持人对这个拍品已经公开的提示, 按轮次, 没有主持人时为空; 是否属实仓库结束后才公开, 这里没有
 	Odds       []venue.PieceOdds `json:"odds"`       // 按公示概率算出的藏品分布, 多档次时按格子大小推断的各档次混合
 	Carry      int64             `json:"carry"`      // 剩余资金, 这个拍品出价的上限
 	Bid        int64             `json:"bid"`        // 自己在这个拍品的当前出价, 0 表示还没出过价
@@ -69,19 +70,21 @@ type Decision struct {
 
 // basicParams 基础策略的参数, 系数和概率都是基点
 type basicParams struct {
-	Perception  string `json:"perception" label:"估值方式" options:"size:按尺寸,area:按面积,quality:不看尺寸" binding:"oneof=size area quality"`
-	Bias        int32  `json:"bias" label:"估值偏差" unit:"bp" help:"每局的估值在 ± 偏差内随机偏高或偏低, 整局不变" binding:"min=0,max=5000"`
-	OpenFactor  int32  `json:"open_factor" label:"首轮系数" unit:"bp" help:"第 1 轮按估值 × 首轮系数出价, 之后逐轮增加, 最后一轮为末轮系数" binding:"min=100,max=15000"`
-	CloseFactor int32  `json:"close_factor" label:"末轮系数" unit:"bp" binding:"min=100,max=15000"`
-	MaxFactor   int32  `json:"max_factor" label:"上限系数" unit:"bp" help:"出价不超过估值 × 上限系数" binding:"min=100,max=15000"`
-	Jitter      int32  `json:"jitter" label:"出价浮动" unit:"bp" help:"每轮按系数算出的出价在 ± 浮动内随机" binding:"min=0,max=5000"`
-	JumpChance  int32  `json:"jump_chance" label:"抢拍概率" unit:"bp" help:"第 1 轮直接按估值 × 抢拍系数出价的概率, 用于争取速胜" binding:"min=0,max=10000"`
-	JumpFactor  int32  `json:"jump_factor" label:"抢拍系数" unit:"bp" binding:"min=100,max=15000"`
-	Chase       int32  `json:"chase" label:"追价幅度" unit:"bp" help:"提示落后较多且上限够得着时, 出价追到反超所需的最低价之上这么多; 够不着时放弃" binding:"min=0,max=10000"`
-	Guard       bool   `json:"guard" label:"防速胜" help:"最后一轮之前, 出价不低于上限 ÷ 本轮速胜倍率, 对手要速胜只能出到上限以上"`
-	FollowRate  int32  `json:"follow_rate" label:"跟价概率" unit:"bp" help:"看到别人的公开出价高过自己时跟进的概率, 不跟进时只按轮次系数出价" binding:"min=0,max=10000"`
-	FoldMargin  int32  `json:"fold_margin" label:"放弃幅度" unit:"bp" help:"别人的公开出价超过自己的估值这么多时放弃这个拍品, 不再加价" binding:"min=0,max=10000"`
-	BudgetPace  int32  `json:"budget_pace" label:"预算系数" unit:"bp" help:"多拍品时这个拍品最多花剩余资金 × 估值 ÷ (估值 + 后面拍品的期望) × 预算系数, 最后一个拍品可以花完; 0 表示不看预算" binding:"min=0,max=30000"`
+	Perception     string `json:"perception" label:"估值方式" options:"size:按尺寸,area:按面积,quality:不看尺寸" binding:"oneof=size area quality"`
+	CountInference int32  `json:"count_inference" label:"件数推断" unit:"bp" help:"扫出的轮廓比预期多说明货仓里东西多, 少说明东西少: 没扫出的部分按 期望件数 × (1 - 推断) + 扫出的件数 ÷ 扫出的概率 × 推断 估算; 0 表示不推断, 不管扫出几件都按期望件数" binding:"min=0,max=10000"`
+	HintTrust      int32  `json:"hint_trust" label:"提示信任度" unit:"bp" help:"认为主持人的提示有多大可能是真的, 按它修正估值; 0 表示不看提示, 10000 表示全信; 信得越多估值越准, 被说错的提示带偏得也越多" binding:"min=0,max=10000"`
+	Bias           int32  `json:"bias" label:"估值偏差" unit:"bp" help:"每局的估值在 ± 偏差内随机偏高或偏低, 整局不变" binding:"min=0,max=5000"`
+	OpenFactor     int32  `json:"open_factor" label:"首轮系数" unit:"bp" help:"第 1 轮按估值 × 首轮系数出价, 之后逐轮增加, 最后一轮为末轮系数" binding:"min=100,max=15000"`
+	CloseFactor    int32  `json:"close_factor" label:"末轮系数" unit:"bp" binding:"min=100,max=15000"`
+	MaxFactor      int32  `json:"max_factor" label:"上限系数" unit:"bp" help:"出价不超过估值 × 上限系数" binding:"min=100,max=15000"`
+	Jitter         int32  `json:"jitter" label:"出价浮动" unit:"bp" help:"每轮按系数算出的出价在 ± 浮动内随机" binding:"min=0,max=5000"`
+	JumpChance     int32  `json:"jump_chance" label:"抢拍概率" unit:"bp" help:"第 1 轮直接按估值 × 抢拍系数出价的概率, 用于争取速胜" binding:"min=0,max=10000"`
+	JumpFactor     int32  `json:"jump_factor" label:"抢拍系数" unit:"bp" binding:"min=100,max=15000"`
+	Chase          int32  `json:"chase" label:"追价幅度" unit:"bp" help:"提示落后较多且上限够得着时, 出价追到反超所需的最低价之上这么多; 够不着时放弃" binding:"min=0,max=10000"`
+	Guard          bool   `json:"guard" label:"防速胜" help:"最后一轮之前, 出价不低于上限 ÷ 本轮速胜倍率, 对手要速胜只能出到上限以上"`
+	FollowRate     int32  `json:"follow_rate" label:"跟价概率" unit:"bp" help:"看到别人的公开出价高过自己时跟进的概率, 不跟进时只按轮次系数出价" binding:"min=0,max=10000"`
+	FoldMargin     int32  `json:"fold_margin" label:"放弃幅度" unit:"bp" help:"别人的公开出价超过自己的估值这么多时放弃这个拍品, 不再加价" binding:"min=0,max=10000"`
+	BudgetPace     int32  `json:"budget_pace" label:"预算系数" unit:"bp" help:"多拍品时这个拍品最多花剩余资金 × 估值 ÷ (估值 + 后面拍品的期望) × 预算系数, 最后一个拍品可以花完; 0 表示不看预算" binding:"min=0,max=30000"`
 }
 
 // Validate 系数需满足首轮 ≤ 末轮 ≤ 上限
@@ -95,27 +98,30 @@ func (p *basicParams) Validate(*gorm.DB) (string, error) {
 // registerStrategies 注册人机的决策策略, 在 init 中调用
 func registerStrategies() {
 	bot.RegisterStrategy(StrategyBasic, "暗拍基础策略",
-		"按公开信息估值: 扫出轮廓的藏品按尺寸取地图公示概率下的平均回收价, 没扫出的按期望价值折算; 按轮次逐步加价, 看公开出价追价或放弃, 多拍品时按预算分配资金",
+		"按公开信息估值: 扫出轮廓的藏品按尺寸取地图公示概率下的平均回收价, 没扫出的按期望价值折算, 再按扫出的件数和主持人的提示修正; 按轮次逐步加价, 看公开出价追价或放弃, 多拍品时按预算分配资金",
 		basicParams{
-			Perception:  PerceptionSize,
-			Bias:        1000,
-			OpenFactor:  4200,
-			CloseFactor: 7800,
-			MaxFactor:   8800,
-			Jitter:      300,
-			JumpChance:  0,
-			JumpFactor:  9000,
-			Chase:       1500,
-			Guard:       true,
-			FollowRate:  10000,
-			FoldMargin:  1000,
-			BudgetPace:  25000,
+			Perception:     PerceptionSize,
+			CountInference: 3000,
+			HintTrust:      8000,
+			Bias:           1000,
+			OpenFactor:     4200,
+			CloseFactor:    7800,
+			MaxFactor:      8800,
+			Jitter:         300,
+			JumpChance:     0,
+			JumpFactor:     9000,
+			Chase:          1500,
+			Guard:          true,
+			FollowRate:     10000,
+			FoldMargin:     1000,
+			BudgetPace:     25000,
 		}, decideBasic)
 }
 
 // decideBasic 基础策略
 //
-//   - 估值: 按公开信息估算货仓价值(见 appraise), 再按种子偏高或偏低, 偏差在 ± Bias 内且整局不变; 公开信息开局后不再变化, 估值整局不变
+//   - 估值: 按公开信息估算货仓价值(见 appraise), 再按种子偏高或偏低, 偏差在 ± Bias 内且整局不变;
+//     每次再扫描和每条提示都是新的公开信息, 估值随轮次变化
 //   - 上限: min(估值 × 上限系数, 剩余资金, 预算), 低于起拍价或不高于当前出价时不再加价;
 //     预算 = 剩余资金 × 估值 ÷ (估值 + 后面拍品的期望) × 预算系数, 最后一个拍品和预算系数为 0 时不限
 //   - 抢拍: 第 1 轮有 JumpChance 的概率按估值 × 抢拍系数出价
@@ -128,7 +134,7 @@ func registerStrategies() {
 func decideBasic(obs Observation, p *basicParams, rng *rand.Rand) Decision {
 	rules := &obs.Rules
 	personal := rand.New(rand.NewPCG(uint64(obs.Seed), 0))
-	appraisal := appraise(obs.Odds, obs.Footprints, p.Perception, hiddenShare(rules, obs.Round))
+	appraisal := appraise(obs.Odds, obs.Footprints, obs.Hints, hiddenShare(rules, obs.Round), p)
 	estimate := int64(appraisal * float64(venue.BasisPoints+spread(personal, p.Bias)) / venue.BasisPoints)
 	decision := Decision{Estimate: estimate}
 	carry := obs.Carry
@@ -186,51 +192,6 @@ func decideBasic(obs Observation, p *basicParams, rng *rand.Rand) Decision {
 func budget(carry, estimate, future, pace int64) int64 {
 	share := float64(carry) * float64(estimate) / float64(estimate+max(future, 0))
 	return min(int64(share*float64(pace)/venue.BasisPoints), carry)
-}
-
-// appraise 按公开信息估算货仓价值: 扫出轮廓的每件按估值方式归类, 取公示概率下同类藏品按期望件数加权的平均回收价;
-// 没扫出的按期望价值 × 还没扫出的概率估算
-//
-// 每件藏品扫不扫出与它是什么无关, 没扫出的部分平均就是期望价值 × hidden(每件到这一轮还没扫出的概率, 见 hiddenShare); 不看尺寸或公示概率中没有同类时按全部藏品的平均价。
-// 扫出的件数也透露了总件数, 这里不利用, 留给真人。
-func appraise(odds []venue.PieceOdds, footprints []Footprint, perception string, hidden float64) float64 {
-	type key struct{ width, height int16 }
-	type group struct{ count, value float64 }
-	keyOf := func(width, height int16) key {
-		switch perception {
-		case PerceptionArea:
-			return key{width * height, 0}
-		case PerceptionQuality:
-			return key{}
-		}
-		return key{width, height}
-	}
-	groups := map[key]*group{}
-	var all group
-	for _, o := range odds {
-		k := keyOf(o.Width, o.Height)
-		g, ok := groups[k]
-		if !ok {
-			g = &group{}
-			groups[k] = g
-		}
-		g.count += o.Count
-		g.value += o.Count * o.Price
-		all.count += o.Count
-		all.value += o.Count * o.Price
-	}
-	if all.count <= 0 {
-		return 0
-	}
-	total := all.value * hidden
-	for _, f := range footprints {
-		if g, ok := groups[keyOf(f.Width, f.Height)]; ok && g.count > 0 {
-			total += g.value / g.count
-		} else {
-			total += all.value / all.count
-		}
-	}
-	return total
 }
 
 // scale v × 系数, 系数为基点

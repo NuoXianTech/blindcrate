@@ -39,7 +39,7 @@
 // 入场费按玩法平衡设置的真人盈亏目标求出, 用来回收货币。
 //
 // 人机(见 bot.go): 每轮结束时按风格的策略决策, 只用同座位的真人看得到的信息估值和出价, 不知道货仓价值和其他人的出价;
-// 估值用开局时按公示概率算出的藏品分布, 出价时间在本轮内随机。
+// 估值用开局时按公示概率算出的藏品分布, 加上到这一轮为止扫出的轮廓和主持人的提示, 出价时间在本轮内随机。
 //
 // 练习局不扣入场费和入场代价、不冻结资金、不发藏品, 也不写统计, 结算页的盈亏按正式局计算供参考。
 // 玩家通过 ws 消息 auction:bid 出价, 断线重连后用 GET /auctions/{match_id} 恢复。
@@ -49,7 +49,7 @@
 // 对局被取消时退还用掉的道具, 流拍不退。
 //
 // 主持人(见 host.go, 规则见 venue.HostRule): 开局时选出性格(开箱后才公开)并公开初始热度, 每个规定的轮次开始时公开一条关于货仓的提示,
-// 有一定概率说错, 开箱后公开真假; 热度在每轮结束时按加价的人数和幅度变化, 变动只追加不修改。人机不看提示。
+// 有一定概率说错, 开箱后公开真假; 热度在每轮结束时按加价的人数和幅度变化, 变动只追加不修改。提示是公开信息, 人机也看, 信多少由风格决定。
 package auction
 
 import "time"
@@ -72,7 +72,7 @@ const (
 
 // 主持人提示的类型
 const (
-	HostHintCount = "count" // 品质不低于 Quality 的藏品共有 Count 件
+	HostHintCount = "count" // 品质不低于 Quality 的藏品共有 Count 件; Quality 按拍品的公示分布选, 见 hintCountQuality
 	HostHintBest  = "best"  // 货仓里最好的藏品是 Quality
 	HostHintPiece = "piece" // 位置为 (X, Y) 的藏品是 Quality, 只指已经扫出轮廓的
 	HostHintValue = "value" // 货仓价值高于(Above)或不高于期望价值
@@ -100,6 +100,9 @@ const (
 const (
 	// maxLieRate 提示说错的概率上限, 基点
 	maxLieRate = 2500
+	// hintCountMin、hintCountMax "件数"提示统计的品质需要满足: 公示概率下不低于它的藏品的期望件数在这个范围内, 见 hintCountQuality
+	hintCountMin = 0.3
+	hintCountMax = 3.5
 	// hypeStart 开局时的热度
 	hypeStart = 50
 	// hypeMax 热度上限, 下限为 0

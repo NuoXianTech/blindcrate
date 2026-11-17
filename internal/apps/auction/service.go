@@ -719,7 +719,7 @@ func (st *state) warehouse() *warehouse {
 	return s
 }
 
-// lotSpec 当前拍品开拍时就确定的信息; 扫出的轮廓只有人机决策时用, 没有人机时不读
+// lotSpec 当前拍品开拍时就确定的信息和已经公开的提示; 扫出的轮廓和提示只有人机决策时用, 没有人机时不读
 func (st *state) lotSpec(tx *gorm.DB) (lotSpec, error) {
 	lot := st.lot
 	spec := lotSpec{Rule: st.rule(), Grid: lot.Grid, Odds: lot.Odds, LotsLeft: st.auction.LotCount - lot.LotNo}
@@ -732,6 +732,13 @@ func (st *state) lotSpec(tx *gorm.DB) (lotSpec, error) {
 			return lotSpec{}, err
 		}
 		spec.Outlines = outlines(items)
+		if st.auction.Host != "" {
+			hints, err := loadHints(tx, st.match.ID, lot.LotNo)
+			if err != nil {
+				return lotSpec{}, err
+			}
+			spec.Hints = publicHints(hints)
+		}
 	}
 	return spec, nil
 }
@@ -812,7 +819,7 @@ func (st *state) advance(tx *gorm.DB, s *warehouse, waited bool) (*match.Phase, 
 				return nil, err
 			}
 			if res.Hint {
-				if err := st.hint(tx, s.Round); err != nil {
+				if err := st.hint(tx, s); err != nil {
 					return nil, err
 				}
 			}
@@ -891,7 +898,7 @@ func (st *state) startLot(tx *gorm.DB) (*match.Phase, error) {
 		if err := st.recordHype(tx, 0, 0, s.Hype); err != nil {
 			return nil, err
 		}
-		if err := st.hint(tx, s.Round); err != nil {
+		if err := st.hint(tx, s); err != nil {
 			return nil, err
 		}
 	}
@@ -1440,7 +1447,7 @@ func UseItem(ctx context.Context, userID uint64, req *UseRequest) (*AuctionView,
 		if err != nil {
 			return nil, err
 		}
-		useCtx := newUseContext(st.lot.Value, items, st.lot.Round(m.Round), lotUses(uses, st.lot.LotNo), rand.Int64N)
+		useCtx := newUseContext(st.lot.Value, expectedValue(st.lot.Odds), items, st.lot.Round(m.Round), lotUses(uses, st.lot.LotNo), rand.Int64N)
 		intel, err := effect.Apply[*UseContext, Intel](effect.SceneMatch, target.Effect, useCtx, target.EffectParams)
 		if err != nil {
 			return nil, err

@@ -68,15 +68,19 @@ type cell struct{ x, y int16 }
 type UseContext struct {
 	Pieces     []DepotItem         // 货仓里的全部藏品, 按扫描顺序
 	Value      int64               // 货仓价值
+	Expected   int64               // 货仓的期望价值, 按公示概率算出, 见 expectedValue; 是公开信息
 	Outlined   map[cell]bool       // 使用者已知轮廓的藏品, 按位置; 到这一轮为止扫出的和之前用道具看到的
 	Known      map[cell]bool       // 使用者已知品质的藏品, 按位置; 品质从不公开, 只有之前用道具看到的
 	KnownNames map[cell]bool       // 使用者已知名称的藏品, 按位置
 	Rand       func(n int64) int64 // 返回 [0, n) 的随机数, 测试时可以替换
 }
 
-// newUseContext 以座位 seat 的视角生成上下文; round 为拍品的当前轮次, uses 为这个座位之前用过的道具
-func newUseContext(value int64, items []DepotItem, round int32, uses []Use, random func(n int64) int64) *UseContext {
-	ctx := &UseContext{Pieces: items, Value: value, Outlined: map[cell]bool{}, Known: map[cell]bool{}, KnownNames: map[cell]bool{}, Rand: random}
+// newUseContext 以座位 seat 的视角生成上下文; value 和 expected 为货仓的价值和期望价值, round 为拍品的当前轮次, uses 为这个座位之前用过的道具
+func newUseContext(value, expected int64, items []DepotItem, round int32, uses []Use, random func(n int64) int64) *UseContext {
+	ctx := &UseContext{
+		Pieces: items, Value: value, Expected: expected,
+		Outlined: map[cell]bool{}, Known: map[cell]bool{}, KnownNames: map[cell]bool{}, Rand: random,
+	}
 	for _, it := range items {
 		if it.Outlined(round) {
 			ctx.Outlined[cell{it.X, it.Y}] = true
@@ -233,17 +237,22 @@ func revealName(ctx *UseContext, params *RevealNameParams) (Intel, error) {
 
 // ValueRangeParams 估价区间的参数
 type ValueRangeParams struct {
-	Precision int32 `json:"precision" label:"误差" help:"区间宽度为货仓价值 × 误差 × 2, 基点, 2000 表示 ±20%" binding:"min=100,max=10000"`
+	Precision int32 `json:"precision" label:"误差" help:"区间宽度为货仓的期望价值 × 误差 × 2, 与货仓实际值多少无关, 基点, 2000 表示期望价值的 ±20%" binding:"min=100,max=10000"`
 }
 
-// valueRange 区间宽度为价值 × 误差 × 2, 真实价值在区间中的位置均匀随机, 下限不低于 0
+// valueRange 区间宽度为期望价值 × 误差 × 2, 真实价值在区间中的位置均匀随机, 下限不低于 0
 //
-// 随机数不能由对局 ID 等可以推算的值决定, 否则知道算法的人可以从区间反推出真实价值。
+// 宽度只能由公开的期望价值决定: 按真实价值算时, 宽度 ÷ (误差 × 2) 就是真实价值, 下限也总是价值的固定比例以上, 压着下限出价稳赚。
+// 位置均匀随机时, 区间除了"价值在里面"不透露别的; 随机数不能由对局 ID 等可以推算的值决定, 否则知道算法的人可以从区间反推出真实价值。
 func valueRange(ctx *UseContext, params *ValueRangeParams) (Intel, error) {
-	if ctx.Value < 0 {
+	if ctx.Value < 0 || ctx.Expected < 0 {
 		return Intel{}, errors.New("auction: negative depot value")
 	}
-	width := ctx.Value * int64(params.Precision) * 2 / venue.BasisPoints
+	// 宽度为 0 的区间就是真实价值
+	if ctx.Expected == 0 && ctx.Value > 0 {
+		return Intel{}, errors.New("auction: depot has a value but no expected value")
+	}
+	width := ctx.Expected * int64(params.Precision) * 2 / venue.BasisPoints
 	low := ctx.Value - ctx.Rand(width+1)
 	high := low + width
 	return Intel{Facts: []Fact{{Kind: FactAmount, Label: "货仓价值", Min: max(low, 0), Max: high}}}, nil
