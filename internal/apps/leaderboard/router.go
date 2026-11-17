@@ -25,18 +25,10 @@
 package leaderboard
 
 import (
-	"net/http"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 leaderboard 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListBoardsResponseData 榜单列表
 type ListBoardsResponseData struct {
@@ -48,20 +40,19 @@ type ListBoardsResponseData struct {
 // @Summary 获取启用的排行榜
 // @Description 按排序值排列, 只有榜单的配置, 名次见获取排行榜
 // @Produce json
-// @Success 200 {object} Response{data=ListBoardsResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListBoardsResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/leaderboards [get]
 func ListBoards(c *gin.Context) {
 	ctx := c.Request.Context()
 	boards, err := QueryBoards(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListBoards] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListBoards] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListBoardsResponseData{Boards: boards}})
+	reply.OK(c, ListBoardsResponseData{Boards: boards})
 }
 
 // GetBoard
@@ -70,28 +61,19 @@ func ListBoards(c *gin.Context) {
 // @Description 前 N 名缓存 60 秒, 所有人看到同一份; 自己的名次每次查询, 可能在前 N 名之外
 // @Produce json
 // @Param code path string true "leaderboard code"
-// @Success 200 {object} Response{data=BoardDetail}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=BoardDetail}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/leaderboards/{code} [get]
 func GetBoard(c *gin.Context) {
 	ctx := c.Request.Context()
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	detail, err := QueryBoard(ctx, user.ID, c.Param("code"))
 	if err != nil {
-		if err.Error() == BoardNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetBoard] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetBoard] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: detail})
+	reply.OK(c, detail)
 }

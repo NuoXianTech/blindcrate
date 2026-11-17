@@ -86,20 +86,24 @@ func RegisterStrategy[O, P, D any](code, label, description string, defaults P, 
 	strategyOrder = append(strategyOrder, code)
 }
 
-// Strategies 全部决策策略, 按注册顺序
-func Strategies() []StrategyView {
+// Strategies 全部决策策略, 按注册顺序; 参数的表单描述带当前的可选值, 没有引用可选值来源的策略时 tx 可以为 nil
+func Strategies(tx *gorm.DB) ([]StrategyView, error) {
 	views := make([]StrategyView, 0, len(strategyOrder))
 	for _, code := range strategyOrder {
 		def := strategies[code]
+		fields, err := def.schema.Form(tx)
+		if err != nil {
+			return nil, err
+		}
 		views = append(views, StrategyView{
 			Code:        code,
 			Label:       def.label,
 			Description: def.description,
-			Fields:      def.schema.Fields(),
+			Fields:      fields,
 			Defaults:    maps.Clone(def.defaults),
 		})
 	}
-	return views
+	return views, nil
 }
 
 // validateParams 保存风格前校验策略和参数, 返回规范化后的参数: 按参数结构体重新编码, 缺少的参数取默认值

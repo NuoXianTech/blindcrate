@@ -78,20 +78,23 @@ func TestOpenEffect(t *testing.T) {
 	}
 }
 
+// TestRenamePool 掉落池在配置包中改名导入时, 箱子效果参数中的掉落池代码跟着改: 按参数字段引用的可选值来源找到, 不用单独登记
 func TestRenamePool(t *testing.T) {
 	cases := []struct {
 		name   string
 		effect string
+		source string
 		params map[string]any
 		want   map[string]any
 	}{
-		{"renamed", EffectOpen, map[string]any{"pool": "old"}, map[string]any{"pool": "new"}},
-		{"other pool", EffectOpen, map[string]any{"pool": "other"}, map[string]any{"pool": "other"}},
-		{"other effect", "reveal_name", map[string]any{"pool": "old"}, map[string]any{"pool": "old"}},
-		{"no effect", "", nil, nil},
+		{"renamed", EffectOpen, loot.SourcePool, map[string]any{"pool": "old"}, map[string]any{"pool": "new"}},
+		{"other pool", EffectOpen, loot.SourcePool, map[string]any{"pool": "other"}, map[string]any{"pool": "other"}},
+		{"other source", EffectOpen, "currency", map[string]any{"pool": "old"}, map[string]any{"pool": "old"}},
+		{"other effect", "reveal_name", loot.SourcePool, map[string]any{"pool": "old"}, map[string]any{"pool": "old"}},
+		{"no effect", "", loot.SourcePool, nil, nil},
 	}
 	for _, c := range cases {
-		RenamePool(c.effect, c.params, "old", "new")
+		effect.Renamed(c.effect, c.params, c.source, "old", "new")
 		if !reflect.DeepEqual(c.params, c.want) {
 			t.Errorf("%s: got %v, want %v", c.name, c.params, c.want)
 		}
@@ -100,14 +103,14 @@ func TestRenamePool(t *testing.T) {
 
 // TestPick 每次只抽中一项, 数量在这一项的范围内
 func TestPick(t *testing.T) {
-	contents := &Contents{Entries: []loot.EntryDetail{
+	entries := []loot.EntryDetail{
 		{Entry: loot.Entry{ItemID: 7, Weight: 1, MinQuantity: 1, MaxQuantity: 1}},
 		{Entry: loot.Entry{ItemID: 8, Weight: 5, MinQuantity: 2, MaxQuantity: 4}},
 		{Entry: loot.Entry{Currency: "chip", Weight: 3, MinQuantity: 100, MaxQuantity: 200}},
-	}}
+	}
 	seen := map[string]bool{}
 	for range 500 {
-		drop := loot.Draw(contents.Entries).Bundle()
+		drop := loot.Draw(entries).Bundle()
 		switch {
 		case len(drop.Items) == 1 && len(drop.Currencies) == 0:
 			line := drop.Items[0]
@@ -130,9 +133,9 @@ func TestPick(t *testing.T) {
 		t.Errorf("seen = %v, want all 3 entries", seen)
 	}
 
-	only := &Contents{Entries: []loot.EntryDetail{{Entry: loot.Entry{Currency: "chip", Weight: 1, MinQuantity: 5, MaxQuantity: 5}}}}
+	only := []loot.EntryDetail{{Entry: loot.Entry{Currency: "chip", Weight: 1, MinQuantity: 5, MaxQuantity: 5}}}
 	want := reward.Bundle{Currencies: []reward.CurrencyLine{{Currency: "chip", Amount: 5}}}
-	if got := loot.Draw(only.Entries).Bundle(); !reflect.DeepEqual(got, want) {
+	if got := loot.Draw(only).Bundle(); !reflect.DeepEqual(got, want) {
 		t.Errorf("single entry: got %+v, want %+v", got, want)
 	}
 }

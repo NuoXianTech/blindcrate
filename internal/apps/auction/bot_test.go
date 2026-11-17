@@ -238,7 +238,11 @@ func referencePersonas() []bot.Persona {
 // TestReferencePersonas 参考风格和基础策略的默认参数都能通过保存风格时的校验
 func TestReferencePersonas(t *testing.T) {
 	personas := referencePersonas()
-	for _, s := range bot.Strategies() {
+	strategies, err := bot.Strategies(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range strategies {
 		if s.Code == StrategyBasic {
 			personas = append(personas, bot.Persona{Code: "defaults", Name: "默认参数", Strategy: s.Code, Params: s.Defaults})
 		}

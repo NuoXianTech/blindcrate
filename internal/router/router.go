@@ -43,7 +43,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/codex"
 	"github.com/NuoXianTech/blindcrate/internal/apps/codex/codexadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition/conditionadmin"
-	"github.com/NuoXianTech/blindcrate/internal/apps/crate"
+	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/health"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory/inventoryadmin"
@@ -215,17 +215,12 @@ func userRoutes(r *gin.RouterGroup) {
 		inventoryRouter.GET("/biz-types", inventory.ListBizTypes)
 		inventoryRouter.POST("/sell", inventory.SellItems)
 		inventoryRouter.GET("/sell-orders", inventory.ListSellOrders)
+		inventoryRouter.GET("/items/:item_id/use", effect.GetItemUse)
+		inventoryRouter.POST("/items/:item_id/use", ratelimit.ByUser("item:use", ratelimit.PerMinute(60)), effect.UseItem)
 	}
 
 	// Loot
 	r.GET("/loot-pools/:code/odds", loot.GetPoolOdds)
-
-	// Crate
-	crateRouter := r.Group("/crates")
-	{
-		crateRouter.GET("/:item_id", crate.GetCrate)
-		crateRouter.POST("/:item_id/open", ratelimit.ByUser("crate:open", ratelimit.PerMinute(60)), crate.OpenCrate)
-	}
 
 	// Venue
 	venueRouter := r.Group("/venues")

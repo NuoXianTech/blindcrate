@@ -7,7 +7,6 @@ import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Skeleton} from '@/components/ui/skeleton';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
-import type {ScopeOption} from '@/components/common/admin/editors';
 import {SubmitButton} from '@/components/common/form';
 import {useSite} from '@/components/common/site';
 import {useSubmit} from '@/hooks/use-submit';
@@ -35,8 +34,6 @@ export interface VenueOptions {
   currencies: Currency[];
   pools: LootPoolListItem[];
   types: ConditionType[];
-  /** 入场条件中统计范围的候选项 */
-  scopes: ScopeOption[];
   /** 物品的使用效果, 用于筛选能在对局中使用的道具 */
   effects: ItemEffect[];
   /** 人机风格, 每个模式从中选择出场的风格 */
@@ -91,7 +88,7 @@ export function VenueDialog({venue, options, onClose, onSaved}: VenueDialogProps
  * 地图表单, venue 为 null 时新建
  */
 function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 'venue'> & { venue: AdminVenue | null }) {
-  const {items, currencies, pools, types, scopes, effects, personas} = options;
+  const {items, currencies, pools, types, effects, personas} = options;
   const save = useSubmit();
   const simulate = useSubmit();
   const pending = save.pending || simulate.pending;
@@ -155,7 +152,7 @@ function VenueEditor({venue, options, onClose, onSaved}: Omit<VenueDialogProps, 
             <BasicTab {...tabProps} editing={!!venue} currencies={currencies} />
           </TabsContent>
           <TabsContent value="entry">
-            <EntryTab {...tabProps} items={items} currencies={currencies} types={types} scopes={scopes} />
+            <EntryTab {...tabProps} items={items} currencies={currencies} types={types} />
           </TabsContent>
           <TabsContent value="lots">
             <LotsTab

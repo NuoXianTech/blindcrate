@@ -55,3 +55,25 @@ const (
 	emailCodeCooldown    = time.Minute
 	emailCodeMaxAttempts = 5
 )
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetUser = "user"
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionLogin              = "auth.login"
+	ActionLoginFailed        = "auth.login_failed"
+	ActionRegister           = "auth.register"
+	ActionLogout             = "auth.logout"
+	ActionChangePassword     = "auth.change_password"
+	ActionVerifyEmail        = "auth.verify_email"
+	ActionUpdateProfile      = "auth.update_profile"
+	ActionUserUpdate         = "admin.user_update"
+	ActionUserBan            = "admin.user_ban"
+	ActionUserUnban          = "admin.user_unban"
+	ActionUserDisable        = "admin.user_disable"
+	ActionUserEnable         = "admin.user_enable"
+	ActionUserPasswordUpdate = "admin.user_password_update"
+)

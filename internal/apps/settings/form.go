@@ -28,12 +28,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
 	"slices"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"gorm.io/gorm"
@@ -42,7 +42,7 @@ import (
 // Field 设置项的描述, 后台据此自动生成表单; 写法见 params 包, 另支持 ref、secret、public 三个 tag
 type Field struct {
 	params.Field
-	Ref    string `json:"ref,omitempty"` // 引用其他模块的数据, 如 currency; 可选值在读取时由 RegisterRef 注册的函数生成
+	Ref    string `json:"ref,omitempty"` // 引用其他模块的数据, 如 currency; 可选值在读取时由 params.RegisterSource 登记的来源生成
 	Secret bool   `json:"secret"`        // 密钥, 加密保存, 后台不回显
 	Public bool   `json:"public"`        // 可以公开给前端
 	index  int
@@ -97,30 +97,7 @@ var (
 	// groups 已注册的设置组, 按分类和 Sort 排列
 	groups     []*group
 	keyPattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
-
-	// refs 引用字段的可选值, 按引用名称, 只在启动前写入
-	refs = map[string]RefOptions{}
 )
-
-// RefOptions 生成引用字段的可选值, 如全部启用的货币
-type RefOptions func(tx *gorm.DB) ([]params.Option, error)
-
-// RegisterRef 注册一种引用, 带 ref tag 的字段在后台显示为下拉框, 保存时只能选可选值; 需要在启动前调用, 重复注册时 panic
-func RegisterRef(name string, options RefOptions) {
-	if _, ok := refs[name]; ok {
-		panic(fmt.Sprintf("settings: ref %s already registered", name))
-	}
-	refs[name] = options
-}
-
-// refOptions 引用字段的可选值, 引用没有注册时返回错误
-func refOptions(tx *gorm.DB, name string) ([]params.Option, error) {
-	options, ok := refs[name]
-	if !ok {
-		return nil, fmt.Errorf("settings: ref %s not registered", name)
-	}
-	return options(tx)
-}
 
 // Register 注册一个设置组, 在包级变量中调用, key 重复、分类未知或字段类型不支持时 panic
 func Register[T any](def Group[T]) *Handle[T] {
@@ -224,7 +201,7 @@ func (g *group) formFields(tx *gorm.DB) ([]Field, error) {
 		if fields[i].Ref == "" {
 			continue
 		}
-		options, err := refOptions(tx, fields[i].Ref)
+		options, err := params.SourceOptions(tx, fields[i].Ref)
 		if err != nil {
 			return nil, err
 		}
@@ -261,11 +238,11 @@ func (g *group) merge(tx *gorm.DB, cur any, broken []string, raw json.RawMessage
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(next); err != nil {
-		return nil, errors.New(ValueInvalid)
+		return nil, fault.Invalid(ValueInvalid)
 	}
 	for _, key := range clearSecrets {
 		if f := g.field(key); f == nil || !f.Secret {
-			return nil, errors.New(ValueInvalid)
+			return nil, fault.Invalid(ValueInvalid)
 		}
 	}
 
@@ -278,7 +255,7 @@ func (g *group) merge(tx *gorm.DB, cur any, broken []string, raw json.RawMessage
 			fv.SetString("")
 		case fv.String() != "":
 		case slices.Contains(broken, f.Key):
-			return nil, fmt.Errorf(SecretBroken, f.Label)
+			return nil, fault.Invalid(SecretBroken, f.Label)
 		default:
 			fv.SetString(cv.Field(f.index).String())
 		}
@@ -303,7 +280,7 @@ func (g *group) validate(tx *gorm.DB, v any) error {
 		options := f.Options
 		if f.Ref != "" {
 			var err error
-			if options, err = refOptions(tx, f.Ref); err != nil {
+			if options, err = params.SourceOptions(tx, f.Ref); err != nil {
 				return err
 			}
 		}
@@ -312,7 +289,7 @@ func (g *group) validate(tx *gorm.DB, v any) error {
 			continue
 		}
 		if !slices.ContainsFunc(options, func(o params.Option) bool { return o.Value == value }) {
-			return fmt.Errorf(OptionInvalid, f.Label)
+			return fault.Invalid(OptionInvalid, f.Label)
 		}
 	}
 	return nil

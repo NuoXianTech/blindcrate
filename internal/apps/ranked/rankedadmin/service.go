@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -49,7 +50,7 @@ func doCreateRankedTier(ctx context.Context, req *RankedTierRequest) (*ranked.Ti
 	}
 	if err := db.DB(ctx).Create(target).Error; err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(ranked.TierRatingTaken)
+			return nil, fault.Conflict(ranked.TierRatingTaken)
 		}
 		return nil, err
 	}
@@ -78,7 +79,7 @@ func doUpdateRankedTier(ctx context.Context, tierID uint64, req *RankedTierReque
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, nil, errors.New(ranked.TierRatingTaken)
+			return nil, nil, fault.Conflict(ranked.TierRatingTaken)
 		}
 		return nil, nil, err
 	}
@@ -104,7 +105,7 @@ func doDeleteRankedTier(ctx context.Context, tierID uint64) (*ranked.Tier, error
 func lockRankedTier(tx *gorm.DB, target *ranked.Tier, tierID uint64) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), tierID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(ranked.TierNotFound)
+			return fault.NotFound(ranked.TierNotFound)
 		}
 		return err
 	}

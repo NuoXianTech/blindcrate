@@ -44,6 +44,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -91,8 +92,6 @@ type PackPreview struct {
 	Entries  []PackEntryResult `json:"entries"`
 }
 
-// 包中每种配置的一项, 字段与后台保存时提交的内容相同; 品质、地图、商品和榜单直接使用保存时的请求
-
 // pack 读取后的配置包
 type pack struct {
 	manifest PackManifest
@@ -108,6 +107,9 @@ type PackError struct {
 }
 
 func (e *PackError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *PackError) Kind() fault.Kind { return fault.KindInvalid }
 
 func packErrorf(format string, args ...any) error {
 	return &PackError{Reason: fmt.Sprintf(format, args...)}
@@ -602,7 +604,7 @@ func ValidateFields(obj any) error {
 	err := binding.Validator.ValidateStruct(obj)
 	var fieldErrs validator.ValidationErrors
 	if errors.As(err, &fieldErrs) && len(fieldErrs) > 0 {
-		return fmt.Errorf(PackFieldInvalid, snakeCase(fieldErrs[0].Field()))
+		return fault.Invalid(PackFieldInvalid, snakeCase(fieldErrs[0].Field()))
 	}
 	return err
 }
@@ -624,26 +626,9 @@ func snakeCase(s string) string {
 	return b.String()
 }
 
-// packPlainError errors.New 创建的错误, 各模块的错误常量都是这种
-var packPlainError = reflect.TypeOf(errors.New(""))
-
-// packFailure 写入一项配置时的错误是否为校验错误(包括唯一约束冲突), 其余为数据库等内部错误, 直接中止
+// packFailure 写入一项配置时的错误是否为校验错误(写明了类别的错误和唯一约束冲突), 其余为数据库等内部错误, 直接中止
 func packFailure(err error) bool {
-	var (
-		packInvalid      *PackError
-		conditionInvalid *condition.InvalidError
-		uploadInvalid    *upload.InvalidError
-	)
-	if db.IsUniqueViolation(err) || reflect.TypeOf(err) == packPlainError ||
-		errors.As(err, &packInvalid) || errors.As(err, &conditionInvalid) || errors.As(err, &uploadInvalid) {
-		return true
-	}
-	for _, section := range sectionList() {
-		if section.Invalid != nil && section.Invalid(err) {
-			return true
-		}
-	}
-	return false
+	return db.IsUniqueViolation(err) || fault.KindOf(err) != fault.KindInternal
 }
 
 // RenameScope 统计范围中的地图代码改名, 如 venue:dock 和 venue:dock:pve 中的 dock
@@ -908,7 +893,7 @@ func queryPackImport(ctx context.Context, importID uint64) (*Import, error) {
 		return nil, err
 	}
 	if record.ID == 0 {
-		return nil, errors.New(ImportNotFound)
+		return nil, fault.NotFound(ImportNotFound)
 	}
 	return &record, nil
 }

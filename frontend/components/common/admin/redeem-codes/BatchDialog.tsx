@@ -20,7 +20,6 @@ import {
   toConditionDrafts,
   type BundleDraft,
   type ConditionDraft,
-  type ScopeOption,
 } from '@/components/common/admin/editors';
 import {FieldGroup} from '@/components/common/admin/venues/Fields';
 import {SubmitButton} from '@/components/common/form';
@@ -42,12 +41,11 @@ import {
   checkCode,
 } from './constants';
 
-/** 编辑批次用到的物品、货币、条件类型和统计范围 */
+/** 编辑批次用到的物品、货币和条件类型 */
 export interface BatchOptions {
   items: AdminItem[];
   currencies: Currency[];
   types: ConditionType[];
-  scopes: ScopeOption[];
   loaded: boolean;
 }
 
@@ -136,7 +134,7 @@ function BatchForm({target, options, onClose, onSaved}: Omit<BatchDialogProps, '
   // 编辑和复制时以已有批次为初始值
   const source = target.mode === 'new' ? null : target.batch;
   const editing = target.mode === 'edit' ? target.batch : null;
-  const {items, currencies, types, scopes} = options;
+  const {items, currencies, types} = options;
   const [attempt, setAttempt] = useState<{ content: string; key: string } | null>(null);
 
   const form = useForm<BatchValues>({
@@ -150,7 +148,7 @@ function BatchForm({target, options, onClose, onSaved}: Omit<BatchDialogProps, '
       expiresAt: source?.expires_at ? toLocalInput(source.expires_at) : '',
       isEnabled: source?.is_enabled ?? true,
       reward: toBundleDrafts(source?.reward ?? {}, currencies),
-      requirements: toConditionDrafts(source?.requirements ?? [], types),
+      requirements: toConditionDrafts(source?.requirements ?? [], types, currencies),
     },
   });
   const mode = useWatch({control: form.control, name: 'mode'});
@@ -162,7 +160,7 @@ function BatchForm({target, options, onClose, onSaved}: Omit<BatchDialogProps, '
     const settings: RedeemBatchRequest = {
       name: values.name.trim(),
       reward: fromBundleDrafts(values.reward, currencies, '奖励'),
-      requirements: fromConditionDrafts(values.requirements, types, '使用条件'),
+      requirements: fromConditionDrafts(values.requirements, types, '使用条件', currencies),
       max_uses: parseAmount(values.maxUses.trim()) ?? 0,
       user_limit: parseAmount(values.userLimit.trim()) ?? 0,
       expires_at: unchanged ? editing.expires_at : values.expiresAt ? fromLocalInput(values.expiresAt) : null,
@@ -373,7 +371,6 @@ function BatchForm({target, options, onClose, onSaved}: Omit<BatchDialogProps, '
                   types={types}
                   items={items}
                   currencies={currencies}
-                  scopes={scopes}
                   max={MAX_REQUIREMENTS}
                   empty="没有使用条件, 所有玩家都能兑换"
                   disabled={pending}

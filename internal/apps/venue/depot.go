@@ -26,11 +26,11 @@ package venue
 
 import (
 	"cmp"
-	"errors"
 	"math"
 	"math/rand/v2"
 	"slices"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"gorm.io/gorm"
@@ -113,7 +113,7 @@ func (g *Generator) Generate(valueFactor int32) (*Depot, error) {
 			return depot, nil
 		}
 	}
-	return nil, errors.New(DepotNotFit)
+	return nil, fault.Invalid(DepotNotFit)
 }
 
 // draw 按各档位抽取藏品, 还没有坐标

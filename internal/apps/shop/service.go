@@ -34,16 +34,28 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
+	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func init() {
+	audit.RegisterAction(ActionShopItemCreate, "新建商品")
+	audit.RegisterAction(ActionShopItemUpdate, "修改商品")
+	audit.RegisterAction(ActionShopItemDelete, "删除商品")
+	audit.RegisterAction(ActionShopOrderRefund, "订单退款")
+	upload.RegisterPurpose(ImagePurpose, true, false, 512)
+	upload.RegisterReference("shop_items", "image_url")
+}
 
 // codePattern 商品代码, 小写字母、数字和下划线; 拼上前缀后不能超过 stats.metric 的长度
 var codePattern = regexp.MustCompile(`^[a-z0-9_]{1,32}$`)
@@ -55,12 +67,18 @@ type InvalidError struct {
 
 func (e *InvalidError) Error() string { return e.Reason }
 
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
+
 // RejectedError 不能购买, Error 返回的提示可以直接展示给玩家
 type RejectedError struct {
 	Reason string
 }
 
 func (e *RejectedError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *RejectedError) Kind() fault.Kind { return fault.KindForbidden }
 
 // Metric 商品的限购计数指标, 如 shop_buy:potion; 范围为 stats.ScopeAll
 func Metric(code string) string {
@@ -152,7 +170,7 @@ type PurchaseRequest struct {
 // 不能购买时返回 *RejectedError, 余额或物品不足时返回 wallet.InsufficientBalance 或 inventory.InsufficientQuantity。
 func Purchase(ctx context.Context, userID uint64, req *PurchaseRequest) (*OrderView, bool, error) {
 	if req.Quantity < 1 || req.Quantity > MaxQuantity {
-		return nil, false, errors.New(QuantityInvalid)
+		return nil, false, fault.Invalid(QuantityInvalid)
 	}
 	var (
 		order    Order
@@ -169,7 +187,7 @@ func Purchase(ctx context.Context, userID uint64, req *PurchaseRequest) (*OrderV
 		}
 		if order.ID != 0 {
 			if order.ItemCode != req.Code || order.Quantity != req.Quantity {
-				return errors.New(IdempotencyConflict)
+				return fault.Conflict(IdempotencyConflict)
 			}
 			replayed = true
 			return nil
@@ -183,7 +201,7 @@ func Purchase(ctx context.Context, userID uint64, req *PurchaseRequest) (*OrderV
 	case reward.Unavailable:
 		return nil, false, &RejectedError{Reason: GoodsUnavailable}
 	case reward.TooLarge:
-		return nil, false, errors.New(AmountTooLarge)
+		return nil, false, fault.Invalid(AmountTooLarge)
 	}
 	if err != nil {
 		return nil, false, err
@@ -204,7 +222,7 @@ func purchase(tx *gorm.DB, userID uint64, req *PurchaseRequest, order *Order) ([
 	var it Item
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("code = ?", req.Code).First(&it).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(ItemNotFound)
+			return nil, fault.NotFound(ItemNotFound)
 		}
 		return nil, err
 	}
@@ -215,7 +233,7 @@ func purchase(tx *gorm.DB, userID uint64, req *PurchaseRequest, order *Order) ([
 	if req.Price != nil {
 		seen, err := req.Price.Normalize()
 		if err != nil || !reflect.DeepEqual(seen, it.Price) {
-			return nil, errors.New(PriceChanged)
+			return nil, fault.Conflict(PriceChanged)
 		}
 	}
 	if it.Stock != nil && *it.Stock < req.Quantity {
@@ -246,7 +264,7 @@ func purchase(tx *gorm.DB, userID uint64, req *PurchaseRequest, order *Order) ([
 	if err := tx.Create(order).Error; err != nil {
 		// 咨询锁之外的兜底, 正常不会走到
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(DuplicateRequest)
+			return nil, fault.Conflict(DuplicateRequest)
 		}
 		return nil, err
 	}
@@ -365,12 +383,12 @@ func Refund(ctx context.Context, operatorID, orderID uint64) (*Order, error) {
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", orderID).First(&order).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return errors.New(OrderNotFound)
+				return fault.NotFound(OrderNotFound)
 			}
 			return err
 		}
 		if order.Status != StatusPaid {
-			return errors.New(OrderRefunded)
+			return fault.Conflict(OrderRefunded)
 		}
 		// 与购买的加锁顺序一致: 先商品, 再用户的物品和余额; 商品可能已删除, 用原生 SQL 绕过软删除
 		if err := tx.Exec("SELECT 1 FROM shop_items WHERE id = ? FOR UPDATE", order.ShopItemID).Error; err != nil {
@@ -392,11 +410,11 @@ func Refund(ctx context.Context, operatorID, orderID uint64) (*Order, error) {
 			Remark:         order.Name,
 		}); err != nil {
 			if reward.FailureOf(err) == reward.Unavailable {
-				return errors.New(RefundUnavailable)
+				return fault.Conflict(RefundUnavailable)
 			}
 			switch err.Error() {
 			case wallet.InsufficientBalance, inventory.InsufficientQuantity:
-				return errors.New(RefundInsufficient)
+				return fault.Conflict(RefundInsufficient)
 			}
 			return err
 		}

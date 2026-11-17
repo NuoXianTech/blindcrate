@@ -25,25 +25,17 @@
 package shopadmin
 
 import (
-	"errors"
-	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/shop"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListShopItemsRequest 商品列表查询参数
 type ListShopItemsRequest struct {
@@ -67,26 +59,24 @@ type ListShopItemsResponseData struct {
 // @Description 按排序值和 ID 排列, 不含已删除的商品
 // @Produce json
 // @Param request query ListShopItemsRequest true "request query"
-// @Success 200 {object} Response{data=ListShopItemsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListShopItemsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/shop/items [get]
 func ListShopItems(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListShopItemsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	data, err := QueryShopItems(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListShopItems] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListShopItems] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: data})
+	reply.OK(c, data)
 }
 
 // ShopItemRequest 新建或修改商品请求体
@@ -110,58 +100,34 @@ type ShopItemRequest struct {
 	EndsAt        *time.Time            `json:"ends_at"`   // RFC3339, 不包含, 为空时不限
 }
 
-// shopItemErrorStatus 商品配置错误对应的状态码, 不是配置错误时返回 0
-func shopItemErrorStatus(err error) int {
-	var invalid *shop.InvalidError
-	switch {
-	case errors.As(err, &invalid), err.Error() == shop.CodeImmutable:
-		return http.StatusBadRequest
-	case err.Error() == shop.ItemNotFound:
-		return http.StatusNotFound
-	case err.Error() == shop.CodeTaken:
-		return http.StatusConflict
-	}
-	return 0
-}
-
 // CreateShopItem
 // @Tags admin
 // @Summary 新建商品
 // @Accept json
 // @Produce json
 // @Param request body ShopItemRequest true "request body"
-// @Success 200 {object} Response{data=shop.Item}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=shop.Item}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/shop/items [post]
 func CreateShopItem(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req ShopItemRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, err := doCreateShopItem(ctx, &req)
 	if err != nil {
-		if status := shopItemErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateShopItem] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateShopItem] create failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionShopItemCreate, audit.TargetShopItem, created.ID, shopItemFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopItemCreate, shop.TargetShopItem, created.ID, shopItemFields(created))
 	logger.InfoF(ctx, "[CreateShopItem] %d created shop item %d %s", operator.ID, created.ID, created.Code)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateShopItem
@@ -172,41 +138,31 @@ func CreateShopItem(c *gin.Context) {
 // @Produce json
 // @Param id path int true "shop item id"
 // @Param request body ShopItemRequest true "request body"
-// @Success 200 {object} Response{data=shop.Item}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=shop.Item}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/shop/items/{id} [put]
 func UpdateShopItem(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req ShopItemRequest
-	itemID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	itemID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateShopItem(ctx, itemID, &req)
 	if err != nil {
-		if status := shopItemErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateShopItem] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateShopItem] update failed")
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionShopItemUpdate, audit.TargetShopItem, updated.ID, changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopItemUpdate, shop.TargetShopItem, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateShopItem] %d updated shop item %d %s", operator.ID, updated.ID, updated.Code)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteShopItem
@@ -215,41 +171,31 @@ func UpdateShopItem(c *gin.Context) {
 // @Description 软删除, 代码不能再被新商品使用; 已有订单仍可退款
 // @Produce json
 // @Param id path int true "shop item id"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/shop/items/{id} [delete]
 func DeleteShopItem(c *gin.Context) {
 	ctx := c.Request.Context()
-	itemID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	itemID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	deleted, err := doDeleteShopItem(ctx, itemID)
 	if err != nil {
-		if err.Error() == shop.ItemNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteShopItem] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteShopItem] delete failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionShopItemDelete, audit.TargetShopItem, deleted.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopItemDelete, shop.TargetShopItem, deleted.ID, map[string]interface{}{
 		"code": deleted.Code,
 		"name": deleted.Name,
 	})
 	logger.InfoF(ctx, "[DeleteShopItem] %d deleted shop item %d %s", operator.ID, deleted.ID, deleted.Code)
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }
 
 // ListShopOrdersRequest 订单列表查询参数
@@ -275,26 +221,24 @@ type ListShopOrdersResponseData struct {
 // @Description 从新到旧, 带上用户和退款的管理员的用户名
 // @Produce json
 // @Param request query ListShopOrdersRequest true "request query"
-// @Success 200 {object} Response{data=ListShopOrdersResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListShopOrdersResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/shop/orders [get]
 func ListShopOrders(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListShopOrdersRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, orders, err := QueryShopOrders(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListShopOrders] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListShopOrders] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListShopOrdersResponseData{Total: total, Orders: orders}})
+	reply.OK(c, ListShopOrdersResponseData{Total: total, Orders: orders})
 }
 
 // RefundShopOrder
@@ -303,40 +247,27 @@ func ListShopOrders(c *gin.Context) {
 // @Description 退还价格并收回商品, 恢复库存和购买时所在周期的限购数量; 价格中已下架的物品按回收价折成货币退还, 用户的货币或物品不足以收回商品时返回 409
 // @Produce json
 // @Param id path int true "order id"
-// @Success 200 {object} Response{data=shop.Order}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=shop.Order}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/shop/orders/{id}/refund [post]
 func RefundShopOrder(c *gin.Context) {
 	ctx := c.Request.Context()
-	orderID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	orderID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	order, err := shop.Refund(ctx, operator.ID, orderID)
 	if err != nil {
-		switch err.Error() {
-		case shop.OrderNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case shop.OrderRefunded, shop.RefundInsufficient, shop.RefundUnavailable:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[RefundShopOrder] refund failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[RefundShopOrder] refund failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionShopOrderRefund, audit.TargetShopOrder, order.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopOrderRefund, shop.TargetShopOrder, order.ID, map[string]interface{}{
 		"user_id":   order.UserID,
 		"item_code": order.ItemCode,
 		"quantity":  order.Quantity,
@@ -344,5 +275,5 @@ func RefundShopOrder(c *gin.Context) {
 		"goods":     order.Goods,
 	})
 	logger.InfoF(ctx, "[RefundShopOrder] %d refunded shop order %d of user %d", operator.ID, order.ID, order.UserID)
-	c.JSON(http.StatusOK, Response{Data: order})
+	reply.OK(c, order)
 }

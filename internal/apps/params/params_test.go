@@ -210,3 +210,52 @@ func TestSchema(t *testing.T) {
 		t.Errorf("fields are shared")
 	}
 }
+
+type pair struct {
+	Left, Right int
+}
+
+func TestResolve(t *testing.T) {
+	RegisterKind[pair]("pair")
+	RegisterSource("test_color", Source{First: true, Options: func(_ *gorm.DB) ([]Option, error) {
+		return []Option{{Value: "red", Label: "红"}, {Value: "blue", Label: "蓝"}}, nil
+	}})
+	RegisterSource("test_tag", Source{Free: true, Default: "all", Options: func(_ *gorm.DB) ([]Option, error) {
+		return []Option{{Value: "all", Label: "全部"}}, nil
+	}})
+	type sourced struct {
+		Color string   `json:"color" label:"颜色" input:"test_color"`
+		Tag   string   `json:"tag" label:"标签" input:"test_tag"`
+		Days  []int    `json:"days" label:"星期" options:"1:周一,2:周二"`
+		Kinds []string `json:"kinds" label:"种类" options:"a:甲,b:乙"`
+		Pair  pair     `json:"pair" label:"一对"`
+		Name  string   `json:"name" label:"名称"`
+	}
+	schema := New[sourced]("sourced", Plain, nil)
+	fields, err := schema.Form(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Field{
+		{Key: "color", Label: "颜色", Type: "string", Input: "select", Default: "red", Options: []Option{{Value: "red", Label: "红"}, {Value: "blue", Label: "蓝"}}},
+		{Key: "tag", Label: "标签", Type: "string", Input: "suggest", Default: "all", Options: []Option{{Value: "all", Label: "全部"}}},
+		{Key: "days", Label: "星期", Type: "int_list", Input: "multiselect", Options: []Option{{Value: "1", Label: "周一"}, {Value: "2", Label: "周二"}}},
+		{Key: "kinds", Label: "种类", Type: "string_list", Input: "multiselect", Options: []Option{{Value: "a", Label: "甲"}, {Value: "b", Label: "乙"}}},
+		{Key: "pair", Label: "一对", Type: "pair", Input: "pair"},
+		{Key: "name", Label: "名称", Type: "string", Input: "text"},
+	}
+	if !reflect.DeepEqual(fields, want) {
+		t.Errorf("got %+v, want %+v", fields, want)
+	}
+	// 表单描述是副本, 填入可选值不影响 Schema
+	if again := schema.Fields(); again[0].Input != "test_color" || len(again[0].Options) != 0 {
+		t.Errorf("schema changed: %+v", again[0])
+	}
+
+	type unknown struct {
+		Thing string `json:"thing" input:"test_missing"`
+	}
+	if _, err := New[unknown]("unknown", Plain, nil).Form(nil); err == nil {
+		t.Error("unknown source: expected error")
+	}
+}

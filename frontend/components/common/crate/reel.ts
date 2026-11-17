@@ -1,6 +1,19 @@
-import type {CratePrize} from '@/lib/services/crate';
+import type {ItemUseView} from '@/lib/services/inventory';
 import type {RewardLine} from '@/lib/services/reward';
 import {formatAmount} from '@/lib/utils';
+
+/** 箱子中的一项, 开启一次抽中其中一项; amount 为每次掉落的最小数量 */
+export interface CratePrize extends RewardLine {
+  /** 每次掉落的最大数量, 与 amount 相同时数量固定 */
+  max_amount: number;
+  /** 开启一次抽中这一项的概率 */
+  probability: number;
+}
+
+/** 按概率得到一项的物品里可以开出的内容, 每一项取它的第一行 */
+export function prizesOf(view: ItemUseView): CratePrize[] {
+  return view.options.filter((o) => o.lines.length > 0).map((o) => ({...o.lines[0], max_amount: o.max_amount, probability: o.probability}));
+}
 
 /** 滚动条上一格的宽度和间距, 像素; 位移按它们计算, 不随屏幕缩放 */
 export const TILE_WIDTH = 112;

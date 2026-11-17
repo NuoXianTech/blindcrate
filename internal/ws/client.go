@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/NuoXianTech/blindcrate/internal/ratelimit"
@@ -245,7 +246,7 @@ func (c *Client) call(ctx context.Context, handler HandlerFunc, data json.RawMes
 	defer func() {
 		if r := recover(); r != nil {
 			logger.ErrorF(ctx, "[WebSocket] handler panic: %v\n%s", r, debug.Stack())
-			result, err = nil, errors.New(auth.InternalError)
+			result, err = nil, errors.New(fault.InternalError)
 		}
 	}()
 	return handler(ctx, c, data)
@@ -256,7 +257,7 @@ func (c *Client) reply(ctx context.Context, msg Message, data interface{}) {
 	frame, err := encode(msg, data)
 	if err != nil {
 		logger.ErrorF(ctx, "[WebSocket] encode reply of %s failed: %v", msg.Type, err)
-		frame, _ = encode(Message{Type: msg.Type, ID: msg.ID, ErrorMsg: auth.InternalError}, nil)
+		frame, _ = encode(Message{Type: msg.Type, ID: msg.ID, ErrorMsg: fault.InternalError}, nil)
 	}
 	c.send(frame)
 }

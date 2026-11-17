@@ -73,7 +73,10 @@ func init() {
 }
 
 func TestStrategies(t *testing.T) {
-	views := Strategies()
+	views, err := Strategies(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	i := slices.IndexFunc(views, func(v StrategyView) bool { return v.Code == testStrategy })
 	if i < 0 {
 		t.Fatalf("%s not listed", testStrategy)
@@ -95,7 +98,7 @@ func TestStrategies(t *testing.T) {
 	}
 	view.Defaults["step"] = float64(1)
 	view.Fields[0].Key = "changed"
-	if again := Strategies()[i]; again.Defaults["step"] != float64(500) || again.Fields[0].Key != "mode" {
+	if all, _ := Strategies(nil); all[i].Defaults["step"] != float64(500) || all[i].Fields[0].Key != "mode" {
 		t.Error("views should be copies")
 	}
 }

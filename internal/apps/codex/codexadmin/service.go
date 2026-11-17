@@ -31,6 +31,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/codex"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -72,7 +73,7 @@ func doCreateSet(ctx context.Context, req *SetRequest) (*codex.Set, error) {
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(codex.CodeTaken)
+			return nil, fault.Conflict(codex.CodeTaken)
 		}
 		return nil, err
 	}
@@ -90,7 +91,7 @@ func doUpdateSet(ctx context.Context, setID uint64, req *SetRequest) (*codex.Set
 			return err
 		}
 		if req.Code != target.Code {
-			return errors.New(codex.CodeImmutable)
+			return fault.Invalid(codex.CodeImmutable)
 		}
 		old := target
 		ApplySet(&target, req)
@@ -128,7 +129,7 @@ func doDeleteSet(ctx context.Context, setID uint64) (*codex.Set, error) {
 func LockSet(tx *gorm.DB, target *codex.Set, setID uint64) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), setID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(codex.SetNotFound)
+			return fault.NotFound(codex.SetNotFound)
 		}
 		return err
 	}

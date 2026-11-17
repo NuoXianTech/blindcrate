@@ -28,6 +28,7 @@ import (
 	"errors"
 	"reflect"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/go-playground/locales/zh"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
@@ -67,7 +68,7 @@ func ValidateStruct(v any) error {
 	if err := validate.Struct(v); err != nil {
 		var errs validator.ValidationErrors
 		if errors.As(err, &errs) {
-			return errors.New(errs[0].Translate(trans))
+			return fault.Invalid("%s", errs[0].Translate(trans))
 		}
 		return err
 	}

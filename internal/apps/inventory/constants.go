@@ -50,3 +50,8 @@ const (
 
 // MaxQuantity 单笔变动数量上限, 防止异常请求一次写入过多物品
 const MaxQuantity int64 = 1_000_000
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionInventoryAdjust = "admin.inventory_adjust"
+)

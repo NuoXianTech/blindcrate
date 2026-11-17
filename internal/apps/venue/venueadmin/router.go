@@ -25,26 +25,18 @@
 package venueadmin
 
 import (
-	"errors"
-	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListVenuesRequest 地图列表查询参数
 type ListVenuesRequest struct {
@@ -68,32 +60,29 @@ type ListVenuesResponseData struct {
 // @Description 按排序值和 ID 排列, 不含已删除的地图
 // @Produce json
 // @Param request query ListVenuesRequest true "request query"
-// @Success 200 {object} Response{data=ListVenuesResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListVenuesResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/venues [get]
 func ListVenues(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListVenuesRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, venues, err := QueryVenues(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListVenues] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListVenues] query failed")
 		return
 	}
 	balanceUpdatedAt, err := settings.Balance.UpdatedAt(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListVenues] load balance settings failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListVenues] load balance settings failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListVenuesResponseData{Total: total, Venues: venues, BalanceUpdatedAt: balanceUpdatedAt}})
+	reply.OK(c, ListVenuesResponseData{Total: total, Venues: venues, BalanceUpdatedAt: balanceUpdatedAt})
 }
 
 // VenueRequest 新建、修改或试算地图请求体
@@ -133,42 +122,28 @@ type SimulateResponseData struct {
 // @Accept json
 // @Produce json
 // @Param request body VenueRequest true "request body"
-// @Success 200 {object} Response{data=venue.Venue}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=venue.Venue}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/venues [post]
 func CreateVenue(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req VenueRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, err := doCreateVenue(ctx, &req)
 	if err != nil {
-		var invalid *venue.InvalidError
-		switch {
-		case errors.As(err, &invalid):
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case err.Error() == venue.CodeTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[CreateVenue] create failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[CreateVenue] create failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionVenueCreate, audit.TargetVenue, created.ID, venueFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, venue.ActionVenueCreate, venue.TargetVenue, created.ID, venueFields(created))
 	logger.InfoF(ctx, "[CreateVenue] %d created venue %d %s", operator.ID, created.ID, created.Code)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateVenue
@@ -179,45 +154,31 @@ func CreateVenue(c *gin.Context) {
 // @Produce json
 // @Param id path int true "venue id"
 // @Param request body VenueRequest true "request body"
-// @Success 200 {object} Response{data=venue.Venue}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=venue.Venue}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/venues/{id} [put]
 func UpdateVenue(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req VenueRequest
-	venueID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	venueID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateVenue(ctx, venueID, &req)
 	if err != nil {
-		var invalid *venue.InvalidError
-		switch {
-		case errors.As(err, &invalid), err.Error() == venue.CodeImmutable:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case err.Error() == venue.VenueNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[UpdateVenue] update failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[UpdateVenue] update failed")
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionVenueUpdate, audit.TargetVenue, updated.ID, changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, venue.ActionVenueUpdate, venue.TargetVenue, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateVenue] %d updated venue %d %s", operator.ID, updated.ID, updated.Code)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteVenue
@@ -226,41 +187,31 @@ func UpdateVenue(c *gin.Context) {
 // @Description 软删除, 代码不能再被新地图使用; 排队中的玩家开局时被拒绝, 进行中的对局照常打完
 // @Produce json
 // @Param id path int true "venue id"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/venues/{id} [delete]
 func DeleteVenue(c *gin.Context) {
 	ctx := c.Request.Context()
-	venueID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	venueID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	deleted, err := doDeleteVenue(ctx, venueID)
 	if err != nil {
-		if err.Error() == venue.VenueNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteVenue] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteVenue] delete failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionVenueDelete, audit.TargetVenue, deleted.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, venue.ActionVenueDelete, venue.TargetVenue, deleted.ID, map[string]interface{}{
 		"code": deleted.Code,
 		"name": deleted.Name,
 	})
 	logger.InfoF(ctx, "[DeleteVenue] %d deleted venue %d %s", operator.ID, deleted.ID, deleted.Code)
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }
 
 // SimulateVenue
@@ -270,32 +221,25 @@ func DeleteVenue(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body VenueRequest true "request body"
-// @Success 200 {object} Response{data=SimulateResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 429 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=SimulateResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 429 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/venues/simulate [post]
 func SimulateVenue(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req VenueRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
 	simulation, err := doSimulateVenue(ctx, &req)
 	if err != nil {
-		var invalid *venue.InvalidError
-		if errors.As(err, &invalid) {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[SimulateVenue] simulate failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[SimulateVenue] simulate failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: simulation})
+	reply.OK(c, simulation)
 }
 
 // RecalibrateResult 一个地图的重新推导结果
@@ -317,23 +261,18 @@ type RecalibrateResponseData struct {
 // @Summary 重新推导全部地图
 // @Description 修改玩法平衡设置后使用: 按当前设置逐个重新模拟、推导拍卖参数并验算对局; 启用的地图验算未通过时不保存, 保留原来的参数; 进行中的对局不受影响
 // @Produce json
-// @Success 200 {object} Response{data=RecalibrateResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 429 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=RecalibrateResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 429 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/venues/recalibrate [post]
 func RecalibrateVenues(c *gin.Context) {
 	ctx := c.Request.Context()
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	data, err := doRecalibrateVenues(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[RecalibrateVenues] recalibrate failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[RecalibrateVenues] recalibrate failed")
 		return
 	}
 	updated := []string{}
@@ -342,9 +281,9 @@ func RecalibrateVenues(c *gin.Context) {
 			updated = append(updated, r.Code)
 		}
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionVenueRecalibrate, audit.TargetVenue, 0, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, venue.ActionVenueRecalibrate, venue.TargetVenue, 0, map[string]interface{}{
 		"updated": updated,
 	})
 	logger.InfoF(ctx, "[RecalibrateVenues] %d recalibrated %d of %d venues", operator.ID, len(updated), len(data.Results))
-	c.JSON(http.StatusOK, Response{Data: data})
+	reply.OK(c, data)
 }

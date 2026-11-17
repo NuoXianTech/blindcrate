@@ -25,7 +25,6 @@
 package rankedadmin
 
 import (
-	"context"
 	"strconv"
 	"strings"
 
@@ -41,58 +40,34 @@ const (
 )
 
 func init() {
-	pack.RegisterSection(pack.Section{
+	// 段位按分数线对应; 与后台新建、修改的规则相同
+	pack.RegisterTable(pack.Table[ranked.Tier, RankedTierRequest]{
 		Code: PackRankedTiers, Label: "段位", Hint: "按分数线对应", Order: OrderRankedTiers,
-		Export: func(_ context.Context, tx *gorm.DB, _ func(string) string) (any, int, error) {
-			rows, err := ranked.QueryTiers(tx)
-			if err != nil {
-				return nil, 0, err
-			}
-			list := make([]RankedTierRequest, len(rows))
-			for i := range rows {
-				list[i] = rankedTierPack(&rows[i])
-			}
-			return list, len(list), nil
+		Query: func(tx *gorm.DB) *gorm.DB { return tx.Order("min_rating") },
+		Pack: func(t *ranked.Tier, _ func(string) string) RankedTierRequest {
+			return RankedTierRequest{Name: t.Name, MinRating: t.MinRating, Color: t.Color}
 		},
-		Decode: pack.DecodeList(rankedTierEntry, nil),
-	})
-}
-
-// rankedTierPack 段位写入配置包的内容
-func rankedTierPack(t *ranked.Tier) RankedTierRequest {
-	return RankedTierRequest{Name: t.Name, MinRating: t.MinRating, Color: t.Color}
-}
-
-// rankedTierEntry 包中的一个段位, 按分数线对应已有段位; 与后台新建、修改的规则相同
-func rankedTierEntry(_ *pack.Run, req *RankedTierRequest) *pack.Entry {
-	// 与导出一致: 名称去掉首尾空白, 颜色为小写, 包中写成其他形式时比较结果不变
-	req.Name, req.Color = strings.TrimSpace(req.Name), strings.ToLower(req.Color)
-	var current ranked.Tier
-	return &pack.Entry{
-		Key:   strconv.Itoa(int(req.MinRating)),
-		Name:  req.Name,
+		Key:   func(req *RankedTierRequest) string { return strconv.Itoa(int(req.MinRating)) },
+		Name:  func(req *RankedTierRequest) string { return req.Name },
 		Taken: ranked.TierRatingTaken,
-		Compare: func(tx *gorm.DB) (string, string, error) {
-			if err := tx.Where("min_rating = ?", req.MinRating).Limit(1).Find(&current).Error; err != nil {
-				return "", "", err
-			}
-			return pack.CompareStatus(current.ID != 0, rankedTierPack(&current), req), "", nil
+		// 与导出一致: 名称去掉首尾空白, 颜色为小写, 包中写成其他形式时比较结果不变
+		Prepare: func(req *RankedTierRequest) {
+			req.Name, req.Color = strings.TrimSpace(req.Name), strings.ToLower(req.Color)
 		},
-		Apply: func(tx *gorm.DB, exists bool) error {
-			if err := pack.ValidateFields(req); err != nil {
-				return err
-			}
-			target := &ranked.Tier{}
-			if exists {
-				if err := lockRankedTier(tx, &current, current.ID); err != nil {
-					return err
-				}
-				target = &current
+		Find: func(tx *gorm.DB, req *RankedTierRequest, current *ranked.Tier) (bool, error) {
+			err := tx.Where("min_rating = ?", req.MinRating).Limit(1).Find(current).Error
+			return current.ID != 0, err
+		},
+		Lock: func(tx *gorm.DB, current *ranked.Tier) error { return lockRankedTier(tx, current, current.ID) },
+		Save: func(tx *gorm.DB, _ *pack.Run, current *ranked.Tier, req *RankedTierRequest) error {
+			target := current
+			if target == nil {
+				target = &ranked.Tier{}
 			}
 			if err := applyRankedTier(target, req); err != nil {
 				return err
 			}
 			return tx.Save(target).Error
 		},
-	}
+	})
 }

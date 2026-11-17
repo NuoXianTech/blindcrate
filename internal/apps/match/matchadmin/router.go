@@ -31,16 +31,12 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListMatchesRequest 对局列表查询参数
 type ListMatchesRequest struct {
@@ -65,26 +61,24 @@ type ListMatchesResponseData struct {
 // @Description 包含每个座位是真人还是人机, 按开始时间从新到旧
 // @Produce json
 // @Param request query ListMatchesRequest true "request query"
-// @Success 200 {object} Response{data=ListMatchesResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListMatchesResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/matches [get]
 func ListMatches(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListMatchesRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, matches, err := QueryMatches(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMatches] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMatches] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListMatchesResponseData{Total: total, Matches: matches}})
+	reply.OK(c, ListMatchesResponseData{Total: total, Matches: matches})
 }
 
 // CancelMatchRequest 取消对局请求体
@@ -100,46 +94,34 @@ type CancelMatchRequest struct {
 // @Produce json
 // @Param id path int true "match id"
 // @Param request body CancelMatchRequest true "request body"
-// @Success 200 {object} Response{data=match.Match}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=match.Match}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/matches/{id}/cancel [post]
 func CancelMatch(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req CancelMatchRequest
 	matchID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil || c.ShouldBindJSON(&req) != nil || strings.TrimSpace(req.Reason) == "" {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		reply.Error(c, http.StatusBadRequest, fault.InvalidParams)
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	cancelled, err := match.Cancel(ctx, matchID)
 	if err != nil {
-		switch err.Error() {
-		case match.MatchNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case match.MatchNotPlaying:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[CancelMatch] cancel failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[CancelMatch] cancel failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionMatchCancel, audit.TargetMatch, cancelled.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, match.ActionMatchCancel, match.TargetMatch, cancelled.ID, map[string]interface{}{
 		"mode":   cancelled.Mode,
 		"phase":  cancelled.Phase,
 		"round":  cancelled.Round,
 		"reason": strings.TrimSpace(req.Reason),
 	})
 	logger.InfoF(ctx, "[CancelMatch] %d cancelled match %d %s", operator.ID, cancelled.ID, cancelled.Mode)
-	c.JSON(http.StatusOK, Response{Data: cancelled})
+	reply.OK(c, cancelled)
 }

@@ -24,6 +24,8 @@
 
 package upload
 
+import "github.com/NuoXianTech/blindcrate/internal/apps/fault"
+
 const (
 	PurposeInvalid   = "图片用途不正确"
 	FileRequired     = "请选择要上传的图片"
@@ -43,9 +45,15 @@ type InvalidError struct {
 
 func (e *InvalidError) Error() string { return e.Reason }
 
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
+
 // ForbiddenError 没有上传该用途图片的权限, Reason 为给用户看的原因
 type ForbiddenError struct {
 	Reason string
 }
 
 func (e *ForbiddenError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *ForbiddenError) Kind() fault.Kind { return fault.KindForbidden }

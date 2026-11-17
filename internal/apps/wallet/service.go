@@ -31,6 +31,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
@@ -40,7 +42,10 @@ import (
 )
 
 func init() {
-	settings.RegisterRef(RefCurrency, currencyOptions)
+	audit.RegisterAction(ActionWalletAdjust, "调整余额")
+	audit.RegisterAction(ActionCurrencyCreate, "新建货币")
+	audit.RegisterAction(ActionCurrencyUpdate, "修改货币")
+	params.RegisterSource(SourceCurrency, params.Source{Options: currencyOptions, First: true})
 	// 本模块和早期模块的业务类型, 新模块在自己的 init 中登记
 	for _, t := range []ledger.BizType{
 		{Code: BizAdminAdjust, Label: "管理员调整"},
@@ -114,7 +119,7 @@ func Change(tx *gorm.DB, req *ChangeRequest) (*Transaction, bool, error) {
 		}
 		if existing.ID != 0 {
 			if !existing.sameChange(req) {
-				return nil, false, errors.New(IdempotencyConflict)
+				return nil, false, fault.Conflict(IdempotencyConflict)
 			}
 			return &existing, true, nil
 		}
@@ -144,7 +149,7 @@ func Change(tx *gorm.DB, req *ChangeRequest) (*Transaction, bool, error) {
 	if err := tx.Create(txn).Error; err != nil {
 		// 咨询锁之外的兜底, 正常不会走到
 		if db.IsUniqueViolation(err) {
-			return nil, false, errors.New(DuplicateRequest)
+			return nil, false, fault.Conflict(DuplicateRequest)
 		}
 		return nil, false, err
 	}
@@ -163,10 +168,10 @@ func validateChange(req *ChangeRequest) error {
 		return errors.New("wallet: biz_type " + req.BizType + " not registered")
 	}
 	if req.Amount == 0 && req.FrozenAmount == 0 {
-		return errors.New(AmountInvalid)
+		return fault.Invalid(AmountInvalid)
 	}
 	if !amountInRange(req.Amount) || !amountInRange(req.FrozenAmount) {
-		return errors.New(AmountInvalid)
+		return fault.Invalid(AmountInvalid)
 	}
 	return nil
 }
@@ -176,7 +181,7 @@ func amountInRange(amount int64) bool {
 	return amount >= -MaxAmount && amount <= MaxAmount
 }
 
-// currencyOptions 设置中可以选的货币: 全部启用的货币, 按排序值排列
+// currencyOptions 可以选的货币: 全部启用的货币, 按排序值排列
 //
 // 对货币加共享锁, 保存设置时货币不会被并发停用, 见 CheckDisable。
 func currencyOptions(tx *gorm.DB) ([]params.Option, error) {
@@ -186,7 +191,7 @@ func currencyOptions(tx *gorm.DB) ([]params.Option, error) {
 	}
 	options := make([]params.Option, len(currencies))
 	for i, currency := range currencies {
-		options[i] = params.Option{Value: currency.Code, Label: currency.Name}
+		options[i] = params.Option{Value: currency.Code, Label: currency.Name, Hint: currency.Code}
 	}
 	return options, nil
 }
@@ -194,10 +199,10 @@ func currencyOptions(tx *gorm.DB) ([]params.Option, error) {
 // ValidateCurrency 校验货币的代码和名称
 func ValidateCurrency(c *Currency) error {
 	if !codePattern.MatchString(c.Code) {
-		return errors.New(CurrencyCodeInvalid)
+		return fault.Invalid(CurrencyCodeInvalid)
 	}
 	if n := utf8.RuneCountInString(c.Name); n < 1 || n > 32 {
-		return errors.New(CurrencyNameInvalid)
+		return fault.Invalid(CurrencyNameInvalid)
 	}
 	return nil
 }
@@ -211,7 +216,7 @@ func CheckDisable(tx *gorm.DB, code string) error {
 		return err
 	}
 	if economy.BaseCurrency == code {
-		return errors.New(CurrencyIsBase)
+		return fault.Conflict(CurrencyIsBase)
 	}
 	return nil
 }
@@ -221,12 +226,12 @@ func checkCurrency(tx *gorm.DB, code string) error {
 	var currency Currency
 	if err := currency.Exact(tx, code); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(CurrencyNotFound)
+			return fault.Invalid(CurrencyNotFound)
 		}
 		return err
 	}
 	if !currency.IsEnabled {
-		return errors.New(CurrencyDisabled)
+		return fault.Invalid(CurrencyDisabled)
 	}
 	return nil
 }
@@ -279,9 +284,9 @@ func applyBalance(tx *gorm.DB, req *ChangeRequest) (*Balance, error) {
 			return nil, err
 		}
 		if current.Balance+req.Amount < 0 {
-			return nil, errors.New(InsufficientBalance)
+			return nil, fault.Forbidden(InsufficientBalance)
 		}
-		return nil, errors.New(InsufficientFrozen)
+		return nil, fault.Forbidden(InsufficientFrozen)
 	}
 	return &balance, nil
 }

@@ -65,7 +65,7 @@ func New[P any](name string, v Vocabulary, defaults *P) *Schema {
 	return s
 }
 
-// Fields 表单描述, 每次返回一份新的, 可以修改(如填入选择器的可选值)
+// Fields 表单描述, 每次返回一份新的, 可以修改; 返回给后台的用 Form
 func (s *Schema) Fields() []Field {
 	fields := make([]Field, len(s.fields))
 	copy(fields, s.fields)

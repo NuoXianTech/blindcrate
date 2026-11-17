@@ -26,12 +26,13 @@ package season
 
 import (
 	"cmp"
-	"errors"
 	"regexp"
 	"slices"
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
@@ -39,6 +40,10 @@ import (
 )
 
 func init() {
+	audit.RegisterAction(ActionSeasonCreate, "新建赛季")
+	audit.RegisterAction(ActionSeasonUpdate, "修改赛季")
+	audit.RegisterAction(ActionSeasonDelete, "删除赛季")
+	audit.RegisterAction(ActionSeasonEnd, "提前结束赛季")
 	// 进行中的赛季在结算对局时额外写入赛季周期
 	stats.RegisterPeriod(func(tx *gorm.DB, at time.Time) (string, error) {
 		current, err := Current(tx, at)
@@ -60,16 +65,16 @@ func Period(code string) string {
 // Validate 保存前校验赛季, 名称需已去掉首尾空白; 不检查与其他赛季是否重叠, 见 CheckOverlap
 func Validate(s *Season) error {
 	if !codePattern.MatchString(s.Code) {
-		return errors.New(CodeInvalid)
+		return fault.Invalid(CodeInvalid)
 	}
 	if n := utf8.RuneCountInString(s.Name); n < 1 || n > 64 {
-		return errors.New(NameInvalid)
+		return fault.Invalid(NameInvalid)
 	}
 	if !s.EndsAt.After(s.StartsAt) {
-		return errors.New(TimeInvalid)
+		return fault.Invalid(TimeInvalid)
 	}
 	if s.RatingCarry < 0 || s.RatingCarry > 100 {
-		return errors.New(CarryInvalid)
+		return fault.Invalid(CarryInvalid)
 	}
 	return nil
 }
@@ -79,39 +84,39 @@ func Validate(s *Season) error {
 // 不查库, 货币和物品是否存在见 CheckRewards; rewards 为 nil 时返回空列表。
 func NormalizeRewards(rewards []Reward) ([]Reward, error) {
 	if len(rewards) > maxRewards {
-		return nil, errors.New(RewardsTooMany)
+		return nil, fault.Invalid(RewardsTooMany)
 	}
 	normalized := make([]Reward, len(rewards))
 	for i, r := range rewards {
 		if r.MinRating < 0 || r.MinRating > maxRewardRating {
-			return nil, errors.New(RewardRatingInvalid)
+			return nil, fault.Invalid(RewardRatingInvalid)
 		}
 		if r.Bundle.IsEmpty() {
-			return nil, errors.New(RewardEmpty)
+			return nil, fault.Invalid(RewardEmpty)
 		}
 		if len(r.Bundle.Currencies)+len(r.Bundle.Items) > maxRewardLines {
-			return nil, errors.New(RewardLinesTooMany)
+			return nil, fault.Invalid(RewardLinesTooMany)
 		}
 		for _, line := range r.Bundle.Currencies {
 			if line.Amount <= 0 {
-				return nil, errors.New(RewardAmountInvalid)
+				return nil, fault.Invalid(RewardAmountInvalid)
 			}
 		}
 		for _, line := range r.Bundle.Items {
 			if line.Quantity <= 0 {
-				return nil, errors.New(RewardAmountInvalid)
+				return nil, fault.Invalid(RewardAmountInvalid)
 			}
 		}
 		bundle, err := r.Bundle.Normalize()
 		if err != nil {
-			return nil, errors.New(RewardAmountInvalid)
+			return nil, fault.Invalid(RewardAmountInvalid)
 		}
 		normalized[i] = Reward{MinRating: r.MinRating, Bundle: bundle}
 	}
 	slices.SortFunc(normalized, func(a, b Reward) int { return cmp.Compare(a.MinRating, b.MinRating) })
 	for i := 1; i < len(normalized); i++ {
 		if normalized[i].MinRating == normalized[i-1].MinRating {
-			return nil, errors.New(RewardRatingTaken)
+			return nil, fault.Invalid(RewardRatingTaken)
 		}
 	}
 	return normalized, nil
@@ -138,7 +143,7 @@ func CheckRewards(tx *gorm.DB, rewards []Reward) error {
 			return err
 		}
 		if count != int64(len(codes)) {
-			return errors.New(RewardNotFound)
+			return fault.Invalid(RewardNotFound)
 		}
 	}
 	if len(itemIDs) > 0 {
@@ -148,7 +153,7 @@ func CheckRewards(tx *gorm.DB, rewards []Reward) error {
 			return err
 		}
 		if count != int64(len(itemIDs)) {
-			return errors.New(RewardNotFound)
+			return fault.Invalid(RewardNotFound)
 		}
 	}
 	return nil
@@ -218,7 +223,7 @@ func CheckOverlap(tx *gorm.DB, s *Season) error {
 		return err
 	}
 	if count > 0 {
-		return errors.New(TimeOverlapped)
+		return fault.Conflict(TimeOverlapped)
 	}
 	return nil
 }

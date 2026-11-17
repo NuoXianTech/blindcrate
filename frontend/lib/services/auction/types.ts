@@ -168,17 +168,26 @@ export interface AuctionSelf {
   rating: number;
 }
 
-/** 道具看到的一件藏品, 带占的格子, 以位置 (x, y) 区分 */
+/**
+ * 道具看到的一个格子, 以位置 (x, y) 区分, 对应后端 auction.PieceIntel
+ * 一般是一件藏品(轮廓, 可以带品质、名称和外观); empty 时是确定没有藏品的格子
+ */
 export interface PieceIntel {
   x: number;
   y: number;
   width: number;
   height: number;
-  /** 0 为只扫出轮廓 */
+  /** 0 为不知道品质 */
   quality: number;
   /** 只有看名称的道具有 */
   name?: string;
   image_url?: string;
+  /** 不是使用道具时的拍品时给出, 如提前看到的下一个拍品 */
+  lot_no?: number;
+  /** 确定没有藏品的格子 */
+  empty?: boolean;
+  /** 格子上的短标注, 如 "最贵" */
+  note?: string;
 }
 
 /** 一种品质的藏品件数 */
@@ -187,17 +196,40 @@ export interface QualityCount {
   count: number;
 }
 
-/** 使用一个道具得到的情报, 字段按效果使用其中的一部分, 对应后端 auction.Intel */
-export interface Intel {
-  /** 看到品质或名称的藏品, 按位置从上到下、从左到右; 没有符合条件的藏品时没有 */
-  pieces?: PieceIntel[];
-  /** 统计或查看的最低品质 */
-  min_quality?: number;
-  /** 最低品质及以上各品质的件数, 品质从高到低, 没有的品质不列出 */
+/** 情报条目的种类, 对应后端 auction.Fact* */
+export const FACT_KIND = {
+  /** 一句话 */
+  text: 'text',
+  /** 数值区间 [min, max], 单位见 unit */
+  range: 'range',
+  /** 出价货币的金额区间 [min, max] */
+  amount: 'amount',
+  /** 各品质的件数, 为空表示没有 */
+  counts: 'counts',
+} as const;
+
+/** 情报中的一个条目, 展示为 "[品质] 标签 内容", 对应后端 auction.Fact */
+export interface Fact {
+  kind: string;
+  label: string;
+  /** 关联的品质, 展示在标签前 */
+  quality?: number;
+  text?: string;
+  min: number;
+  max: number;
+  unit?: string;
   counts?: QualityCount[];
-  /** 货仓价值的区间, 出价货币 */
-  value_min?: number;
-  value_max?: number;
+}
+
+/**
+ * 使用一个道具得到的情报, 对应后端 auction.Intel
+ * 只有格子和条目两种内容, 客户端不按效果代码区分, 后端新增效果时不用改这里
+ */
+export interface Intel {
+  /** 画在货仓里的格子, 按位置从上到下、从左到右 */
+  pieces?: PieceIntel[];
+  /** 列表里的条目 */
+  facts?: Fact[];
 }
 
 /** 自己用过的一个道具 */
@@ -208,7 +240,7 @@ export interface UseView {
   item_id: number;
   /** 使用时的物品名称 */
   name: string;
-  /** 效果代码, 见 AUCTION_EFFECT, 按它展示 result */
+  /** 效果代码 */
   effect: string;
   result: Intel;
   created_at: string;

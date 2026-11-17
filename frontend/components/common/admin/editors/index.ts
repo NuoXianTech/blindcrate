@@ -1,6 +1,7 @@
 export {BundleEditor} from './BundleEditor';
-export {ConditionEditor, type ScopeOption} from './ConditionEditor';
-export {bundleText, scopeOptions} from './format';
+export {ConditionEditor} from './ConditionEditor';
+export {bundleText, scopeOptions, type ScopeOption} from './format';
+export {OptionCombobox} from './OptionCombobox';
 export {ParamField} from './ParamField';
 export {
   decimalsOf,
@@ -16,5 +17,7 @@ export {
   toParamsDraft,
   type BundleDraft,
   type ConditionDraft,
+  type DraftContext,
+  type ParamDraft,
   type ParamsDraft,
 } from './drafts';

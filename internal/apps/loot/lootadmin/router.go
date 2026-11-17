@@ -25,24 +25,13 @@
 package lootadmin
 
 import (
-	"net/http"
-	"strconv"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
-	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListLootPoolsRequest 掉落池列表查询参数
 type ListLootPoolsRequest struct {
@@ -63,26 +52,24 @@ type ListLootPoolsResponseData struct {
 // @Summary 获取掉落池列表
 // @Produce json
 // @Param request query ListLootPoolsRequest true "request query"
-// @Success 200 {object} Response{data=ListLootPoolsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListLootPoolsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/loot-pools [get]
 func ListLootPools(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListLootPoolsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, pools, err := QueryLootPools(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListLootPools] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListLootPools] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListLootPoolsResponseData{Total: total, Pools: pools}})
+	reply.OK(c, ListLootPoolsResponseData{Total: total, Pools: pools})
 }
 
 // LootPoolRequest 新建或修改掉落池请求体
@@ -100,41 +87,28 @@ type LootPoolRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body LootPoolRequest true "request body"
-// @Success 200 {object} Response{data=loot.Pool}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=loot.Pool}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/loot-pools [post]
 func CreateLootPool(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req LootPoolRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, err := doCreateLootPool(ctx, &req)
 	if err != nil {
-		switch err.Error() {
-		case loot.PoolCodeInvalid, loot.PoolNameInvalid:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case loot.PoolCodeTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[CreateLootPool] create failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[CreateLootPool] create failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLootPoolCreate, audit.TargetLootPool, created.ID, lootPoolFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, loot.ActionLootPoolCreate, loot.TargetLootPool, created.ID, lootPoolFields(created))
 	logger.InfoF(ctx, "[CreateLootPool] %d created loot pool %d %s", operator.ID, created.ID, created.Code)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateLootPool
@@ -145,47 +119,32 @@ func CreateLootPool(c *gin.Context) {
 // @Produce json
 // @Param id path int true "loot pool id"
 // @Param request body LootPoolRequest true "request body"
-// @Success 200 {object} Response{data=loot.Pool}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=loot.Pool}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/loot-pools/{id} [put]
 func UpdateLootPool(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req LootPoolRequest
-	poolID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	poolID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateLootPool(ctx, poolID, &req)
 	if err != nil {
-		switch err.Error() {
-		case loot.PoolCodeInvalid, loot.PoolNameInvalid:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case loot.PoolNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case loot.PoolCodeTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[UpdateLootPool] update failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[UpdateLootPool] update failed")
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLootPoolUpdate, audit.TargetLootPool, updated.ID, changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, loot.ActionLootPoolUpdate, loot.TargetLootPool, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateLootPool] %d updated loot pool %d %s", operator.ID, updated.ID, updated.Code)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteLootPoolResponseData 删除掉落池的结果
@@ -199,42 +158,32 @@ type DeleteLootPoolResponseData struct {
 // @Description 连同条目一起删除, 仍使用该代码的玩法会找不到掉落池
 // @Produce json
 // @Param id path int true "loot pool id"
-// @Success 200 {object} Response{data=DeleteLootPoolResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=DeleteLootPoolResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/loot-pools/{id} [delete]
 func DeleteLootPool(c *gin.Context) {
 	ctx := c.Request.Context()
-	poolID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	poolID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	deleted, entries, err := doDeleteLootPool(ctx, poolID)
 	if err != nil {
-		if err.Error() == loot.PoolNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteLootPool] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteLootPool] delete failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLootPoolDelete, audit.TargetLootPool, deleted.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, loot.ActionLootPoolDelete, loot.TargetLootPool, deleted.ID, map[string]interface{}{
 		"code":        deleted.Code,
 		"name":        deleted.Name,
 		"entry_count": entries,
 	})
 	logger.InfoF(ctx, "[DeleteLootPool] %d deleted loot pool %d %s, %d entries", operator.ID, deleted.ID, deleted.Code, entries)
-	c.JSON(http.StatusOK, Response{Data: DeleteLootPoolResponseData{EntryCount: entries}})
+	reply.OK(c, DeleteLootPoolResponseData{EntryCount: entries})
 }
 
 // LootPoolEntriesResponseData 掉落池及其全部条目
@@ -249,31 +198,25 @@ type LootPoolEntriesResponseData struct {
 // @Description 包含已下架、已删除的物品和已停用的货币, 这些条目不参与抽取, 概率按其余条目计算
 // @Produce json
 // @Param id path int true "loot pool id"
-// @Success 200 {object} Response{data=LootPoolEntriesResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=LootPoolEntriesResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/loot-pools/{id}/entries [get]
 func ListLootPoolEntries(c *gin.Context) {
 	ctx := c.Request.Context()
-	poolID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	poolID, ok := reply.ID(c, "id")
+	if !ok {
 		return
 	}
 	pool, entries, err := queryLootPoolEntries(ctx, poolID)
 	if err != nil {
-		if err.Error() == loot.PoolNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[ListLootPoolEntries] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListLootPoolEntries] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: LootPoolEntriesResponseData{Pool: *pool, Entries: entries}})
+	reply.OK(c, LootPoolEntriesResponseData{Pool: *pool, Entries: entries})
 }
 
 // LootPoolEntryRequest 掉落池的一个条目
@@ -298,40 +241,27 @@ type ReplaceLootPoolEntriesRequest struct {
 // @Produce json
 // @Param id path int true "loot pool id"
 // @Param request body ReplaceLootPoolEntriesRequest true "request body"
-// @Success 200 {object} Response{data=LootPoolEntriesResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=LootPoolEntriesResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/loot-pools/{id}/entries [put]
 func ReplaceLootPoolEntries(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req ReplaceLootPoolEntriesRequest
-	poolID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	poolID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	pool, entries, changes, err := doReplaceLootPoolEntries(ctx, poolID, &req)
 	if err != nil {
-		switch err.Error() {
-		case loot.EntryTargetInvalid, loot.EntryRangeInvalid, loot.EntryTooMany, inventory.QuantityInvalid, item.ItemNotFound, wallet.CurrencyNotFound:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case loot.PoolNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[ReplaceLootPoolEntries] replace failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[ReplaceLootPoolEntries] replace failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionLootPoolEntriesUpdate, audit.TargetLootPool, pool.ID, changes)
+	audit.Record(c, operator.ID, audit.ScopeAdmin, loot.ActionLootPoolEntriesUpdate, loot.TargetLootPool, pool.ID, changes)
 	logger.InfoF(ctx, "[ReplaceLootPoolEntries] %d replaced loot pool %d %s with %d entries", operator.ID, pool.ID, pool.Code, len(entries))
-	c.JSON(http.StatusOK, Response{Data: LootPoolEntriesResponseData{Pool: *pool, Entries: entries}})
+	reply.OK(c, LootPoolEntriesResponseData{Pool: *pool, Entries: entries})
 }

@@ -22,13 +22,28 @@
  * SOFTWARE.
  */
 
-package crate
+package router
 
-const (
-	CrateNotFound    = "箱子不存在"
-	CrateUnavailable = "这个箱子暂时无法开启"
-	PoolInvalid      = "掉落池代码需为 1-64 个小写字母、数字或下划线"
+import (
+	"reflect"
+	"testing"
 
-	IdempotencyConflict = "幂等键已被其他请求使用"
-	DuplicateRequest    = "请求正在处理, 请勿重复提交"
+	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
 )
+
+// TestPackSections 配置种类由各模块的后台包在 init 中注册; 路由引用了全部后台包, 所以这里能看到完整的列表, 按依赖顺序排列
+//
+// 新增配置种类时在这里补上, 少了一种说明它所在的包没有被引用。
+func TestPackSections(t *testing.T) {
+	var codes []string
+	for _, s := range pack.Sections() {
+		codes = append(codes, s.Code)
+	}
+	want := []string{
+		"currencies", "settings", "qualities", "items", "loot_pools", "bot_personas", "bot_names", "venues",
+		"shop_items", "leaderboards", "missions", "checkin_days", "ranked_tiers", "codex_sets", "seasons",
+	}
+	if !reflect.DeepEqual(codes, want) {
+		t.Errorf("sections = %v, want %v", codes, want)
+	}
+}

@@ -28,12 +28,39 @@ import (
 	"context"
 	"errors"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 )
+
+func init() {
+	audit.RegisterAction(ActionLootPoolCreate, "新建掉落池")
+	audit.RegisterAction(ActionLootPoolUpdate, "修改掉落池")
+	audit.RegisterAction(ActionLootPoolDelete, "删除掉落池")
+	audit.RegisterAction(ActionLootPoolEntriesUpdate, "修改掉落池条目")
+	params.RegisterSource(SourcePool, params.Source{Options: poolOptions})
+}
+
+// poolOptions 可以选的掉落池, 按代码排列; 已停用的也可以选, 启用后生效
+func poolOptions(tx *gorm.DB) ([]params.Option, error) {
+	var pools []Pool
+	if err := tx.Order("code").Find(&pools).Error; err != nil {
+		return nil, err
+	}
+	options := make([]params.Option, len(pools))
+	for i, pool := range pools {
+		options[i] = params.Option{Value: pool.Code, Label: pool.Name, Hint: pool.Code}
+		if !pool.IsEnabled {
+			options[i].Hint += " 已停用"
+		}
+	}
+	return options, nil
+}
 
 // EntryDetail 掉落池条目, 附带物品或货币信息和当前的概率
 type EntryDetail struct {
@@ -109,12 +136,12 @@ func QueryAvailable(tx *gorm.DB, code string) (*Pool, []EntryDetail, error) {
 	var pool Pool
 	if err := pool.ExactCode(tx, code); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil, errors.New(PoolNotFound)
+			return nil, nil, fault.NotFound(PoolNotFound)
 		}
 		return nil, nil, err
 	}
 	if !pool.IsEnabled {
-		return nil, nil, errors.New(PoolDisabled)
+		return nil, nil, fault.NotFound(PoolDisabled)
 	}
 
 	entries, err := QueryEntries(tx, pool.ID)
@@ -128,7 +155,7 @@ func QueryAvailable(tx *gorm.DB, code string) (*Pool, []EntryDetail, error) {
 		}
 	}
 	if len(available) == 0 {
-		return nil, nil, errors.New(PoolEmpty)
+		return nil, nil, fault.NotFound(PoolEmpty)
 	}
 	return &pool, available, nil
 }
@@ -174,7 +201,7 @@ type RollResult struct {
 // 同一物品或货币的掉落合计超过单笔变动上限时返回 inventory.QuantityInvalid 或 wallet.AmountInvalid, 配置条目时需考虑 times。
 func Roll(tx *gorm.DB, code string, times int) (*RollResult, error) {
 	if times < 1 || times > MaxRollTimes {
-		return nil, errors.New(RollTimesInvalid)
+		return nil, fault.Invalid(RollTimesInvalid)
 	}
 	pool, entries, err := QueryAvailable(tx, code)
 	if err != nil {

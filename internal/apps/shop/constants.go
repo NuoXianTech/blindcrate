@@ -43,6 +43,9 @@ const (
 	LimitSeason = "season" // 每赛季
 )
 
+// ImagePurpose 商品图片的上传用途, 只有管理员可以上传, 见 upload.RegisterPurpose
+const ImagePurpose = "shop"
+
 // metricPrefix 限购计数指标的前缀, 见 Metric
 const metricPrefix = "shop_buy:"
 
@@ -51,4 +54,18 @@ const (
 	maxTabLength = 16        // 页签的最大字符数
 	MaxQuantity  = 99        // 一次最多购买的份数
 	maxLimit     = 1_000_000 // 限购数量和库存的上限
+)
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetShopItem  = "shop_item"
+	TargetShopOrder = "shop_order"
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionShopItemCreate  = "admin.shop_item_create"
+	ActionShopItemUpdate  = "admin.shop_item_update"
+	ActionShopItemDelete  = "admin.shop_item_delete"
+	ActionShopOrderRefund = "admin.shop_order_refund"
 )

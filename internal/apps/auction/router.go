@@ -25,21 +25,10 @@
 package auction
 
 import (
-	"net/http"
-	"strconv"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/apps/match"
-	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 auction 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // GetAuction
 // @Tags auction
@@ -47,36 +36,26 @@ type Response struct {
 // @Description 进行中时只公开货仓大小、已经扫出的轮廓和自己的出价、反馈与情报, 结算后公开全部藏品、每个座位的出价和用过的道具; 断线重连后用它恢复, 之后以 ws 推送的 auction:updated 为准。出价通过 ws 消息 auction:bid 提交, 道具通过 auction:use 使用
 // @Produce json
 // @Param match_id path int true "match id"
-// @Success 200 {object} Response{data=AuctionView}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=AuctionView}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/auctions/{match_id} [get]
 func GetAuction(c *gin.Context) {
 	ctx := c.Request.Context()
-	matchID, err := strconv.ParseUint(c.Param("match_id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	user, ok := auth.GetUserFromContext(c)
+	matchID, ok := reply.ID(c, "match_id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	user := auth.CurrentUser(c)
 	view, err := QueryAuction(ctx, user.ID, matchID)
 	if err != nil {
-		if err.Error() == match.MatchNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetAuction] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetAuction] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: view})
+	reply.OK(c, view)
 }
 
 // ListUsableItemsResponseData 这局可以用的道具
@@ -90,36 +69,26 @@ type ListUsableItemsResponseData struct {
 // @Description 效果属于对局场景、地图的道具规则允许且数量大于 0 的物品; 不检查阶段、剩余次数和练习局, 以 self.uses_left 为准。道具通过 ws 消息 auction:use 使用
 // @Produce json
 // @Param match_id path int true "match id"
-// @Success 200 {object} Response{data=ListUsableItemsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListUsableItemsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/auctions/{match_id}/items [get]
 func ListUsableItems(c *gin.Context) {
 	ctx := c.Request.Context()
-	matchID, err := strconv.ParseUint(c.Param("match_id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	user, ok := auth.GetUserFromContext(c)
+	matchID, ok := reply.ID(c, "match_id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	user := auth.CurrentUser(c)
 	items, err := QueryUsableItems(ctx, user.ID, matchID)
 	if err != nil {
-		if err.Error() == match.MatchNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[ListUsableItems] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListUsableItems] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListUsableItemsResponseData{Items: items}})
+	reply.OK(c, ListUsableItemsResponseData{Items: items})
 }
 
 // ListCarryResponseData 自己在各地图选的带入金额
@@ -132,24 +101,19 @@ type ListCarryResponseData struct {
 // @Summary 获取自己在各地图选的带入金额
 // @Description 没选过的地图不在列表中, 准入时按地图的带入资金上限; 地图之后调低了上限时按新的上限截断
 // @Produce json
-// @Success 200 {object} Response{data=ListCarryResponseData}
-// @Failure 401 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListCarryResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/auctions/carry [get]
 func ListCarry(c *gin.Context) {
 	ctx := c.Request.Context()
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	prefs, err := QueryCarry(ctx, user.ID)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListCarry] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListCarry] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListCarryResponseData{Preferences: prefs}})
+	reply.OK(c, ListCarryResponseData{Preferences: prefs})
 }
 
 // PutCarry
@@ -159,33 +123,23 @@ func ListCarry(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param body body CarryRequest true "带入金额"
-// @Success 200 {object} Response{data=CarryPreference}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=CarryPreference}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/auctions/carry [put]
 func PutCarry(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req CarryRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	pref, err := SetCarry(ctx, user.ID, &req)
 	if err != nil {
-		if err.Error() == venue.VenueDisabled {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[PutCarry] save failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[PutCarry] save failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: pref})
+	reply.OK(c, pref)
 }

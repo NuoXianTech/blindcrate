@@ -29,11 +29,14 @@
 //   - json: 参数的 key
 //   - label、help: 表单中的名称和说明, 校验失败的提示也使用 label
 //   - binding: 校验规则, 写法与 gin 的请求参数校验一致, 见 ValidateStruct
-//   - options: 字符串的可选值("值:名称,值:名称"), 显示为下拉框
-//   - input: 输入方式, 字符串的 textarea, 或前端的选择器(currency、item、quality、scope、metric、pool)
+//   - options: 可选值("值:名称,值:名称"); 字符串显示为下拉框, 字符串或整数的列表显示为多选
+//   - input: 输入方式, 字符串的 textarea、datetime(RFC 3339 的时间), 或一种可选值来源的名称(如 currency、item), 见 RegisterSource
 //   - unit: 整数的单位, 可用的单位见 Vocabulary
 //
 // 其他 tag 由使用方定义, 需要在 Vocabulary.Tags 中声明(如设置组的 ref、secret、public)。
+//
+// 可选值来源由拥有数据的模块登记(货币、物品、品质、掉落池、统计范围等), 表单描述返回给后台前用 Resolve 填入当前的可选值,
+// 后台只需要通用的下拉框: 新增一种来源不用改前端。结构化的参数(如一组奖励、一组条件)由定义它的模块用 RegisterKind 登记。
 package params
 
 import (
@@ -45,19 +48,24 @@ import (
 
 // Field 一个参数的描述, 后台据此自动生成表单
 type Field struct {
-	Key     string   `json:"key"`
-	Label   string   `json:"label"`
-	Help    string   `json:"help"`
-	Type    string   `json:"type"`              // string / bool / int / int_list
-	Input   string   `json:"input"`             // text / textarea / password / select / switch / number / list, 或选择器 currency / item / quality / scope / metric / pool
-	Options []Option `json:"options,omitempty"` // 下拉框和部分选择器的可选值
-	Unit    string   `json:"unit,omitempty"`    // 整数的单位: bp / second / millisecond
+	Key      string   `json:"key"`
+	Label    string   `json:"label"`
+	Help     string   `json:"help"`
+	Type     string   `json:"type"`              // string / bool / int / int_list / string_list, 或 RegisterKind 登记的类型
+	Input    string   `json:"input"`             // text / textarea / datetime / password / select / suggest / multiselect / switch / number / list, 或 RegisterKind 登记的类型; Resolve 之前还可以是可选值来源的名称
+	Options  []Option `json:"options,omitempty"` // 下拉框、多选和输入建议的可选值
+	Unit     string   `json:"unit,omitempty"`    // 整数的单位: bp / second / millisecond
+	Default  string   `json:"default,omitempty"` // 新建时的默认值, 由可选值来源给出
+	Required bool     `json:"required"`          // binding 规则中有 required: 字符串不能为空, 列表不能为空
 }
 
 // Option 下拉框的一个可选值
 type Option struct {
-	Value string `json:"value"`
-	Label string `json:"label"`
+	Value    string `json:"value"`
+	Label    string `json:"label"`
+	Hint     string `json:"hint,omitempty"`     // 次要的说明, 如代码
+	Quality  int16  `json:"quality,omitempty"`  // 按这个品质的颜色展示, 0 为不着色
+	Disabled bool   `json:"disabled,omitempty"` // 不能新选, 已经选了的照常展示, 如已下架的物品
 }
 
 // 整数的单位
@@ -97,14 +105,17 @@ func Describe(typ reflect.Type, name string, v Vocabulary) []Field {
 			}
 		}
 		f := Field{
-			Key:     strings.Split(sf.Tag.Get("json"), ",")[0],
-			Label:   sf.Tag.Get("label"),
-			Help:    sf.Tag.Get("help"),
-			Input:   sf.Tag.Get("input"),
-			Options: ParseOptions(fieldName, sf.Tag.Get("options")),
-			Unit:    sf.Tag.Get("unit"),
+			Key:      strings.Split(sf.Tag.Get("json"), ",")[0],
+			Label:    sf.Tag.Get("label"),
+			Help:     sf.Tag.Get("help"),
+			Input:    sf.Tag.Get("input"),
+			Options:  ParseOptions(fieldName, sf.Tag.Get("options")),
+			Unit:     sf.Tag.Get("unit"),
+			Required: slices.Contains(strings.Split(sf.Tag.Get("binding"), ","), "required"),
 		}
 		switch kind := sf.Type.Kind(); {
+		case kinds[sf.Type] != "":
+			f.Type, f.Input = kinds[sf.Type], kinds[sf.Type]
 		case kind == reflect.String:
 			f.Type = "string"
 			switch {
@@ -120,20 +131,39 @@ func Describe(typ reflect.Type, name string, v Vocabulary) []Field {
 			if f.Input == "" {
 				f.Input = "number"
 			}
+		case kind == reflect.Slice && isInt(sf.Type.Elem().Kind()) && len(f.Options) > 0:
+			f.Type, f.Input = "int_list", "multiselect"
+		case kind == reflect.Slice && sf.Type.Elem().Kind() == reflect.String && len(f.Options) > 0:
+			f.Type, f.Input = "string_list", "multiselect"
 		case kind == reflect.Slice && isInt(sf.Type.Elem().Kind()) && v.IntLists:
 			f.Type, f.Input = "int_list", "list"
 		default:
 			panic(fmt.Sprintf("params: %s: unsupported type %s", fieldName, sf.Type))
 		}
 		switch {
-		case len(f.Options) > 0 && f.Type != "string":
-			panic(fmt.Sprintf("params: %s: only strings can have options", fieldName))
+		case len(f.Options) > 0 && f.Type != "string" && f.Input != "multiselect":
+			panic(fmt.Sprintf("params: %s: only strings and lists can have options", fieldName))
 		case f.Unit != "" && (!slices.Contains(v.Units, f.Unit) || (f.Type != "int" && f.Type != "int_list")):
 			panic(fmt.Sprintf("params: %s: unsupported unit %q", fieldName, f.Unit))
 		}
 		fields = append(fields, f)
 	}
 	return fields
+}
+
+// kinds 结构化的参数类型, Go 类型 -> 名称, 只在启动前写入
+var kinds = map[reflect.Type]string{}
+
+// RegisterKind 登记一种结构化的参数类型, 如一组奖励; 需要在启动前、用到它的参数结构体注册之前调用, 名称重复时 panic
+//
+// T 类型的字段在表单描述中 type 和 input 都是 name, 后台需要有这个名称对应的编辑器; 解析按 JSON, 校验由参数结构体的 Validate 完成。
+func RegisterKind[T any](name string) {
+	for _, existing := range kinds {
+		if existing == name {
+			panic(fmt.Sprintf("params: kind %s already registered", name))
+		}
+	}
+	kinds[reflect.TypeFor[T]()] = name
 }
 
 // isInt 是否为支持的整数类型

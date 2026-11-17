@@ -25,9 +25,6 @@
 package codexadmin
 
 import (
-	"context"
-	"errors"
-	"fmt"
 	"slices"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/codex"
@@ -40,16 +37,16 @@ import (
 const (
 	PackCodexSets  = "codex_sets"
 	OrderCodexSets = 85 // 排在物品之后, 收集组按 ID 引用物品
-	packLabel      = "收集组"
 )
 
 func init() {
-	pack.RegisterSection(pack.Section{
-		Code: PackCodexSets, Label: packLabel, Hint: "按代码对应, 物品按 ID 引用; 已删除或不是藏品的物品不导出", Order: OrderCodexSets, Renamable: true,
-		Export: func(_ context.Context, tx *gorm.DB, _ func(string) string) (any, int, error) {
+	// 收集组按代码对应; 同代码的收集组已删除时只能改名导入
+	pack.RegisterTable(pack.Table[codex.Set, SetRequest]{
+		Code: PackCodexSets, Label: "收集组", Hint: "按代码对应, 物品按 ID 引用; 已删除或不是藏品的物品不导出", Order: OrderCodexSets,
+		Export: func(tx *gorm.DB, _ func(string) string) ([]SetRequest, error) {
 			var rows []codex.Set
 			if err := tx.Order("sort_order, id").Find(&rows).Error; err != nil {
-				return nil, 0, err
+				return nil, err
 			}
 			var all []uint64
 			for i := range rows {
@@ -58,18 +55,45 @@ func init() {
 			slices.Sort(all)
 			collectible, err := collectibleIDs(tx, slices.Compact(all))
 			if err != nil {
-				return nil, 0, err
+				return nil, err
 			}
 			list := make([]SetRequest, len(rows))
 			for i := range rows {
 				list[i] = setPack(&rows[i], collectible)
 			}
-			return list, len(list), nil
+			return list, nil
 		},
-		Decode: pack.DecodeList(setEntry, nil),
-		Invalid: func(err error) bool {
-			var invalid *codex.InvalidError
-			return errors.As(err, &invalid)
+		// 与导出的内容比较, 本环境导出的包再导入时为未变化
+		Current: func(tx *gorm.DB, s *codex.Set) (SetRequest, error) {
+			collectible, err := collectibleIDs(tx, s.ItemIDs)
+			if err != nil {
+				return SetRequest{}, err
+			}
+			return setPack(s, collectible), nil
+		},
+		Key:    func(req *SetRequest) string { return req.Code },
+		Name:   func(req *SetRequest) string { return req.Name },
+		Taken:  codex.CodeTaken,
+		Rename: func(req *SetRequest, code string) { req.Code = code },
+		Find: func(tx *gorm.DB, req *SetRequest, current *codex.Set) (bool, error) {
+			err := tx.Unscoped().Where("code = ?", req.Code).Limit(1).Find(current).Error
+			return current.ID != 0, err
+		},
+		Deleted: func(s *codex.Set) bool { return s.DeletedAt.Valid },
+		Lock:    func(tx *gorm.DB, current *codex.Set) error { return LockSet(tx, current, current.ID) },
+		Save: func(tx *gorm.DB, _ *pack.Run, current *codex.Set, req *SetRequest) error {
+			target := current
+			var kept []uint64
+			if target == nil {
+				target = &codex.Set{}
+			} else {
+				kept = current.ItemIDs
+			}
+			ApplySet(target, req)
+			if err := codex.Validate(tx, target, kept); err != nil {
+				return err
+			}
+			return tx.Save(target).Error
 		},
 	})
 }
@@ -100,50 +124,5 @@ func setPack(s *codex.Set, collectible map[uint64]bool) SetRequest {
 		Reward:      s.Reward,
 		SortOrder:   s.SortOrder,
 		IsEnabled:   s.IsEnabled,
-	}
-}
-
-// setEntry 包中的一个收集组, 按代码对应已有收集组; 同代码的收集组已删除时只能改名导入
-func setEntry(_ *pack.Run, req *SetRequest) *pack.Entry {
-	var current codex.Set
-	return &pack.Entry{
-		Key:    req.Code,
-		Name:   req.Name,
-		Taken:  codex.CodeTaken,
-		Rename: func(code string) { req.Code = code },
-		Compare: func(tx *gorm.DB) (string, string, error) {
-			if err := tx.Unscoped().Where("code = ?", req.Code).Limit(1).Find(&current).Error; err != nil {
-				return "", "", err
-			}
-			found := current.ID != 0
-			if found && current.DeletedAt.Valid {
-				return pack.PackStatusConflict, fmt.Sprintf(pack.PackCodeDeleted, packLabel), nil
-			}
-			// 与导出的内容比较, 本环境导出的包再导入时为未变化
-			collectible, err := collectibleIDs(tx, current.ItemIDs)
-			if err != nil {
-				return "", "", err
-			}
-			return pack.CompareStatus(found, setPack(&current, collectible), req), "", nil
-		},
-		Apply: func(tx *gorm.DB, exists bool) error {
-			if err := pack.ValidateFields(req); err != nil {
-				return err
-			}
-			target := &codex.Set{}
-			var kept []uint64
-			if exists {
-				if err := LockSet(tx, &current, current.ID); err != nil {
-					return err
-				}
-				target = &current
-				kept = current.ItemIDs
-			}
-			ApplySet(target, req)
-			if err := codex.Validate(tx, target, kept); err != nil {
-				return err
-			}
-			return tx.Save(target).Error
-		},
 	}
 }

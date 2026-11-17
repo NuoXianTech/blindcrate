@@ -31,17 +31,12 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/mail"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListSettingsRequest 获取设置组请求参数
 type ListSettingsRequest struct {
@@ -60,26 +55,24 @@ type ListSettingsResponseData struct {
 // @Description 包含表单描述和当前值, 密钥字段不返回明文; 可以按分类筛选
 // @Produce json
 // @Param request query ListSettingsRequest true "request query"
-// @Success 200 {object} Response{data=ListSettingsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListSettingsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/settings [get]
 func ListSettings(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListSettingsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	groups, err := settings.QueryGroups(ctx, req.Category)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListSettings] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListSettings] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListSettingsResponseData{Categories: settings.Categories, Groups: groups}})
+	reply.OK(c, ListSettingsResponseData{Categories: settings.Categories, Groups: groups})
 }
 
 // GetSetting
@@ -87,25 +80,20 @@ func ListSettings(c *gin.Context) {
 // @Summary 获取一个设置组
 // @Produce json
 // @Param key path string true "setting group key"
-// @Success 200 {object} Response{data=settings.GroupView}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=settings.GroupView}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/settings/{key} [get]
 func GetSetting(c *gin.Context) {
 	ctx := c.Request.Context()
 	group, err := settings.QueryGroup(ctx, c.Param("key"))
 	if err != nil {
-		if err.Error() == settings.GroupNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetSetting] query %s failed: %v", c.Param("key"), err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetSetting] query "+c.Param("key")+" failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: group})
+	reply.OK(c, group)
 }
 
 // UpdateSettingRequest 保存设置组请求体
@@ -122,32 +110,27 @@ type UpdateSettingRequest struct {
 // @Produce json
 // @Param key path string true "setting group key"
 // @Param request body UpdateSettingRequest true "request body"
-// @Success 200 {object} Response{data=settings.GroupView}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=settings.GroupView}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/settings/{key} [put]
 func UpdateSetting(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req UpdateSettingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	group, changes, err := settings.Update(ctx, operator.ID, c.Param("key"), req.Value, req.ClearSecrets)
 	if err != nil {
-		c.JSON(settingErrorStatus(err), Response{ErrorMsg: err.Error()})
+		reply.Fail(c, err, "[UpdateSetting] save failed")
 		return
 	}
-	recordSettingChange(c, operator.ID, audit.ActionSettingsUpdate, group, changes)
-	c.JSON(http.StatusOK, Response{Data: group})
+	recordSettingChange(c, operator.ID, settings.ActionSettingsUpdate, group, changes)
+	reply.OK(c, group)
 }
 
 // ResetSetting
@@ -156,40 +139,23 @@ func UpdateSetting(c *gin.Context) {
 // @Description 恢复为代码中的默认值, 立即生效, 密钥字段会被清空
 // @Produce json
 // @Param key path string true "setting group key"
-// @Success 200 {object} Response{data=settings.GroupView}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=settings.GroupView}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/settings/{key}/reset [post]
 func ResetSetting(c *gin.Context) {
 	ctx := c.Request.Context()
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	group, changes, err := settings.Reset(ctx, operator.ID, c.Param("key"))
 	if err != nil {
-		c.JSON(settingErrorStatus(err), Response{ErrorMsg: err.Error()})
+		reply.Fail(c, err, "[ResetSetting] reset failed")
 		return
 	}
-	recordSettingChange(c, operator.ID, audit.ActionSettingsReset, group, changes)
-	c.JSON(http.StatusOK, Response{Data: group})
-}
-
-// settingErrorStatus 保存设置组的错误对应的状态码, 错误提示都可以直接展示
-func settingErrorStatus(err error) int {
-	switch err.Error() {
-	case settings.GroupNotFound:
-		return http.StatusNotFound
-	case settings.SaveFailed:
-		return http.StatusInternalServerError
-	default:
-		// 其余均为设置内容校验失败
-		return http.StatusBadRequest
-	}
+	recordSettingChange(c, operator.ID, settings.ActionSettingsReset, group, changes)
+	reply.OK(c, group)
 }
 
 // recordSettingChange 记录设置组的修改, 没有任何修改时不记录
@@ -197,7 +163,7 @@ func recordSettingChange(c *gin.Context, operatorID uint64, action string, group
 	if len(changes) == 0 {
 		return
 	}
-	audit.Record(c, operatorID, audit.ScopeAdmin, action, audit.TargetSetting, 0, map[string]interface{}{
+	audit.Record(c, operatorID, audit.ScopeAdmin, action, settings.TargetSetting, 0, map[string]interface{}{
 		"key":     group.Key,
 		"changes": changes,
 	})
@@ -216,35 +182,24 @@ type TestMailRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body TestMailRequest true "request body"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 429 {object} Response
-// @Failure 500 {object} Response
-// @Failure 502 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 429 {object} reply.Response
+// @Failure 500 {object} reply.Response
+// @Failure 502 {object} reply.Response
 // @Router /api/v1/admin/settings/mail/test [post]
 func TestMail(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req TestMailRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	to, mailConfig, err := prepareTestMail(ctx, &req)
 	if err != nil {
-		switch err.Error() {
-		case auth.EmailInvalid, MailTestIncomplete:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[TestMail] query settings failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[TestMail] query settings failed")
 		return
 	}
 	// 发送失败时把 SMTP 返回的错误交给管理员排查
@@ -253,11 +208,11 @@ func TestMail(c *gin.Context) {
 	if sendErr != nil {
 		detail["error"] = sendErr.Error()
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionMailTest, audit.TargetSetting, 0, detail)
+	audit.Record(c, operator.ID, audit.ScopeAdmin, settings.ActionMailTest, settings.TargetSetting, 0, detail)
 	if sendErr != nil {
 		logger.WarnF(ctx, "[TestMail] %d send to %s failed: %v", operator.ID, to, sendErr)
-		c.JSON(http.StatusBadGateway, Response{ErrorMsg: fmt.Sprintf("%s: %s", MailTestFailed, sendErr.Error())})
+		reply.Error(c, http.StatusBadGateway, fmt.Sprintf("%s: %s", MailTestFailed, sendErr.Error()))
 		return
 	}
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }

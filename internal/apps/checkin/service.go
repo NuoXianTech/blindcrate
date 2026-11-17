@@ -31,7 +31,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
-	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
@@ -43,8 +43,7 @@ import (
 
 func init() {
 	audit.RegisterAction(ActionUpdateDays, "修改签到奖励")
-	ledger.RegisterBizType(ledger.KindWallet, BizCheckin, "签到奖励")
-	ledger.RegisterBizType(ledger.KindInventory, BizCheckin, "签到奖励")
+	reward.RegisterBizType(BizCheckin, "签到奖励")
 	stats.RegisterMetric(MetricCheckins, "签到天数")
 	// 只需要今天和昨天的签到记录来计算连续天数, 更早的随按天统计一起清理
 	stats.RegisterCleanup(Record{}.TableName(), "period")
@@ -72,12 +71,18 @@ type InvalidError struct {
 
 func (e *InvalidError) Error() string { return e.Reason }
 
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
+
 // RejectedError 不能签到, Error 返回的提示可以直接展示给玩家
 type RejectedError struct {
 	Reason string
 }
 
 func (e *RejectedError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *RejectedError) Kind() fault.Kind { return fault.KindForbidden }
 
 // ValidateDay 保存某一天的奖励前校验, 校验后合并奖励中的同类项; 不合法时返回 *InvalidError
 func ValidateDay(tx *gorm.DB, d *Day) error {
@@ -244,7 +249,7 @@ func Checkin(ctx context.Context, userID uint64) (*CheckinResult, error) {
 			return err
 		}
 		if last != nil && last.Period == today {
-			return errors.New(AlreadyCheckedIn)
+			return fault.Conflict(AlreadyCheckedIn)
 		}
 		record = Record{UserID: userID, Period: today, Streak: 1}
 		if last != nil {
@@ -256,7 +261,7 @@ func Checkin(ctx context.Context, userID uint64) (*CheckinResult, error) {
 			return inserted.Error
 		}
 		if inserted.RowsAffected == 0 {
-			return errors.New(AlreadyCheckedIn)
+			return fault.Conflict(AlreadyCheckedIn)
 		}
 		if err := stats.Add(tx, userID, []string{stats.ScopeAll}, now, stats.Values{MetricCheckins: 1}); err != nil {
 			return err

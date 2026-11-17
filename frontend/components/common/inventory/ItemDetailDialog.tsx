@@ -1,13 +1,12 @@
 'use client';
 
-import {HandCoins, PackageOpen, ScrollText} from 'lucide-react';
+import {HandCoins, ScrollText, Sparkles} from 'lucide-react';
 import {cn} from 'cn';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {ItemImage, SellPriceText} from '@/components/common/item';
 import {useQualities} from '@/components/common/site';
-import {CRATE_EFFECT} from '@/lib/services/crate';
 import type {UserItem} from '@/lib/services/inventory';
 import type {BalanceItem} from '@/lib/services/wallet';
 import {formatDateTime} from '@/lib/utils';
@@ -26,14 +25,14 @@ interface ItemDetailDialogProps {
   onViewRecords: (item: UserItem) => void;
   /** 出售该物品, 不可出售的物品不显示按钮 */
   onSell: (item: UserItem) => void;
-  /** 开启该箱子, 不是箱子的物品不显示按钮 */
-  onOpenCrate: (item: UserItem) => void;
+  /** 使用该物品, 不能在背包中使用的物品不显示按钮 */
+  onUse: (item: UserItem) => void;
 }
 
 /**
  * 物品详情对话框
  */
-export function ItemDetailDialog({item, currencies, onClose, onViewRecords, onSell, onOpenCrate}: ItemDetailDialogProps) {
+export function ItemDetailDialog({item, currencies, onClose, onViewRecords, onSell, onUse}: ItemDetailDialogProps) {
   const q = useQualities().qualityOf(item?.quality ?? 0);
 
   return (
@@ -80,15 +79,15 @@ export function ItemDetailDialog({item, currencies, onClose, onViewRecords, onSe
                 查看记录
               </Button>
               {item.sell_price > 0 && (
-                <Button variant={item.effect === CRATE_EFFECT ? 'outline' : 'default'} onClick={() => onSell(item)}>
+                <Button variant={item.usable ? 'outline' : 'default'} onClick={() => onSell(item)}>
                   <HandCoins />
                   出售
                 </Button>
               )}
-              {item.effect === CRATE_EFFECT && (
-                <Button onClick={() => onOpenCrate(item)}>
-                  <PackageOpen />
-                  开启
+              {item.usable && (
+                <Button onClick={() => onUse(item)}>
+                  <Sparkles />
+                  使用
                 </Button>
               )}
             </DialogFooter>

@@ -24,8 +24,8 @@
 
 package wallet
 
-// RefCurrency 设置中引用货币的字段, 可选值为全部启用的货币, 见 settings.RegisterRef
-const RefCurrency = "currency"
+// SourceCurrency 可选值来源: 全部启用的货币, 值为货币代码; 参数字段用 input:"currency" 引用, 设置组用 ref:"currency"
+const SourceCurrency = "currency"
 
 // 业务类型, 每种会变动余额的业务一个
 const (
@@ -58,3 +58,15 @@ const (
 
 // MaxAmount 单笔变动金额上限, 防止异常请求一次写入过大金额
 const MaxAmount int64 = 1_000_000_000_000
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetCurrency = "currency" // target_id 固定为 0, 货币代码见 detail.code
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionWalletAdjust   = "admin.wallet_adjust"
+	ActionCurrencyCreate = "admin.currency_create"
+	ActionCurrencyUpdate = "admin.currency_update"
+)

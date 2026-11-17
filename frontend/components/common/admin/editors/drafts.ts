@@ -1,9 +1,9 @@
 import {nanoid} from 'nanoid';
 import {check} from '@/hooks/use-submit';
-import type {Condition, ConditionField, ConditionType} from '@/lib/services/condition';
+import type {Condition, ConditionField, ConditionType, ParamValue} from '@/lib/services/condition';
 import type {Bundle} from '@/lib/services/reward';
 import type {Currency} from '@/lib/services/wallet';
-import {amountInput, parseAmount} from '@/lib/utils';
+import {amountInput, fromLocalInput, parseAmount, toLocalInput} from '@/lib/utils';
 
 /** 物品的数量上限, 与后端 reward 的校验一致 */
 const MAX_ITEM_QUANTITY = 1_000_000;
@@ -22,14 +22,24 @@ export interface BundleDraft {
   amount: string;
 }
 
-/** 编辑中的一组参数, 数值保留输入框里的原文 */
-export type ParamsDraft = Record<string, string | boolean>;
+/** 编辑中的一个参数: 文本和数值保留输入框里的原文, 多选为选中的值, 结构化的参数为各自的草稿 */
+export type ParamDraft = string | boolean | string[] | BundleDraft[] | BundleDraft[][] | ConditionDraft[];
 
-/** 编辑中的一个条件, 数值参数保留输入框里的原文 */
+/** 编辑中的一组参数 */
+export type ParamsDraft = Record<string, ParamDraft>;
+
+/** 编辑中的一个条件 */
 export interface ConditionDraft {
   key: string;
   type: string;
   params: ParamsDraft;
+}
+
+/** 转换结构化的参数时需要的数据: 货币的小数位, 以及嵌套条件的类型 */
+export interface DraftContext {
+  currencies: Currency[];
+  /** 条件类型, 没有 conditions 参数时可以不传 */
+  types?: ConditionType[];
 }
 
 /** 货币的小数位, 找不到时按 0 */
@@ -68,15 +78,19 @@ export function fromBundleDrafts(drafts: BundleDraft[], currencies: Currency[], 
   return bundle;
 }
 
-/** 按字段类型给参数默认值, 条件和物品的使用效果共用 */
-export function newParamsDraft(fields: ConditionField[], currencies: Currency[]): ParamsDraft {
+/** 一组奖励最多的行数, 与后端 reward 的校验一致 */
+export const MAX_BUNDLE_LINES = 20;
+/** 结构化参数中几组奖励、嵌套条件最多的个数 */
+export const MAX_PARAM_ITEMS = 8;
+
+/** 按字段类型给参数默认值, 条件、物品的使用效果和人机策略共用; 有默认值的用默认值, 下拉框留空等管理员选 */
+export function newParamsDraft(fields: ConditionField[]): ParamsDraft {
   const params: ParamsDraft = {};
   for (const field of fields) {
     if (field.type === 'bool') params[field.key] = false;
-    else if (field.input === 'currency') params[field.key] = currencies[0]?.code ?? '';
-    else if (field.input === 'scope') params[field.key] = 'all';
-    else if (field.input === 'metric') params[field.key] = field.options?.[0]?.value ?? '';
-    else if (field.input === 'item' || field.input === 'quality') params[field.key] = '';
+    else if (field.input === 'multiselect' || field.type === 'bundle' || field.type === 'bundle_list' || field.type === 'conditions') params[field.key] = [];
+    else if (field.default) params[field.key] = field.default;
+    else if (field.input === 'select' || field.input === 'suggest' || field.input === 'datetime') params[field.key] = '';
     else params[field.key] = field.type === 'int' ? '1' : '';
   }
   return params;
@@ -87,35 +101,75 @@ export function ratioInput(value: number, decimals: number): string {
   return String(value / 10 ** decimals);
 }
 
-/** 已保存的参数转为输入框里的原文, 基点参数转为百分比 */
-export function toParamsDraft(fields: ConditionField[], params: Record<string, string | number | boolean> | undefined): ParamsDraft {
+/** 已保存的一个参数转为编辑中的草稿, 按字段的类型转换; 没有对应字段的原样转为文本 */
+function toParamDraft(field: ConditionField | undefined, value: ParamValue, ctx: DraftContext): ParamDraft {
+  if (typeof value === 'boolean') return value;
+  switch (field?.type) {
+    case 'int_list':
+    case 'string_list':
+      return Array.isArray(value) ? value.map(String) : [];
+    case 'bundle':
+      return toBundleDrafts(value as Bundle, ctx.currencies);
+    case 'bundle_list':
+      return Array.isArray(value) ? (value as Bundle[]).map((b) => toBundleDrafts(b, ctx.currencies)) : [];
+    case 'conditions':
+      return Array.isArray(value) ? toConditionDrafts(value as Condition[], ctx.types ?? [], ctx.currencies) : [];
+  }
+  if (typeof value === 'number' && field?.unit === 'bp') return ratioInput(value, PERCENT_DECIMALS);
+  if (typeof value === 'string' && value && field?.input === 'datetime') return toLocalInput(value);
+  return typeof value === 'object' ? '' : String(value);
+}
+
+/** 已保存的参数转为编辑中的草稿, 基点参数转为百分比, 时间转为本地时间 */
+export function toParamsDraft(fields: ConditionField[], params: Record<string, ParamValue> | undefined, ctx: DraftContext = {currencies: []}): ParamsDraft {
   return Object.fromEntries(
-      Object.entries(params ?? {}).map(([key, value]) => {
-        if (typeof value === 'boolean') return [key, value];
-        const percent = typeof value === 'number' && fields.some((f) => f.key === key && f.unit === 'bp');
-        return [key, percent ? ratioInput(value, PERCENT_DECIMALS) : String(value)];
-      }),
+      Object.entries(params ?? {}).map(([key, value]) => [key, toParamDraft(fields.find((f) => f.key === key), value, ctx)]),
   );
 }
 
 /** 按字段转换参数, 校验不通过时中断提交; row 为提示的前缀, 如 "入场条件第 1 条" */
-export function fromParamsDraft(fields: ConditionField[], draft: ParamsDraft, row: string): Condition['params'] {
+export function fromParamsDraft(fields: ConditionField[], draft: ParamsDraft, row: string, ctx: DraftContext = {currencies: []}): Condition['params'] {
   const params: Condition['params'] = {};
   for (const field of fields) {
     const value = draft[field.key];
+    const name = `${row}: ${field.label}`;
     if (field.type === 'bool') {
       params[field.key] = value === true;
       continue;
     }
+    if (field.type === 'int_list' || field.type === 'string_list') {
+      const picked = Array.isArray(value) ? (value as string[]) : [];
+      check(field.required && !picked.length ? `${row}: 请选择${field.label}` : null);
+      params[field.key] = field.type === 'int_list' ? picked.map(Number) : picked;
+      continue;
+    }
+    if (field.type === 'bundle') {
+      params[field.key] = fromBundleDrafts(Array.isArray(value) ? (value as BundleDraft[]) : [], ctx.currencies, name);
+      continue;
+    }
+    if (field.type === 'bundle_list') {
+      const groups = Array.isArray(value) ? (value as BundleDraft[][]) : [];
+      params[field.key] = groups.map((drafts, i) => fromBundleDrafts(drafts, ctx.currencies, `${name}第 ${i + 1} 组`));
+      continue;
+    }
+    if (field.type === 'conditions') {
+      params[field.key] = fromConditionDrafts(Array.isArray(value) ? (value as ConditionDraft[]) : [], ctx.types ?? [], name, ctx.currencies);
+      continue;
+    }
     const text = typeof value === 'string' ? value.trim() : '';
     if (field.type === 'int') {
-      check((field.input === 'item' || field.input === 'quality') && !text ? `${row}: 请选择${field.label}` : null);
+      check(field.input === 'select' && !text ? `${row}: 请选择${field.label}` : null);
       const percent = field.unit === 'bp';
       const number = parseAmount(text, percent ? PERCENT_DECIMALS : 0);
-      check(number === null ? `${row}: ${field.label}${percent ? `需为百分比, 最多 ${PERCENT_DECIMALS} 位小数` : '需为整数'}` : null);
+      check(number === null ? `${name}${percent ? `需为百分比, 最多 ${PERCENT_DECIMALS} 位小数` : '需为整数'}` : null);
       params[field.key] = number ?? 0;
+    } else if (field.input === 'datetime') {
+      const time = text ? fromLocalInput(text) : '';
+      check(time === null ? `${name}不是有效的时间` : null);
+      check(field.required && !time ? `${row}: 请填写${field.label}` : null);
+      params[field.key] = time ?? '';
     } else {
-      check(!text ? `${row}: 请填写${field.label}` : null);
+      check(field.required && !text ? `${row}: 请${field.input === 'select' ? '选择' : '填写'}${field.label}` : null);
       params[field.key] = text;
     }
   }
@@ -123,26 +177,26 @@ export function fromParamsDraft(fields: ConditionField[], draft: ParamsDraft, ro
 }
 
 /** 新建一个条件, 参数按字段类型给默认值 */
-export function newConditionDraft(type: ConditionType, currencies: Currency[]): ConditionDraft {
-  return {key: nanoid(), type: type.type, params: newParamsDraft(type.fields, currencies)};
+export function newConditionDraft(type: ConditionType): ConditionDraft {
+  return {key: nanoid(), type: type.type, params: newParamsDraft(type.fields)};
 }
 
 /** 已保存的条件转为编辑中的条件, 按条件类型的字段转换参数 */
-export function toConditionDrafts(conditions: Condition[], types: ConditionType[]): ConditionDraft[] {
+export function toConditionDrafts(conditions: Condition[], types: ConditionType[], currencies: Currency[]): ConditionDraft[] {
   return conditions.map((c) => ({
     key: nanoid(),
     type: c.type,
-    params: toParamsDraft(types.find((t) => t.type === c.type)?.fields ?? [], c.params),
+    params: toParamsDraft(types.find((t) => t.type === c.type)?.fields ?? [], c.params, {currencies, types}),
   }));
 }
 
-/** 转为请求中的条件, 按条件类型的字段转换参数; 未知类型的参数原样提交, 由后端校验 */
-export function fromConditionDrafts(drafts: ConditionDraft[], types: ConditionType[], label: string): Condition[] {
+/** 转为请求中的条件, 按条件类型的字段转换参数; 未知类型的条件不能保存, 需要先删掉或改成已有的类型 */
+export function fromConditionDrafts(drafts: ConditionDraft[], types: ConditionType[], label: string, currencies: Currency[]): Condition[] {
   return drafts.map((d, i) => {
     const type = types.find((t) => t.type === d.type);
     const row = `${label}第 ${i + 1} 条`;
     check(!d.type ? `${row}: 请选择条件类型` : null);
-    if (!type) return {type: d.type, params: d.params};
-    return {type: d.type, params: fromParamsDraft(type.fields, d.params, row)};
+    check(!type ? `${row}: 未知的条件类型 ${d.type}` : null);
+    return {type: d.type, params: fromParamsDraft(type?.fields ?? [], d.params, row, {currencies, types})};
   });
 }

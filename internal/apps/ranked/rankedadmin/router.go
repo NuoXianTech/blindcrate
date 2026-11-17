@@ -25,23 +25,16 @@
 package rankedadmin
 
 import (
-	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auction"
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListRankedTiersResponseData 段位列表
 type ListRankedTiersResponseData struct {
@@ -53,20 +46,19 @@ type ListRankedTiersResponseData struct {
 // @Summary 获取段位列表
 // @Description 全部段位, 按分数线从低到高
 // @Produce json
-// @Success 200 {object} Response{data=ListRankedTiersResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListRankedTiersResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/ranked/tiers [get]
 func ListRankedTiers(c *gin.Context) {
 	ctx := c.Request.Context()
 	tiers, err := queryRankedTiers(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListRankedTiers] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListRankedTiers] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListRankedTiersResponseData{Tiers: tiers}})
+	reply.OK(c, ListRankedTiersResponseData{Tiers: tiers})
 }
 
 // RankedTierRequest 新建或修改段位请求体
@@ -76,57 +68,34 @@ type RankedTierRequest struct {
 	Color     string `json:"color" binding:"required,max=7"` // #rrggbb
 }
 
-// rankedTierErrorStatus 段位配置错误对应的状态码, 不是配置错误时返回 0
-func rankedTierErrorStatus(err error) int {
-	switch err.Error() {
-	case ranked.TierNameInvalid, ranked.TierRatingInvalid, ranked.TierColorInvalid:
-		return http.StatusBadRequest
-	case ranked.TierNotFound:
-		return http.StatusNotFound
-	case ranked.TierRatingTaken:
-		return http.StatusConflict
-	}
-	return 0
-}
-
 // CreateRankedTier
 // @Tags admin
 // @Summary 新建段位
 // @Accept json
 // @Produce json
 // @Param request body RankedTierRequest true "request body"
-// @Success 200 {object} Response{data=ranked.Tier}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ranked.Tier}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/ranked/tiers [post]
 func CreateRankedTier(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req RankedTierRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, err := doCreateRankedTier(ctx, &req)
 	if err != nil {
-		if status := rankedTierErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateRankedTier] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateRankedTier] create failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionRankedTierCreate, audit.TargetRankedTier, created.ID, rankedTierFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, ranked.ActionRankedTierCreate, ranked.TargetRankedTier, created.ID, rankedTierFields(created))
 	logger.InfoF(ctx, "[CreateRankedTier] %d created ranked tier %d %s", operator.ID, created.ID, created.Name)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateRankedTier
@@ -137,42 +106,32 @@ func CreateRankedTier(c *gin.Context) {
 // @Produce json
 // @Param id path int true "ranked tier id"
 // @Param request body RankedTierRequest true "request body"
-// @Success 200 {object} Response{data=ranked.Tier}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ranked.Tier}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/ranked/tiers/{id} [put]
 func UpdateRankedTier(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req RankedTierRequest
-	tierID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	tierID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateRankedTier(ctx, tierID, &req)
 	if err != nil {
-		if status := rankedTierErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateRankedTier] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateRankedTier] update failed")
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionRankedTierUpdate, audit.TargetRankedTier, updated.ID, changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, ranked.ActionRankedTierUpdate, ranked.TargetRankedTier, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateRankedTier] %d updated ranked tier %d %s", operator.ID, updated.ID, updated.Name)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteRankedTier
@@ -181,38 +140,28 @@ func UpdateRankedTier(c *gin.Context) {
 // @Description 删除后原来在这个段位的人按剩下的分数线重新计算段位, 段位分不受影响
 // @Produce json
 // @Param id path int true "ranked tier id"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/ranked/tiers/{id} [delete]
 func DeleteRankedTier(c *gin.Context) {
 	ctx := c.Request.Context()
-	tierID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	tierID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	deleted, err := doDeleteRankedTier(ctx, tierID)
 	if err != nil {
-		if err.Error() == ranked.TierNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteRankedTier] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteRankedTier] delete failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionRankedTierDelete, audit.TargetRankedTier, deleted.ID, rankedTierFields(deleted))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, ranked.ActionRankedTierDelete, ranked.TargetRankedTier, deleted.ID, rankedTierFields(deleted))
 	logger.InfoF(ctx, "[DeleteRankedTier] %d deleted ranked tier %d %s", operator.ID, deleted.ID, deleted.Name)
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }
 
 // ListRankedSuspectsRequest 可疑名单查询参数
@@ -234,26 +183,24 @@ type ListRankedSuspectsResponseData struct {
 // @Description 最近若干天已结束的排位中, 一起打的局数较多, 或同局时其中一人多次低价成交的两个账号; 天数和次数见排位设置。其中一人低价成交多的排在前面
 // @Produce json
 // @Param request query ListRankedSuspectsRequest true "request query"
-// @Success 200 {object} Response{data=ListRankedSuspectsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListRankedSuspectsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/ranked/suspects [get]
 func ListRankedSuspects(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListRankedSuspectsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, suspects, err := auction.QuerySuspects(ctx, req.Reviewed, (req.Current-1)*req.Size, req.Size)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListRankedSuspects] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListRankedSuspects] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListRankedSuspectsResponseData{Total: total, Suspects: suspects}})
+	reply.OK(c, ListRankedSuspectsResponseData{Total: total, Suspects: suspects})
 }
 
 // ReviewRankedSuspectRequest 处理可疑账号请求体
@@ -271,36 +218,30 @@ type ReviewRankedSuspectRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body ReviewRankedSuspectRequest true "request body"
-// @Success 200 {object} Response{data=auction.SuspectReview}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=auction.SuspectReview}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/ranked/suspects/review [post]
 func ReviewRankedSuspect(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req ReviewRankedSuspectRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	note := strings.TrimSpace(req.Note)
 	review, err := auction.ReviewSuspect(ctx, operator.ID, req.UserA, req.UserB, req.LastMatchID, note)
 	if err != nil {
-		logger.ErrorF(ctx, "[ReviewRankedSuspect] review failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ReviewRankedSuspect] review failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionSuspectReview, audit.TargetSuspect, req.UserA, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, ranked.ActionSuspectReview, ranked.TargetSuspect, req.UserA, map[string]interface{}{
 		"user_b":        req.UserB,
 		"last_match_id": req.LastMatchID,
 		"note":          note,
 	})
 	logger.InfoF(ctx, "[ReviewRankedSuspect] %d reviewed suspects %d and %d up to match %d", operator.ID, req.UserA, req.UserB, req.LastMatchID)
-	c.JSON(http.StatusOK, Response{Data: review})
+	reply.OK(c, review)
 }

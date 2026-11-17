@@ -25,26 +25,17 @@
 package missionadmin
 
 import (
-	"errors"
-	"net/http"
-	"strconv"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/mission"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListMissionsRequest 任务列表查询参数
 type ListMissionsRequest struct {
@@ -67,26 +58,24 @@ type ListMissionsResponseData struct {
 // @Description 按周期、排序值和 ID 排列, 不含已删除的任务
 // @Produce json
 // @Param request query ListMissionsRequest true "request query"
-// @Success 200 {object} Response{data=ListMissionsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListMissionsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/missions [get]
 func ListMissions(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListMissionsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, missions, err := QueryMissions(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMissions] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMissions] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListMissionsResponseData{Total: total, Missions: missions}})
+	reply.OK(c, ListMissionsResponseData{Total: total, Missions: missions})
 }
 
 // ListMissionOptionsResponseData 编辑任务时可以选择的周期和指标
@@ -99,20 +88,19 @@ type ListMissionOptionsResponseData struct {
 // @Tags admin
 // @Summary 获取任务可以选择的周期和指标
 // @Produce json
-// @Success 200 {object} Response{data=ListMissionOptionsResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListMissionOptionsResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/missions/options [get]
 func ListMissionOptions(c *gin.Context) {
 	ctx := c.Request.Context()
 	metrics, err := stats.ValueMetrics(db.DB(ctx))
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMissionOptions] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMissionOptions] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListMissionOptionsResponseData{Cycles: mission.Cycles(), Metrics: metrics}})
+	reply.OK(c, ListMissionOptionsResponseData{Cycles: mission.Cycles(), Metrics: metrics})
 }
 
 // MissionRequest 新建或修改任务请求体
@@ -132,58 +120,34 @@ type MissionRequest struct {
 	IsEnabled    bool                  `json:"is_enabled"`
 }
 
-// missionErrorStatus 任务配置错误对应的状态码, 不是配置错误时返回 0
-func missionErrorStatus(err error) int {
-	var invalid *mission.InvalidError
-	switch {
-	case errors.As(err, &invalid), err.Error() == mission.CodeImmutable:
-		return http.StatusBadRequest
-	case err.Error() == mission.MissionNotFound:
-		return http.StatusNotFound
-	case err.Error() == mission.CodeTaken:
-		return http.StatusConflict
-	}
-	return 0
-}
-
 // CreateMission
 // @Tags admin
 // @Summary 新建任务
 // @Accept json
 // @Produce json
 // @Param request body MissionRequest true "request body"
-// @Success 200 {object} Response{data=mission.Mission}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=mission.Mission}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/missions [post]
 func CreateMission(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req MissionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, err := doCreateMission(ctx, &req)
 	if err != nil {
-		if status := missionErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateMission] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateMission] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, mission.ActionCreate, mission.TargetMission, created.ID, missionFields(created))
 	logger.InfoF(ctx, "[CreateMission] %d created mission %d %s", operator.ID, created.ID, created.Code)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateMission
@@ -194,41 +158,31 @@ func CreateMission(c *gin.Context) {
 // @Produce json
 // @Param id path int true "mission id"
 // @Param request body MissionRequest true "request body"
-// @Success 200 {object} Response{data=mission.Mission}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=mission.Mission}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/missions/{id} [put]
 func UpdateMission(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req MissionRequest
-	missionID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	missionID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateMission(ctx, missionID, &req)
 	if err != nil {
-		if status := missionErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateMission] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateMission] update failed")
 		return
 	}
 	if len(changes) > 0 {
 		audit.Record(c, operator.ID, audit.ScopeAdmin, mission.ActionUpdate, mission.TargetMission, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateMission] %d updated mission %d %s", operator.ID, updated.ID, updated.Code)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteMission
@@ -237,36 +191,26 @@ func UpdateMission(c *gin.Context) {
 // @Description 软删除, 代码不能再被新任务使用; 已领取的奖励不收回
 // @Produce json
 // @Param id path int true "mission id"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/missions/{id} [delete]
 func DeleteMission(c *gin.Context) {
 	ctx := c.Request.Context()
-	missionID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	missionID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	deleted, err := doDeleteMission(ctx, missionID)
 	if err != nil {
-		if err.Error() == mission.MissionNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteMission] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteMission] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, mission.ActionDelete, mission.TargetMission, deleted.ID, missionFields(deleted))
 	logger.InfoF(ctx, "[DeleteMission] %d deleted mission %d %s", operator.ID, deleted.ID, deleted.Code)
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }

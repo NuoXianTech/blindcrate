@@ -25,45 +25,33 @@
 package ranked
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/db"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 ranked 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // GetRating
 // @Tags ranked
 // @Summary 获取当前用户的段位分
 // @Description 当前赛季的段位分和段位, 赛季之外为赛季 0 的段位分; 本赛季还没打过排位时为初始分
 // @Produce json
-// @Success 200 {object} Response{data=View}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=View}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/ranked/rating [get]
 func GetRating(c *gin.Context) {
 	ctx := c.Request.Context()
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	view, err := Query(db.DB(ctx), user.ID, time.Now())
 	if err != nil {
-		logger.ErrorF(ctx, "[GetRating] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetRating] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: view})
+	reply.OK(c, view)
 }
 
 // ListTiersResponseData 段位列表
@@ -76,18 +64,17 @@ type ListTiersResponseData struct {
 // @Summary 获取段位列表
 // @Description 全部段位, 按分数线从低到高; 段位分低于最低的分数线时没有段位
 // @Produce json
-// @Success 200 {object} Response{data=ListTiersResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListTiersResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/ranked/tiers [get]
 func ListTiers(c *gin.Context) {
 	ctx := c.Request.Context()
 	tiers, err := QueryTiers(db.DB(ctx))
 	if err != nil {
-		logger.ErrorF(ctx, "[ListTiers] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListTiers] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListTiersResponseData{Tiers: tiers}})
+	reply.OK(c, ListTiersResponseData{Tiers: tiers})
 }

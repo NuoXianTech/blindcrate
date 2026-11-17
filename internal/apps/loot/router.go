@@ -25,18 +25,9 @@
 package loot
 
 import (
-	"net/http"
-
-	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 loot 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // GetPoolOdds
 // @Tags loot
@@ -44,24 +35,18 @@ type Response struct {
 // @Description 只返回已启用的掉落池中可抽取的条目, 概率为每次抽取抽中该条目的概率
 // @Produce json
 // @Param code path string true "pool code"
-// @Success 200 {object} Response{data=PoolOdds}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=PoolOdds}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/loot-pools/{code}/odds [get]
 func GetPoolOdds(c *gin.Context) {
 	ctx := c.Request.Context()
 	odds, err := QueryOdds(ctx, c.Param("code"))
 	if err != nil {
-		switch err.Error() {
-		case PoolNotFound, PoolDisabled, PoolEmpty:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[GetPoolOdds] query failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[GetPoolOdds] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: odds})
+	reply.OK(c, odds)
 }

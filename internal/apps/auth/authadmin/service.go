@@ -26,12 +26,12 @@ package authadmin
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 )
 
@@ -74,14 +74,14 @@ func QueryUsersList(ctx context.Context, req *ListUsersRequest) (int64, []auth.U
 // updateOtherUser 管理员修改其他用户的字段, 不允许操作自己
 func updateOtherUser(ctx context.Context, operatorID, userID uint64, values map[string]interface{}) error {
 	if operatorID == userID {
-		return errors.New(admin.CannotOperateSelf)
+		return fault.Invalid(admin.CannotOperateSelf)
 	}
 	tx := db.DB(ctx).Model(&auth.User{}).Where("id = ?", userID).Updates(values)
 	if tx.Error != nil {
 		return tx.Error
 	}
 	if tx.RowsAffected == 0 {
-		return errors.New(auth.UserNotFound)
+		return fault.NotFound(auth.UserNotFound)
 	}
 	return nil
 }
@@ -93,10 +93,10 @@ const maxBanDuration = 3650*24*time.Hour + time.Minute
 func doBanUser(ctx context.Context, operatorID, userID uint64, until time.Time, reason string) error {
 	now := time.Now()
 	if !until.After(now) {
-		return errors.New(BanUntilInvalid)
+		return fault.Invalid(BanUntilInvalid)
 	}
 	if until.After(now.Add(maxBanDuration)) {
-		return errors.New(BanTooLong)
+		return fault.Invalid(BanTooLong)
 	}
 	return updateOtherUser(ctx, operatorID, userID, map[string]interface{}{"banned_until": until, "ban_reason": reason})
 }
@@ -116,7 +116,7 @@ func doSetUserDisabled(ctx context.Context, operatorID, userID uint64, disabled 
 // 修改自己的密码要走 auth.ChangePassword 核对原密码, 防止登录状态被盗用后管理员账号被直接改掉密码。
 func doSetUserPassword(ctx context.Context, operatorID, userID uint64, password string) error {
 	if operatorID == userID {
-		return errors.New(admin.CannotOperateSelf)
+		return fault.Invalid(admin.CannotOperateSelf)
 	}
 	return auth.UpdateUserPassword(ctx, userID, password)
 }

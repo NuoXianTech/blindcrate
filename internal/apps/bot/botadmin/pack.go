@@ -25,10 +25,6 @@
 package botadmin
 
 import (
-	"context"
-	"errors"
-	"fmt"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
 	"gorm.io/gorm"
@@ -38,83 +34,30 @@ import (
 const (
 	OrderBotPersonas = 45 // 排在地图之前, 地图按代码引用风格
 	OrderBotNames    = 46
-	personaLabel     = "人机风格"
 )
 
 func init() {
-	pack.RegisterSection(pack.Section{
-		Code: bot.PackPersonas, Label: personaLabel, Hint: "按代码对应", Order: OrderBotPersonas, Renamable: true,
-		Export: func(_ context.Context, tx *gorm.DB, _ func(string) string) (any, int, error) {
-			var rows []bot.Persona
-			if err := tx.Order("id").Find(&rows).Error; err != nil {
-				return nil, 0, err
-			}
-			list := make([]PersonaRequest, len(rows))
-			for i := range rows {
-				list[i] = personaPack(&rows[i])
-			}
-			return list, len(list), nil
+	// 风格按代码对应; 同代码的风格已删除时只能改名导入
+	pack.RegisterTable(pack.Table[bot.Persona, PersonaRequest]{
+		Code: bot.PackPersonas, Label: "人机风格", Hint: "按代码对应", Order: OrderBotPersonas,
+		Query: func(tx *gorm.DB) *gorm.DB { return tx.Order("id") },
+		Pack: func(p *bot.Persona, _ func(string) string) PersonaRequest {
+			return PersonaRequest{Code: p.Code, Name: p.Name, Description: p.Description, Strategy: p.Strategy, Params: p.Params}
 		},
-		Decode:  pack.DecodeList(personaEntry, nil),
-		Invalid: invalid,
-	})
-	pack.RegisterSection(pack.Section{
-		Code: bot.PackNames, Label: "人机昵称", Hint: "按昵称对应", Order: OrderBotNames,
-		Export: func(_ context.Context, tx *gorm.DB, _ func(string) string) (any, int, error) {
-			var rows []bot.Name
-			if err := tx.Order("id").Find(&rows).Error; err != nil {
-				return nil, 0, err
-			}
-			list := make([]NameRequest, len(rows))
-			for i := range rows {
-				list[i] = namePack(&rows[i])
-			}
-			return list, len(list), nil
-		},
-		Decode:  pack.DecodeList(nameEntry, nil),
-		Invalid: invalid,
-	})
-}
-
-// invalid 写入时返回的错误是否为人机配置的校验错误
-func invalid(err error) bool {
-	var target *bot.InvalidError
-	return errors.As(err, &target)
-}
-
-// personaPack 风格写入配置包的内容
-func personaPack(p *bot.Persona) PersonaRequest {
-	return PersonaRequest{Code: p.Code, Name: p.Name, Description: p.Description, Strategy: p.Strategy, Params: p.Params}
-}
-
-// personaEntry 包中的一个风格, 按代码对应已有风格; 同代码的风格已删除时只能改名导入
-func personaEntry(_ *pack.Run, req *PersonaRequest) *pack.Entry {
-	var current bot.Persona
-	return &pack.Entry{
-		Key:    req.Code,
-		Name:   req.Name,
+		Key:    func(req *PersonaRequest) string { return req.Code },
+		Name:   func(req *PersonaRequest) string { return req.Name },
 		Taken:  bot.CodeTaken,
-		Rename: func(code string) { req.Code = code },
-		Compare: func(tx *gorm.DB) (string, string, error) {
-			if err := tx.Unscoped().Where("code = ?", req.Code).Limit(1).Find(&current).Error; err != nil {
-				return "", "", err
-			}
-			found := current.ID != 0
-			if found && current.DeletedAt.Valid {
-				return pack.PackStatusConflict, fmt.Sprintf(pack.PackCodeDeleted, personaLabel), nil
-			}
-			return pack.CompareStatus(found, personaPack(&current), req), "", nil
+		Rename: func(req *PersonaRequest, code string) { req.Code = code },
+		Find: func(tx *gorm.DB, req *PersonaRequest, current *bot.Persona) (bool, error) {
+			err := tx.Unscoped().Where("code = ?", req.Code).Limit(1).Find(current).Error
+			return current.ID != 0, err
 		},
-		Apply: func(tx *gorm.DB, exists bool) error {
-			if err := pack.ValidateFields(req); err != nil {
-				return err
-			}
-			target := &bot.Persona{}
-			if exists {
-				if err := LockPersona(tx, &current, current.ID); err != nil {
-					return err
-				}
-				target = &current
+		Deleted: func(p *bot.Persona) bool { return p.DeletedAt.Valid },
+		Lock:    func(tx *gorm.DB, current *bot.Persona) error { return LockPersona(tx, current, current.ID) },
+		Save: func(tx *gorm.DB, _ *pack.Run, current *bot.Persona, req *PersonaRequest) error {
+			target := current
+			if target == nil {
+				target = &bot.Persona{}
 			}
 			ApplyPersona(target, req)
 			if err := bot.Validate(tx, target); err != nil {
@@ -122,37 +65,27 @@ func personaEntry(_ *pack.Run, req *PersonaRequest) *pack.Entry {
 			}
 			return tx.Save(target).Error
 		},
-	}
-}
+	})
 
-// namePack 昵称写入配置包的内容
-func namePack(n *bot.Name) NameRequest {
-	return NameRequest{Name: n.Name, IsEnabled: n.IsEnabled}
-}
-
-// nameEntry 包中的一个昵称, 按昵称对应已有昵称
-func nameEntry(_ *pack.Run, req *NameRequest) *pack.Entry {
-	var current bot.Name
-	return &pack.Entry{
-		Key:   req.Name,
-		Name:  req.Name,
-		Taken: bot.NameTaken,
-		Compare: func(tx *gorm.DB) (string, string, error) {
-			if err := tx.Where("name = ?", req.Name).Limit(1).Find(&current).Error; err != nil {
-				return "", "", err
-			}
-			return pack.CompareStatus(current.ID != 0, namePack(&current), req), "", nil
+	// 昵称按昵称对应
+	pack.RegisterTable(pack.Table[bot.Name, NameRequest]{
+		Code: bot.PackNames, Label: "人机昵称", Hint: "按昵称对应", Order: OrderBotNames,
+		Query: func(tx *gorm.DB) *gorm.DB { return tx.Order("id") },
+		Pack: func(n *bot.Name, _ func(string) string) NameRequest {
+			return NameRequest{Name: n.Name, IsEnabled: n.IsEnabled}
 		},
-		Apply: func(tx *gorm.DB, exists bool) error {
-			if err := pack.ValidateFields(req); err != nil {
-				return err
-			}
-			target := &bot.Name{}
-			if exists {
-				if err := LockName(tx, &current, current.ID); err != nil {
-					return err
-				}
-				target = &current
+		Key:   func(req *NameRequest) string { return req.Name },
+		Name:  func(req *NameRequest) string { return req.Name },
+		Taken: bot.NameTaken,
+		Find: func(tx *gorm.DB, req *NameRequest, current *bot.Name) (bool, error) {
+			err := tx.Where("name = ?", req.Name).Limit(1).Find(current).Error
+			return current.ID != 0, err
+		},
+		Lock: func(tx *gorm.DB, current *bot.Name) error { return LockName(tx, current, current.ID) },
+		Save: func(tx *gorm.DB, _ *pack.Run, current *bot.Name, req *NameRequest) error {
+			target := current
+			if target == nil {
+				target = &bot.Name{}
 			}
 			ApplyName(target, req)
 			if err := bot.ValidateName(target.Name); err != nil {
@@ -160,5 +93,5 @@ func nameEntry(_ *pack.Run, req *NameRequest) *pack.Entry {
 			}
 			return tx.Save(target).Error
 		},
-	}
+	})
 }

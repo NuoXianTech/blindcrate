@@ -29,6 +29,9 @@ const (
 	CategoryCollectible = "collectible" // 藏品: 货仓只抽藏品
 )
 
+// ImagePurpose 物品图片的上传用途, 只有管理员可以上传, 见 upload.RegisterPurpose
+const ImagePurpose = "item"
+
 // PlaceholderQuality 占位物品的品质等级: 0 表示没有品质, 品质都由管理员配置, 等级从 1 开始
 const PlaceholderQuality int16 = 0
 
@@ -39,3 +42,25 @@ const (
 
 // PlaceholderSellPrice 占位物品的售价, 物品被删除或不存在时背包中的该物品按占位物品展示和结算
 const PlaceholderSellPrice int64 = 1
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetItem    = "item"
+	TargetQuality = "quality"
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionItemCreate    = "admin.item_create"
+	ActionItemUpdate    = "admin.item_update"
+	ActionItemDelete    = "admin.item_delete"
+	ActionQualityCreate = "admin.quality_create"
+	ActionQualityUpdate = "admin.quality_update"
+	ActionQualityDelete = "admin.quality_delete"
+)
+
+// 可选值来源, 参数字段用 input tag 引用, 见 params.RegisterSource
+const (
+	SourceItem    = "item"    // 全部没有删除的物品, 值为物品 ID
+	SourceQuality = "quality" // 全部品质, 值为品质等级
+)

@@ -28,6 +28,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
@@ -57,7 +59,7 @@ func LoginRequired() gin.HandlerFunc {
 		// load user
 		userId := GetUserIDFromContext(c)
 		if userId <= 0 {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_msg": UnAuthorized, "data": nil})
+			reply.Abort(c, http.StatusUnauthorized, fault.Unauthorized)
 			return
 		}
 
@@ -68,11 +70,11 @@ func LoginRequired() gin.HandlerFunc {
 			// 用户已不存在: 清掉失效的 session, 按未登录处理
 			if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
 				dropSession(c)
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_msg": UnAuthorized, "data": nil})
+				reply.Abort(c, http.StatusUnauthorized, fault.Unauthorized)
 				return
 			}
 			logger.ErrorF(ctx, "[LoginRequired] query user %d failed: %v", userId, tx.Error)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error_msg": InternalError, "data": nil})
+			reply.Abort(c, http.StatusInternalServerError, fault.InternalError)
 			return
 		}
 
@@ -80,16 +82,16 @@ func LoginRequired() gin.HandlerFunc {
 		if !sessionMatchesUser(sessions.Default(c), &user) {
 			logger.WarnF(ctx, "[LoginRequired] session of user %d does not belong to this account, dropped", userId)
 			dropSession(c)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_msg": UnAuthorized, "data": nil})
+			reply.Abort(c, http.StatusUnauthorized, fault.Unauthorized)
 			return
 		}
 
 		if err := user.CheckDisabled(); err != nil {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error_msg": BannedAccount, "data": nil})
+			reply.Abort(c, http.StatusForbidden, BannedAccount)
 			return
 		}
 		if err := user.CheckBan(); err != nil {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error_msg": BannedAccount, "data": nil})
+			reply.Abort(c, http.StatusForbidden, BannedAccount)
 			return
 		}
 

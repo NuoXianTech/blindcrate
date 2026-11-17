@@ -43,9 +43,8 @@ const (
 	PackConflicts          = "有 %d 项配置无法导入, 请跳过或改名后再导入"
 	PackImageMissing       = "配置包中缺少图片 %s"
 	PackFieldInvalid       = "%s 不符合要求"
-	PackItemDeleted        = "同 ID 的物品已删除, 不能导入"
+	PackDeleted            = "对应的%s已删除, 不能导入"
 	PackCodeDeleted        = "同代码的%s已删除, 请改名导入"
 	PackCodeTaken          = "已有代码为 %s 的%s, 请换一个新代码"
-	PackQualityCodeDiffers = "已有的等级 %d 品质代码为 %s, 与包中的不同"
 	ImportNotFound         = "导入记录不存在"
 )

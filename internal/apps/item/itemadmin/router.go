@@ -25,24 +25,19 @@
 package itemadmin
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
+	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListItemsRequest 物品列表查询参数
 type ListItemsRequest struct {
@@ -66,26 +61,24 @@ type ListItemsResponseData struct {
 // @Description 包含已下架的物品, 不包含已删除的物品
 // @Produce json
 // @Param request query ListItemsRequest true "request query"
-// @Success 200 {object} Response{data=ListItemsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListItemsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/items [get]
 func ListItems(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListItemsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, items, err := QueryItems(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListItems] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListItems] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListItemsResponseData{Total: total, Items: items}})
+	reply.OK(c, ListItemsResponseData{Total: total, Items: items})
 }
 
 // ItemRequest 新建或修改物品请求体
@@ -111,46 +104,28 @@ type ItemRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body ItemRequest true "request body"
-// @Success 200 {object} Response{data=item.Item}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=item.Item}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/items [post]
 func CreateItem(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req ItemRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, err := doCreateItem(ctx, &req)
 	if err != nil {
-		var invalid *effect.InvalidError
-		if errors.As(err, &invalid) {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-			return
-		}
-		switch err.Error() {
-		case item.ItemCodeInvalid, item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case item.ItemNameTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[CreateItem] create failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[CreateItem] create failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionItemCreate, audit.TargetItem, created.ID, itemFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionItemCreate, item.TargetItem, created.ID, itemFields(created))
 	logger.InfoF(ctx, "[CreateItem] %d created item %d %s", operator.ID, created.ID, created.Name)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateItem
@@ -161,52 +136,32 @@ func CreateItem(c *gin.Context) {
 // @Produce json
 // @Param id path int true "item id"
 // @Param request body ItemRequest true "request body"
-// @Success 200 {object} Response{data=item.Item}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=item.Item}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/items/{id} [put]
 func UpdateItem(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req ItemRequest
-	itemID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	itemID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateItem(ctx, itemID, &req)
 	if err != nil {
-		var invalid *effect.InvalidError
-		if errors.As(err, &invalid) {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-			return
-		}
-		switch err.Error() {
-		case item.ItemCodeInvalid, item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case item.ItemNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case item.ItemNameTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[UpdateItem] update failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[UpdateItem] update failed")
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionItemUpdate, audit.TargetItem, updated.ID, changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionItemUpdate, item.TargetItem, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateItem] %d updated item %d %s", operator.ID, updated.ID, updated.Name)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteItemResponseData 删除物品的结果
@@ -220,41 +175,31 @@ type DeleteItemResponseData struct {
 // @Description 已持有的玩家背包保留该物品并变为占位物品, 物品 ID 不会被复用
 // @Produce json
 // @Param id path int true "item id"
-// @Success 200 {object} Response{data=DeleteItemResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=DeleteItemResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/items/{id} [delete]
 func DeleteItem(c *gin.Context) {
 	ctx := c.Request.Context()
-	itemID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	itemID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	deleted, holders, err := doDeleteItem(ctx, itemID)
 	if err != nil {
-		if err.Error() == item.ItemNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteItem] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteItem] delete failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionItemDelete, audit.TargetItem, deleted.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionItemDelete, item.TargetItem, deleted.ID, map[string]interface{}{
 		"name":         deleted.Name,
 		"holder_count": holders,
 	})
 	logger.InfoF(ctx, "[DeleteItem] %d deleted item %d %s, %d holders", operator.ID, deleted.ID, deleted.Name, holders)
-	c.JSON(http.StatusOK, Response{Data: DeleteItemResponseData{HolderCount: holders}})
+	reply.OK(c, DeleteItemResponseData{HolderCount: holders})
 }
 
 // ListItemCategoriesResponseData 物品类别列表
@@ -267,12 +212,12 @@ type ListItemCategoriesResponseData struct {
 // @Summary 获取物品类别
 // @Description 由代码注册的全部物品类别, 按注册顺序
 // @Produce json
-// @Success 200 {object} Response{data=ListItemCategoriesResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
+// @Success 200 {object} reply.Response{data=ListItemCategoriesResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
 // @Router /api/v1/admin/items/categories [get]
 func ListItemCategories(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{Data: ListItemCategoriesResponseData{Categories: item.Categories()}})
+	reply.OK(c, ListItemCategoriesResponseData{Categories: item.Categories()})
 }
 
 // ListItemEffectsResponseData 物品的使用效果列表
@@ -285,12 +230,19 @@ type ListItemEffectsResponseData struct {
 // @Summary 获取物品的使用效果
 // @Description 由代码注册的全部效果, 按注册顺序; fields 为参数的表单描述, 写法与条件类型、人机策略相同
 // @Produce json
-// @Success 200 {object} Response{data=ListItemEffectsResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
+// @Success 200 {object} reply.Response{data=ListItemEffectsResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/items/effects [get]
 func ListItemEffects(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{Data: ListItemEffectsResponseData{Effects: effect.Types()}})
+	ctx := c.Request.Context()
+	effects, err := effect.Types(db.DB(ctx))
+	if err != nil {
+		reply.Fail(c, err, "[ListItemEffects] query failed")
+		return
+	}
+	reply.OK(c, ListItemEffectsResponseData{Effects: effects})
 }
 
 // ListQualitiesResponseData 品质列表
@@ -303,20 +255,19 @@ type ListQualitiesResponseData struct {
 // @Summary 获取品质列表
 // @Description 按排序值排列, 带上使用每个品质的物品数
 // @Produce json
-// @Success 200 {object} Response{data=ListQualitiesResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListQualitiesResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/qualities [get]
 func ListQualities(c *gin.Context) {
 	ctx := c.Request.Context()
 	qualities, err := queryQualities(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListQualities] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListQualities] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListQualitiesResponseData{Qualities: qualities}})
+	reply.OK(c, ListQualitiesResponseData{Qualities: qualities})
 }
 
 // QualityRequest 修改品质请求体, 等级和代码创建后不能修改
@@ -335,57 +286,34 @@ type CreateQualityRequest struct {
 	QualityRequest
 }
 
-// qualityErrorStatus 品质配置错误对应的状态码, 不是配置错误时返回 0
-func qualityErrorStatus(err error) int {
-	switch err.Error() {
-	case item.QualityCodeInvalid, item.QualityNameInvalid, item.QualityColorInvalid, item.QualityEffectInvalid:
-		return http.StatusBadRequest
-	case item.QualityNotFound:
-		return http.StatusNotFound
-	case item.QualityTaken, item.QualityInUse:
-		return http.StatusConflict
-	}
-	return 0
-}
-
 // CreateQuality
 // @Tags admin
 // @Summary 新建品质
 // @Accept json
 // @Produce json
 // @Param request body CreateQualityRequest true "request body"
-// @Success 200 {object} Response{data=item.Quality}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=item.Quality}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/qualities [post]
 func CreateQuality(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req CreateQualityRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, err := doCreateQuality(ctx, &req)
 	if err != nil {
-		if status := qualityErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateQuality] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateQuality] create failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionQualityCreate, audit.TargetQuality, uint64(created.Level), qualityFields(created))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionQualityCreate, item.TargetQuality, uint64(created.Level), qualityFields(created))
 	logger.InfoF(ctx, "[CreateQuality] %d created quality %d %s", operator.ID, created.Level, created.Code)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateQuality
@@ -396,41 +324,32 @@ func CreateQuality(c *gin.Context) {
 // @Produce json
 // @Param level path int true "quality level"
 // @Param request body QualityRequest true "request body"
-// @Success 200 {object} Response{data=item.Quality}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=item.Quality}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/qualities/{level} [put]
 func UpdateQuality(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req QualityRequest
 	level, err := strconv.ParseInt(c.Param("level"), 10, 16)
 	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		reply.Error(c, http.StatusBadRequest, fault.InvalidParams)
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateQuality(ctx, int16(level), &req)
 	if err != nil {
-		if status := qualityErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateQuality] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateQuality] update failed")
 		return
 	}
 	if len(changes) > 0 {
-		audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionQualityUpdate, audit.TargetQuality, uint64(updated.Level), changes)
+		audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionQualityUpdate, item.TargetQuality, uint64(updated.Level), changes)
 		logger.InfoF(ctx, "[UpdateQuality] %d updated quality %d %s", operator.ID, updated.Level, updated.Code)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteQuality
@@ -439,37 +358,28 @@ func UpdateQuality(c *gin.Context) {
 // @Description 还有未删除的物品使用该品质时不能删除; 已开局对局中的藏品保留原等级
 // @Produce json
 // @Param level path int true "quality level"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/qualities/{level} [delete]
 func DeleteQuality(c *gin.Context) {
 	ctx := c.Request.Context()
 	level, err := strconv.ParseInt(c.Param("level"), 10, 16)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+		reply.Error(c, http.StatusBadRequest, fault.InvalidParams)
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	deleted, err := doDeleteQuality(ctx, int16(level))
 	if err != nil {
-		if status := qualityErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteQuality] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteQuality] delete failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionQualityDelete, audit.TargetQuality, uint64(deleted.Level), qualityFields(deleted))
+	audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionQualityDelete, item.TargetQuality, uint64(deleted.Level), qualityFields(deleted))
 	logger.InfoF(ctx, "[DeleteQuality] %d deleted quality %d %s", operator.ID, deleted.Level, deleted.Code)
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }

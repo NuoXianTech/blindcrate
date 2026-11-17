@@ -1,5 +1,5 @@
 import type {Quality} from '../../quality';
-import type {ConditionField} from '../condition';
+import type {ConditionField, ParamValue} from '../condition';
 import type {PageParams} from '../core';
 
 /** 物品定义, 对应后端 item.Item */
@@ -23,7 +23,7 @@ export interface Item {
   /** 使用效果代码, 见 ItemEffect; 空表示不能使用, 藏品没有效果 */
   effect: string;
   /** 效果参数, 结构由效果决定 */
-  effect_params: Record<string, string | number | boolean>;
+  effect_params: Record<string, ParamValue>;
   /** 下架后不会掉落, 也不能再发放, 已有的保留 */
   is_enabled: boolean;
   created_at: string;

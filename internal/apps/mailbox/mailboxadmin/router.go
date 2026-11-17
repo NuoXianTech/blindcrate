@@ -26,36 +26,15 @@
 package mailboxadmin
 
 import (
-	"errors"
-	"net/http"
-	"strconv"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/mailbox"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
-
-// letterErrorStatus 邮件内容错误对应的状态码, 不是内容错误时返回 0
-func letterErrorStatus(err error) int {
-	var invalid *mailbox.InvalidError
-	if errors.As(err, &invalid) {
-		return http.StatusBadRequest
-	}
-	if err.Error() == mailbox.IdempotencyConflict {
-		return http.StatusConflict
-	}
-	return 0
-}
 
 // ListMailSourcesResponseData 邮件来源
 type ListMailSourcesResponseData struct {
@@ -67,12 +46,12 @@ type ListMailSourcesResponseData struct {
 // @Summary 获取邮件来源
 // @Description 按登记顺序, 用于邮件查询的筛选和展示
 // @Produce json
-// @Success 200 {object} Response{data=ListMailSourcesResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
+// @Success 200 {object} reply.Response{data=ListMailSourcesResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
 // @Router /api/v1/admin/mails/sources [get]
 func ListMailSources(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{Data: ListMailSourcesResponseData{Sources: mailbox.Sources()}})
+	reply.OK(c, ListMailSourcesResponseData{Sources: mailbox.Sources()})
 }
 
 // SendMailsRequest 发给指定用户的请求体
@@ -100,32 +79,22 @@ type SendMailsResponseData struct {
 // @Accept json
 // @Produce json
 // @Param request body SendMailsRequest true "request body"
-// @Success 200 {object} Response{data=SendMailsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=SendMailsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/mails [post]
 func SendMails(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req SendMailsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	sent, letter, err := doSendMails(ctx, &req)
 	if err != nil {
-		if status := letterErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[SendMails] send failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[SendMails] send failed")
 		return
 	}
 	if sent > 0 {
@@ -137,7 +106,7 @@ func SendMails(c *gin.Context) {
 		})
 		logger.InfoF(ctx, "[SendMails] %d sent %d mails", operator.ID, sent)
 	}
-	c.JSON(http.StatusOK, Response{Data: SendMailsResponseData{Sent: sent}})
+	reply.OK(c, SendMailsResponseData{Sent: sent})
 }
 
 // ListMailsRequest 邮件查询参数
@@ -161,26 +130,24 @@ type ListMailsResponseData struct {
 // @Description 从新到旧, 包括已删除的邮件, 带上收件人的用户名
 // @Produce json
 // @Param request query ListMailsRequest true "request query"
-// @Success 200 {object} Response{data=ListMailsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListMailsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/mails [get]
 func ListMails(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListMailsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, mails, err := QueryMails(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMails] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMails] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListMailsResponseData{Total: total, Mails: mails}})
+	reply.OK(c, ListMailsResponseData{Total: total, Mails: mails})
 }
 
 // ListBroadcastsRequest 全服邮件查询参数
@@ -202,26 +169,24 @@ type ListBroadcastsResponseData struct {
 // @Description 从新到旧, 带上已放进信箱和已领取附件的人数
 // @Produce json
 // @Param request query ListBroadcastsRequest true "request query"
-// @Success 200 {object} Response{data=ListBroadcastsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListBroadcastsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/mail-broadcasts [get]
 func ListMailBroadcasts(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListBroadcastsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, items, err := QueryBroadcasts(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMailBroadcasts] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMailBroadcasts] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListBroadcastsResponseData{Total: total, Broadcasts: items}})
+	reply.OK(c, ListBroadcastsResponseData{Total: total, Broadcasts: items})
 }
 
 // BroadcastRequest 发送全服邮件的请求体
@@ -245,37 +210,27 @@ type BroadcastRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body BroadcastRequest true "request body"
-// @Success 200 {object} Response{data=mailbox.Broadcast}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=mailbox.Broadcast}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/mail-broadcasts [post]
 func CreateMailBroadcast(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req BroadcastRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, replayed, err := doCreateBroadcast(ctx, operator.ID, &req)
 	if err != nil {
-		if status := letterErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateMailBroadcast] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateMailBroadcast] create failed")
 		return
 	}
 	if replayed {
-		c.JSON(http.StatusOK, Response{Data: created})
+		reply.OK(c, created)
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, mailbox.ActionBroadcast, mailbox.TargetBroadcast, created.ID, map[string]interface{}{
@@ -286,7 +241,7 @@ func CreateMailBroadcast(c *gin.Context) {
 		"expires_at":        created.ExpiresAt,
 	})
 	logger.InfoF(ctx, "[CreateMailBroadcast] %d created mail broadcast %d", operator.ID, created.ID)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // RevokeMailBroadcastResponseData 撤回结果
@@ -301,37 +256,24 @@ type RevokeMailBroadcastResponseData struct {
 // @Description 不再放进信箱; 已放进信箱但附件未领取的邮件移出信箱, 已领取的附件不收回
 // @Produce json
 // @Param id path int true "broadcast id"
-// @Success 200 {object} Response{data=RevokeMailBroadcastResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=RevokeMailBroadcastResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/mail-broadcasts/{id}/revoke [post]
 func RevokeMailBroadcast(c *gin.Context) {
 	ctx := c.Request.Context()
-	broadcastID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	broadcastID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	revoked, removed, err := doRevokeBroadcast(ctx, operator.ID, broadcastID)
 	if err != nil {
-		switch err.Error() {
-		case mailbox.BroadcastNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case mailbox.BroadcastRevoked:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[RevokeMailBroadcast] revoke failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[RevokeMailBroadcast] revoke failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, mailbox.ActionRevoke, mailbox.TargetBroadcast, revoked.ID, map[string]interface{}{
@@ -339,5 +281,5 @@ func RevokeMailBroadcast(c *gin.Context) {
 		"removed": removed,
 	})
 	logger.InfoF(ctx, "[RevokeMailBroadcast] %d revoked mail broadcast %d, removed %d mails", operator.ID, revoked.ID, removed)
-	c.JSON(http.StatusOK, Response{Data: RevokeMailBroadcastResponseData{Broadcast: revoked, Removed: removed}})
+	reply.OK(c, RevokeMailBroadcastResponseData{Broadcast: revoked, Removed: removed})
 }

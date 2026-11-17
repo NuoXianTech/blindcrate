@@ -1,5 +1,7 @@
 import {BaseService, type CodeLabel} from '../core';
 import type {
+  ItemUseResult,
+  ItemUseView,
   ListInventoryTransactionsData,
   ListInventoryTransactionsParams,
   ListSellOrdersData,
@@ -8,6 +10,7 @@ import type {
   ListUserItemsParams,
   SellItemsRequest,
   SellOrder,
+  UseItemRequest,
 } from './types';
 
 export class InventoryService extends BaseService {
@@ -16,6 +19,16 @@ export class InventoryService extends BaseService {
   /** 当前用户背包中的物品, 按品质从高到低排序 */
   static listItems(params: ListUserItemsParams) {
     return this.get<ListUserItemsData>('/items', {params});
+  }
+
+  /** 一个可以在背包中使用的物品、自己持有的数量和使用后可以得到的内容; 物品不能在背包中使用或暂时无法使用时失败 */
+  static getUse(itemID: number) {
+    return this.get<ItemUseView>(`/items/${itemID}/use`);
+  }
+
+  /** 使用一个物品, 结果在返回前已经结算; 幂等键相同的重复提交只使用一次, 返回原来的结果 */
+  static use(itemID: number, body: UseItemRequest) {
+    return this.post<ItemUseResult>(`/items/${itemID}/use`, body);
   }
 
   static listTransactions(params: ListInventoryTransactionsParams) {

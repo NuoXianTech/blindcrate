@@ -33,6 +33,7 @@ import (
 	"encoding/base64"
 	"errors"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 )
 
@@ -45,7 +46,7 @@ const secretKeyInfo = "blindcrate:settings:secret"
 // secretCipher 用 HKDF 从 app.secret_key 派生 AES-256-GCM 密钥
 func secretCipher() (cipher.AEAD, error) {
 	if config.Config.App.SecretKey == "" {
-		return nil, errors.New(SecretKeyMissing)
+		return nil, fault.Invalid(SecretKeyMissing)
 	}
 	key, err := hkdf.Key(sha256.New, []byte(config.Config.App.SecretKey), nil, secretKeyInfo, 32)
 	if err != nil {

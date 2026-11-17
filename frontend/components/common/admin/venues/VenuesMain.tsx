@@ -7,7 +7,6 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Table, TableBody, TableHead, TableHeader, TableRow} from '@/components/ui/table';
-import {scopeOptions} from '@/components/common/admin/editors';
 import {useAuth} from '@/components/common/auth';
 import {Pagination, TableEmpty, TableSkeleton} from '@/components/common/layout';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
@@ -101,12 +100,11 @@ export function VenuesMain() {
       currencies: catalog.currencies,
       pools: pools ?? [],
       types: types ?? [],
-      scopes: scopeOptions(venues ?? []),
       effects: effects ?? [],
       personas: personas ?? [],
       loaded: catalog.loaded && pools !== null && types !== null && effects !== null && personas !== null,
     };
-  }, [catalog.items, catalog.currencies, catalog.loaded, pools, types, effects, personas, venues]);
+  }, [catalog.items, catalog.currencies, catalog.loaded, pools, types, effects, personas]);
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

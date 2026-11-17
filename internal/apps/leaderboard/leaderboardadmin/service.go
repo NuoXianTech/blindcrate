@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -70,7 +71,7 @@ func doCreateLeaderboard(ctx context.Context, req *LeaderboardRequest) (*leaderb
 	}
 	if err := tx.Create(target).Error; err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(leaderboard.CodeTaken)
+			return nil, fault.Conflict(leaderboard.CodeTaken)
 		}
 		return nil, err
 	}
@@ -101,7 +102,7 @@ func doUpdateLeaderboard(ctx context.Context, boardID uint64, req *LeaderboardRe
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, nil, errors.New(leaderboard.CodeTaken)
+			return nil, nil, fault.Conflict(leaderboard.CodeTaken)
 		}
 		return nil, nil, err
 	}
@@ -127,7 +128,7 @@ func doDeleteLeaderboard(ctx context.Context, boardID uint64) (*leaderboard.Boar
 func LockLeaderboard(tx *gorm.DB, target *leaderboard.Board, boardID uint64) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), boardID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(leaderboard.BoardNotFound)
+			return fault.NotFound(leaderboard.BoardNotFound)
 		}
 		return err
 	}

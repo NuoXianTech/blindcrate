@@ -36,7 +36,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
-	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
@@ -47,8 +47,7 @@ import (
 )
 
 func init() {
-	ledger.RegisterBizType(ledger.KindWallet, BizReward, "任务奖励")
-	ledger.RegisterBizType(ledger.KindInventory, BizReward, "任务奖励")
+	reward.RegisterBizType(BizReward, "任务奖励")
 	audit.RegisterAction(ActionCreate, "新建任务")
 	audit.RegisterAction(ActionUpdate, "修改任务")
 	audit.RegisterAction(ActionDelete, "删除任务")
@@ -66,12 +65,18 @@ type InvalidError struct {
 
 func (e *InvalidError) Error() string { return e.Reason }
 
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
+
 // RejectedError 不能领取, Error 返回的提示可以直接展示给玩家
 type RejectedError struct {
 	Reason string
 }
 
 func (e *RejectedError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *RejectedError) Kind() fault.Kind { return fault.KindForbidden }
 
 // Cycle 一种任务周期
 type Cycle struct {
@@ -372,7 +377,7 @@ func Claim(ctx context.Context, userID uint64, code string) (*ClaimResult, error
 		var m Mission
 		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("code = ? AND is_enabled", code).First(&m).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return errors.New(MissionNotFound)
+				return fault.NotFound(MissionNotFound)
 			}
 			return err
 		}
@@ -389,14 +394,14 @@ func Claim(ctx context.Context, userID uint64, code string) (*ClaimResult, error
 			return err
 		}
 		if value < m.Target {
-			return errors.New(NotCompleted)
+			return fault.Conflict(NotCompleted)
 		}
 		inserted := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&ClaimRecord{MissionID: m.ID, UserID: userID, Period: period})
 		if inserted.Error != nil {
 			return inserted.Error
 		}
 		if inserted.RowsAffected == 0 {
-			return errors.New(AlreadyClaimed)
+			return fault.Conflict(AlreadyClaimed)
 		}
 		// 奖励发不出时不记领取, 奖励改好后还可以领
 		delivery, err = reward.Deliver(tx, &reward.ApplyRequest{
@@ -409,9 +414,9 @@ func Claim(ctx context.Context, userID uint64, code string) (*ClaimResult, error
 		})
 		switch reward.FailureOf(err) {
 		case reward.Unavailable:
-			return errors.New(RewardUnavailable)
+			return fault.Forbidden(RewardUnavailable)
 		case reward.TooLarge:
-			return errors.New(RewardTooLarge)
+			return fault.Forbidden(RewardTooLarge)
 		}
 		return err
 	})

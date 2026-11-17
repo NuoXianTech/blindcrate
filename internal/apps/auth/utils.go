@@ -26,13 +26,13 @@ package auth
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
 	"regexp"
 	"strconv"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/storage"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -86,6 +86,17 @@ func GetUserFromContext(c *gin.Context) (*User, bool) {
 	return u, ok
 }
 
+// CurrentUser 当前登录的用户, 只能在 LoginRequired 之后的接口中调用
+//
+// 没有用户说明接口没有注册在需要登录的分组下, 属于代码错误, 直接 panic, 由 Recovery 返回 500。
+func CurrentUser(c *gin.Context) *User {
+	user, ok := GetUserFromContext(c)
+	if !ok {
+		panic("auth: CurrentUser called outside LoginRequired")
+	}
+	return user
+}
+
 // SetUserToContext 将User对象存储到Context中
 func SetUserToContext(c *gin.Context, user *User) {
 	c.Set(UserObjKey, user)
@@ -97,7 +108,7 @@ var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9_]{3,32}$`)
 // validateUsername 校验用户名格式
 func validateUsername(username string) error {
 	if !usernamePattern.MatchString(username) {
-		return errors.New(UsernameInvalid)
+		return fault.Invalid(UsernameInvalid)
 	}
 	return nil
 }
@@ -105,7 +116,7 @@ func validateUsername(username string) error {
 // validatePassword 校验密码长度, bcrypt 最多只处理 72 字节
 func validatePassword(password string) error {
 	if len(password) < 8 || len(password) > 72 {
-		return errors.New(PasswordInvalid)
+		return fault.Invalid(PasswordInvalid)
 	}
 	return nil
 }
@@ -114,7 +125,7 @@ func validatePassword(password string) error {
 func validateNickname(nickname string) error {
 	n := utf8.RuneCountInString(nickname)
 	if n < 1 || n > 32 {
-		return errors.New(NicknameInvalid)
+		return fault.Invalid(NicknameInvalid)
 	}
 	return nil
 }
@@ -125,7 +136,7 @@ func validateAvatarURL(avatarURL string) error {
 		return nil
 	}
 	if len(avatarURL) > 1024 || !storage.ValidURL(avatarURL) {
-		return errors.New(AvatarURLInvalid)
+		return fault.Invalid(AvatarURLInvalid)
 	}
 	return nil
 }

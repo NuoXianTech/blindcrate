@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -87,7 +88,7 @@ func doCreateSeason(ctx context.Context, req *CreateSeasonRequest) (*season.View
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(season.CodeTaken)
+			return nil, fault.Conflict(season.CodeTaken)
 		}
 		return nil, err
 	}
@@ -108,7 +109,7 @@ func createSeason(tx *gorm.DB, req *CreateSeasonRequest, now time.Time) (*season
 		return nil, err
 	}
 	if !target.EndsAt.After(now) {
-		return nil, errors.New(season.TimeInvalid)
+		return nil, fault.Invalid(season.TimeInvalid)
 	}
 	rewards, err := season.NormalizeRewards(req.Rewards)
 	if err != nil {
@@ -171,11 +172,11 @@ func updateSeason(tx *gorm.DB, target *season.Season, req *SeasonRequest, now ti
 	case season.StatusUpcoming:
 	case season.StatusActive:
 		if startChanged || carryChanged {
-			return nil, errors.New(season.StartLocked)
+			return nil, fault.Conflict(season.StartLocked)
 		}
 	default:
 		if startChanged || endChanged || carryChanged || rewardsChanged {
-			return nil, errors.New(season.SeasonEnded)
+			return nil, fault.Conflict(season.SeasonEnded)
 		}
 	}
 
@@ -193,7 +194,7 @@ func updateSeason(tx *gorm.DB, target *season.Season, req *SeasonRequest, now ti
 	}
 	if endChanged {
 		if !endsAt.After(now) {
-			return nil, errors.New(season.TimeInvalid)
+			return nil, fault.Invalid(season.TimeInvalid)
 		}
 		target.EndsAt = endsAt
 	}
@@ -220,7 +221,7 @@ func doDeleteSeason(ctx context.Context, seasonID uint64) (*season.Season, error
 			return err
 		}
 		if target.StatusAt(time.Now()) != season.StatusUpcoming {
-			return errors.New(season.DeleteStarted)
+			return fault.Conflict(season.DeleteStarted)
 		}
 		return tx.Delete(&target).Error
 	})
@@ -242,7 +243,7 @@ func doEndSeason(ctx context.Context, seasonID uint64) (*season.View, map[string
 			return err
 		}
 		if target.StatusAt(now) != season.StatusActive {
-			return errors.New(season.EndNotActive)
+			return fault.Conflict(season.EndNotActive)
 		}
 		old := target
 		target.EndsAt = now
@@ -260,7 +261,7 @@ func doEndSeason(ctx context.Context, seasonID uint64) (*season.View, map[string
 func lockSeason(tx *gorm.DB, target *season.Season, seasonID uint64) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), seasonID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(season.SeasonNotFound)
+			return fault.NotFound(season.SeasonNotFound)
 		}
 		return err
 	}

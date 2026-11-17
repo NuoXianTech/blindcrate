@@ -30,13 +30,63 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func init() {
+	audit.RegisterAction(ActionItemCreate, "新建物品")
+	audit.RegisterAction(ActionItemUpdate, "修改物品")
+	audit.RegisterAction(ActionItemDelete, "删除物品")
+	audit.RegisterAction(ActionQualityCreate, "新建品质")
+	audit.RegisterAction(ActionQualityUpdate, "修改品质")
+	audit.RegisterAction(ActionQualityDelete, "删除品质")
+	params.RegisterSource(SourceItem, params.Source{Options: itemOptions})
+	params.RegisterSource(SourceQuality, params.Source{Options: qualityOptions})
+	upload.RegisterPurpose(ImagePurpose, true, false, 512)
+	upload.RegisterReference("items", "image_url")
+}
+
+// itemOptions 可以选的物品: 全部没有删除的物品, 按品质从高到低; 已下架的不能新选
+func itemOptions(tx *gorm.DB) ([]params.Option, error) {
+	var items []Item
+	if err := tx.Select("id", "name", "quality", "is_enabled").Order("quality DESC, id").Find(&items).Error; err != nil {
+		return nil, err
+	}
+	options := make([]params.Option, len(items))
+	for i, it := range items {
+		options[i] = params.Option{
+			Value:    strconv.FormatUint(it.ID, 10),
+			Label:    it.Name,
+			Hint:     "#" + strconv.FormatUint(it.ID, 10),
+			Quality:  it.Quality,
+			Disabled: !it.IsEnabled,
+		}
+	}
+	return options, nil
+}
+
+// qualityOptions 可以选的品质, 按等级从低到高
+func qualityOptions(tx *gorm.DB) ([]params.Option, error) {
+	var qualities []Quality
+	if err := tx.Order("level").Find(&qualities).Error; err != nil {
+		return nil, err
+	}
+	options := make([]params.Option, len(qualities))
+	for i, q := range qualities {
+		options[i] = params.Option{Value: strconv.Itoa(int(q.Level)), Label: q.Name, Quality: q.Level}
+	}
+	return options, nil
+}
 
 // Placeholder 生成占位物品, 保留原物品 ID, 按 currency 回收
 func Placeholder(id uint64, currency string) *Item {
@@ -141,16 +191,16 @@ func QueryQualities(ctx context.Context) ([]Quality, error) {
 // ValidateQuality 校验品质的代码、名称、颜色和特效
 func ValidateQuality(q *Quality) error {
 	if !codePattern.MatchString(q.Code) {
-		return errors.New(QualityCodeInvalid)
+		return fault.Invalid(QualityCodeInvalid)
 	}
 	if n := utf8.RuneCountInString(q.Name); n < 1 || n > 32 {
-		return errors.New(QualityNameInvalid)
+		return fault.Invalid(QualityNameInvalid)
 	}
 	if !qualityColorPattern.MatchString(q.Color) {
-		return errors.New(QualityColorInvalid)
+		return fault.Invalid(QualityColorInvalid)
 	}
 	if q.Effect != "" && q.Effect != QualityEffectRainbow {
-		return errors.New(QualityEffectInvalid)
+		return fault.Invalid(QualityEffectInvalid)
 	}
 	return nil
 }
@@ -162,7 +212,7 @@ func CheckQuality(tx *gorm.DB, level int16) error {
 	var q Quality
 	if err := q.Exact(tx.Clauses(clause.Locking{Strength: "SHARE"}), level); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(QualityNotFound)
+			return fault.Invalid(QualityNotFound)
 		}
 		return err
 	}

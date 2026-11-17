@@ -6,7 +6,7 @@ import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Skeleton} from '@/components/ui/skeleton';
-import {ConditionEditor, fromConditionDrafts, type ConditionDraft, type ScopeOption} from '@/components/common/admin/editors';
+import {ConditionEditor, fromConditionDrafts, type ConditionDraft} from '@/components/common/admin/editors';
 import {FieldGroup, SwitchField} from '@/components/common/admin/venues/Fields';
 import {SubmitButton} from '@/components/common/form';
 import {useSubmit} from '@/hooks/use-submit';
@@ -17,12 +17,11 @@ import type {Currency} from '@/lib/services/wallet';
 import {EMPTY_LETTER, LetterFields, fromLetterDraft, type LetterDraft} from './LetterFields';
 import {MAX_REQUIREMENTS} from './constants';
 
-/** 编辑全服邮件用到的物品、货币、条件类型和统计范围 */
+/** 编辑全服邮件用到的物品、货币和条件类型 */
 export interface BroadcastOptions {
   items: AdminItem[];
   currencies: Currency[];
   types: ConditionType[];
-  scopes: ScopeOption[];
   loaded: boolean;
 }
 
@@ -61,7 +60,7 @@ export function BroadcastDialog({open, options, onClose, onSaved}: {
  */
 function BroadcastForm({options, onClose, onSaved}: { options: BroadcastOptions; onClose: () => void; onSaved: () => void }) {
   const {pending, submit} = useSubmit();
-  const {items, currencies, types, scopes} = options;
+  const {items, currencies, types} = options;
   const [letter, setLetter] = useState<LetterDraft>(EMPTY_LETTER);
   const [requirements, setRequirements] = useState<ConditionDraft[]>([]);
   const [includeNewUsers, setIncludeNewUsers] = useState(false);
@@ -78,7 +77,7 @@ function BroadcastForm({options, onClose, onSaved}: { options: BroadcastOptions;
     setIdempotencyKey(key);
     const created = await services.mailboxAdmin.createBroadcast({
       ...fromLetterDraft(letter, currencies),
-      requirements: fromConditionDrafts(requirements, types, '收件条件'),
+      requirements: fromConditionDrafts(requirements, types, '收件条件', currencies),
       include_new_users: includeNewUsers,
       idempotency_key: key,
     });
@@ -106,7 +105,6 @@ function BroadcastForm({options, onClose, onSaved}: { options: BroadcastOptions;
           types={types}
           items={items}
           currencies={currencies}
-          scopes={scopes}
           max={MAX_REQUIREMENTS}
           empty="没有收件条件, 所有玩家都能收到"
           disabled={pending}

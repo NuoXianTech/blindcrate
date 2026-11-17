@@ -29,7 +29,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
@@ -40,7 +40,7 @@ import (
 func handleBid(ctx context.Context, client *ws.Client, data json.RawMessage) (interface{}, error) {
 	var req BidRequest
 	if err := json.Unmarshal(data, &req); err != nil || req.MatchID == 0 || req.Round < 1 || req.Amount < 0 {
-		return nil, errors.New(auth.InvalidParams)
+		return nil, errors.New(fault.InvalidParams)
 	}
 	view, err := PlaceBid(ctx, client.UserID(), &req)
 	if err != nil {
@@ -49,7 +49,7 @@ func handleBid(ctx context.Context, client *ws.Client, data json.RawMessage) (in
 			return nil, err
 		}
 		logger.ErrorF(ctx, "[Auction] bid of %d in match %d failed: %v", client.UserID(), req.MatchID, err)
-		return nil, errors.New(auth.InternalError)
+		return nil, errors.New(fault.InternalError)
 	}
 	return view, nil
 }
@@ -58,7 +58,7 @@ func handleBid(ctx context.Context, client *ws.Client, data json.RawMessage) (in
 func handleUse(ctx context.Context, client *ws.Client, data json.RawMessage) (interface{}, error) {
 	var req UseRequest
 	if err := json.Unmarshal(data, &req); err != nil || req.MatchID == 0 || req.Round < 1 || req.ItemID == 0 {
-		return nil, errors.New(auth.InvalidParams)
+		return nil, errors.New(fault.InvalidParams)
 	}
 	view, err := UseItem(ctx, client.UserID(), &req)
 	if err != nil {
@@ -67,7 +67,7 @@ func handleUse(ctx context.Context, client *ws.Client, data json.RawMessage) (in
 			return nil, err
 		}
 		logger.ErrorF(ctx, "[Auction] use item %d of %d in match %d failed: %v", req.ItemID, client.UserID(), req.MatchID, err)
-		return nil, errors.New(auth.InternalError)
+		return nil, errors.New(fault.InternalError)
 	}
 	return view, nil
 }

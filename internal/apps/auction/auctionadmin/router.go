@@ -25,21 +25,10 @@
 package auctionadmin
 
 import (
-	"net/http"
-	"strconv"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/auction"
-	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/apps/match"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // GetAuction
 // @Tags admin
@@ -47,29 +36,23 @@ type Response struct {
 // @Description 与玩家看到的公开部分相同, 附带每个座位的带入资金、出价、估值和盈亏
 // @Produce json
 // @Param match_id path int true "match id"
-// @Success 200 {object} Response{data=auction.AdminView}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=auction.AdminView}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/auctions/{match_id} [get]
 func GetAuction(c *gin.Context) {
 	ctx := c.Request.Context()
-	matchID, err := strconv.ParseUint(c.Param("match_id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	matchID, ok := reply.ID(c, "match_id")
+	if !ok {
 		return
 	}
 	view, err := auction.QueryAdminAuction(ctx, matchID)
 	if err != nil {
-		if err.Error() == match.MatchNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetAuction] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetAuction] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: view})
+	reply.OK(c, view)
 }

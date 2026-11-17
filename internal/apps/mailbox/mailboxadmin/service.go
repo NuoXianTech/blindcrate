@@ -36,6 +36,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/mailbox"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -225,7 +226,7 @@ func doCreateBroadcast(ctx context.Context, operatorID uint64, req *BroadcastReq
 				return err
 			}
 			if len(audit.Changes(broadcastFields(target), requested)) > 0 {
-				return errors.New(mailbox.IdempotencyConflict)
+				return fault.Conflict(mailbox.IdempotencyConflict)
 			}
 		}
 		return nil
@@ -248,12 +249,12 @@ func doRevokeBroadcast(ctx context.Context, operatorID, broadcastID uint64) (*ma
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", broadcastID).First(&target).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return errors.New(mailbox.BroadcastNotFound)
+				return fault.NotFound(mailbox.BroadcastNotFound)
 			}
 			return err
 		}
 		if target.RevokedAt != nil {
-			return errors.New(mailbox.BroadcastRevoked)
+			return fault.Conflict(mailbox.BroadcastRevoked)
 		}
 		now := time.Now()
 		target.RevokedAt = &now

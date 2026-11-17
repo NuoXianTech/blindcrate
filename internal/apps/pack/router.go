@@ -30,21 +30,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ExportPackRequest 导出配置包
 type ExportPackRequest struct {
@@ -58,12 +53,12 @@ type ExportPackRequest struct {
 // @Summary 获取配置种类
 // @Description 按依赖顺序排列, 导入时也按这个顺序写入; renamable 为是否可以改名导入
 // @Produce json
-// @Success 200 {object} Response{data=[]SectionView}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
+// @Success 200 {object} reply.Response{data=[]SectionView}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
 // @Router /api/v1/admin/packs/sections [get]
 func ListPackSections(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{Data: Sections()})
+	reply.OK(c, Sections())
 }
 
 // ExportPack
@@ -75,36 +70,25 @@ func ListPackSections(c *gin.Context) {
 // @Produce application/zip
 // @Param request body ExportPackRequest true "request body"
 // @Success 200 {file} file
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 429 {object} Response
-// @Failure 500 {object} Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 429 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/packs/export [post]
 func ExportPack(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req ExportPackRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	data, counts, err := doExportPack(ctx, &req)
 	if err != nil {
-		var packErr *PackError
-		if errors.As(err, &packErr) {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[ExportPack] export failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ExportPack] export failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionPackExport, audit.TargetPack, 0, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, ActionPackExport, TargetPack, 0, map[string]interface{}{
 		"name":   strings.TrimSpace(req.Name),
 		"counts": counts,
 		"size":   len(data),
@@ -117,50 +101,47 @@ func ExportPack(c *gin.Context) {
 
 // readPackForm 读取上传的配置包和处理方式, 不符合要求时写入响应并返回 false
 func readPackForm(c *gin.Context, action string) ([]byte, []PackAction, bool) {
-	ctx := c.Request.Context()
 	tooLarge := fmt.Sprintf(PackTooLarge, maxPackSize>>20)
 	// 请求头中的大小已经超过上限时直接拒绝, 不读取请求体
 	if c.Request.ContentLength > maxPackSize+packFormOverhead {
-		c.JSON(http.StatusRequestEntityTooLarge, Response{ErrorMsg: tooLarge})
+		reply.Error(c, http.StatusRequestEntityTooLarge, tooLarge)
 		return nil, nil, false
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxPackSize+packFormOverhead)
 	if err := c.Request.ParseMultipartForm(packFormOverhead); err != nil {
 		var maxBytes *http.MaxBytesError
 		if errors.As(err, &maxBytes) {
-			c.JSON(http.StatusRequestEntityTooLarge, Response{ErrorMsg: tooLarge})
+			reply.Error(c, http.StatusRequestEntityTooLarge, tooLarge)
 			return nil, nil, false
 		}
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: PackRequired})
+		reply.Error(c, http.StatusBadRequest, PackRequired)
 		return nil, nil, false
 	}
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: PackRequired})
+		reply.Error(c, http.StatusBadRequest, PackRequired)
 		return nil, nil, false
 	}
 	if file.Size > maxPackSize {
-		c.JSON(http.StatusRequestEntityTooLarge, Response{ErrorMsg: tooLarge})
+		reply.Error(c, http.StatusRequestEntityTooLarge, tooLarge)
 		return nil, nil, false
 	}
 	var actions []PackAction
 	if raw := c.PostForm("actions"); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &actions); err != nil {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: PackActionInvalid})
+			reply.Error(c, http.StatusBadRequest, PackActionInvalid)
 			return nil, nil, false
 		}
 	}
 	f, err := file.Open()
 	if err != nil {
-		logger.ErrorF(ctx, "[%s] open file failed: %v", action, err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "["+action+"] open file failed")
 		return nil, nil, false
 	}
 	defer f.Close()
 	data, err := io.ReadAll(io.LimitReader(f, maxPackSize+1))
 	if err != nil {
-		logger.ErrorF(ctx, "[%s] read file failed: %v", action, err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "["+action+"] read file failed")
 		return nil, nil, false
 	}
 	return data, actions, true
@@ -175,37 +156,27 @@ func readPackForm(c *gin.Context, action string) ([]byte, []PackAction, bool) {
 // @Produce json
 // @Param file formData file true "配置包"
 // @Param actions formData string false "处理方式, PackAction 的 JSON 数组, 没有提交的项按覆盖处理"
-// @Success 200 {object} Response{data=PackPreview}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 413 {object} Response
-// @Failure 429 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=PackPreview}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 413 {object} reply.Response
+// @Failure 429 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/packs/preview [post]
 func PreviewPack(c *gin.Context) {
 	ctx := c.Request.Context()
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	data, actions, ok := readPackForm(c, "PreviewPack")
 	if !ok {
 		return
 	}
 	preview, err := doPreviewPack(ctx, operator.ID, data, actions)
 	if err != nil {
-		var packErr *PackError
-		if errors.As(err, &packErr) {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[PreviewPack] preview failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[PreviewPack] preview failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: preview})
+	reply.OK(c, preview)
 }
 
 // ImportPack
@@ -217,41 +188,33 @@ func PreviewPack(c *gin.Context) {
 // @Produce json
 // @Param file formData file true "配置包"
 // @Param actions formData string false "处理方式, PackAction 的 JSON 数组, 没有提交的项按覆盖处理"
-// @Success 200 {object} Response{data=Import}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response{data=[]PackEntryResult}
-// @Failure 413 {object} Response
-// @Failure 429 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=Import}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response{data=[]PackEntryResult}
+// @Failure 413 {object} reply.Response
+// @Failure 429 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/packs/import [post]
 func ImportPack(c *gin.Context) {
 	ctx := c.Request.Context()
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	data, actions, ok := readPackForm(c, "ImportPack")
 	if !ok {
 		return
 	}
 	record, results, err := doImportPack(ctx, operator.ID, data, actions)
 	if err != nil {
-		var packErr *PackError
-		switch {
-		case errors.As(err, &packErr) && results != nil:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error(), Data: results})
-		case errors.As(err, &packErr):
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[ImportPack] import failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		// 有需要先选择处理方式的配置时带上每一项的结果, 前端据此展示
+		if fault.KindOf(err) == fault.KindInvalid && results != nil {
+			c.JSON(http.StatusConflict, reply.Response{ErrorMsg: err.Error(), Data: results})
+			return
 		}
+		reply.Fail(c, err, "[ImportPack] import failed")
 		return
 	}
-	audit.Record(c, operator.ID, audit.ScopeAdmin, audit.ActionPackImport, audit.TargetPack, record.ID, map[string]interface{}{
+	audit.Record(c, operator.ID, audit.ScopeAdmin, ActionPackImport, TargetPack, record.ID, map[string]interface{}{
 		"name":    record.Name,
 		"author":  record.Author,
 		"version": record.Version,
@@ -263,7 +226,7 @@ func ImportPack(c *gin.Context) {
 	})
 	logger.InfoF(ctx, "[ImportPack] %d imported pack %d %s: %d created, %d updated, %d skipped",
 		operator.ID, record.ID, record.Name, record.Created, record.Updated, record.Skipped)
-	c.JSON(http.StatusOK, Response{Data: record})
+	reply.OK(c, record)
 }
 
 // ListPackImportsRequest 导入记录查询参数
@@ -284,26 +247,24 @@ type ListPackImportsResponseData struct {
 // @Description 按导入时间从晚到早排列, 每一项的结果见导入记录详情
 // @Produce json
 // @Param request query ListPackImportsRequest true "request query"
-// @Success 200 {object} Response{data=ListPackImportsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListPackImportsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/packs/imports [get]
 func ListPackImports(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListPackImportsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, imports, err := QueryPackImports(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListPackImports] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListPackImports] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListPackImportsResponseData{Total: total, Imports: imports}})
+	reply.OK(c, ListPackImportsResponseData{Total: total, Imports: imports})
 }
 
 // GetPackImport
@@ -312,29 +273,23 @@ func ListPackImports(c *gin.Context) {
 // @Description 包括每一项的处理结果
 // @Produce json
 // @Param id path int true "import id"
-// @Success 200 {object} Response{data=Import}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=Import}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/packs/imports/{id} [get]
 func GetPackImport(c *gin.Context) {
 	ctx := c.Request.Context()
-	importID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	importID, ok := reply.ID(c, "id")
+	if !ok {
 		return
 	}
 	record, err := queryPackImport(ctx, importID)
 	if err != nil {
-		if err.Error() == ImportNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetPackImport] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetPackImport] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: record})
+	reply.OK(c, record)
 }

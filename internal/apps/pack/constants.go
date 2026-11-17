@@ -43,7 +43,7 @@ const (
 	packFormOverhead = 1 << 20  // 上传表单中除文件以外的部分
 )
 
-// 内置的配置种类, 也是包中的文件名(加上 .json)
+// 被其他配置引用的配置种类, 也是包中的文件名(加上 .json); 除设置外由拥有数据的模块注册, 放在这里是为了引用它们的模块不用互相依赖
 const (
 	PackCurrencies   = "currencies"
 	PackQualities    = "qualities"
@@ -55,7 +55,7 @@ const (
 	PackSettings     = "settings" // 只有游戏分类的设置组, 不含密钥字段
 )
 
-// 内置配置种类的依赖顺序, 见 Section.Order; 其他模块按引用关系选择中间的值, 如引用物品和地图的配置用 55
+// 上面这些配置种类的依赖顺序, 见 Section.Order; 其他模块按引用关系选择中间的值, 如引用物品和地图的配置用 55
 const (
 	OrderCurrencies   = 10
 	OrderSettings     = 15 // 设置排在货币之后、地图之前: 地图保存时按玩法平衡和出售手续费推导金额
@@ -80,4 +80,15 @@ const (
 	PackActionOverwrite = "overwrite" // 新增, 或覆盖对应的配置; 没有指定处理方式时的默认值
 	PackActionSkip      = "skip"      // 跳过, 不导入
 	PackActionRename    = "rename"    // 以新的代码导入, 包中引用它的配置一起改为新代码; 只有 Section.Renamable 的配置种类可以改名
+)
+
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetPack = "pack" // 导出时 target_id 固定为 0, 导入时为导入记录的 ID
+)
+
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionPackExport = "admin.pack_export"
+	ActionPackImport = "admin.pack_import"
 )

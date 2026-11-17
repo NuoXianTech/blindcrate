@@ -34,6 +34,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -109,7 +110,7 @@ func queryUserBalances(ctx context.Context, userID uint64) ([]wallet.BalanceItem
 	var user auth.User
 	if err := user.Exact(db.DB(ctx), userID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(auth.UserNotFound)
+			return nil, fault.NotFound(auth.UserNotFound)
 		}
 		return nil, err
 	}
@@ -133,7 +134,7 @@ func doAdjustUserBalance(ctx context.Context, operatorID, userID uint64, req *Ad
 		var user auth.User
 		if err := user.Exact(tx, userID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return errors.New(auth.UserNotFound)
+				return fault.NotFound(auth.UserNotFound)
 			}
 			return err
 		}
@@ -165,7 +166,7 @@ func doCreateCurrency(ctx context.Context, req *CreateCurrencyRequest) (*wallet.
 	}
 	if err := db.DB(ctx).Create(target).Error; err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(wallet.CurrencyTaken)
+			return nil, fault.Conflict(wallet.CurrencyTaken)
 		}
 		return nil, err
 	}
@@ -181,7 +182,7 @@ func doUpdateCurrency(ctx context.Context, code string, req *CurrencyRequest) (*
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), code); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return errors.New(wallet.CurrencyNotFound)
+				return fault.NotFound(wallet.CurrencyNotFound)
 			}
 			return err
 		}
@@ -215,7 +216,7 @@ func CheckCurrencyChange(tx *gorm.DB, old, next *wallet.Currency) error {
 			return err
 		}
 		if used {
-			return errors.New(wallet.CurrencyInUse)
+			return fault.Conflict(wallet.CurrencyInUse)
 		}
 	}
 	if old.IsEnabled && !next.IsEnabled {

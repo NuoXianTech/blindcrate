@@ -22,19 +22,16 @@
  * SOFTWARE.
  */
 
-// Package lock 基于 Redis 的分布式锁, 多个实例之间互斥, 如同一局对战同一时间只有一个请求在推进状态
-//
-// 锁带有过期时间, 持有者崩溃后到期自动释放; 业务耗时可能超过 ttl 时需要调用 Refresh 续期, 否则锁会提前失效。
-// Redis 锁不能代替数据库约束: 锁失效的瞬间可能有两个持有者, 写库仍需要条件更新或版本号兜底。
-//
-// key 为被锁的对象, 格式为 <app>:<对象>:<ID>, 如 match:42。
-// 与限流不同, Redis 出错时不放行, 直接返回错误。
-package lock
+package settings
 
-import "time"
+// 操作日志的对象类型, 见 audit.Record
+const (
+	TargetSetting = "setting" // target_id 固定为 0, 设置组见 detail.key
+)
 
-// keyPrefix 锁 key 的前缀, 完整的 key 如 blindcrate:lock:match:42
-const keyPrefix = "blindcrate:lock:"
-
-// retryInterval Acquire 等锁时重试的间隔
-const retryInterval = 50 * time.Millisecond
+// 操作日志的操作类型, 格式为 "模块.动作", 在 init 中登记
+const (
+	ActionSettingsUpdate = "admin.settings_update"
+	ActionSettingsReset  = "admin.settings_reset"
+	ActionMailTest       = "admin.mail_test"
+)

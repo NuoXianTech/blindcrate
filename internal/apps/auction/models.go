@@ -276,15 +276,20 @@ type HypeEvent struct {
 // TableName 自定义表名
 func (HypeEvent) TableName() string { return "auction_hype_events" }
 
-// PieceIntel 道具看到的一件藏品, 带占的格子, 以位置(X, Y)区分; 不带扫描顺序, 否则能从中推出件数
+// PieceIntel 道具看到的一个格子, 以位置(X, Y)区分; 不带扫描顺序, 否则能从中推出件数
+//
+// 一般是一件藏品(轮廓, 可以带品质、名称和外观); Empty 为 true 时是确定没有藏品的格子。客户端画在货仓里, 只有使用者看得到。
 type PieceIntel struct {
 	X        int16  `json:"x"`
 	Y        int16  `json:"y"`
 	Width    int16  `json:"width"`
 	Height   int16  `json:"height"`
-	Quality  int16  `json:"quality"`             // 0 为只扫出轮廓
+	Quality  int16  `json:"quality"`             // 0 为不知道品质
 	Name     string `json:"name,omitempty"`      // 只有看名称的道具有
 	ImageURL string `json:"image_url,omitempty"` // 同 Name
+	LotNo    int32  `json:"lot_no,omitempty"`    // 不是使用道具时的拍品时给出, 如提前看到的下一个拍品
+	Empty    bool   `json:"empty,omitempty"`     // 确定没有藏品的格子
+	Note     string `json:"note,omitempty"`      // 格子上的短标注, 如 "最贵"
 }
 
 // QualityCount 一种品质的藏品件数
@@ -293,13 +298,30 @@ type QualityCount struct {
 	Count   int32 `json:"count"`
 }
 
-// Intel 使用一个道具得到的情报, 字段按效果使用其中的一部分
+// 情报条目的种类, 客户端按种类展示, 新增效果时复用这几种即可
+const (
+	FactText   = "text"   // 一句话, 见 Fact.Text
+	FactRange  = "range"  // 数值区间 [Min, Max], 单位见 Fact.Unit
+	FactAmount = "amount" // 出价货币的金额区间 [Min, Max]
+	FactCounts = "counts" // 各品质的件数, 见 Fact.Counts; 为空表示没有
+)
+
+// Fact 情报中的一个条目, 展示为 "[品质] 标签 内容"
+type Fact struct {
+	Kind    string         `json:"kind"`              // 见 Fact 开头的常量
+	Label   string         `json:"label"`             // 如 "货仓价值"
+	Quality int16          `json:"quality,omitempty"` // 关联的品质, 展示在标签前, 如 "紫色 及以上"
+	Text    string         `json:"text,omitempty"`
+	Min     int64          `json:"min"`
+	Max     int64          `json:"max"`
+	Unit    string         `json:"unit,omitempty"` // FactRange 的单位, 如 "件"
+	Counts  []QualityCount `json:"counts,omitempty"`
+}
+
+// Intel 使用一个道具得到的情报: 画在货仓里的格子和列表里的条目, 都为空时表示没有新的情报
 type Intel struct {
-	Pieces     []PieceIntel   `json:"pieces,omitempty"`      // 看到品质或名称的藏品, 按位置从上到下、从左到右; 没有符合条件的藏品时为空
-	MinQuality int16          `json:"min_quality,omitempty"` // 统计或查看的最低品质
-	Counts     []QualityCount `json:"counts,omitempty"`      // 最低品质及以上各品质的件数, 品质从高到低, 没有的品质不列出
-	ValueMin   int64          `json:"value_min,omitempty"`   // 货仓价值的区间, 出价货币
-	ValueMax   int64          `json:"value_max,omitempty"`
+	Pieces []PieceIntel `json:"pieces,omitempty"` // 按位置从上到下、从左到右
+	Facts  []Fact       `json:"facts,omitempty"`
 }
 
 // SuspectReview 管理员处理过的一对可疑账号, 见 QuerySuspects

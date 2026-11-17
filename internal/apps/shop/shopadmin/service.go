@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/shop"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -79,7 +80,7 @@ func doCreateShopItem(ctx context.Context, req *ShopItemRequest) (*shop.Item, er
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(shop.CodeTaken)
+			return nil, fault.Conflict(shop.CodeTaken)
 		}
 		return nil, err
 	}
@@ -97,7 +98,7 @@ func doUpdateShopItem(ctx context.Context, itemID uint64, req *ShopItemRequest) 
 			return err
 		}
 		if req.Code != target.Code {
-			return errors.New(shop.CodeImmutable)
+			return fault.Invalid(shop.CodeImmutable)
 		}
 		old := target
 		ApplyShopItem(&target, req)
@@ -135,7 +136,7 @@ func doDeleteShopItem(ctx context.Context, itemID uint64) (*shop.Item, error) {
 func LockShopItem(tx *gorm.DB, target *shop.Item, itemID uint64) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), itemID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(shop.ItemNotFound)
+			return fault.NotFound(shop.ItemNotFound)
 		}
 		return err
 	}

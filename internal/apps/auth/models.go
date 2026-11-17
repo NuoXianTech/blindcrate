@@ -25,9 +25,9 @@
 package auth
 
 import (
-	"errors"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"gorm.io/gorm"
 )
 
@@ -75,7 +75,7 @@ func (u *User) UpdateLastLogin(tx *gorm.DB) error {
 // CheckDisabled 检查用户账户是否被停用,已停用则返回错误
 func (u *User) CheckDisabled() error {
 	if u.IsDisabled {
-		return errors.New(BannedAccount)
+		return fault.Forbidden(BannedAccount)
 	}
 	return nil
 }
@@ -83,7 +83,7 @@ func (u *User) CheckDisabled() error {
 // CheckBan 检查用户是否处于封禁期,仍在封禁则返回错误
 func (u *User) CheckBan() error {
 	if u.IsBanned(time.Now()) {
-		return errors.New(BannedAccount)
+		return fault.Forbidden(BannedAccount)
 	}
 	return nil
 }

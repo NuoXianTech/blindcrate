@@ -36,22 +36,52 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
+	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 )
 
 func init() {
+	audit.RegisterAction(ActionVenueCreate, "新建地图")
+	audit.RegisterAction(ActionVenueUpdate, "修改地图")
+	audit.RegisterAction(ActionVenueDelete, "删除地图")
+	audit.RegisterAction(ActionVenueRecalibrate, "重新推导地图")
 	condition.RegisterScopeNamer("mode", modeScopeName)
 	condition.RegisterScopeNamer("venue", venueScopeName)
+	stats.RegisterScopeOptions(scopeOptions)
+	upload.RegisterPurpose(ImagePurpose, true, false, 1280)
+	upload.RegisterReference("venues", "image_url")
+}
+
+// scopeOptions 统计范围的候选项: 每种模式、每张地图和地图的每种模式
+func scopeOptions(tx *gorm.DB) ([]params.Option, error) {
+	modes := []string{ModePve, ModeRanked}
+	var options []params.Option
+	for _, mode := range modes {
+		options = append(options, params.Option{Value: stats.ScopeMode(mode), Label: "全部" + modeNames[mode] + "对局"})
+	}
+	var venues []Venue
+	if err := tx.Select("code", "name").Order("sort_order, id").Find(&venues).Error; err != nil {
+		return nil, err
+	}
+	for _, v := range venues {
+		options = append(options, params.Option{Value: stats.ScopeVenue(v.Code), Label: v.Name})
+		for _, mode := range modes {
+			options = append(options, params.Option{Value: stats.ScopeVenueMode(v.Code, mode), Label: v.Name + " " + modeNames[mode]})
+		}
+	}
+	return options, nil
 }
 
 // codePattern 地图代码, 小写字母、数字和下划线; 玩法代码最长 32, 需要留出 "ranked:" 前缀
@@ -69,6 +99,9 @@ type InvalidError struct {
 }
 
 func (e *InvalidError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
 
 // invalid 生成 *InvalidError
 func invalid(format string, args ...any) error {
@@ -599,12 +632,12 @@ func QueryVenue(ctx context.Context, userID uint64, code string) (*VenueDetail, 
 	var v Venue
 	if err := v.ExactCode(tx, code); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(VenueNotFound)
+			return nil, fault.NotFound(VenueNotFound)
 		}
 		return nil, err
 	}
 	if !v.IsEnabled {
-		return nil, errors.New(VenueNotFound)
+		return nil, fault.NotFound(VenueNotFound)
 	}
 	costs, err := resolveCosts(tx, []Venue{v})
 	if err != nil {

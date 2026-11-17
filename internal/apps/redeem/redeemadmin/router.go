@@ -26,9 +26,6 @@
 package redeemadmin
 
 import (
-	"errors"
-	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -36,16 +33,11 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/redeem"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListBatchesRequest 批次列表查询参数
 type ListBatchesRequest struct {
@@ -67,26 +59,24 @@ type ListBatchesResponseData struct {
 // @Description 从新到旧, 不含已删除的批次, 带上生成人的用户名和已兑换的次数
 // @Produce json
 // @Param request query ListBatchesRequest true "request query"
-// @Success 200 {object} Response{data=ListBatchesResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListBatchesResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/redeem/batches [get]
 func ListRedeemBatches(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListBatchesRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, batches, err := QueryBatches(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListRedeemBatches] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListRedeemBatches] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListBatchesResponseData{Total: total, Batches: batches}})
+	reply.OK(c, ListBatchesResponseData{Total: total, Batches: batches})
 }
 
 // BatchRequest 修改批次的请求体, 也是生成兑换码时批次的设置
@@ -110,20 +100,6 @@ type CreateBatchRequest struct {
 	IdempotencyKey string `json:"idempotency_key" binding:"required,max=64,printascii"` // 每次打开生成框生成一个, 重复提交只生成一次
 }
 
-// batchErrorStatus 批次配置错误对应的状态码, 不是配置错误时返回 0
-func batchErrorStatus(err error) int {
-	var invalid *redeem.InvalidError
-	switch {
-	case errors.As(err, &invalid):
-		return http.StatusBadRequest
-	case err.Error() == redeem.BatchNotFound:
-		return http.StatusNotFound
-	case err.Error() == redeem.CodeTaken, err.Error() == redeem.IdempotencyConflict:
-		return http.StatusConflict
-	}
-	return 0
-}
-
 // CreateRedeemBatch
 // @Tags admin
 // @Summary 生成兑换码
@@ -131,37 +107,27 @@ func batchErrorStatus(err error) int {
 // @Accept json
 // @Produce json
 // @Param request body CreateBatchRequest true "request body"
-// @Success 200 {object} Response{data=redeem.Batch}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=redeem.Batch}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/redeem/batches [post]
 func CreateRedeemBatch(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req CreateBatchRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, replayed, err := doCreateBatch(ctx, operator.ID, &req)
 	if err != nil {
-		if status := batchErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateRedeemBatch] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateRedeemBatch] create failed")
 		return
 	}
 	if replayed {
-		c.JSON(http.StatusOK, Response{Data: created})
+		reply.OK(c, created)
 		return
 	}
 	// 兑换码本身不记进操作日志和日志, 只记个数
@@ -170,7 +136,7 @@ func CreateRedeemBatch(c *gin.Context) {
 	detail["custom"] = strings.TrimSpace(req.Code) != ""
 	audit.Record(c, operator.ID, audit.ScopeAdmin, redeem.ActionCreate, redeem.TargetBatch, created.ID, detail)
 	logger.InfoF(ctx, "[CreateRedeemBatch] %d created redeem batch %d with %d codes", operator.ID, created.ID, created.CodeCount)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateRedeemBatch
@@ -181,41 +147,31 @@ func CreateRedeemBatch(c *gin.Context) {
 // @Produce json
 // @Param id path int true "batch id"
 // @Param request body BatchRequest true "request body"
-// @Success 200 {object} Response{data=redeem.Batch}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=redeem.Batch}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/redeem/batches/{id} [put]
 func UpdateRedeemBatch(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req BatchRequest
-	batchID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	batchID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateBatch(ctx, batchID, &req)
 	if err != nil {
-		if status := batchErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateRedeemBatch] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateRedeemBatch] update failed")
 		return
 	}
 	if len(changes) > 0 {
 		audit.Record(c, operator.ID, audit.ScopeAdmin, redeem.ActionUpdate, redeem.TargetBatch, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateRedeemBatch] %d updated redeem batch %d", operator.ID, updated.ID)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteRedeemBatch
@@ -224,40 +180,30 @@ func UpdateRedeemBatch(c *gin.Context) {
 // @Description 软删除, 批次中的兑换码不能再兑换, 也不能再被新的批次使用; 已兑换的奖励不收回
 // @Produce json
 // @Param id path int true "batch id"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/redeem/batches/{id} [delete]
 func DeleteRedeemBatch(c *gin.Context) {
 	ctx := c.Request.Context()
-	batchID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	batchID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	deleted, err := doDeleteBatch(ctx, batchID)
 	if err != nil {
-		if err.Error() == redeem.BatchNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteRedeemBatch] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteRedeemBatch] delete failed")
 		return
 	}
 	detail := batchFields(deleted)
 	detail["code_count"] = deleted.CodeCount
 	audit.Record(c, operator.ID, audit.ScopeAdmin, redeem.ActionDelete, redeem.TargetBatch, deleted.ID, detail)
 	logger.InfoF(ctx, "[DeleteRedeemBatch] %d deleted redeem batch %d", operator.ID, deleted.ID)
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }
 
 // ListCodesResponseData 批次的全部兑换码
@@ -271,31 +217,25 @@ type ListCodesResponseData struct {
 // @Description 一次返回批次的全部兑换码和各自已兑换的次数, 按生成顺序排列, 最多 10000 个
 // @Produce json
 // @Param id path int true "batch id"
-// @Success 200 {object} Response{data=ListCodesResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListCodesResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/redeem/batches/{id}/codes [get]
 func ListRedeemBatchCodes(c *gin.Context) {
 	ctx := c.Request.Context()
-	batchID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	batchID, ok := reply.ID(c, "id")
+	if !ok {
 		return
 	}
 	codes, err := QueryCodes(ctx, batchID)
 	if err != nil {
-		if err.Error() == redeem.BatchNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[ListRedeemBatchCodes] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListRedeemBatchCodes] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListCodesResponseData{Codes: codes}})
+	reply.OK(c, ListCodesResponseData{Codes: codes})
 }
 
 // ListRecordsRequest 兑换记录查询参数
@@ -319,24 +259,22 @@ type ListRecordsResponseData struct {
 // @Description 从新到旧, 包括已删除的批次的记录, 带上用户名、批次名称和兑换码
 // @Produce json
 // @Param request query ListRecordsRequest true "request query"
-// @Success 200 {object} Response{data=ListRecordsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListRecordsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/redeem/records [get]
 func ListRedeemRecords(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListRecordsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, records, err := QueryRecords(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListRedeemRecords] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListRedeemRecords] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListRecordsResponseData{Total: total, Records: records}})
+	reply.OK(c, ListRecordsResponseData{Total: total, Records: records})
 }

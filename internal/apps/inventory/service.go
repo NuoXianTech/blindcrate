@@ -35,6 +35,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
@@ -45,6 +47,7 @@ import (
 )
 
 func init() {
+	audit.RegisterAction(ActionInventoryAdjust, "调整背包")
 	// 本模块和早期模块的业务类型, 新模块在自己的 init 中登记
 	for _, t := range []ledger.BizType{
 		{Code: BizAdminAdjust, Label: "管理员调整"},
@@ -104,7 +107,7 @@ func Change(tx *gorm.DB, req *ChangeRequest) (*Transaction, bool, error) {
 		}
 		if existing.ID != 0 {
 			if !existing.sameChange(req) {
-				return nil, false, errors.New(IdempotencyConflict)
+				return nil, false, fault.Conflict(IdempotencyConflict)
 			}
 			return &existing, true, nil
 		}
@@ -135,7 +138,7 @@ func Change(tx *gorm.DB, req *ChangeRequest) (*Transaction, bool, error) {
 	if err := tx.Create(txn).Error; err != nil {
 		// 咨询锁之外的兜底, 正常不会走到
 		if db.IsUniqueViolation(err) {
-			return nil, false, errors.New(DuplicateRequest)
+			return nil, false, fault.Conflict(DuplicateRequest)
 		}
 		return nil, false, err
 	}
@@ -154,7 +157,7 @@ func validateChange(req *ChangeRequest) error {
 		return errors.New("inventory: biz_type " + req.BizType + " not registered")
 	}
 	if req.Quantity == 0 || req.Quantity < -MaxQuantity || req.Quantity > MaxQuantity {
-		return errors.New(QuantityInvalid)
+		return fault.Invalid(QuantityInvalid)
 	}
 	return nil
 }
@@ -174,12 +177,12 @@ func checkItem(tx *gorm.DB, req *ChangeRequest) (*item.Item, error) {
 	var target item.Item
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "SHARE"}), req.ItemID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(item.ItemNotFound)
+			return nil, fault.Invalid(item.ItemNotFound)
 		}
 		return nil, err
 	}
 	if !target.IsEnabled {
-		return nil, errors.New(item.ItemDisabled)
+		return nil, fault.Invalid(item.ItemDisabled)
 	}
 	return &target, nil
 }
@@ -225,7 +228,7 @@ func applyQuantity(tx *gorm.DB, req *ChangeRequest) (*UserItem, error) {
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return nil, errors.New(InsufficientQuantity)
+		return nil, fault.Forbidden(InsufficientQuantity)
 	}
 	return &userItem, nil
 }
@@ -238,6 +241,14 @@ func (t *Transaction) sameChange(req *ChangeRequest) bool {
 		t.BizType == req.BizType &&
 		t.BizID == req.BizID &&
 		t.Remark == req.Remark
+}
+
+// usableEffects 可以在背包中直接使用的效果代码, 只在启动前写入
+var usableEffects = map[string]bool{}
+
+// MarkUsable 登记一种可以在背包中直接使用的效果, 由 effect 模块在注册背包场景的效果时调用, 需要在启动前调用
+func MarkUsable(effectCode string) {
+	usableEffects[effectCode] = true
 }
 
 // UserItemDetail 背包中的一种物品, 附带物品信息
@@ -253,6 +264,7 @@ type UserItemDetail struct {
 	Width         int16     `json:"width"`
 	Height        int16     `json:"height"`
 	Effect        string    `json:"effect"` // 使用效果代码, 空表示不能使用, 见 effect 模块; 已删除的物品为空
+	Usable        bool      `json:"usable"` // 可以在背包中直接使用, 见 MarkUsable
 	IsEnabled     bool      `json:"is_enabled"`
 	IsPlaceholder bool      `json:"is_placeholder"` // 物品已被删除, 按占位物品展示
 	Quantity      int64     `json:"quantity"`
@@ -309,6 +321,7 @@ func QueryUserItems(ctx context.Context, userID uint64, req *ListItemsRequest) (
 			Width:         target.Width,
 			Height:        target.Height,
 			Effect:        target.Effect,
+			Usable:        usableEffects[target.Effect],
 			IsEnabled:     target.IsEnabled,
 			IsPlaceholder: target.IsPlaceholder,
 			Quantity:      row.Quantity,
@@ -457,7 +470,7 @@ func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*Se
 	})
 	for i := 1; i < len(lines); i++ {
 		if lines[i].ItemID == lines[i-1].ItemID {
-			return nil, false, errors.New(SellItemDuplicated)
+			return nil, false, fault.Invalid(SellItemDuplicated)
 		}
 	}
 
@@ -482,14 +495,14 @@ func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*Se
 				return err
 			}
 			if !details[0].sameItems(lines) {
-				return errors.New(IdempotencyConflict)
+				return fault.Conflict(IdempotencyConflict)
 			}
 			detail, replayed = &details[0], true
 			return nil
 		}
 		// 重放时返回原出售单, 不比较手续费率
 		if req.FeeRate != nil && *req.FeeRate != feeRate {
-			return errors.New(SellFeeRateChanged)
+			return fault.Conflict(SellFeeRateChanged)
 		}
 
 		var err error
@@ -523,7 +536,7 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, feeRate int32, line
 	if err := tx.Create(order).Error; err != nil {
 		// 咨询锁之外的兜底, 正常不会走到
 		if db.IsUniqueViolation(err) {
-			return nil, nil, nil, errors.New(DuplicateRequest)
+			return nil, nil, nil, fault.Conflict(DuplicateRequest)
 		}
 		return nil, nil, nil, err
 	}
@@ -536,19 +549,19 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, feeRate int32, line
 	for i, line := range lines {
 		target := items[line.ItemID]
 		if target.SellPrice <= 0 {
-			return nil, nil, nil, errors.New(ItemNotSellable)
+			return nil, nil, nil, fault.Invalid(ItemNotSellable)
 		}
 		if target.SellCurrency != line.SellCurrency || target.SellPrice != line.SellPrice {
-			return nil, nil, nil, errors.New(SellPriceChanged)
+			return nil, nil, nil, fault.Conflict(SellPriceChanged)
 		}
 
 		// 先比较再相乘, 避免数量乘单价溢出
 		if line.Quantity > wallet.MaxAmount/target.SellPrice {
-			return nil, nil, nil, errors.New(SellAmountExceeded)
+			return nil, nil, nil, fault.Invalid(SellAmountExceeded)
 		}
 		amount := line.Quantity * target.SellPrice
 		if incomes[target.SellCurrency] > wallet.MaxAmount-amount {
-			return nil, nil, nil, errors.New(SellAmountExceeded)
+			return nil, nil, nil, fault.Invalid(SellAmountExceeded)
 		}
 		incomes[target.SellCurrency] += amount
 

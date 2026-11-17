@@ -31,6 +31,8 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/gin-gonic/gin"
 )
@@ -61,7 +63,7 @@ func ByUser(scope string, rule Rule) gin.HandlerFunc {
 
 		user, ok := auth.GetUserFromContext(c)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_msg": auth.UnAuthorized, "data": nil})
+			reply.Abort(c, http.StatusUnauthorized, fault.Unauthorized)
 			return
 		}
 		if allowed, wait := Allow(ctx, UserKey(scope, user.ID), rule); !allowed {
@@ -75,5 +77,5 @@ func ByUser(scope string, rule Rule) gin.HandlerFunc {
 // abortTooManyRequests 返回 429, Retry-After 为还需等待的秒数
 func abortTooManyRequests(c *gin.Context, wait time.Duration) {
 	c.Header("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
-	c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error_msg": TooManyRequests, "data": nil})
+	reply.Abort(c, http.StatusTooManyRequests, TooManyRequests)
 }

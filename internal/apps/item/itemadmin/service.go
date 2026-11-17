@@ -33,6 +33,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
@@ -94,7 +95,7 @@ func doCreateItem(ctx context.Context, req *ItemRequest) (*item.Item, error) {
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(item.ItemNameTaken)
+			return nil, fault.Conflict(item.ItemNameTaken)
 		}
 		return nil, err
 	}
@@ -123,7 +124,7 @@ func doUpdateItem(ctx context.Context, itemID uint64, req *ItemRequest) (*item.I
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, nil, errors.New(item.ItemNameTaken)
+			return nil, nil, fault.Conflict(item.ItemNameTaken)
 		}
 		return nil, nil, err
 	}
@@ -157,7 +158,7 @@ func doDeleteItem(ctx context.Context, itemID uint64) (*item.Item, int64, error)
 func LockItem(tx *gorm.DB, target *item.Item, itemID uint64) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), itemID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(item.ItemNotFound)
+			return fault.NotFound(item.ItemNotFound)
 		}
 		return err
 	}
@@ -172,22 +173,22 @@ var itemCodePattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
 // 名称有唯一索引, 撞上时按名称已存在处理; 代码可以重复。
 func ApplyItem(tx *gorm.DB, target *item.Item, req *ItemRequest) error {
 	if !itemCodePattern.MatchString(req.Code) {
-		return errors.New(item.ItemCodeInvalid)
+		return fault.Invalid(item.ItemCodeInvalid)
 	}
 	name := strings.TrimSpace(req.Name)
 	if n := utf8.RuneCountInString(name); n < 1 || n > 64 {
-		return errors.New(item.ItemNameInvalid)
+		return fault.Invalid(item.ItemNameInvalid)
 	}
 	if err := item.CheckQuality(tx, req.Quality); err != nil {
 		return err
 	}
 	if item.FindCategory(req.Category) == nil {
-		return errors.New(item.CategoryNotFound)
+		return fault.Invalid(item.CategoryNotFound)
 	}
 	var currency wallet.Currency
 	if err := currency.Exact(tx, req.SellCurrency); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(wallet.CurrencyNotFound)
+			return fault.Invalid(wallet.CurrencyNotFound)
 		}
 		return err
 	}
@@ -259,7 +260,7 @@ func doCreateQuality(ctx context.Context, req *CreateQualityRequest) (*item.Qual
 	}
 	if err := db.DB(ctx).Create(target).Error; err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(item.QualityTaken)
+			return nil, fault.Conflict(item.QualityTaken)
 		}
 		return nil, err
 	}
@@ -306,7 +307,7 @@ func doDeleteQuality(ctx context.Context, level int16) (*item.Quality, error) {
 			return err
 		}
 		if count > 0 {
-			return errors.New(item.QualityInUse)
+			return fault.Conflict(item.QualityInUse)
 		}
 		return tx.Delete(&target).Error
 	})
@@ -320,7 +321,7 @@ func doDeleteQuality(ctx context.Context, level int16) (*item.Quality, error) {
 func LockQuality(tx *gorm.DB, target *item.Quality, level int16) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), level); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(item.QualityNotFound)
+			return fault.NotFound(item.QualityNotFound)
 		}
 		return err
 	}

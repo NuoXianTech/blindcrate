@@ -4,18 +4,15 @@ import {useEffect, useMemo, useState} from 'react';
 import {Megaphone, Search, Send} from 'lucide-react';
 import {toast} from 'sonner';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
-import {scopeOptions} from '@/components/common/admin/editors';
 import {useAuth} from '@/components/common/auth';
 import {useAdminCatalog} from '@/hooks/use-admin-catalog';
 import services from '@/lib/services';
 import type {ConditionType} from '@/lib/services/condition';
 import {toErrorMessage, type CodeLabel} from '@/lib/services/core';
-import type {AdminVenue} from '@/lib/services/venue';
 import type {BroadcastOptions} from './BroadcastDialog';
 import {BroadcastsPanel} from './BroadcastsPanel';
 import {MailQueryPanel} from './MailQueryPanel';
 import {SendPanel} from './SendPanel';
-import {VENUE_LIMIT} from './constants';
 
 /**
  * 游戏邮件: 发给指定用户、全服邮件和邮件查询三个页签
@@ -25,20 +22,17 @@ export function MailsMain() {
   const isAdmin = !!me?.is_admin;
   const catalog = useAdminCatalog();
   const [types, setTypes] = useState<ConditionType[] | null>(null);
-  const [venues, setVenues] = useState<AdminVenue[] | null>(null);
   const [sources, setSources] = useState<CodeLabel[]>([]);
 
-  // 条件类型、地图和邮件来源挂载时拉取一次
+  // 条件类型和邮件来源挂载时拉取一次
   useEffect(() => {
     if (!isAdmin) return;
     Promise.all([
       services.conditionAdmin.listConditionTypes(),
-      services.venueAdmin.listVenues({current: 1, size: VENUE_LIMIT}),
       services.mailboxAdmin.listSources(),
     ])
-        .then(([typeData, venueData, sourceData]) => {
+        .then(([typeData, sourceData]) => {
           setTypes(typeData.types);
-          setVenues(venueData.venues);
           setSources(sourceData.sources);
         })
         .catch((err) => toast.error(toErrorMessage(err)));
@@ -48,9 +42,8 @@ export function MailsMain() {
     items: catalog.items,
     currencies: catalog.currencies,
     types: types ?? [],
-    scopes: scopeOptions(venues ?? []),
-    loaded: catalog.loaded && types !== null && venues !== null,
-  }), [catalog, types, venues]);
+    loaded: catalog.loaded && types !== null,
+  }), [catalog, types]);
 
   return (
     <div className="flex flex-col gap-4">

@@ -25,22 +25,12 @@
 package shop
 
 import (
-	"errors"
-	"net/http"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 shop 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListItemsResponseData 上架中的商品
 type ListItemsResponseData struct {
@@ -52,25 +42,20 @@ type ListItemsResponseData struct {
 // @Summary 获取上架中的商品
 // @Description 按排序值和 ID 排列, 带价格和商品的名称、当前用户对购买条件的达成情况和已购买的份数; 页签由前端按 tab 分组
 // @Produce json
-// @Success 200 {object} Response{data=ListItemsResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListItemsResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/shop/items [get]
 func ListItems(c *gin.Context) {
 	ctx := c.Request.Context()
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	items, err := QueryItems(ctx, user.ID)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListShopItems] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListShopItems] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListItemsResponseData{Items: items}})
+	reply.OK(c, ListItemsResponseData{Items: items})
 }
 
 // CreateOrderRequest 购买请求体
@@ -88,28 +73,23 @@ type CreateOrderRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body CreateOrderRequest true "request body"
-// @Success 200 {object} Response{data=OrderView}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 429 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=OrderView}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 429 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Param X-Captcha-Token header string false "人机验证令牌, 该场景开启人机验证时必填"
 // @Router /api/v1/shop/orders [post]
 func CreateOrder(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req CreateOrderRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	order, replayed, err := Purchase(ctx, user.ID, &PurchaseRequest{
 		Code:           req.Code,
 		Quantity:       req.Quantity,
@@ -117,31 +97,14 @@ func CreateOrder(c *gin.Context) {
 		IdempotencyKey: req.IdempotencyKey,
 	})
 	if err != nil {
-		var rejected *RejectedError
-		if errors.As(err, &rejected) {
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: rejected.Reason})
-			return
-		}
-		switch err.Error() {
-		case QuantityInvalid, AmountTooLarge:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case wallet.InsufficientBalance, inventory.InsufficientQuantity:
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		case ItemNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case PriceChanged, IdempotencyConflict, DuplicateRequest:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[CreateShopOrder] purchase failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[CreateShopOrder] purchase failed")
 		return
 	}
 	// 重复提交只返回原订单, 不重复记录
 	if !replayed {
 		logger.InfoF(ctx, "[CreateShopOrder] %d bought %d of %s in order %d", user.ID, order.Quantity, order.ItemCode, order.ID)
 	}
-	c.JSON(http.StatusOK, Response{Data: order})
+	reply.OK(c, order)
 }
 
 // ListOrdersRequest 订单查询参数
@@ -162,29 +125,23 @@ type ListOrdersResponseData struct {
 // @Description 从新到旧
 // @Produce json
 // @Param request query ListOrdersRequest true "request query"
-// @Success 200 {object} Response{data=ListOrdersResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListOrdersResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/shop/orders [get]
 func ListOrders(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListOrdersRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	total, orders, err := QueryUserOrders(ctx, user.ID, (req.Current-1)*req.Size, req.Size)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListShopOrders] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListShopOrders] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListOrdersResponseData{Total: total, Orders: orders}})
+	reply.OK(c, ListOrdersResponseData{Total: total, Orders: orders})
 }

@@ -25,18 +25,9 @@
 package item
 
 import (
-	"net/http"
-
-	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 item 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListQualitiesResponseData 品质列表
 type ListQualitiesResponseData struct {
@@ -48,16 +39,15 @@ type ListQualitiesResponseData struct {
 // @Summary 获取物品品质
 // @Description 按排序值排列, 无需登录; 前端用来展示品质的名称和颜色
 // @Produce json
-// @Success 200 {object} Response{data=ListQualitiesResponseData}
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListQualitiesResponseData}
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/qualities [get]
 func ListQualities(c *gin.Context) {
 	ctx := c.Request.Context()
 	qualities, err := QueryQualities(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListQualities] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListQualities] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListQualitiesResponseData{Qualities: qualities}})
+	reply.OK(c, ListQualitiesResponseData{Qualities: qualities})
 }

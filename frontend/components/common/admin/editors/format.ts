@@ -3,7 +3,6 @@ import type {AdminItem} from '@/lib/services/item';
 import type {Bundle} from '@/lib/services/reward';
 import type {Currency} from '@/lib/services/wallet';
 import {formatAmount} from '@/lib/utils';
-import type {ScopeOption} from './ConditionEditor';
 
 /** 一组货币和物品的简短文字, 每行一项, 如 "100 筹码"、"旧怀表 ×2"; 找不到的货币显示代码, 找不到的物品显示 ID */
 export function bundleText(bundle: Bundle, items: AdminItem[], currencies: Currency[]): string[] {
@@ -16,7 +15,13 @@ export function bundleText(bundle: Bundle, items: AdminItem[], currencies: Curre
   ];
 }
 
-/** 条件编辑器中统计范围的候选项: 全部对局、每种模式、每张地图和地图的每种模式 */
+/** 统计范围的候选项 */
+export interface ScopeOption {
+  value: string;
+  label: string;
+}
+
+/** 任务和榜单的统计范围候选项: 全部对局、每种模式、每张地图和地图的每种模式 */
 export function scopeOptions(venues: { code: string; name: string }[]): ScopeOption[] {
   const modes = (Object.keys(MODES) as ModeKind[]).map((kind) => ({value: kind, label: MODES[kind].label}));
   return [

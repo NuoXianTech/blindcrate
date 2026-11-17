@@ -25,23 +25,14 @@
 package codexadmin
 
 import (
-	"errors"
-	"net/http"
-	"strconv"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/codex"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListSetsRequest 收集组列表查询参数
 type ListSetsRequest struct {
@@ -63,26 +54,24 @@ type ListSetsResponseData struct {
 // @Description 按排序值和 ID 排列, 不含已删除的收集组
 // @Produce json
 // @Param request query ListSetsRequest true "request query"
-// @Success 200 {object} Response{data=ListSetsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListSetsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/codex/sets [get]
 func ListCodexSets(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListSetsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, sets, err := QuerySets(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListCodexSets] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListCodexSets] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListSetsResponseData{Total: total, Sets: sets}})
+	reply.OK(c, ListSetsResponseData{Total: total, Sets: sets})
 }
 
 // SetRequest 新建或修改收集组请求体
@@ -98,58 +87,34 @@ type SetRequest struct {
 	IsEnabled   bool          `json:"is_enabled"`
 }
 
-// setErrorStatus 收集组配置错误对应的状态码, 不是配置错误时返回 0
-func setErrorStatus(err error) int {
-	var invalid *codex.InvalidError
-	switch {
-	case errors.As(err, &invalid), err.Error() == codex.CodeImmutable:
-		return http.StatusBadRequest
-	case err.Error() == codex.SetNotFound:
-		return http.StatusNotFound
-	case err.Error() == codex.CodeTaken:
-		return http.StatusConflict
-	}
-	return 0
-}
-
 // CreateCodexSet
 // @Tags admin
 // @Summary 新建收集组
 // @Accept json
 // @Produce json
 // @Param request body SetRequest true "request body"
-// @Success 200 {object} Response{data=codex.Set}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=codex.Set}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/codex/sets [post]
 func CreateCodexSet(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req SetRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, err := doCreateSet(ctx, &req)
 	if err != nil {
-		if status := setErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateCodexSet] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateCodexSet] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, codex.ActionCreate, codex.TargetSet, created.ID, setFields(created))
 	logger.InfoF(ctx, "[CreateCodexSet] %d created codex set %d %s", operator.ID, created.ID, created.Code)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateCodexSet
@@ -160,41 +125,31 @@ func CreateCodexSet(c *gin.Context) {
 // @Produce json
 // @Param id path int true "set id"
 // @Param request body SetRequest true "request body"
-// @Success 200 {object} Response{data=codex.Set}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=codex.Set}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/codex/sets/{id} [put]
 func UpdateCodexSet(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req SetRequest
-	setID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	setID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateSet(ctx, setID, &req)
 	if err != nil {
-		if status := setErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateCodexSet] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateCodexSet] update failed")
 		return
 	}
 	if len(changes) > 0 {
 		audit.Record(c, operator.ID, audit.ScopeAdmin, codex.ActionUpdate, codex.TargetSet, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateCodexSet] %d updated codex set %d %s", operator.ID, updated.ID, updated.Code)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteCodexSet
@@ -203,36 +158,26 @@ func UpdateCodexSet(c *gin.Context) {
 // @Description 软删除, 代码不能再被新收集组使用; 已领取的奖励不收回
 // @Produce json
 // @Param id path int true "set id"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/codex/sets/{id} [delete]
 func DeleteCodexSet(c *gin.Context) {
 	ctx := c.Request.Context()
-	setID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	setID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	deleted, err := doDeleteSet(ctx, setID)
 	if err != nil {
-		if err.Error() == codex.SetNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteCodexSet] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteCodexSet] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, codex.ActionDelete, codex.TargetSet, deleted.ID, setFields(deleted))
 	logger.InfoF(ctx, "[DeleteCodexSet] %d deleted codex set %d %s", operator.ID, deleted.ID, deleted.Code)
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }

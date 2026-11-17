@@ -30,4 +30,12 @@ const (
 	ParamsWithoutEffect = "没有选择使用效果时不能填写效果参数"
 	ParamsInvalid       = "效果参数格式不正确"
 	ParamsRuleInvalid   = "效果参数: %s"
+
+	ItemNotUsable   = "这个物品不能在背包中使用"
+	ItemUnavailable = "这个物品暂时无法使用"
+	ChoiceInvalid   = "选择的内容不存在"
+	InputInvalid    = "填写的内容不符合要求"
+
+	IdempotencyConflict = "幂等键已被其他请求使用"
+	DuplicateRequest    = "请求正在处理, 请勿重复提交"
 )

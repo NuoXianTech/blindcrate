@@ -25,23 +25,17 @@
 package botadmin
 
 import (
-	"errors"
 	"fmt"
-	"net/http"
-	"strconv"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
+	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListNamesRequest 人机昵称列表查询参数
 type ListNamesRequest struct {
@@ -63,26 +57,24 @@ type ListNamesResponseData struct {
 // @Description 按 ID 倒序排列
 // @Produce json
 // @Param request query ListNamesRequest true "request query"
-// @Success 200 {object} Response{data=ListNamesResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListNamesResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/bot/names [get]
 func ListBotNames(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListNamesRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, names, err := QueryNames(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListBotNames] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListBotNames] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListNamesResponseData{Total: total, Names: names}})
+	reply.OK(c, ListNamesResponseData{Total: total, Names: names})
 }
 
 // CreateNamesRequest 批量新建人机昵称请求体
@@ -103,20 +95,6 @@ type NameRequest struct {
 	IsEnabled bool   `json:"is_enabled"`
 }
 
-// nameErrorStatus 昵称错误对应的状态码, 不是昵称错误时返回 0
-func nameErrorStatus(err error) int {
-	var invalid *bot.InvalidError
-	switch {
-	case errors.As(err, &invalid):
-		return http.StatusBadRequest
-	case err.Error() == bot.NameNotFound:
-		return http.StatusNotFound
-	case err.Error() == bot.NameTaken:
-		return http.StatusConflict
-	}
-	return 0
-}
-
 // CreateBotNames
 // @Tags admin
 // @Summary 批量新建人机昵称
@@ -124,33 +102,23 @@ func nameErrorStatus(err error) int {
 // @Accept json
 // @Produce json
 // @Param request body CreateNamesRequest true "request body"
-// @Success 200 {object} Response{data=CreateNamesResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=CreateNamesResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/bot/names [post]
 func CreateBotNames(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req CreateNamesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	result, err := doCreateNames(ctx, &req)
 	if err != nil {
-		if status := nameErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateBotNames] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateBotNames] create failed")
 		return
 	}
 	if len(result.Created) > 0 {
@@ -164,7 +132,7 @@ func CreateBotNames(c *gin.Context) {
 		})
 		logger.InfoF(ctx, "[CreateBotNames] %d created %d bot names", operator.ID, len(names))
 	}
-	c.JSON(http.StatusOK, Response{Data: result})
+	reply.OK(c, result)
 }
 
 // UpdateBotName
@@ -175,42 +143,32 @@ func CreateBotNames(c *gin.Context) {
 // @Produce json
 // @Param id path int true "name id"
 // @Param request body NameRequest true "request body"
-// @Success 200 {object} Response{data=bot.Name}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=bot.Name}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/bot/names/{id} [put]
 func UpdateBotName(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req NameRequest
-	nameID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	nameID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateName(ctx, nameID, &req)
 	if err != nil {
-		if status := nameErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateBotName] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateBotName] update failed")
 		return
 	}
 	if len(changes) > 0 {
 		audit.Record(c, operator.ID, audit.ScopeAdmin, bot.ActionNameUpdate, bot.TargetName, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateBotName] %d updated bot name %d %s", operator.ID, updated.ID, updated.Name)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteBotName
@@ -219,38 +177,28 @@ func UpdateBotName(c *gin.Context) {
 // @Description 物理删除, 已开局的对局中保存的是昵称本身, 不受影响
 // @Produce json
 // @Param id path int true "name id"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/bot/names/{id} [delete]
 func DeleteBotName(c *gin.Context) {
 	ctx := c.Request.Context()
-	nameID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	nameID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	deleted, err := doDeleteName(ctx, nameID)
 	if err != nil {
-		if err.Error() == bot.NameNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteBotName] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteBotName] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, bot.ActionNameDelete, bot.TargetName, deleted.ID, nameFields(deleted))
 	logger.InfoF(ctx, "[DeleteBotName] %d deleted bot name %d %s", operator.ID, deleted.ID, deleted.Name)
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }
 
 // ListPersonasRequest 人机风格列表查询参数
@@ -272,26 +220,24 @@ type ListPersonasResponseData struct {
 // @Description 按 ID 排列, 不含已删除的风格
 // @Produce json
 // @Param request query ListPersonasRequest true "request query"
-// @Success 200 {object} Response{data=ListPersonasResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListPersonasResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/bot/personas [get]
 func ListBotPersonas(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListPersonasRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, personas, err := QueryPersonas(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListBotPersonas] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListBotPersonas] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListPersonasResponseData{Total: total, Personas: personas}})
+	reply.OK(c, ListPersonasResponseData{Total: total, Personas: personas})
 }
 
 // PersonaRequest 新建或修改人机风格请求体
@@ -312,22 +258,8 @@ type InUseError struct {
 
 func (e *InUseError) Error() string { return fmt.Sprintf(bot.PersonaInUse, e.Venue) }
 
-// personaErrorStatus 风格配置错误对应的状态码, 不是配置错误时返回 0
-func personaErrorStatus(err error) int {
-	var (
-		invalid *bot.InvalidError
-		inUse   *InUseError
-	)
-	switch {
-	case errors.As(err, &invalid), err.Error() == bot.CodeImmutable:
-		return http.StatusBadRequest
-	case err.Error() == bot.PersonaNotFound:
-		return http.StatusNotFound
-	case err.Error() == bot.CodeTaken, errors.As(err, &inUse):
-		return http.StatusConflict
-	}
-	return 0
-}
+// Kind 错误的类别, 见 fault
+func (e *InUseError) Kind() fault.Kind { return fault.KindConflict }
 
 // CreateBotPersona
 // @Tags admin
@@ -335,38 +267,28 @@ func personaErrorStatus(err error) int {
 // @Accept json
 // @Produce json
 // @Param request body PersonaRequest true "request body"
-// @Success 200 {object} Response{data=bot.Persona}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=bot.Persona}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/bot/personas [post]
 func CreateBotPersona(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req PersonaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, err := doCreatePersona(ctx, &req)
 	if err != nil {
-		if status := personaErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateBotPersona] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateBotPersona] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, bot.ActionPersonaCreate, bot.TargetPersona, created.ID, personaFields(created))
 	logger.InfoF(ctx, "[CreateBotPersona] %d created bot persona %d %s", operator.ID, created.ID, created.Code)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateBotPersona
@@ -377,41 +299,31 @@ func CreateBotPersona(c *gin.Context) {
 // @Produce json
 // @Param id path int true "persona id"
 // @Param request body PersonaRequest true "request body"
-// @Success 200 {object} Response{data=bot.Persona}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=bot.Persona}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/bot/personas/{id} [put]
 func UpdateBotPersona(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req PersonaRequest
-	personaID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	personaID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdatePersona(ctx, personaID, &req)
 	if err != nil {
-		if status := personaErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateBotPersona] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateBotPersona] update failed")
 		return
 	}
 	if len(changes) > 0 {
 		audit.Record(c, operator.ID, audit.ScopeAdmin, bot.ActionPersonaUpdate, bot.TargetPersona, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateBotPersona] %d updated bot persona %d %s", operator.ID, updated.ID, updated.Code)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteBotPersona
@@ -420,39 +332,29 @@ func UpdateBotPersona(c *gin.Context) {
 // @Description 软删除, 代码不能再被新风格使用; 被地图引用时不能删除
 // @Produce json
 // @Param id path int true "persona id"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/bot/personas/{id} [delete]
 func DeleteBotPersona(c *gin.Context) {
 	ctx := c.Request.Context()
-	personaID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	personaID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	deleted, err := doDeletePersona(ctx, personaID)
 	if err != nil {
-		if status := personaErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteBotPersona] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteBotPersona] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, bot.ActionPersonaDelete, bot.TargetPersona, deleted.ID, personaFields(deleted))
 	logger.InfoF(ctx, "[DeleteBotPersona] %d deleted bot persona %d %s", operator.ID, deleted.ID, deleted.Code)
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }
 
 // ListBotStrategies
@@ -460,10 +362,17 @@ func DeleteBotPersona(c *gin.Context) {
 // @Summary 获取人机决策策略
 // @Description 由玩法模块注册, 按注册顺序; fields 为参数的表单描述, defaults 为新建风格时的默认参数
 // @Produce json
-// @Success 200 {object} Response{data=[]bot.StrategyView}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
+// @Success 200 {object} reply.Response{data=[]bot.StrategyView}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/bot/strategies [get]
 func ListBotStrategies(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{Data: bot.Strategies()})
+	ctx := c.Request.Context()
+	strategies, err := bot.Strategies(db.DB(ctx))
+	if err != nil {
+		reply.Fail(c, err, "[ListBotStrategies] query failed")
+		return
+	}
+	reply.OK(c, strategies)
 }
