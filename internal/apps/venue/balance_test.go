@@ -127,6 +127,38 @@ func TestBalanceJudge(t *testing.T) {
 			t.Errorf("win rate gates turned off should skip the check: %+v", c)
 		}
 	}
+
+	// 盲狙比模拟真人多赚的不超过期望价值的 5%; 便宜货仓拍不到的比例默认不看; 人机模式只能练习时不看盲狙
+	rule := settings.Balance.Default()
+	b.Squads[1].WinRate, b.Squads[2].WinRate = 2500, 3000
+	b.Squads[1].SnipeEV, b.Squads[2].SnipeEV = b.Squads[1].SeatEV+500, 99999
+	b.Squads[1].CheapBlocked, b.Squads[2].CheapBlocked = 6000, 6001
+	b.judge(v, rule)
+	if !b.Passed {
+		t.Errorf("snipe edge at the limit should pass: %+v", b.Checks)
+	}
+	b.Squads[1].SnipeEV++
+	rule.MaxCheapBlocked = 6000
+	b.judge(v, rule)
+	if got := b.failures(); got != "盲狙优势(排位补人机)、便宜货仓拍不到的比例(人机模式)" {
+		t.Errorf("sniper gates: %q", got)
+	}
+	v.Pve.PracticeOnly = false
+	b.Squads[2].SeatEV = 0
+	b.judge(v, rule)
+	if got := b.failures(); got != "盲狙优势(排位补人机)、便宜货仓拍不到的比例(人机模式)、盲狙优势(人机模式)" {
+		t.Errorf("sniper gates with a real pve: %q", got)
+	}
+	rule.MaxSnipeEdge, rule.MaxCheapBlocked = 0, 0
+	b.judge(v, rule)
+	if !b.Passed {
+		t.Errorf("sniper gates turned off should pass: %+v", b.Checks)
+	}
+	for _, c := range b.Checks {
+		if c.Code == CheckSnipeEdge || c.Code == CheckCheapBlocked {
+			t.Errorf("sniper gates turned off should skip the check: %+v", c)
+		}
+	}
 }
 
 func TestCalibrateVenue(t *testing.T) {
@@ -150,11 +182,17 @@ func TestCalibrateVenue(t *testing.T) {
 		t.Errorf("tiers: %+v %+v", small, big)
 	}
 
-	// 多拍品: 带入资金上限按仓库期望总价值 × 覆盖率
+	// 多拍品: 带入资金上限按仓库期望总价值 × 覆盖率, 人机默认带得和真人一样多
 	v.Lots.Min, v.Lots.Max = 2, 4
 	v.Calibrate(settings.Balance.Default())
-	if r := v.Auction; r.StartPrice != 200 || r.MaxCarry != 9000 || r.BotCarry != 5400 {
+	if r := v.Auction; r.StartPrice != 200 || r.MaxCarry != 9000 || r.BotCarry != 9000 {
 		t.Errorf("multiple lots: %+v", r)
+	}
+	b := settings.Balance.Default()
+	b.BotCarryShare = 6000
+	v.Calibrate(b)
+	if r := v.Auction; r.MaxCarry != 9000 || r.BotCarry != 5400 {
+		t.Errorf("bot carry share: %+v", r)
 	}
 }
 

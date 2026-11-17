@@ -51,12 +51,13 @@ type seat struct {
 	before int64 // 本轮开始时的出价
 }
 
-// lotSpec 一个拍品开拍时就确定的信息
+// lotSpec 一个拍品开拍时就确定的信息, 以及主持人已经公开的提示
 type lotSpec struct {
 	Rule     venue.AuctionRule // 这个拍品的拍卖参数
 	Grid     venue.Grid
 	Odds     []venue.PieceOdds // 按格子大小推断的公示分布
 	Outlines []Footprint       // 会扫出轮廓的藏品, 带扫出的轮次; 每轮只把已经扫出的交给人机
+	Hints    []HintView        // 主持人对这个拍品已经公开的提示, 按轮次; 之后每给出一条用 addHint 追加
 	Future   int64             // 之后的拍品按格子大小推断的期望价值之和
 	LotsLeft int32             // 之后还有几个拍品
 }
@@ -151,6 +152,13 @@ func (s *warehouse) lotRound() int32 {
 	return s.Round - s.firstRound + 1
 }
 
+// addHint 主持人对当前拍品公开了一条提示, 之后人机决策时看得到
+//
+// 提示由调用方生成(见 makeHint): 它要用到货仓里的藏品, 推进规则只管公开的部分。
+func (s *warehouse) addHint(hint HintView) {
+	s.lot.Hints = append(s.lot.Hints, hint)
+}
+
 // contender 座位在本轮是否有资格出价, 加轮时只有并列最高的人有
 func (s *warehouse) contender(seat int16) bool {
 	return len(s.contenders) == 0 || slices.Contains(s.contenders, seat)
@@ -217,6 +225,7 @@ func (s *warehouse) closeRound() roundResult {
 			Rules:      *rule,
 			Grid:       s.lot.Grid,
 			Footprints: visibleOutlines(s.lot.Outlines, round),
+			Hints:      s.lot.Hints,
 			Odds:       s.lot.Odds,
 			Carry:      p.Carry,
 			Bid:        p.Bid,

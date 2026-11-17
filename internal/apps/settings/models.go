@@ -159,7 +159,7 @@ var (
 				RescanEvery:         2,
 				RescanRate:          1500,
 				CarryCoverage:       3000,
-				BotCarryShare:       6000,
+				BotCarryShare:       10000,
 				BotCarryFloor:       7000,
 				HypeLotDecay:        3000,
 				HumanPlanShare:      5000,
@@ -178,6 +178,7 @@ var (
 				MinSeatEV:           -400,
 				MinRankedWinRate:    2500,
 				MinPveWinRate:       3000,
+				MaxSnipeEdge:        500,
 				HumanSigmaStart:     4200,
 				HumanSigmaStep:      600,
 				HumanSigmaFloor:     1400,
@@ -299,7 +300,7 @@ type BalanceSettings struct {
 	SpeedFloorRate  int `json:"speed_floor_rate" label:"速胜下限比例" help:"速胜下限占期望价值的比例; 过低挡不住速胜, 过高基本只能打到最后一轮" binding:"min=0,max=30000" unit:"bp"`
 	MaxLeadDiscount int `json:"max_lead_discount" label:"领先折让上限" help:"折让越大成交价越低, 全折让(二价)时赢家白捡、系统净发放" binding:"min=0,max=9000" unit:"bp"`
 	CarryCoverage   int `json:"carry_coverage" label:"仓库: 带入覆盖率" help:"一局多个拍品的地图, 带入资金上限 = 每局拍品数的期望 × 单个拍品的期望价值 × 覆盖率; 地图可以单独设置; 越低越要挑着拍, 太低时后面的拍品没人出得起" binding:"min=1000,max=20000" unit:"bp"`
-	BotCarryShare   int `json:"bot_carry_share" label:"仓库: 人机带入比例" help:"一局多个拍品的地图, 人机带入资金的上限占带入资金上限的比例" binding:"min=1000,max=10000" unit:"bp"`
+	BotCarryShare   int `json:"bot_carry_share" label:"仓库: 人机带入比例" help:"一局多个拍品的地图, 人机带入资金的上限占带入资金上限的比例; 比真人带得少时值钱的货仓人机出不起价, 出价顶在钱包上而不是估值上, 真人压着它已公开的出价拍就稳赚" binding:"min=1000,max=10000" unit:"bp"`
 	BotCarryFloor   int `json:"bot_carry_floor" label:"仓库: 人机带入下限" help:"每个人机的带入资金在人机带入资金 × [下限, 100%] 内随机, 真人不能从人机花掉的钱推出它还剩多少" binding:"min=1000,max=10000" unit:"bp"`
 	HypeLotDecay    int `json:"hype_lot_decay" label:"仓库: 热度回落" help:"每个拍品开场时热度向 50 回落的比例, 避免一个热门拍品把后面全部点燃" binding:"min=0,max=10000" unit:"bp"`
 	PreviewRate     int `json:"preview_rate" label:"首轮扫描比例" help:"第 1 轮每件藏品按这个概率扫出轮廓(只有占的格子, 没有品质和名称), 至少扫出一件; 其余的要等再次扫描或开箱才公开, 件数也不公开; 0 表示不扫" binding:"min=0,max=10000" unit:"bp"`
@@ -320,6 +321,8 @@ type BalanceSettings struct {
 	MinSeatEV           int `json:"min_seat_ev" label:"真人盈亏下限" help:"每个真人席位平均每局的盈亏不低于期望价值的这个比例, 负数为亏损; 人机模式只能练习时不看" binding:"min=-10000,max=10000" unit:"bp"`
 	MinRankedWinRate    int `json:"min_ranked_win_rate" label:"排位补人机时真人的胜率下限" help:"2 个真人和 2 个人机时, 每个真人席位拍下货仓的比例(多拍品时为仓库第 1 名的比例)不低于它, 0 表示不检查; 平分为 25%" binding:"min=0,max=10000" unit:"bp"`
 	MinPveWinRate       int `json:"min_pve_win_rate" label:"人机模式真人的胜率下限" help:"1 个真人和 3 个人机时, 真人拍下货仓的比例(多拍品时为仓库第 1 名的比例)不低于它, 0 表示不检查; 平分为 25%" binding:"min=0,max=10000" unit:"bp"`
+	MaxSnipeEdge        int `json:"max_snipe_edge" label:"盲狙优势上限" help:"有人机的阵容里把 1 号真人换成盲狙再模拟一遍: 最后一轮之前都不出价, 最后一轮按别人已公开的最高价的 1.1 倍出价, 不看货仓; 它平均每局比模拟真人多赚的钱不超过期望价值的这个比例。超过说明人机的出价与货仓值多少关系不大, 等到最后一轮压着公开出价拍比认真出价更赚; 0 表示不检查, 人机模式只能练习时不看" binding:"min=0,max=10000" unit:"bp"`
+	MaxCheapBlocked     int `json:"max_cheap_blocked" label:"便宜货仓拍不到的比例上限" help:"有人机的阵容里, 价值不到公示期望 60% 的货仓中, 人机的最高出价不低于回收价(真人拍下只会亏)的比例不超过它, 按每局的第一个拍品统计; 太高说明人机出价不看货仓, 真人只有碰上值钱的货仓才拍得到。人机看不全货仓, 便宜的总会估高一些: 人机越多、出价系数越高这个比例越高, 没有主持人提示的地图接近 100%, 所以默认不检查; 0 表示不检查" binding:"min=0,max=10000" unit:"bp"`
 
 	HumanSigmaStart int `json:"human_sigma_start" label:"模拟真人: 首轮估值误差" help:"验算时模拟的真人知道货仓价值但看不准, 第 1 轮的估值误差占价值的比例, 之后每轮减少, 不低于误差下限" binding:"min=0,max=10000" unit:"bp"`
 	HumanSigmaStep  int `json:"human_sigma_step" label:"模拟真人: 每轮减少的误差" help:"按 5 轮的地图计, 轮数不同时按比例缩放, 轮数越多每轮减得越少" binding:"min=0,max=10000" unit:"bp"`

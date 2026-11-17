@@ -90,7 +90,7 @@ export function HostTab({form, onChange, disabled}: FormTabProps) {
                 ))}
               </SelectContent>
             </Select>
-            <span className="text-xs text-muted-foreground">也是&ldquo;高品质件数&rdquo;提示统计的最低品质, 不区分时取中间的品质</span>
+            <span className="text-xs text-muted-foreground">&ldquo;件数&rdquo;提示数哪一档品质按每个拍品的公示概率自动选, 与这里无关</span>
           </div>
         </div>
       </FieldGroup>

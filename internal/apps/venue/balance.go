@@ -110,6 +110,8 @@ var checkNames = map[string]string{
 	CheckAppraiseBias: "人机估值偏差",
 	CheckSeatEV:       "真人盈亏",
 	CheckWinRate:      "真人胜率",
+	CheckSnipeEdge:    "盲狙优势",
+	CheckCheapBlocked: "便宜货仓拍不到的比例",
 }
 
 // squadNames 阵容的名称, 用于未通过时的提示
@@ -140,7 +142,8 @@ func newCheck(code, squad string, value int64, min, max *int64, unit string) Che
 // judge 按地图配置和各阵容的结果判定闸门, 安全区间见 settings.BalanceSettings
 //
 // 结构类的闸门只看 4 个真人的参考阵容: 含人机时成交价和速胜由人机的策略决定, 不能说明规则本身;
-// 有人机的阵容只看人机估值、真人盈亏和真人胜率。人机模式只能练习时不看盈亏。
+// 有人机的阵容只看人机估值、真人盈亏和真人胜率, 以及人机能不能被钻空子: 盲狙比模拟真人多赚多少、便宜货仓里真人拍不到的比例,
+// 这两项的上限为 0 时不看。人机模式只能练习时不看盈亏和盲狙。
 //
 // 多拍品时带入资金有限, 第二名常常追不起, 成交价天然低于价值, 由入场费收回, 不看成交价与价值之比, 系统收支由真人盈亏把关;
 // 真人花完钱后剩下的拍品只能给人机, 按拍品的胜率说明不了手感, 真人胜率改为仓库第 1 名(盈亏最高且赚钱)的比例。
@@ -166,10 +169,12 @@ func (b *Balance) judge(v *Venue, rule *settings.BalanceSettings) {
 		b.Checks = append(b.Checks, c)
 	}
 	minSeat := bound(ofRate(v.WarehouseMean(), rule.MinSeatEV))
+	maxEdge := bound(ofRate(v.WarehouseMean(), rule.MaxSnipeEdge))
 	lots := !v.Lots.Single()
 	winRates := map[string]int{SquadRanked: rule.MinRankedWinRate, SquadPve: rule.MinPveWinRate}
 	for _, s := range b.Squads {
-		if s.Squad == SquadHumans {
+		bots := s.Squad != SquadHumans
+		if !bots {
 			target := int(b.Target)
 			b.Checks = append(b.Checks, newCheck(CheckTopShare, s.Squad, int64(s.TopShare), nil, n(rule.MaxTopShare), UnitBP))
 			if !lots {
@@ -188,9 +193,15 @@ func (b *Balance) judge(v *Venue, rule *settings.BalanceSettings) {
 				}
 				b.Checks = append(b.Checks, newCheck(CheckWinRate, s.Squad, int64(win), n(minWin), nil, UnitBP))
 			}
+			if rule.MaxCheapBlocked > 0 {
+				b.Checks = append(b.Checks, newCheck(CheckCheapBlocked, s.Squad, int64(s.CheapBlocked), nil, n(rule.MaxCheapBlocked), UnitBP))
+			}
 		}
 		if s.Squad != SquadPve || !v.Pve.PracticeOnly {
 			b.Checks = append(b.Checks, newCheck(CheckSeatEV, s.Squad, s.SeatEV, minSeat, nil, UnitAmount))
+			if bots && rule.MaxSnipeEdge > 0 {
+				b.Checks = append(b.Checks, newCheck(CheckSnipeEdge, s.Squad, s.SnipeEV-s.SeatEV, nil, maxEdge, UnitAmount))
+			}
 		}
 	}
 	b.Passed = true

@@ -18639,7 +18639,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "high_quality": {
-                    "description": "提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; 也是\"高品质件数\"提示统计的最低品质",
+                    "description": "提示涉及的品质不低于它时撒谎率 × 1.5, 0 表示不区分; \"件数\"提示数哪个品质由拍卖模块按公示分布选, 与它无关",
                     "type": "integer",
                     "minimum": 0
                 },
@@ -18954,6 +18954,10 @@ const docTemplate = `{
                     "description": "仓库结束时剩余资金不够最低起拍价的真人席位比例",
                     "type": "integer"
                 },
+                "cheap_blocked": {
+                    "description": "便宜货仓(价值不到公示期望的 60%)中人机的最高出价不低于回收价、真人拍下只会亏的比例, 只看每局的第一个拍品; 没有人机时为 0",
+                    "type": "integer"
+                },
                 "early_share": {
                     "description": "成交的拍品在最后一轮前的最高价 ÷ 成交价的平均值, 太低说明大家都在等最后一轮",
                     "type": "integer"
@@ -18974,6 +18978,10 @@ const docTemplate = `{
                     "description": "每轮结束后热度火热(不低于 70)的比例, 加轮和成交的那一轮不算",
                     "type": "integer"
                 },
+                "insider_ev": {
+                    "description": "1 号真人换成知情狙击(知道货仓价值, 同样只在最后一轮出价)时每局的平均盈亏, 信息优势的上限; 没有人机时为 0",
+                    "type": "integer"
+                },
                 "lots": {
                     "description": "每局平均的拍品数, 百分之一个",
                     "type": "integer"
@@ -18992,6 +19000,10 @@ const docTemplate = `{
                 },
                 "seat_ev": {
                     "description": "每个真人席位每局(仓库)的平均盈亏, 藏品按扣掉出售手续费后的回收价计",
+                    "type": "integer"
+                },
+                "snipe_ev": {
+                    "description": "1 号真人换成盲狙(最后一轮才出价, 压着别人已公开的最高价, 不看货仓)时每局的平均盈亏, 口径同 SeatEV; 没有人机时为 0",
                     "type": "integer"
                 },
                 "sold": {

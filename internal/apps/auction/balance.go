@@ -43,6 +43,9 @@ import (
 // 一个拍品的出价不受领先折让影响, 记下每个拍品第一名和第二名的出价, 再按不同的折让重算成交价(多拍品时见 simulate),
 // 取参考阵容(4 个真人)的成交价 ÷ 货仓价值最接近目标的折让。入场费也不影响出价, 只平移盈亏,
 // 按这个折让求出让参考阵容的真人盈亏等于目标的入场费, 见 solveEntryFee。
+//
+// 模拟真人只有一种打法, 说明不了人机能不能被钻空子: 有人机的阵容再把 1 号真人换成只在最后一轮出价的狙击(见 sniper)各模拟一遍,
+// 统计它的盈亏和便宜货仓里人机出价过高的比例, 见 simulate。
 
 const (
 	// balanceRuns 验算时每种阵容模拟的拍品数, 仓库数为它 ÷ 每局拍品数的期望
@@ -51,6 +54,14 @@ const (
 	discountStep = 100
 	// balanceSalt 模拟对局的随机数的第二个种子
 	balanceSalt = 0x5851f42d4c957f2d
+	// snipeFactor 盲狙在最后一轮的出价 ÷ 别人已公开的最高价, 基点
+	snipeFactor = 11000
+	// insiderFactor 知情狙击在最后一轮的出价 ÷ 别人已公开的最高价, 基点; 知道货仓值多少, 不怕买贵, 可以多加一些
+	insiderFactor = 12500
+	// sniperRaise 狙击在加轮时每次加价的幅度, 基点
+	sniperRaise = 500
+	// cheapShare 价值不到公示期望的这个比例的货仓算便宜货仓, 基点
+	cheapShare = 6000
 )
 
 // lineup 生成仓库的拍品, 即 *venue.Lineup(见 venueLineup), 测试时可以替换
@@ -159,6 +170,35 @@ func (h *humanModel) bid(rule *venue.AuctionRule, round int32, value int64, sign
 	return 0
 }
 
+// sniper 验算时 1 号座位的真人可以换成的打法: 最后一轮之前都不出价, 最后一轮按别人已公开的最高价 × Factor 出价, 没人出过价时按起拍价;
+// 并列加轮时每次再加 sniperRaise
+//
+// 不知道货仓价值的叫盲狙, 出价只受剩余资金限制: 人机的出价与货仓实际值多少关系不大时, 它不用任何信息就比认真出价赚得多。
+// 知道货仓价值的叫知情狙击, 出价不超过卖掉货仓能收回的钱, 不会买亏, 是信息优势的上限。
+type sniper struct {
+	Factor int64 // 基点
+	Keep   int64 // 知道货仓价值时, 卖掉货仓能收回的钱占货仓价值的比例, 基点; 0 表示不知道货仓价值
+}
+
+// bid 第 round 轮的出价, 0 表示不加价
+func (sn *sniper) bid(rule *venue.AuctionRule, round int32, value int64, view humanView) int64 {
+	if round < rule.Rounds {
+		return 0
+	}
+	target := scale(max(view.best, rule.StartPrice), sn.Factor)
+	if round > rule.Rounds {
+		target = max(scale(view.previous, venue.BasisPoints+sniperRaise), view.previous+1)
+	}
+	limit := view.carry
+	if sn.Keep > 0 {
+		limit = min(limit, scale(value, sn.Keep))
+	}
+	if target = min(target, limit); target < rule.StartPrice || target <= view.previous {
+		return 0
+	}
+	return target
+}
+
 // squad 验算的一种阵容, 座位从 1 开始, 真人在前
 type squad struct {
 	code        string // 见 venue 的 Squad
@@ -167,6 +207,7 @@ type squad struct {
 	valueFactor int32                                // 货仓价值系数, 同 venue.Generator.Generate
 	bots        []bot.Decider[Observation, Decision] // 出场的风格, 每局每个人机按 picks 的权重选一种
 	picks       []int64
+	sniper      *sniper // 不为空时 1 号座位的真人换成这种打法, 其余的真人不变
 }
 
 // seatSim 模拟仓库中一个座位在验算时另外记的, 资金和出价见 warehouse 的 seat
@@ -179,6 +220,7 @@ type seatSim struct {
 // lotSim 一个拍品的模拟结果, 成交价由领先折让决定, 另算
 type lotSim struct {
 	value    int64
+	expected int64   // 按公开信息推断的期望价值, 见 publicLot
 	topShare float64 // 最贵一件占货仓价值的比例
 	round    int32   // 结束的轮次
 	sold     bool
@@ -189,6 +231,7 @@ type lotSim struct {
 	winner   int16   // 成交者的座位, 没有成交时为 0
 	bidCV    float64 // 出过价的人的出价变异系数 ÷ √3(4 个人时的上限), 不到两人出过价时为 0
 	appraise int64   // 人机最后的估值之和
+	bots     int64   // 人机最后的最高出价, 没有人机或都没出过价时为 0
 }
 
 // matchSim 一个仓库的模拟结果
@@ -273,6 +316,9 @@ type simConfig struct {
 //
 // 多拍品时成交价决定了后面拍品的剩余资金, 出价和折让有关: 先按折让上限的一半模拟一遍求出折让, 再按它重新模拟、重新求, 共三遍;
 // 一局一个拍品时出价与折让无关, 每遍的结果相同。source 按种子生成拍品, 每种阵容用不同的种子; 相同的输入得到相同的结果。
+//
+// 有人机的阵容最后按求出的折让再模拟两遍狙击(见 sniper), 用这种阵容的种子, 拍品与模拟真人的那一遍相同, 盈亏可以直接比:
+// 盲狙的盈亏和便宜货仓拍不到的比例(见 cheapBlocked), 知情狙击的盈亏。
 func simulate(v *venue.Venue, source func(seed uint64) lineup, squads []squad, cfg simConfig) (*venue.Balance, error) {
 	tiers := v.Lots.Tiers
 	target := venue.BasisPoints - cfg.sellFee
@@ -296,9 +342,71 @@ func simulate(v *venue.Venue, source func(seed uint64) lineup, squads []squad, c
 	v.Auction.EntryFee = solveEntryFee(&squads[0], results[0], v.Auction, cfg.sellFee, cfg.seatEV)
 	b := &venue.Balance{Runs: len(results[0]), Target: target, Squads: make([]venue.SquadStats, len(squads))}
 	for i := range squads {
-		b.Squads[i] = squads[i].summarize(results[i], &v.Auction, cfg.sellFee)
+		sq, stats := squads[i], &b.Squads[i]
+		*stats = sq.summarize(results[i], &v.Auction, cfg.sellFee)
+		if sq.humans == 0 || sq.humans == playerCount {
+			continue
+		}
+		seed := uint64(i + 1)
+		sq.sniper = &sniper{Factor: snipeFactor}
+		blind, err := sq.run(v, tiers, source(seed), seed, cfg)
+		if err != nil {
+			return nil, err
+		}
+		stats.SnipeEV, stats.CheapBlocked = seatEV(blind, 1, &v.Auction, cfg.sellFee), cheapBlocked(blind, cfg.sellFee)
+		sq.sniper = &sniper{Factor: insiderFactor, Keep: int64(venue.BasisPoints - cfg.sellFee)}
+		informed, err := sq.run(v, tiers, source(seed), seed, cfg)
+		if err != nil {
+			return nil, err
+		}
+		stats.InsiderEV = seatEV(informed, 1, &v.Auction, cfg.sellFee)
 	}
 	return b, nil
+}
+
+// seatEV 第 seat 个座位每局(仓库)的平均盈亏, 口径同 summarize 的 SeatEV: 成交价按 rule 的领先折让, 至少成交一个拍品的仓库扣入场费
+func seatEV(matches []matchSim, seat int16, rule *venue.AuctionRule, sellFee int32) int64 {
+	if len(matches) == 0 {
+		return 0
+	}
+	var total float64
+	for i := range matches {
+		m := &matches[i]
+		for _, l := range m.lots {
+			if l.sold && l.winner == seat {
+				total += float64(scale(l.value, int64(venue.BasisPoints-sellFee)) - settlePrice(rule, l.top, l.second))
+			}
+		}
+		if m.sold() {
+			total -= float64(rule.EntryFee)
+		}
+	}
+	return int64(math.Round(total / float64(len(matches))))
+}
+
+// cheapBlocked 便宜货仓(价值不到公示期望的 cheapShare)中, 人机的最高出价不低于卖掉货仓能收回的钱的比例, 基点: 这样的货仓真人拍下只会亏
+//
+// 只看每局的第一个拍品, 这时人机的资金最足; 用盲狙的那一遍统计, 真人到最后一轮才出价, 人机的出价不受真人影响。
+// 值钱的货仓人机出不起价、便宜的又都被它顶到回收价以上时, 真人只有碰上值钱的货仓才拍得到。
+func cheapBlocked(matches []matchSim, sellFee int32) int32 {
+	var cheap, blocked int
+	for i := range matches {
+		if len(matches[i].lots) == 0 {
+			continue
+		}
+		l := &matches[i].lots[0]
+		if l.value <= 0 || l.value*venue.BasisPoints >= l.expected*cheapShare {
+			continue
+		}
+		cheap++
+		if l.bots >= scale(l.value, int64(venue.BasisPoints-sellFee)) {
+			blocked++
+		}
+	}
+	if cheap == 0 {
+		return 0
+	}
+	return int32(math.Round(float64(blocked) * venue.BasisPoints / float64(cheap)))
 }
 
 // publicLot 一种格子大小的拍品按公开信息能推断出的: 格子大小相同的各档次按权重混合的公示概率和期望价值
@@ -370,7 +478,7 @@ func (sq *squad) run(v *venue.Venue, tiers []venue.Tier, source lineup, seed uin
 	return matches, nil
 }
 
-// play 模拟一个仓库, 按对局的规则推进(见 warehouse): 每轮扫出的轮廓见 outlineRounds;
+// play 模拟一个仓库, 按对局的规则推进(见 warehouse): 每轮扫出的轮廓见 outlineRounds, 主持人的提示见 playLot;
 // 真人带满上限, 人机带 BotCarry × [carryFloor, 100%]; 成交价按 v.Auction 的领先折让从剩余资金扣除
 func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, kinds []int, depots []*venue.Depot, rng *rand.Rand, cfg simConfig) (matchSim, error) {
 	sims := make([]seatSim, playerCount)
@@ -385,6 +493,15 @@ func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, ki
 		}
 		p.Decide, p.Seed = sq.bots[loot.PickIndexWith(sq.picks, rng.Int64N)], rng.Int64()
 		p.Carry = scale(v.Auction.BotCarry, between(rng, cfg.carryFloor, venue.BasisPoints))
+	}
+	// 提示只有人机看, 模拟的真人知道货仓价值; 没有人机的阵容不用生成
+	host := ""
+	if v.Host.Enabled && sq.humans < playerCount {
+		personas := v.Host.Personas
+		if len(personas) == 0 {
+			personas = venue.HostPersonas
+		}
+		host = personas[rng.IntN(len(personas))]
 	}
 
 	var m matchSim
@@ -401,7 +518,7 @@ func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, ki
 			Future:   future,
 			LotsLeft: int32(len(kinds) - lot - 1),
 		}
-		l, err := sq.playLot(v, s, sims, spec, depots[lot], &m, rng)
+		l, err := sq.playLot(v, s, sims, spec, depots[lot], host, &m, rng)
 		if err != nil {
 			return matchSim{}, err
 		}
@@ -419,12 +536,16 @@ func (sq *squad) play(v *venue.Venue, tiers []venue.Tier, public []publicLot, ki
 	return m, nil
 }
 
-// playLot 模拟仓库中的一个拍品: 每轮真人按 humanModel 出价, 再结束这一轮; 热度的统计记在 m 上
-func (sq *squad) playLot(v *venue.Venue, s *warehouse, sims []seatSim, spec lotSpec, depot *venue.Depot, m *matchSim, rng *rand.Rand) (lotSim, error) {
+// playLot 模拟仓库中的一个拍品: 每轮真人按 humanModel 出价(1 号座位换成狙击时见 sniper), 再结束这一轮; 热度的统计记在 m 上
+//
+// host 为主持人的性格, 不为空时与对局一样在每个规定的轮次开始时给出一条提示(见 makeHint), 交给人机。
+func (sq *squad) playLot(v *venue.Venue, s *warehouse, sims []seatSim, spec lotSpec, depot *venue.Depot, host string, m *matchSim, rng *rand.Rand) (lotSim, error) {
 	rule := &spec.Rule
 	pieces := depot.Pieces
-	spec.Outlines = nil
-	for i, round := range outlineRounds(len(pieces), rule, rng.Int64N) {
+	expected := expectedValue(spec.Odds)
+	scans := outlineRounds(len(pieces), rule, rng.Int64N)
+	spec.Outlines, spec.Hints = nil, nil
+	for i, round := range scans {
 		if round > 0 {
 			spec.Outlines = append(spec.Outlines, Footprint{X: pieces[i].X, Y: pieces[i].Y, Width: pieces[i].Width, Height: pieces[i].Height, Round: round})
 		}
@@ -440,8 +561,33 @@ func (sq *squad) playLot(v *venue.Venue, s *warehouse, sims []seatSim, spec lotS
 	s.Clock = func() time.Time {
 		return start.Add(time.Duration(s.lotRound())*time.Minute + time.Duration(rng.Int64N(int64(time.Minute))))
 	}
+	hint := func() {}
+	if host != "" {
+		items := make([]DepotItem, len(pieces))
+		for i, piece := range pieces {
+			items[i] = DepotItem{OutlineRound: scans[i], Quality: piece.Quality, Width: piece.Width, Height: piece.Height, X: piece.X, Y: piece.Y}
+		}
+		in := hostInput{
+			Items:        items,
+			Value:        depot.Value,
+			Expected:     expected,
+			Qualities:    hostQualities(spec.Odds, items),
+			CountQuality: hintCountQuality(spec.Odds),
+			Rule:         &v.Host,
+			Persona:      host,
+		}
+		hint = func() {
+			in.Round, in.Hype = s.lotRound(), s.Hype
+			if h, ok := makeHint(&in, rng.Int64N); ok {
+				h.Round = s.Round
+				in.Given = append(in.Given, h)
+				s.addHint(publicHint(&h))
+			}
+		}
+	}
+	hint()
 
-	l := lotSim{value: depot.Value}
+	l := lotSim{value: depot.Value, expected: expected}
 	var result verdict
 	for {
 		round := s.lotRound()
@@ -454,7 +600,13 @@ func (sq *squad) playLot(v *venue.Venue, s *warehouse, sims []seatSim, spec lotS
 			if sims[i].planner && spec.LotsLeft > 0 {
 				view.future = spec.Future
 			}
-			if amount := sq.human.bid(rule, round, depot.Value, sims[i].sign, view, rng); amount > p.Bid {
+			var amount int64
+			if i == 0 && sq.sniper != nil {
+				amount = sq.sniper.bid(rule, round, depot.Value, view)
+			} else {
+				amount = sq.human.bid(rule, round, depot.Value, sims[i].sign, view, rng)
+			}
+			if amount > p.Bid {
 				s.raise(i, amount, s.Clock())
 			}
 		}
@@ -465,6 +617,9 @@ func (sq *squad) playLot(v *venue.Venue, s *warehouse, sims []seatSim, spec lotS
 		if result = res.Verdict; result.Outcome != "" {
 			l.round = round
 			break
+		}
+		if res.Hint {
+			hint()
 		}
 		m.hypes++
 		if s.Hype >= hypeHot {
@@ -506,6 +661,7 @@ func (sq *squad) playLot(v *venue.Venue, s *warehouse, sims []seatSim, spec lotS
 		}
 		if !p.Human {
 			l.appraise += p.Estimate
+			l.bots = max(l.bots, p.Bid)
 		}
 	}
 	l.bidCV = variation(positive) / math.Sqrt(playerCount-1)

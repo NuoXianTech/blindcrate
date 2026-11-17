@@ -83,6 +83,8 @@ const (
 	CheckAppraiseBias = "appraise_bias" // 人机估值 ÷ 货仓价值
 	CheckSeatEV       = "seat_ev"       // 每个真人席位的平均盈亏
 	CheckWinRate      = "win_rate"      // 有人机时每个真人席位拍下货仓的比例
+	CheckSnipeEdge    = "snipe_edge"    // 有人机时盲狙比模拟真人每局多赚多少
+	CheckCheapBlocked = "cheap_blocked" // 有人机时便宜货仓里真人拍不到(拍下只会亏)的比例
 )
 
 // 闸门数值的单位

@@ -273,7 +273,8 @@ func standardSquads(t *testing.T) []squad {
 // maxDiscount 默认的领先折让上限
 const maxDiscount = 3000
 
-// TestSimulateStandardMap 交接包的标准图按推导出的参数验算: 参考阵容落在结构闸门内, 真人盈亏等于目标, 有人机的阵容估值不偏; 同样的输入结果相同
+// TestSimulateStandardMap 交接包的标准图按推导出的参数验算: 参考阵容落在结构闸门内, 真人盈亏等于目标, 有人机的阵容估值不偏,
+// 并另外模拟了盲狙和知情狙击; 同样的输入结果相同
 func TestSimulateStandardMap(t *testing.T) {
 	v := standardVenue()
 	seatEV := scale(v.Simulation.Ranked.Mean, int64(settings.Balance.Default().TargetSeatEV))
@@ -311,9 +312,16 @@ func TestSimulateStandardMap(t *testing.T) {
 	if gap := humans.SeatEV - seatEV; gap < -1 || gap > 1 {
 		t.Errorf("reference seat ev %d, want %d ± 1", humans.SeatEV, seatEV)
 	}
+	if humans.SnipeEV != 0 || humans.InsiderEV != 0 || humans.CheapBlocked != 0 {
+		t.Errorf("reference squad should have no sniper runs: %+v", humans)
+	}
 	for _, s := range b.Squads[1:] {
 		if s.AppraiseBias < 8000 || s.AppraiseBias > 13000 {
 			t.Errorf("%s appraise bias %d, want [8000, 13000]", s.Squad, s.AppraiseBias)
+		}
+		// 知情狙击不会买亏, 每局最多亏掉入场费; 盲狙不看货仓, 赚得不会比它多
+		if s.InsiderEV < -v.Auction.EntryFee || s.InsiderEV <= s.SnipeEV {
+			t.Errorf("%s insider ev %d, blind sniper ev %d, entry fee %d", s.Squad, s.InsiderEV, s.SnipeEV, v.Auction.EntryFee)
 		}
 	}
 
@@ -374,6 +382,99 @@ func TestSolveEntryFee(t *testing.T) {
 	}
 	if got := solveEntryFee(sq, matches[1:], rule, 200, -10); got != 0 {
 		t.Errorf("nothing sold: got %d, want 0", got)
+	}
+}
+
+// TestSniperBid 狙击只在最后一轮和加轮出价: 盲狙比别人已公开的最高价高一成, 只受剩余资金限制; 知情狙击不超过卖掉货仓能收回的钱
+func TestSniperBid(t *testing.T) {
+	rule := &venue.AuctionRule{StartPrice: 100, Rounds: 4}
+	blind := &sniper{Factor: snipeFactor}
+	insider := &sniper{Factor: insiderFactor, Keep: 9800}
+	cases := []struct {
+		name   string
+		sniper *sniper
+		round  int32
+		value  int64
+		view   humanView
+		want   int64
+	}{
+		{"最后一轮之前不出价", blind, 3, 5000, humanView{carry: 10000, best: 1000}, 0},
+		{"最后一轮比公开的最高价高一成", blind, 4, 5000, humanView{carry: 10000, best: 1000}, 1100},
+		{"不看货仓值多少", blind, 4, 500, humanView{carry: 10000, best: 1000}, 1100},
+		{"没人出过价时按起拍价", blind, 4, 5000, humanView{carry: 10000}, 110},
+		{"不超过剩余资金", blind, 4, 5000, humanView{carry: 1050, best: 1000}, 1050},
+		{"资金不到起拍价", blind, 4, 5000, humanView{carry: 99}, 0},
+		{"加轮再加 5%", blind, 5, 5000, humanView{carry: 10000, previous: 1100, best: 1100}, 1155},
+		{"加轮时资金用完", blind, 5, 5000, humanView{carry: 1100, previous: 1100, best: 1100}, 0},
+		{"知情时多加一些", insider, 4, 5000, humanView{carry: 10000, best: 1000}, 1250},
+		{"知情时不超过能收回的钱", insider, 4, 1200, humanView{carry: 10000, best: 1000}, 1176},
+		{"知情时加到能收回的钱为止", insider, 5, 1200, humanView{carry: 10000, previous: 1176, best: 1176}, 0},
+		{"知情时不值起拍价的不拍", insider, 4, 100, humanView{carry: 10000}, 0},
+	}
+	for _, c := range cases {
+		if got := c.sniper.bid(rule, c.round, c.value, c.view); got != c.want {
+			t.Errorf("%s: got %d, want %d", c.name, got, c.want)
+		}
+	}
+	// 出价很低时加轮至少加 1
+	if got := blind.bid(&venue.AuctionRule{StartPrice: 1, Rounds: 4}, 5, 5000, humanView{carry: 10000, previous: 10, best: 10}); got != 11 {
+		t.Errorf("small raise: got %d, want 11", got)
+	}
+}
+
+// TestSeatEV 一个座位每局的平均盈亏与 summarize 的口径相同: 拍下的货仓按扣掉出售手续费后的回收价减成交价, 至少成交一个拍品的仓库扣入场费
+func TestSeatEV(t *testing.T) {
+	rule := venue.AuctionRule{StartPrice: 10, EntryFee: 60}
+	seats := func() ([]int64, []bool) { return make([]int64, playerCount), make([]bool, playerCount) }
+	matches := []matchSim{
+		{lots: []lotSim{{value: 1000, sold: true, top: 900, second: 800, winner: 1}, {value: 2000, sold: true, top: 500, second: 400, winner: 2}}},
+		{lots: []lotSim{{value: 500}}},
+		{lots: []lotSim{{value: 800, sold: true, top: 700, winner: 3}}},
+	}
+	for i := range matches {
+		matches[i].carry, matches[i].planner = seats()
+	}
+	// 1 号拍下一个赚 980 - 900 = 80, 三局里两局有成交, 各扣 60
+	if got := seatEV(matches, 1, &rule, 200); got != -13 {
+		t.Errorf("seat 1: got %d, want -13", got)
+	}
+	// 2 号拍下一个赚 1960 - 500 = 1460
+	if got := seatEV(matches, 2, &rule, 200); got != 447 {
+		t.Errorf("seat 2: got %d, want 447", got)
+	}
+	// 什么都没拍到也要交入场费
+	if got := seatEV(matches, 4, &rule, 200); got != -40 {
+		t.Errorf("seat 4: got %d, want -40", got)
+	}
+	sq := &squad{code: venue.SquadPve, humans: 1}
+	if got := sq.summarize(matches, &rule, 200).SeatEV; got != -13 {
+		t.Errorf("summarize: got %d, want -13", got)
+	}
+	// 成交价按领先折让: 折让一半时 1 号按 850 成交
+	rule.LeadDiscount = 5000
+	if got := seatEV(matches, 1, &rule, 200); got != 3 {
+		t.Errorf("with the lead discount: got %d, want 3", got)
+	}
+	if got := seatEV(nil, 1, &rule, 200); got != 0 {
+		t.Errorf("no matches: got %d, want 0", got)
+	}
+}
+
+// TestCheapBlocked 只看每局第一个拍品里价值不到公示期望六成的, 人机的最高出价不低于卖掉货仓能收回的钱时算拍不到
+func TestCheapBlocked(t *testing.T) {
+	matches := []matchSim{
+		{lots: []lotSim{{value: 500, expected: 1000, bots: 490}}}, // 能收回 490, 拍不到
+		{lots: []lotSim{{value: 500, expected: 1000, bots: 489}}},
+		{lots: []lotSim{{value: 599, expected: 1000}, {value: 100, expected: 1000, bots: 900}}}, // 第二个拍品不看
+		{lots: []lotSim{{value: 600, expected: 1000, bots: 9999}}},                              // 不算便宜
+		{lots: []lotSim{{value: 0, expected: 1000, bots: 100}}},                                 // 空货仓不看
+		{},
+	}
+	if got := cheapBlocked(matches, 200); got != 3333 {
+		t.Errorf("got %d, want 3333", got)
+	}
+	if got := cheapBlocked(matches[3:], 200); got != 0 {
+		t.Errorf("no cheap depots: got %d, want 0", got)
 	}
 }
 
