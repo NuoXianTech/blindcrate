@@ -31,6 +31,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -77,8 +78,7 @@ func ListSeasons(c *gin.Context) {
 	}
 	total, seasons, err := QuerySeasons(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListSeasons] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListSeasons] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListSeasonsResponseData{Total: total, Seasons: seasons}})
@@ -97,21 +97,6 @@ type SeasonRequest struct {
 type CreateSeasonRequest struct {
 	Code string `json:"code" binding:"required,max=24"` // 自然键, 小写字母、数字和下划线
 	SeasonRequest
-}
-
-// seasonErrorStatus 赛季配置错误对应的状态码, 不是配置错误时返回 0
-func seasonErrorStatus(err error) int {
-	switch err.Error() {
-	case season.CodeInvalid, season.NameInvalid, season.TimeInvalid, season.CarryInvalid,
-		season.RewardsTooMany, season.RewardRatingInvalid, season.RewardRatingTaken, season.RewardEmpty,
-		season.RewardLinesTooMany, season.RewardAmountInvalid, season.RewardNotFound:
-		return http.StatusBadRequest
-	case season.SeasonNotFound:
-		return http.StatusNotFound
-	case season.CodeTaken, season.TimeOverlapped, season.StartLocked, season.SeasonEnded, season.DeleteStarted, season.EndNotActive:
-		return http.StatusConflict
-	}
-	return 0
 }
 
 // CreateSeason
@@ -142,12 +127,7 @@ func CreateSeason(c *gin.Context) {
 	}
 	created, err := doCreateSeason(ctx, &req)
 	if err != nil {
-		if status := seasonErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateSeason] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateSeason] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, season.ActionSeasonCreate, season.TargetSeason, created.ID, seasonFields(&created.Season))
@@ -186,12 +166,7 @@ func UpdateSeason(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateSeason(ctx, seasonID, &req)
 	if err != nil {
-		if status := seasonErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateSeason] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateSeason] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -229,12 +204,7 @@ func DeleteSeason(c *gin.Context) {
 	}
 	deleted, err := doDeleteSeason(ctx, seasonID)
 	if err != nil {
-		if status := seasonErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteSeason] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteSeason] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, season.ActionSeasonDelete, season.TargetSeason, deleted.ID, seasonFields(deleted))
@@ -270,12 +240,7 @@ func EndSeason(c *gin.Context) {
 	}
 	ended, changes, err := doEndSeason(ctx, seasonID)
 	if err != nil {
-		if status := seasonErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[EndSeason] end failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[EndSeason] end failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, season.ActionSeasonEnd, season.TargetSeason, ended.ID, changes)

@@ -26,7 +26,6 @@
 package mailboxadmin
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
@@ -34,6 +33,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/mailbox"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -43,18 +43,6 @@ import (
 type Response struct {
 	ErrorMsg string      `json:"error_msg"`
 	Data     interface{} `json:"data"`
-}
-
-// letterErrorStatus 邮件内容错误对应的状态码, 不是内容错误时返回 0
-func letterErrorStatus(err error) int {
-	var invalid *mailbox.InvalidError
-	if errors.As(err, &invalid) {
-		return http.StatusBadRequest
-	}
-	if err.Error() == mailbox.IdempotencyConflict {
-		return http.StatusConflict
-	}
-	return 0
 }
 
 // ListMailSourcesResponseData 邮件来源
@@ -120,12 +108,7 @@ func SendMails(c *gin.Context) {
 	}
 	sent, letter, err := doSendMails(ctx, &req)
 	if err != nil {
-		if status := letterErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[SendMails] send failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[SendMails] send failed")
 		return
 	}
 	if sent > 0 {
@@ -176,8 +159,7 @@ func ListMails(c *gin.Context) {
 	}
 	total, mails, err := QueryMails(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMails] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMails] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListMailsResponseData{Total: total, Mails: mails}})
@@ -217,8 +199,7 @@ func ListMailBroadcasts(c *gin.Context) {
 	}
 	total, items, err := QueryBroadcasts(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMailBroadcasts] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMailBroadcasts] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListBroadcastsResponseData{Total: total, Broadcasts: items}})
@@ -266,12 +247,7 @@ func CreateMailBroadcast(c *gin.Context) {
 	}
 	created, replayed, err := doCreateBroadcast(ctx, operator.ID, &req)
 	if err != nil {
-		if status := letterErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateMailBroadcast] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateMailBroadcast] create failed")
 		return
 	}
 	if replayed {
@@ -323,15 +299,7 @@ func RevokeMailBroadcast(c *gin.Context) {
 	}
 	revoked, removed, err := doRevokeBroadcast(ctx, operator.ID, broadcastID)
 	if err != nil {
-		switch err.Error() {
-		case mailbox.BroadcastNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case mailbox.BroadcastRevoked:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[RevokeMailBroadcast] revoke failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[RevokeMailBroadcast] revoke failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, mailbox.ActionRevoke, mailbox.TargetBroadcast, revoked.ID, map[string]interface{}{

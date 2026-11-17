@@ -27,7 +27,6 @@ package effect
 import (
 	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -35,6 +34,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
@@ -103,6 +103,9 @@ type UseError struct {
 
 func (e *UseError) Error() string { return e.Reason }
 
+// Kind 错误的类别, 见 fault
+func (e *UseError) Kind() fault.Kind { return fault.KindForbidden }
+
 // Unusable 物品现在不能使用的错误, 效果在生成 Plan 或 Act 时返回; reason 展示给玩家
 func Unusable(reason string) error { return &UseError{Reason: reason} }
 
@@ -141,7 +144,7 @@ func loadPlan(tx *gorm.DB, userID, itemID uint64) (*item.Item, *Plan, error) {
 		return nil, nil, err
 	}
 	if target.ID == 0 || SceneOf(target.Effect) != SceneInventory {
-		return nil, nil, errors.New(ItemNotUsable)
+		return nil, nil, fault.NotFound(ItemNotUsable)
 	}
 	ctx := &InventoryContext{Tx: tx, UserID: userID, Item: &target}
 	plan, err := Apply[*InventoryContext, *Plan](SceneInventory, target.Effect, ctx, target.EffectParams)
@@ -282,7 +285,7 @@ func UseInInventory(ctx context.Context, userID, itemID uint64, req *InventoryUs
 		}
 		if record.ID != 0 {
 			if record.ItemID != itemID {
-				return errors.New(IdempotencyConflict)
+				return fault.Conflict(IdempotencyConflict)
 			}
 			replayed = true
 			return nil
@@ -326,19 +329,19 @@ func useInInventory(tx *gorm.DB, userID, itemID uint64, req *InventoryUseRequest
 		granted = plan.Draw()
 	case ModeChoose:
 		if int(req.Choice) >= len(plan.Options) {
-			return nil, errors.New(ChoiceInvalid)
+			return nil, fault.Invalid(ChoiceInvalid)
 		}
 		granted = plan.Options[req.Choice].Bundle
 	}
 	if plan.Mode != ModeChoose && req.Choice != 0 {
-		return nil, errors.New(ChoiceInvalid)
+		return nil, fault.Invalid(ChoiceInvalid)
 	}
 	input := strings.TrimSpace(req.Input)
 	switch {
 	case plan.Input == nil && input != "":
-		return nil, errors.New(InputInvalid)
+		return nil, fault.Invalid(InputInvalid)
 	case plan.Input != nil && (input == "" || utf8.RuneCountInString(input) > plan.Input.MaxLength):
-		return nil, errors.New(InputInvalid)
+		return nil, fault.Invalid(InputInvalid)
 	}
 	if !granted.IsEmpty() {
 		// 已下架的物品按回收价折成货币, 与其他奖励一致; 什么也发不出时不能使用
@@ -364,7 +367,7 @@ func useInInventory(tx *gorm.DB, userID, itemID uint64, req *InventoryUseRequest
 	if err := tx.Create(record).Error; err != nil {
 		// 咨询锁之外的兜底, 正常不会走到
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(DuplicateRequest)
+			return nil, fault.Conflict(DuplicateRequest)
 		}
 		return nil, err
 	}

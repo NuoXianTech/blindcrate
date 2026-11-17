@@ -25,8 +25,6 @@
 package botadmin
 
 import (
-	"errors"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
 	"gorm.io/gorm"
@@ -42,8 +40,7 @@ func init() {
 	// 风格按代码对应; 同代码的风格已删除时只能改名导入
 	pack.RegisterTable(pack.Table[bot.Persona, PersonaRequest]{
 		Code: bot.PackPersonas, Label: "人机风格", Hint: "按代码对应", Order: OrderBotPersonas,
-		Invalid: invalid,
-		Query:   func(tx *gorm.DB) *gorm.DB { return tx.Order("id") },
+		Query: func(tx *gorm.DB) *gorm.DB { return tx.Order("id") },
 		Pack: func(p *bot.Persona, _ func(string) string) PersonaRequest {
 			return PersonaRequest{Code: p.Code, Name: p.Name, Description: p.Description, Strategy: p.Strategy, Params: p.Params}
 		},
@@ -73,8 +70,7 @@ func init() {
 	// 昵称按昵称对应
 	pack.RegisterTable(pack.Table[bot.Name, NameRequest]{
 		Code: bot.PackNames, Label: "人机昵称", Hint: "按昵称对应", Order: OrderBotNames,
-		Invalid: invalid,
-		Query:   func(tx *gorm.DB) *gorm.DB { return tx.Order("id") },
+		Query: func(tx *gorm.DB) *gorm.DB { return tx.Order("id") },
 		Pack: func(n *bot.Name, _ func(string) string) NameRequest {
 			return NameRequest{Name: n.Name, IsEnabled: n.IsEnabled}
 		},
@@ -98,10 +94,4 @@ func init() {
 			return tx.Save(target).Error
 		},
 	})
-}
-
-// invalid 写入时返回的错误是否为人机配置的校验错误
-func invalid(err error) bool {
-	var target *bot.InvalidError
-	return errors.As(err, &target)
 }

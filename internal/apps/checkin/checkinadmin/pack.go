@@ -51,10 +51,6 @@ func init() {
 	// 签到奖励按天对应; 新增的天数需要与已有的连续, 包中按天排列时依次导入即可
 	pack.RegisterTable(pack.Table[checkin.Day, DayPack]{
 		Code: PackCheckinDays, Label: "签到奖励", Hint: "按天对应; 包中没有的天数保留", Order: OrderCheckinDays,
-		Invalid: func(err error) bool {
-			var invalid *checkin.InvalidError
-			return errors.As(err, &invalid)
-		},
 		Query: func(tx *gorm.DB) *gorm.DB { return tx.Order("day") },
 		Pack: func(d *checkin.Day, _ func(string) string) DayPack {
 			return DayPack{Day: d.Day, Reward: d.Reward}

@@ -30,8 +30,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auction"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/apps/match"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
 
@@ -63,12 +62,7 @@ func GetAuction(c *gin.Context) {
 	}
 	view, err := auction.QueryAdminAuction(ctx, matchID)
 	if err != nil {
-		if err.Error() == match.MatchNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetAuction] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetAuction] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: view})

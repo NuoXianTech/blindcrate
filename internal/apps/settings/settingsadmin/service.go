@@ -26,9 +26,9 @@ package settingsadmin
 
 import (
 	"context"
-	"errors"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/mail"
 )
@@ -39,14 +39,14 @@ import (
 func prepareTestMail(ctx context.Context, req *TestMailRequest) (string, *settings.MailSettings, error) {
 	to, err := mail.NormalizeAddress(req.To)
 	if err != nil {
-		return "", nil, errors.New(auth.EmailInvalid)
+		return "", nil, fault.Invalid(auth.EmailInvalid)
 	}
 	mailConfig, err := settings.Mail.Get(ctx)
 	if err != nil {
 		return "", nil, err
 	}
 	if mailConfig.Host == "" || mailConfig.FromAddress == "" {
-		return "", nil, errors.New(MailTestIncomplete)
+		return "", nil, fault.Invalid(MailTestIncomplete)
 	}
 	return to, mailConfig, nil
 }

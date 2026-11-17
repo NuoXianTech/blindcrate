@@ -33,6 +33,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -112,7 +113,7 @@ func doCreateNames(ctx context.Context, req *CreateNamesRequest) (*CreateNamesRe
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(bot.NameTaken)
+			return nil, fault.Conflict(bot.NameTaken)
 		}
 		return nil, err
 	}
@@ -142,7 +143,7 @@ func doUpdateName(ctx context.Context, nameID uint64, req *NameRequest) (*bot.Na
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, nil, errors.New(bot.NameTaken)
+			return nil, nil, fault.Conflict(bot.NameTaken)
 		}
 		return nil, nil, err
 	}
@@ -168,7 +169,7 @@ func doDeleteName(ctx context.Context, nameID uint64) (*bot.Name, error) {
 func LockName(tx *gorm.DB, target *bot.Name, nameID uint64) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), nameID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(bot.NameNotFound)
+			return fault.NotFound(bot.NameNotFound)
 		}
 		return err
 	}
@@ -222,7 +223,7 @@ func doCreatePersona(ctx context.Context, req *PersonaRequest) (*bot.Persona, er
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(bot.CodeTaken)
+			return nil, fault.Conflict(bot.CodeTaken)
 		}
 		return nil, err
 	}
@@ -240,7 +241,7 @@ func doUpdatePersona(ctx context.Context, personaID uint64, req *PersonaRequest)
 			return err
 		}
 		if req.Code != target.Code {
-			return errors.New(bot.CodeImmutable)
+			return fault.Invalid(bot.CodeImmutable)
 		}
 		old := target
 		ApplyPersona(&target, req)
@@ -287,7 +288,7 @@ func doDeletePersona(ctx context.Context, personaID uint64) (*bot.Persona, error
 func LockPersona(tx *gorm.DB, target *bot.Persona, personaID uint64) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), personaID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(bot.PersonaNotFound)
+			return fault.NotFound(bot.PersonaNotFound)
 		}
 		return err
 	}

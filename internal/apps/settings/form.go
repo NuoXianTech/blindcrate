@@ -28,12 +28,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
 	"slices"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"gorm.io/gorm"
@@ -238,11 +238,11 @@ func (g *group) merge(tx *gorm.DB, cur any, broken []string, raw json.RawMessage
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(next); err != nil {
-		return nil, errors.New(ValueInvalid)
+		return nil, fault.Invalid(ValueInvalid)
 	}
 	for _, key := range clearSecrets {
 		if f := g.field(key); f == nil || !f.Secret {
-			return nil, errors.New(ValueInvalid)
+			return nil, fault.Invalid(ValueInvalid)
 		}
 	}
 
@@ -255,7 +255,7 @@ func (g *group) merge(tx *gorm.DB, cur any, broken []string, raw json.RawMessage
 			fv.SetString("")
 		case fv.String() != "":
 		case slices.Contains(broken, f.Key):
-			return nil, fmt.Errorf(SecretBroken, f.Label)
+			return nil, fault.Invalid(SecretBroken, f.Label)
 		default:
 			fv.SetString(cv.Field(f.index).String())
 		}
@@ -289,7 +289,7 @@ func (g *group) validate(tx *gorm.DB, v any) error {
 			continue
 		}
 		if !slices.ContainsFunc(options, func(o params.Option) bool { return o.Value == value }) {
-			return fmt.Errorf(OptionInvalid, f.Label)
+			return fault.Invalid(OptionInvalid, f.Label)
 		}
 	}
 	return nil

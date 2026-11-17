@@ -28,6 +28,7 @@ import (
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-contrib/sessions"
@@ -80,30 +81,17 @@ func Login(c *gin.Context) {
 	}
 	user, err := doLogin(ctx, req.Username, req.Password)
 	if err != nil {
-		if err.Error() == InvalidCredentials || err.Error() == BannedAccount {
-			audit.Record(c, 0, audit.ScopeUser, ActionLoginFailed, "", 0, map[string]interface{}{"identifier": req.Username, "reason": err.Error()})
+		// 密码错误和账号被封禁记入操作日志, 用于排查撞库
+		if reason := err.Error(); reason == InvalidCredentials || reason == BannedAccount {
+			audit.Record(c, 0, audit.ScopeUser, ActionLoginFailed, "", 0, map[string]interface{}{"identifier": req.Username, "reason": reason})
 		}
-		if err.Error() == InvalidCredentials {
-			c.JSON(http.StatusUnauthorized, Response{ErrorMsg: InvalidCredentials})
-			return
-		}
-		if err.Error() == BannedAccount {
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: BannedAccount})
-			return
-		}
-		if err.Error() == EmailLoginDisabled {
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: EmailLoginDisabled})
-			return
-		}
-		logger.ErrorF(ctx, "[Login] login failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
+		reply.Fail(c, err, "[Login] login failed")
 		return
 	}
 	session := sessions.Default(c)
 	setSessionUser(session, user)
 	if err := session.Save(); err != nil {
-		logger.ErrorF(ctx, "[Login] save session failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
+		reply.Fail(c, err, "[Login] save session failed")
 		return
 	}
 	if err := trackSession(ctx, user.ID, session.ID()); err != nil {
@@ -164,21 +152,7 @@ func SendRegisterCode(c *gin.Context) {
 		return
 	}
 	if err := doSendRegisterCode(ctx, req.Email); err != nil {
-		switch err.Error() {
-		case EmailInvalid, EmailAliasBlocked, EmailDomainBlocked, EmailNotRequired:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case RegisterClosed:
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		case EmailTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		case CodeTooFrequent:
-			c.JSON(http.StatusTooManyRequests, Response{ErrorMsg: err.Error()})
-		case MailUnavailable:
-			c.JSON(http.StatusServiceUnavailable, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[SendRegisterCode] send failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
-		}
+		reply.Fail(c, err, "[SendRegisterCode] send failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{})
@@ -208,24 +182,13 @@ func Register(c *gin.Context) {
 	}
 	user, err := doRegister(ctx, req.Username, req.Password, req.Email, req.Code)
 	if err != nil {
-		switch err.Error() {
-		case UsernameInvalid, PasswordInvalid, EmailInvalid, EmailAliasBlocked, EmailDomainBlocked, EmailRequired, CodeInvalid:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case RegisterClosed:
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		case UsernameTaken, EmailTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[Register] register failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
-		}
+		reply.Fail(c, err, "[Register] register failed")
 		return
 	}
 	session := sessions.Default(c)
 	setSessionUser(session, user)
 	if err := session.Save(); err != nil {
-		logger.ErrorF(ctx, "[Register] save session failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
+		reply.Fail(c, err, "[Register] save session failed")
 		return
 	}
 	if err := trackSession(ctx, user.ID, session.ID()); err != nil {
@@ -266,8 +229,7 @@ func Logout(c *gin.Context) {
 	userID, sessionID := GetUserIDFromSession(session), session.ID()
 	session.Clear()
 	if err := session.Save(); err != nil {
-		logger.ErrorF(ctx, "[Logout] save session failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
+		reply.Fail(c, err, "[Logout] save session failed")
 		return
 	}
 	if userID > 0 {
@@ -314,13 +276,7 @@ func ChangePassword(c *gin.Context) {
 		return
 	}
 	if err := doChangePassword(ctx, user, req.OldPassword, req.NewPassword); err != nil {
-		switch err.Error() {
-		case WrongPassword, PasswordInvalid:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[ChangePassword] change password failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
-		}
+		reply.Fail(c, err, "[ChangePassword] change password failed")
 		return
 	}
 	// 保留当前设备, 其他设备下线
@@ -366,19 +322,7 @@ func SendEmailCode(c *gin.Context) {
 		return
 	}
 	if err := doSendEmailCode(ctx, user.ID, req.Email); err != nil {
-		switch err.Error() {
-		case EmailInvalid, EmailAliasBlocked, EmailDomainBlocked:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case EmailTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		case CodeTooFrequent:
-			c.JSON(http.StatusTooManyRequests, Response{ErrorMsg: err.Error()})
-		case MailUnavailable:
-			c.JSON(http.StatusServiceUnavailable, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[SendEmailCode] send failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
-		}
+		reply.Fail(c, err, "[SendEmailCode] send failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{})
@@ -416,15 +360,7 @@ func VerifyEmail(c *gin.Context) {
 		return
 	}
 	if err := doVerifyEmail(ctx, user.ID, req.Email, req.Code); err != nil {
-		switch err.Error() {
-		case EmailInvalid, CodeInvalid:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case EmailTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[VerifyEmail] verify failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
-		}
+		reply.Fail(c, err, "[VerifyEmail] verify failed")
 		return
 	}
 	audit.Record(c, user.ID, audit.ScopeUser, ActionVerifyEmail, TargetUser, user.ID, map[string]interface{}{"email": req.Email})
@@ -498,13 +434,7 @@ func UpdateUserInfo(c *gin.Context) {
 	}
 	updated, err := UpdateUserProfile(ctx, user.ID, req.Nickname, req.AvatarURL)
 	if err != nil {
-		switch err.Error() {
-		case NicknameInvalid, AvatarURLInvalid:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[UpdateUserInfo] update failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: InternalError})
-		}
+		reply.Fail(c, err, "[UpdateUserInfo] update failed")
 		return
 	}
 	audit.Record(c, updated.ID, audit.ScopeUser, ActionUpdateProfile, TargetUser, updated.ID, ProfileChanges(req.Nickname, req.AvatarURL))

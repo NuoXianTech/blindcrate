@@ -39,6 +39,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -109,6 +110,9 @@ type InvalidError struct {
 }
 
 func (e *InvalidError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
 
 // ValidateLetter 发送前校验邮件内容: 去掉首尾空白, 发件人为空时为 "系统", 合并附件中的同类项
 //
@@ -348,7 +352,7 @@ func lockMail(tx *gorm.DB, userID, mailID uint64) (*Mail, error) {
 	var m Mail
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND user_id = ?", mailID, userID).First(&m).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(MailNotFound)
+			return nil, fault.NotFound(MailNotFound)
 		}
 		return nil, err
 	}
@@ -384,7 +388,7 @@ func Delete(ctx context.Context, userID, mailID uint64) error {
 			return err
 		}
 		if m.Claimable(time.Now()) {
-			return errors.New(UnclaimedAttachments)
+			return fault.Conflict(UnclaimedAttachments)
 		}
 		return tx.Delete(m).Error
 	})
@@ -470,11 +474,11 @@ func claim(ctx context.Context, userID, mailID uint64) (reward.Bundle, error) {
 		now := time.Now()
 		switch {
 		case m.Attachments.IsEmpty():
-			return errors.New(NoAttachments)
+			return fault.Conflict(NoAttachments)
 		case m.ClaimedAt != nil:
-			return errors.New(AlreadyClaimed)
+			return fault.Conflict(AlreadyClaimed)
 		case !now.Before(m.ExpiresAt):
-			return errors.New(MailExpired)
+			return fault.Conflict(MailExpired)
 		}
 		// 附件发不出时不记领取, 附件中的物品重新上架后还可以领
 		bizID := strconv.FormatUint(m.ID, 10)
@@ -488,9 +492,9 @@ func claim(ctx context.Context, userID, mailID uint64) (reward.Bundle, error) {
 		})
 		switch reward.FailureOf(err) {
 		case reward.Unavailable:
-			return errors.New(AttachmentUnavailable)
+			return fault.Forbidden(AttachmentUnavailable)
 		case reward.TooLarge:
-			return errors.New(AttachmentTooLarge)
+			return fault.Forbidden(AttachmentTooLarge)
 		}
 		if err != nil {
 			return err

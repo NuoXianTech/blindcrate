@@ -25,12 +25,12 @@
 package checkinadmin
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/checkin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
@@ -62,8 +62,7 @@ func ListCheckinDays(c *gin.Context) {
 	ctx := c.Request.Context()
 	days, err := checkin.QueryDays(db.DB(ctx))
 	if err != nil {
-		logger.ErrorF(ctx, "[ListCheckinDays] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListCheckinDays] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: DaysData{Days: days, MaxDays: checkin.MaxDays}})
@@ -110,13 +109,7 @@ func UpdateCheckinDays(c *gin.Context) {
 	}
 	days, changes, err := doUpdateDays(ctx, rewards)
 	if err != nil {
-		var invalid *checkin.InvalidError
-		if errors.As(err, &invalid) {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateCheckinDays] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateCheckinDays] update failed")
 		return
 	}
 	if len(changes) > 0 {

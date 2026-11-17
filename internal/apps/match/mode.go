@@ -26,11 +26,11 @@ package match
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"gorm.io/gorm"
 )
 
@@ -83,6 +83,9 @@ type RejectedError struct {
 }
 
 func (e *RejectedError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *RejectedError) Kind() fault.Kind { return fault.KindForbidden }
 
 // Reject 在 Admit 和 CheckJoin 中拒绝玩家, reason 展示给玩家
 func Reject(reason string) error {
@@ -143,14 +146,14 @@ func lookupMode(ctx context.Context, code string) (Mode, error) {
 	prefix, _, ok := strings.Cut(code, ":")
 	provider, found := providers[prefix]
 	if !ok || !found {
-		return nil, errors.New(ModeNotFound)
+		return nil, fault.Invalid(ModeNotFound)
 	}
 	mode, err := provider.Mode(ctx, code)
 	if err != nil {
 		return nil, err
 	}
 	if mode == nil {
-		return nil, errors.New(ModeNotFound)
+		return nil, fault.Invalid(ModeNotFound)
 	}
 	if err := validateMode(mode); err != nil {
 		return nil, err

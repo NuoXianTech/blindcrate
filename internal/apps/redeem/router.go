@@ -25,10 +25,10 @@
 package redeem
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -74,20 +74,7 @@ func RedeemCode(c *gin.Context) {
 	}
 	result, err := Redeem(ctx, user.ID, req.Code)
 	if err != nil {
-		var rejected *RejectedError
-		switch {
-		case errors.As(err, &rejected):
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		case err.Error() == CodeNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case err.Error() == CodeExpired, err.Error() == CodeUsedUp, err.Error() == AlreadyRedeemed:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		case err.Error() == RewardUnavailable, err.Error() == RewardTooLarge:
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[RedeemCode] redeem failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[RedeemCode] redeem failed")
 		return
 	}
 	// 兑换码本身不记进日志

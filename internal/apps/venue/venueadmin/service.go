@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -73,7 +74,7 @@ func doCreateVenue(ctx context.Context, req *VenueRequest) (*venue.Venue, error)
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(venue.CodeTaken)
+			return nil, fault.Conflict(venue.CodeTaken)
 		}
 		return nil, err
 	}
@@ -91,7 +92,7 @@ func doUpdateVenue(ctx context.Context, venueID uint64, req *VenueRequest) (*ven
 			return err
 		}
 		if req.Code != target.Code {
-			return errors.New(venue.CodeImmutable)
+			return fault.Invalid(venue.CodeImmutable)
 		}
 		old := target
 		ApplyVenue(&target, req)
@@ -175,7 +176,7 @@ func doRecalibrateVenues(ctx context.Context) (*RecalibrateResponseData, error) 
 func LockVenue(tx *gorm.DB, target *venue.Venue, venueID uint64) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), venueID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(venue.VenueNotFound)
+			return fault.NotFound(venue.VenueNotFound)
 		}
 		return err
 	}

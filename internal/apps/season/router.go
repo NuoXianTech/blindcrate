@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -63,14 +64,12 @@ func GetCurrent(c *gin.Context) {
 	now := time.Now()
 	current, err := Current(tx, now)
 	if err != nil {
-		logger.ErrorF(ctx, "[GetCurrentSeason] query current failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetCurrentSeason] query current failed")
 		return
 	}
 	next, err := Next(tx, now)
 	if err != nil {
-		logger.ErrorF(ctx, "[GetCurrentSeason] query next failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetCurrentSeason] query next failed")
 		return
 	}
 	data := GetCurrentResponseData{Rewards: []RewardView{}}

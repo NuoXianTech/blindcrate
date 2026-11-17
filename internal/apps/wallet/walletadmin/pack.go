@@ -27,6 +27,7 @@ package walletadmin
 import (
 	"errors"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"gorm.io/gorm"
@@ -61,7 +62,7 @@ func init() {
 		Lock: func(tx *gorm.DB, current *wallet.Currency) error {
 			if err := current.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), current.Code); err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return errors.New(wallet.CurrencyNotFound)
+					return fault.NotFound(wallet.CurrencyNotFound)
 				}
 				return err
 			}

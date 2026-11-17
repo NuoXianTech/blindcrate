@@ -29,8 +29,8 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/db"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -74,12 +74,7 @@ func GetStats(c *gin.Context) {
 	}
 	result, err := QueryUserStats(db.DB(ctx), user.ID, req.Scope, time.Now())
 	if err != nil {
-		if err.Error() == ScopeInvalid {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetStats] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetStats] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: result})

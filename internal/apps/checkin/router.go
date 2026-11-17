@@ -25,10 +25,10 @@
 package checkin
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -58,8 +58,7 @@ func GetCheckin(c *gin.Context) {
 	}
 	view, err := QueryStatus(ctx, user.ID)
 	if err != nil {
-		logger.ErrorF(ctx, "[GetCheckin] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetCheckin] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: view})
@@ -86,16 +85,7 @@ func DoCheckin(c *gin.Context) {
 	}
 	result, err := Checkin(ctx, user.ID)
 	if err != nil {
-		var rejected *RejectedError
-		switch {
-		case errors.As(err, &rejected):
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		case err.Error() == AlreadyCheckedIn:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[DoCheckin] checkin failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[DoCheckin] checkin failed")
 		return
 	}
 	logger.InfoF(ctx, "[DoCheckin] %d checked in, streak %d, day %d", user.ID, result.Streak, result.Day)

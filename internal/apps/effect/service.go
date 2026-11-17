@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
@@ -57,6 +58,9 @@ type InvalidError struct {
 }
 
 func (e *InvalidError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
 
 // definition 一种效果, 由 Register 生成
 type definition struct {

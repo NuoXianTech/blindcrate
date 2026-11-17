@@ -27,10 +27,9 @@ package conditionadmin
 import (
 	"net/http"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/db"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -59,8 +58,7 @@ func ListConditionTypes(c *gin.Context) {
 	ctx := c.Request.Context()
 	types, err := condition.Types(db.DB(ctx))
 	if err != nil {
-		logger.ErrorF(ctx, "[ListConditionTypes] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListConditionTypes] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListConditionTypesResponseData{Types: types}})

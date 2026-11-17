@@ -25,13 +25,11 @@
 package shop
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -66,8 +64,7 @@ func ListItems(c *gin.Context) {
 	}
 	items, err := QueryItems(ctx, user.ID)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListShopItems] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListShopItems] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListItemsResponseData{Items: items}})
@@ -117,24 +114,7 @@ func CreateOrder(c *gin.Context) {
 		IdempotencyKey: req.IdempotencyKey,
 	})
 	if err != nil {
-		var rejected *RejectedError
-		if errors.As(err, &rejected) {
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: rejected.Reason})
-			return
-		}
-		switch err.Error() {
-		case QuantityInvalid, AmountTooLarge:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case wallet.InsufficientBalance, inventory.InsufficientQuantity:
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		case ItemNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case PriceChanged, IdempotencyConflict, DuplicateRequest:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[CreateShopOrder] purchase failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[CreateShopOrder] purchase failed")
 		return
 	}
 	// 重复提交只返回原订单, 不重复记录
@@ -182,8 +162,7 @@ func ListOrders(c *gin.Context) {
 	}
 	total, orders, err := QueryUserOrders(ctx, user.ID, (req.Current-1)*req.Size, req.Size)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListShopOrders] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListShopOrders] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListOrdersResponseData{Total: total, Orders: orders}})

@@ -28,7 +28,7 @@ import (
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
 
@@ -57,8 +57,7 @@ func ListBoards(c *gin.Context) {
 	ctx := c.Request.Context()
 	boards, err := QueryBoards(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListBoards] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListBoards] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListBoardsResponseData{Boards: boards}})
@@ -85,12 +84,7 @@ func GetBoard(c *gin.Context) {
 	}
 	detail, err := QueryBoard(ctx, user.ID, c.Param("code"))
 	if err != nil {
-		if err.Error() == BoardNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetBoard] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetBoard] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: detail})

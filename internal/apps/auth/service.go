@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -81,7 +82,7 @@ func doLogin(ctx context.Context, identifier, password string) (*User, error) {
 			return nil, err
 		}
 		if !authSettings.EmailLoginEnabled {
-			return nil, errors.New(EmailLoginDisabled)
+			return nil, fault.Forbidden(EmailLoginDisabled)
 		}
 		query = query.Where("LOWER(email) = LOWER(?) AND email_verified_at IS NOT NULL", identifier)
 	} else {
@@ -94,16 +95,16 @@ func doLogin(ctx context.Context, identifier, password string) (*User, error) {
 		}
 		// 用户不存在时也走一次 bcrypt,让两种失败的耗时接近
 		compareDummyPassword(password)
-		return nil, errors.New(InvalidCredentials)
+		return nil, fault.Unauthenticated(InvalidCredentials)
 	}
 
 	// verify password
 	if !user.HasPassword() {
 		compareDummyPassword(password)
-		return nil, errors.New(InvalidCredentials)
+		return nil, fault.Unauthenticated(InvalidCredentials)
 	}
 	if err := comparePassword(user.PasswordHash, password); err != nil {
-		return nil, errors.New(InvalidCredentials)
+		return nil, fault.Unauthenticated(InvalidCredentials)
 	}
 
 	// check status
@@ -159,7 +160,7 @@ func doRegister(ctx context.Context, username, password, rawEmail, code string) 
 			return err
 		}
 		if count > 0 {
-			return errors.New(UsernameTaken)
+			return fault.Conflict(UsernameTaken)
 		}
 
 		var hasUser bool
@@ -168,7 +169,7 @@ func doRegister(ctx context.Context, username, password, rawEmail, code string) 
 		}
 		// 系统中还没有用户时不受注册开关限制, 保证总能创建出第一个管理员
 		if hasUser && !authSettings.RegisterEnabled {
-			return errors.New(RegisterClosed)
+			return fault.Forbidden(RegisterClosed)
 		}
 		user.IsAdmin = !hasUser
 
@@ -179,7 +180,7 @@ func doRegister(ctx context.Context, username, password, rawEmail, code string) 
 		// 系统中还没有用户时可以不填邮箱, 此时邮件通常还没有配置
 		if authSettings.RegisterEmailRequired && (hasUser || email != "") {
 			if email == "" {
-				return errors.New(EmailRequired)
+				return fault.Invalid(EmailRequired)
 			}
 			if err := verifyRegisterCode(ctx, email, code); err != nil {
 				return err
@@ -188,7 +189,7 @@ func doRegister(ctx context.Context, username, password, rawEmail, code string) 
 				return err
 			}
 			if count > 0 {
-				return errors.New(EmailTaken)
+				return fault.Conflict(EmailTaken)
 			}
 			user.Email = email
 			user.EmailVerifiedAt = &now
@@ -198,9 +199,9 @@ func doRegister(ctx context.Context, username, password, rawEmail, code string) 
 			if db.IsUniqueViolation(err) {
 				// 绑定邮箱不经过注册的咨询锁, 可能在上面的检查之后占用同一个邮箱
 				if strings.Contains(err.Error(), "uniq_users_email_lower") {
-					return errors.New(EmailTaken)
+					return fault.Conflict(EmailTaken)
 				}
-				return errors.New(UsernameTaken)
+				return fault.Conflict(UsernameTaken)
 			}
 			return err
 		}
@@ -228,7 +229,7 @@ func doRegister(ctx context.Context, username, password, rawEmail, code string) 
 func doChangePassword(ctx context.Context, user *User, oldPassword, newPassword string) error {
 	if user.HasPassword() {
 		if err := comparePassword(user.PasswordHash, oldPassword); err != nil {
-			return errors.New(WrongPassword)
+			return fault.Invalid(WrongPassword)
 		}
 	}
 	return UpdateUserPassword(ctx, user.ID, newPassword)
@@ -248,7 +249,7 @@ func UpdateUserPassword(ctx context.Context, userID uint64, password string) err
 		return tx.Error
 	}
 	if tx.RowsAffected == 0 {
-		return errors.New(UserNotFound)
+		return fault.NotFound(UserNotFound)
 	}
 	return nil
 }
@@ -304,15 +305,15 @@ func normalizeEmail(authSettings *settings.AuthSettings, rawEmail string) (strin
 	email, err := mail.NormalizeAddress(rawEmail)
 	// 不接受 name@[1.2.3.4] 这样的地址, 它没有后缀, 会绕过邮箱后缀的黑名单
 	if err != nil || strings.Contains(email, "[") {
-		return "", errors.New(EmailInvalid)
+		return "", fault.Invalid(EmailInvalid)
 	}
 	if authSettings.BlockEmailAlias && mail.IsAlias(email) {
-		return "", errors.New(EmailAliasBlocked)
+		return "", fault.Invalid(EmailAliasBlocked)
 	}
 	switch listed := mail.InDomains(email, authSettings.EmailDomains); {
 	case authSettings.EmailDomainMode == settings.EmailDomainAllow && !listed,
 		authSettings.EmailDomainMode == settings.EmailDomainDeny && listed:
-		return "", errors.New(EmailDomainBlocked)
+		return "", fault.Invalid(EmailDomainBlocked)
 	}
 	return email, nil
 }
@@ -330,7 +331,7 @@ func sendEmailCode(ctx context.Context, key, cooldownKey, email string) error {
 		return err
 	}
 	if !ok {
-		return errors.New(CodeTooFrequent)
+		return fault.TooFrequent(CodeTooFrequent)
 	}
 
 	code, err := generateEmailCode()
@@ -350,7 +351,7 @@ func sendEmailCode(ctx context.Context, key, cooldownKey, email string) error {
 	if err = mail.Send(ctx, email, subject, body); err != nil {
 		logger.ErrorF(ctx, "[EmailCode] send to %s failed: %v", email, err)
 		db.Redis.Del(ctx, key, cooldownKey)
-		return errors.New(MailUnavailable)
+		return fault.Unavailable(MailUnavailable)
 	}
 	return nil
 }
@@ -377,7 +378,7 @@ func doSendEmailCode(ctx context.Context, userID uint64, rawEmail string) error 
 		return err
 	}
 	if count > 0 {
-		return errors.New(EmailTaken)
+		return fault.Conflict(EmailTaken)
 	}
 	return sendEmailCode(ctx, emailCodeKey(userID), emailCodeCooldownKey(userID), email)
 }
@@ -391,10 +392,10 @@ func doSendRegisterCode(ctx context.Context, rawEmail string) error {
 		return err
 	}
 	if !authSettings.RegisterEnabled {
-		return errors.New(RegisterClosed)
+		return fault.Forbidden(RegisterClosed)
 	}
 	if !authSettings.RegisterEmailRequired {
-		return errors.New(EmailNotRequired)
+		return fault.Invalid(EmailNotRequired)
 	}
 	email, err := normalizeEmail(authSettings, rawEmail)
 	if err != nil {
@@ -406,7 +407,7 @@ func doSendRegisterCode(ctx context.Context, rawEmail string) error {
 		return err
 	}
 	if count > 0 {
-		return errors.New(EmailTaken)
+		return fault.Conflict(EmailTaken)
 	}
 	return sendEmailCode(ctx, registerCodeKey(email), registerCodeCooldownKey(email), email)
 }
@@ -421,7 +422,7 @@ func verifyRegisterCode(ctx context.Context, email, code string) error {
 		return err
 	}
 	if stored["code"] == "" {
-		return errors.New(CodeInvalid)
+		return fault.Invalid(CodeInvalid)
 	}
 	if subtle.ConstantTimeCompare([]byte(stored["code"]), []byte(strings.TrimSpace(code))) == 1 {
 		return nil
@@ -434,14 +435,14 @@ func verifyRegisterCode(ctx context.Context, email, code string) error {
 	if attempts >= emailCodeMaxAttempts {
 		db.Redis.Del(ctx, key)
 	}
-	return errors.New(CodeInvalid)
+	return fault.Invalid(CodeInvalid)
 }
 
 // doVerifyEmail 校验验证码, 通过后把邮箱写入 users 并标记已验证
 func doVerifyEmail(ctx context.Context, userID uint64, rawEmail, code string) error {
 	email, err := mail.NormalizeAddress(rawEmail)
 	if err != nil {
-		return errors.New(EmailInvalid)
+		return fault.Invalid(EmailInvalid)
 	}
 
 	key := emailCodeKey(userID)
@@ -450,7 +451,7 @@ func doVerifyEmail(ctx context.Context, userID uint64, rawEmail, code string) er
 		return err
 	}
 	if stored["code"] == "" {
-		return errors.New(CodeInvalid)
+		return fault.Invalid(CodeInvalid)
 	}
 	// 超过尝试次数直接作废, 防止暴力枚举 6 位验证码
 	attempts, err := db.Redis.HIncrBy(ctx, key, "attempts", 1).Result()
@@ -459,16 +460,16 @@ func doVerifyEmail(ctx context.Context, userID uint64, rawEmail, code string) er
 	}
 	if attempts > emailCodeMaxAttempts {
 		db.Redis.Del(ctx, key)
-		return errors.New(CodeInvalid)
+		return fault.Invalid(CodeInvalid)
 	}
 	if stored["email"] != email || subtle.ConstantTimeCompare([]byte(stored["code"]), []byte(strings.TrimSpace(code))) != 1 {
-		return errors.New(CodeInvalid)
+		return fault.Invalid(CodeInvalid)
 	}
 
 	if err = db.DB(ctx).Model(&User{}).Where("id = ?", userID).
 		Updates(map[string]interface{}{"email": email, "email_verified_at": time.Now()}).Error; err != nil {
 		if db.IsUniqueViolation(err) {
-			return errors.New(EmailTaken)
+			return fault.Conflict(EmailTaken)
 		}
 		return err
 	}
@@ -510,7 +511,7 @@ func UpdateUserProfile(ctx context.Context, userID uint64, nickname, avatarURL *
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := user.Exact(tx, userID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return errors.New(UserNotFound)
+				return fault.NotFound(UserNotFound)
 			}
 			return err
 		}

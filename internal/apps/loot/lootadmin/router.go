@@ -30,10 +30,8 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
-	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -78,8 +76,7 @@ func ListLootPools(c *gin.Context) {
 	}
 	total, pools, err := QueryLootPools(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListLootPools] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListLootPools] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListLootPoolsResponseData{Total: total, Pools: pools}})
@@ -121,15 +118,7 @@ func CreateLootPool(c *gin.Context) {
 	}
 	created, err := doCreateLootPool(ctx, &req)
 	if err != nil {
-		switch err.Error() {
-		case loot.PoolCodeInvalid, loot.PoolNameInvalid:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case loot.PoolCodeTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[CreateLootPool] create failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[CreateLootPool] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, loot.ActionLootPoolCreate, loot.TargetLootPool, created.ID, lootPoolFields(created))
@@ -168,17 +157,7 @@ func UpdateLootPool(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateLootPool(ctx, poolID, &req)
 	if err != nil {
-		switch err.Error() {
-		case loot.PoolCodeInvalid, loot.PoolNameInvalid:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case loot.PoolNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case loot.PoolCodeTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[UpdateLootPool] update failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[UpdateLootPool] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -220,12 +199,7 @@ func DeleteLootPool(c *gin.Context) {
 	}
 	deleted, entries, err := doDeleteLootPool(ctx, poolID)
 	if err != nil {
-		if err.Error() == loot.PoolNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteLootPool] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteLootPool] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, loot.ActionLootPoolDelete, loot.TargetLootPool, deleted.ID, map[string]interface{}{
@@ -265,12 +239,7 @@ func ListLootPoolEntries(c *gin.Context) {
 	}
 	pool, entries, err := queryLootPoolEntries(ctx, poolID)
 	if err != nil {
-		if err.Error() == loot.PoolNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[ListLootPoolEntries] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListLootPoolEntries] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: LootPoolEntriesResponseData{Pool: *pool, Entries: entries}})
@@ -320,15 +289,7 @@ func ReplaceLootPoolEntries(c *gin.Context) {
 	}
 	pool, entries, changes, err := doReplaceLootPoolEntries(ctx, poolID, &req)
 	if err != nil {
-		switch err.Error() {
-		case loot.EntryTargetInvalid, loot.EntryRangeInvalid, loot.EntryTooMany, inventory.QuantityInvalid, item.ItemNotFound, wallet.CurrencyNotFound:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case loot.PoolNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[ReplaceLootPoolEntries] replace failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[ReplaceLootPoolEntries] replace failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, loot.ActionLootPoolEntriesUpdate, loot.TargetLootPool, pool.ID, changes)

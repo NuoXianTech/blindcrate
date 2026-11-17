@@ -29,9 +29,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/ws"
 	"github.com/gin-gonic/gin"
@@ -79,8 +79,7 @@ func ListUsers(c *gin.Context) {
 	}
 	total, users, err := QueryUsersList(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListUsers] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListUsers] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListUsersResponseData{Total: total, Users: users}})
@@ -121,15 +120,7 @@ func UpdateUser(c *gin.Context) {
 	}
 	updated, err := auth.UpdateUserProfile(ctx, userID, req.Nickname, req.AvatarURL)
 	if err != nil {
-		switch err.Error() {
-		case auth.NicknameInvalid, auth.AvatarURLInvalid:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case auth.UserNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[UpdateUser] update failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[UpdateUser] update failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, auth.ActionUserUpdate, auth.TargetUser, updated.ID, auth.ProfileChanges(req.Nickname, req.AvatarURL))
@@ -184,15 +175,7 @@ func BanUser(c *gin.Context) {
 		return
 	}
 	if err := doBanUser(ctx, operator.ID, userID, req.BannedUntil, req.Reason); err != nil {
-		switch err.Error() {
-		case admin.CannotOperateSelf, BanUntilInvalid, BanTooLong:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case auth.UserNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[BanUser] ban failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[BanUser] ban failed")
 		return
 	}
 	// 所有设备下线
@@ -232,15 +215,7 @@ func UnbanUser(c *gin.Context) {
 		return
 	}
 	if err := doUnbanUser(ctx, operator.ID, userID); err != nil {
-		switch err.Error() {
-		case admin.CannotOperateSelf:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case auth.UserNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[UnbanUser] unban failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[UnbanUser] unban failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, auth.ActionUserUnban, auth.TargetUser, userID, nil)
@@ -282,15 +257,7 @@ func SetUserDisabled(c *gin.Context) {
 		return
 	}
 	if err := doSetUserDisabled(ctx, operator.ID, userID, *req.Disabled); err != nil {
-		switch err.Error() {
-		case admin.CannotOperateSelf:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case auth.UserNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[SetUserDisabled] set failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[SetUserDisabled] set failed")
 		return
 	}
 	// 停用时所有设备下线
@@ -345,15 +312,7 @@ func SetUserPassword(c *gin.Context) {
 		return
 	}
 	if err := doSetUserPassword(ctx, operator.ID, userID, req.Password); err != nil {
-		switch err.Error() {
-		case admin.CannotOperateSelf, auth.PasswordInvalid:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case auth.UserNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[SetUserPassword] set failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[SetUserPassword] set failed")
 		return
 	}
 	// 所有设备下线, 长连接在下次心跳时断开

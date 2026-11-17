@@ -30,6 +30,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
@@ -136,7 +137,7 @@ func Apply(tx *gorm.DB, req *ApplyRequest) (*Result, bool, error) {
 
 	lines := len(bundle.Items) + len(bundle.Currencies)
 	if replayedLines > 0 && replayedLines < lines {
-		return nil, false, errors.New(IdempotencyConflict)
+		return nil, false, fault.Conflict(IdempotencyConflict)
 	}
 	return result, lines > 0 && replayedLines == lines, nil
 }
@@ -173,6 +174,9 @@ type InvalidError struct {
 }
 
 func (e *InvalidError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
 
 // Check 保存配置前校验一组奖励或价格: 货币和物品各自最多 MaxLines 行, 数量为正数, 货币需存在, 物品需未删除;
 // 返回合并同类项后的结果

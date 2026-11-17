@@ -47,8 +47,6 @@ type Section struct {
 	Export func(ctx context.Context, tx *gorm.DB, image func(string) string) (any, int, error)
 	// Decode 严格解析包中的文件, 可以使用 DecodeList
 	Decode func(data []byte) (Content, error)
-	// Invalid 可选, 写入时返回的错误是否为这个模块的校验错误; errors.New 创建的错误和唯一约束冲突已经算作校验错误
-	Invalid func(err error) bool
 }
 
 // Content 包中一种配置解析后的内容

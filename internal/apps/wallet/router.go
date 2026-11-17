@@ -30,7 +30,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
 
@@ -64,8 +64,7 @@ func ListBalances(c *gin.Context) {
 	}
 	balances, err := QueryBalances(ctx, user.ID, false)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListBalances] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListBalances] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListBalancesResponseData{Balances: balances}})
@@ -112,8 +111,7 @@ func ListTransactions(c *gin.Context) {
 	}
 	total, transactions, err := QueryUserTransactions(ctx, user.ID, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListTransactions] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListTransactions] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListTransactionsResponseData{Total: total, Transactions: transactions}})

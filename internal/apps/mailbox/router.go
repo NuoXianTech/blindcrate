@@ -29,6 +29,7 @@ import (
 	"strconv"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -77,8 +78,7 @@ func ListMails(c *gin.Context) {
 	}
 	total, mails, err := QueryMails(ctx, user, (req.Current-1)*req.Size, req.Size)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMails] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMails] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListMailsResponseData{Total: total, Mails: mails}})
@@ -103,8 +103,7 @@ func GetCounts(c *gin.Context) {
 	}
 	counts, err := QueryCounts(ctx, user)
 	if err != nil {
-		logger.ErrorF(ctx, "[GetMailCounts] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetMailCounts] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: counts})
@@ -144,12 +143,7 @@ func ReadMail(c *gin.Context) {
 		return
 	}
 	if err := Read(ctx, user.ID, id); err != nil {
-		if err.Error() == MailNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[ReadMail] read failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ReadMail] read failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{})
@@ -179,8 +173,7 @@ func ReadAllMails(c *gin.Context) {
 	}
 	count, err := ReadAll(ctx, user.ID)
 	if err != nil {
-		logger.ErrorF(ctx, "[ReadAllMails] read failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ReadAllMails] read failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ReadAllMailsResponseData{Read: count}})
@@ -213,17 +206,7 @@ func ClaimMail(c *gin.Context) {
 	}
 	result, err := Claim(ctx, user.ID, id)
 	if err != nil {
-		switch err.Error() {
-		case MailNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case NoAttachments, AlreadyClaimed, MailExpired:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		case AttachmentUnavailable, AttachmentTooLarge:
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[ClaimMail] claim failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[ClaimMail] claim failed")
 		return
 	}
 	logger.InfoF(ctx, "[ClaimMail] %d claimed mail %d", user.ID, id)
@@ -249,8 +232,7 @@ func ClaimAllMails(c *gin.Context) {
 	}
 	result, err := ClaimAll(ctx, user.ID)
 	if err != nil {
-		logger.ErrorF(ctx, "[ClaimAllMails] claim failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ClaimAllMails] claim failed")
 		return
 	}
 	if result.Claimed > 0 {
@@ -285,15 +267,7 @@ func DeleteMail(c *gin.Context) {
 		return
 	}
 	if err := Delete(ctx, user.ID, id); err != nil {
-		switch err.Error() {
-		case MailNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case UnclaimedAttachments:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[DeleteMail] delete failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[DeleteMail] delete failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{})

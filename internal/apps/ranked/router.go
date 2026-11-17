@@ -29,8 +29,8 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/db"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -59,8 +59,7 @@ func GetRating(c *gin.Context) {
 	}
 	view, err := Query(db.DB(ctx), user.ID, time.Now())
 	if err != nil {
-		logger.ErrorF(ctx, "[GetRating] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetRating] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: view})
@@ -85,8 +84,7 @@ func ListTiers(c *gin.Context) {
 	ctx := c.Request.Context()
 	tiers, err := QueryTiers(db.DB(ctx))
 	if err != nil {
-		logger.ErrorF(ctx, "[ListTiers] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListTiers] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListTiersResponseData{Tiers: tiers}})

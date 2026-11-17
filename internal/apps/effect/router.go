@@ -25,12 +25,11 @@
 package effect
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -39,28 +38,6 @@ import (
 type Response struct {
 	ErrorMsg string      `json:"error_msg"`
 	Data     interface{} `json:"data"`
-}
-
-// respondUseError 把查看和使用的错误转成响应
-func respondUseError(c *gin.Context, name string, err error) {
-	var unusable *UseError
-	if errors.As(err, &unusable) {
-		c.JSON(http.StatusForbidden, Response{ErrorMsg: unusable.Reason})
-		return
-	}
-	switch err.Error() {
-	case ItemNotUsable:
-		c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-	case inventory.InsufficientQuantity:
-		c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-	case ChoiceInvalid, InputInvalid:
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-	case IdempotencyConflict, DuplicateRequest:
-		c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-	default:
-		logger.ErrorF(c.Request.Context(), "[%s] failed: %v", name, err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-	}
 }
 
 // GetItemUse
@@ -89,7 +66,7 @@ func GetItemUse(c *gin.Context) {
 	}
 	view, err := QueryUse(c.Request.Context(), user.ID, itemID)
 	if err != nil {
-		respondUseError(c, "GetItemUse", err)
+		reply.Fail(c, err, "[GetItemUse] failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: view})
@@ -131,7 +108,7 @@ func UseItem(c *gin.Context) {
 	}
 	result, replayed, err := UseInInventory(ctx, user.ID, itemID, &req)
 	if err != nil {
-		respondUseError(c, "UseItem", err)
+		reply.Fail(c, err, "[UseItem] failed")
 		return
 	}
 	// 重复提交只返回原来的结果, 不重复记录

@@ -31,6 +31,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/mail"
@@ -75,8 +76,7 @@ func ListSettings(c *gin.Context) {
 	}
 	groups, err := settings.QueryGroups(ctx, req.Category)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListSettings] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListSettings] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListSettingsResponseData{Categories: settings.Categories, Groups: groups}})
@@ -97,12 +97,7 @@ func GetSetting(c *gin.Context) {
 	ctx := c.Request.Context()
 	group, err := settings.QueryGroup(ctx, c.Param("key"))
 	if err != nil {
-		if err.Error() == settings.GroupNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetSetting] query %s failed: %v", c.Param("key"), err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetSetting] query "+c.Param("key")+" failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: group})
@@ -143,7 +138,7 @@ func UpdateSetting(c *gin.Context) {
 	}
 	group, changes, err := settings.Update(ctx, operator.ID, c.Param("key"), req.Value, req.ClearSecrets)
 	if err != nil {
-		c.JSON(settingErrorStatus(err), Response{ErrorMsg: err.Error()})
+		reply.Fail(c, err, "[UpdateSetting] save failed")
 		return
 	}
 	recordSettingChange(c, operator.ID, settings.ActionSettingsUpdate, group, changes)
@@ -172,24 +167,11 @@ func ResetSetting(c *gin.Context) {
 	}
 	group, changes, err := settings.Reset(ctx, operator.ID, c.Param("key"))
 	if err != nil {
-		c.JSON(settingErrorStatus(err), Response{ErrorMsg: err.Error()})
+		reply.Fail(c, err, "[ResetSetting] reset failed")
 		return
 	}
 	recordSettingChange(c, operator.ID, settings.ActionSettingsReset, group, changes)
 	c.JSON(http.StatusOK, Response{Data: group})
-}
-
-// settingErrorStatus 保存设置组的错误对应的状态码, 错误提示都可以直接展示
-func settingErrorStatus(err error) int {
-	switch err.Error() {
-	case settings.GroupNotFound:
-		return http.StatusNotFound
-	case settings.SaveFailed:
-		return http.StatusInternalServerError
-	default:
-		// 其余均为设置内容校验失败
-		return http.StatusBadRequest
-	}
 }
 
 // recordSettingChange 记录设置组的修改, 没有任何修改时不记录
@@ -238,13 +220,7 @@ func TestMail(c *gin.Context) {
 	}
 	to, mailConfig, err := prepareTestMail(ctx, &req)
 	if err != nil {
-		switch err.Error() {
-		case auth.EmailInvalid, MailTestIncomplete:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[TestMail] query settings failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[TestMail] query settings failed")
 		return
 	}
 	// 发送失败时把 SMTP 返回的错误交给管理员排查

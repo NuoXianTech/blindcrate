@@ -28,7 +28,7 @@ import (
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
 
@@ -62,8 +62,7 @@ func ListVenues(c *gin.Context) {
 	}
 	venues, err := QueryVenues(ctx, user.ID)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListVenues] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListVenues] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListVenuesResponseData{Venues: venues}})
@@ -90,12 +89,7 @@ func GetVenue(c *gin.Context) {
 	}
 	detail, err := QueryVenue(ctx, user.ID, c.Param("code"))
 	if err != nil {
-		if err.Error() == VenueNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetVenue] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetVenue] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: detail})

@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
@@ -285,7 +286,7 @@ func Join(ctx context.Context, userID uint64, modeCode string, from Origin) (*Ma
 		return nil, err
 	}
 	if matchID != 0 {
-		return nil, errors.New(InMatch)
+		return nil, fault.Conflict(InMatch)
 	}
 	if checker, ok := mode.(JoinChecker); ok {
 		if err := checker.CheckJoin(ctx, userID); err != nil {
@@ -304,7 +305,7 @@ func Join(ctx context.Context, userID uint64, modeCode string, from Origin) (*Ma
 	}
 	switch result[0].(int64) {
 	case 2:
-		return nil, errors.New(AlreadyQueued)
+		return nil, fault.Conflict(AlreadyQueued)
 	case 0:
 		// 立即补齐时下面的 Form 就会开局, 不需要补位任务
 		if fillsWithBots(mode) && mode.BotFillAfter() > 0 {

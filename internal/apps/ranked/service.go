@@ -26,7 +26,6 @@ package ranked
 
 import (
 	"cmp"
-	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -35,6 +34,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
@@ -154,13 +154,13 @@ func Query(tx *gorm.DB, userID uint64, now time.Time) (*View, error) {
 // ValidateTier 保存前校验段位, 名称需已去掉首尾空白, 颜色需已转为小写
 func ValidateTier(t *Tier) error {
 	if n := utf8.RuneCountInString(t.Name); n < 1 || n > 32 {
-		return errors.New(TierNameInvalid)
+		return fault.Invalid(TierNameInvalid)
 	}
 	if t.MinRating < 0 || t.MinRating > MaxTierRating {
-		return errors.New(TierRatingInvalid)
+		return fault.Invalid(TierRatingInvalid)
 	}
 	if !colorPattern.MatchString(t.Color) {
-		return errors.New(TierColorInvalid)
+		return fault.Invalid(TierColorInvalid)
 	}
 	return nil
 }

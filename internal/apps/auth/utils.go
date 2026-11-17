@@ -26,13 +26,13 @@ package auth
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
 	"regexp"
 	"strconv"
 	"unicode/utf8"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/storage"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -97,7 +97,7 @@ var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9_]{3,32}$`)
 // validateUsername 校验用户名格式
 func validateUsername(username string) error {
 	if !usernamePattern.MatchString(username) {
-		return errors.New(UsernameInvalid)
+		return fault.Invalid(UsernameInvalid)
 	}
 	return nil
 }
@@ -105,7 +105,7 @@ func validateUsername(username string) error {
 // validatePassword 校验密码长度, bcrypt 最多只处理 72 字节
 func validatePassword(password string) error {
 	if len(password) < 8 || len(password) > 72 {
-		return errors.New(PasswordInvalid)
+		return fault.Invalid(PasswordInvalid)
 	}
 	return nil
 }
@@ -114,7 +114,7 @@ func validatePassword(password string) error {
 func validateNickname(nickname string) error {
 	n := utf8.RuneCountInString(nickname)
 	if n < 1 || n > 32 {
-		return errors.New(NicknameInvalid)
+		return fault.Invalid(NicknameInvalid)
 	}
 	return nil
 }
@@ -125,7 +125,7 @@ func validateAvatarURL(avatarURL string) error {
 		return nil
 	}
 	if len(avatarURL) > 1024 || !storage.ValidURL(avatarURL) {
-		return errors.New(AvatarURLInvalid)
+		return fault.Invalid(AvatarURLInvalid)
 	}
 	return nil
 }

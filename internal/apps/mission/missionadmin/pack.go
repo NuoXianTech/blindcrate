@@ -25,8 +25,6 @@
 package missionadmin
 
 import (
-	"errors"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/mission"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
 	"gorm.io/gorm"
@@ -42,10 +40,6 @@ func init() {
 	// 任务按代码对应; 同代码的任务已删除时只能改名导入
 	pack.RegisterTable(pack.Table[mission.Mission, MissionRequest]{
 		Code: PackMissions, Label: "任务", Hint: "按代码对应", Order: OrderMissions,
-		Invalid: func(err error) bool {
-			var invalid *mission.InvalidError
-			return errors.As(err, &invalid)
-		},
 		Query: func(tx *gorm.DB) *gorm.DB { return tx.Order("sort_order, id") },
 		Pack: func(m *mission.Mission, _ func(string) string) MissionRequest {
 			return MissionRequest{

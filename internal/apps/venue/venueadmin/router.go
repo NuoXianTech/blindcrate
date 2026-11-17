@@ -25,7 +25,6 @@
 package venueadmin
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -33,6 +32,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
@@ -83,14 +83,12 @@ func ListVenues(c *gin.Context) {
 	}
 	total, venues, err := QueryVenues(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListVenues] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListVenues] query failed")
 		return
 	}
 	balanceUpdatedAt, err := settings.Balance.UpdatedAt(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListVenues] load balance settings failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListVenues] load balance settings failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListVenuesResponseData{Total: total, Venues: venues, BalanceUpdatedAt: balanceUpdatedAt}})
@@ -154,16 +152,7 @@ func CreateVenue(c *gin.Context) {
 	}
 	created, err := doCreateVenue(ctx, &req)
 	if err != nil {
-		var invalid *venue.InvalidError
-		switch {
-		case errors.As(err, &invalid):
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case err.Error() == venue.CodeTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[CreateVenue] create failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[CreateVenue] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, venue.ActionVenueCreate, venue.TargetVenue, created.ID, venueFields(created))
@@ -201,16 +190,7 @@ func UpdateVenue(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateVenue(ctx, venueID, &req)
 	if err != nil {
-		var invalid *venue.InvalidError
-		switch {
-		case errors.As(err, &invalid), err.Error() == venue.CodeImmutable:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case err.Error() == venue.VenueNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[UpdateVenue] update failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[UpdateVenue] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -247,12 +227,7 @@ func DeleteVenue(c *gin.Context) {
 	}
 	deleted, err := doDeleteVenue(ctx, venueID)
 	if err != nil {
-		if err.Error() == venue.VenueNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteVenue] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteVenue] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, venue.ActionVenueDelete, venue.TargetVenue, deleted.ID, map[string]interface{}{
@@ -286,13 +261,7 @@ func SimulateVenue(c *gin.Context) {
 	}
 	simulation, err := doSimulateVenue(ctx, &req)
 	if err != nil {
-		var invalid *venue.InvalidError
-		if errors.As(err, &invalid) {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[SimulateVenue] simulate failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[SimulateVenue] simulate failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: simulation})
@@ -332,8 +301,7 @@ func RecalibrateVenues(c *gin.Context) {
 	}
 	data, err := doRecalibrateVenues(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[RecalibrateVenues] recalibrate failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[RecalibrateVenues] recalibrate failed")
 		return
 	}
 	updated := []string{}

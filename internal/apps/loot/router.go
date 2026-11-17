@@ -27,8 +27,7 @@ package loot
 import (
 	"net/http"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
 
@@ -54,13 +53,7 @@ func GetPoolOdds(c *gin.Context) {
 	ctx := c.Request.Context()
 	odds, err := QueryOdds(ctx, c.Param("code"))
 	if err != nil {
-		switch err.Error() {
-		case PoolNotFound, PoolDisabled, PoolEmpty:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[GetPoolOdds] query failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[GetPoolOdds] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: odds})

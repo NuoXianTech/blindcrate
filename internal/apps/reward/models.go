@@ -25,10 +25,10 @@
 package reward
 
 import (
-	"errors"
 	"maps"
 	"slices"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 )
@@ -82,14 +82,14 @@ func (b Bundle) Normalize() (Bundle, error) {
 	amounts := map[string]int64{}
 	for _, line := range b.Currencies {
 		if line.Currency == "" || !inRange(line.Amount, wallet.MaxAmount) || !inRange(amounts[line.Currency]+line.Amount, wallet.MaxAmount) {
-			return Bundle{}, errors.New(wallet.AmountInvalid)
+			return Bundle{}, fault.Invalid(wallet.AmountInvalid)
 		}
 		amounts[line.Currency] += line.Amount
 	}
 	quantities := map[uint64]int64{}
 	for _, line := range b.Items {
 		if line.ItemID == 0 || !inRange(line.Quantity, inventory.MaxQuantity) || !inRange(quantities[line.ItemID]+line.Quantity, inventory.MaxQuantity) {
-			return Bundle{}, errors.New(inventory.QuantityInvalid)
+			return Bundle{}, fault.Invalid(inventory.QuantityInvalid)
 		}
 		quantities[line.ItemID] += line.Quantity
 	}

@@ -25,7 +25,6 @@
 package shopadmin
 
 import (
-	"errors"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
@@ -36,10 +35,6 @@ import (
 func init() {
 	pack.RegisterTable(pack.Table[shop.Item, ShopItemRequest]{
 		Code: pack.PackShopItems, Label: "商品", Hint: "按代码对应, 带上商品图片; 导入时已有商品的剩余库存不变", Order: pack.OrderShopItems,
-		Invalid: func(err error) bool {
-			var invalid *shop.InvalidError
-			return errors.As(err, &invalid)
-		},
 		Query: func(tx *gorm.DB) *gorm.DB { return tx.Order("sort_order, id") },
 		Pack: func(it *shop.Item, image func(string) string) ShopItemRequest {
 			return ShopItemRequest{

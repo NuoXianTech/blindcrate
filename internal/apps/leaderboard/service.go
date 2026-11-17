@@ -35,6 +35,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -57,26 +58,26 @@ var codePattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
 // 配置不合法时返回的错误可以直接展示给管理员, 其他错误为查库失败等内部错误。
 func Validate(tx *gorm.DB, b *Board) error {
 	if !codePattern.MatchString(b.Code) {
-		return errors.New(CodeInvalid)
+		return fault.Invalid(CodeInvalid)
 	}
 	if n := utf8.RuneCountInString(b.Name); n < 1 || n > 64 {
-		return errors.New(NameInvalid)
+		return fault.Invalid(NameInvalid)
 	}
 	if !stats.ValidScope(b.Scope) {
-		return errors.New(ScopeInvalid)
+		return fault.Invalid(ScopeInvalid)
 	}
 	if b.Period != PeriodTotal && b.Period != PeriodDay && b.Period != PeriodSeason {
-		return errors.New(PeriodInvalid)
+		return fault.Invalid(PeriodInvalid)
 	}
 	if b.Size < MinSize || b.Size > MaxSize {
-		return errors.New(SizeInvalid)
+		return fault.Invalid(SizeInvalid)
 	}
 	if b.MinMatches < 0 {
-		return errors.New(MinMatchesInvalid)
+		return fault.Invalid(MinMatchesInvalid)
 	}
 	if b.Metric == MetricRating {
 		if b.Scope != stats.ScopeAll || b.Period != PeriodSeason {
-			return errors.New(RatingBoardInvalid)
+			return fault.Invalid(RatingBoardInvalid)
 		}
 		return nil
 	}
@@ -105,7 +106,7 @@ func metricName(tx *gorm.DB, metric string) (string, error) {
 		return "", err
 	}
 	if !ok {
-		return "", errors.New(MetricInvalid)
+		return "", fault.Invalid(MetricInvalid)
 	}
 	return name, nil
 }
@@ -193,12 +194,12 @@ func QueryBoard(ctx context.Context, userID uint64, code string) (*BoardDetail, 
 	var board Board
 	if err := board.ExactCode(tx, code); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(BoardNotFound)
+			return nil, fault.NotFound(BoardNotFound)
 		}
 		return nil, err
 	}
 	if !board.IsEnabled {
-		return nil, errors.New(BoardNotFound)
+		return nil, fault.NotFound(BoardNotFound)
 	}
 	view, err := newView(tx, &board)
 	if err != nil {

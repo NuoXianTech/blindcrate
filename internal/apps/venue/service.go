@@ -40,6 +40,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
@@ -98,6 +99,9 @@ type InvalidError struct {
 }
 
 func (e *InvalidError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
 
 // invalid 生成 *InvalidError
 func invalid(format string, args ...any) error {
@@ -628,12 +632,12 @@ func QueryVenue(ctx context.Context, userID uint64, code string) (*VenueDetail, 
 	var v Venue
 	if err := v.ExactCode(tx, code); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(VenueNotFound)
+			return nil, fault.NotFound(VenueNotFound)
 		}
 		return nil, err
 	}
 	if !v.IsEnabled {
-		return nil, errors.New(VenueNotFound)
+		return nil, fault.NotFound(VenueNotFound)
 	}
 	costs, err := resolveCosts(tx, []Venue{v})
 	if err != nil {

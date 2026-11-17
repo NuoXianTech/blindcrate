@@ -25,7 +25,6 @@
 package shopadmin
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -33,6 +32,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/shop"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
@@ -82,8 +82,7 @@ func ListShopItems(c *gin.Context) {
 	}
 	data, err := QueryShopItems(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListShopItems] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListShopItems] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: data})
@@ -108,20 +107,6 @@ type ShopItemRequest struct {
 	Stock         *int64                `json:"stock"`     // 剩余库存, 为空时不限; 修改时直接覆盖
 	StartsAt      *time.Time            `json:"starts_at"` // RFC3339, 包含, 为空时不限
 	EndsAt        *time.Time            `json:"ends_at"`   // RFC3339, 不包含, 为空时不限
-}
-
-// shopItemErrorStatus 商品配置错误对应的状态码, 不是配置错误时返回 0
-func shopItemErrorStatus(err error) int {
-	var invalid *shop.InvalidError
-	switch {
-	case errors.As(err, &invalid), err.Error() == shop.CodeImmutable:
-		return http.StatusBadRequest
-	case err.Error() == shop.ItemNotFound:
-		return http.StatusNotFound
-	case err.Error() == shop.CodeTaken:
-		return http.StatusConflict
-	}
-	return 0
 }
 
 // CreateShopItem
@@ -151,12 +136,7 @@ func CreateShopItem(c *gin.Context) {
 	}
 	created, err := doCreateShopItem(ctx, &req)
 	if err != nil {
-		if status := shopItemErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateShopItem] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateShopItem] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopItemCreate, shop.TargetShopItem, created.ID, shopItemFields(created))
@@ -194,12 +174,7 @@ func UpdateShopItem(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateShopItem(ctx, itemID, &req)
 	if err != nil {
-		if status := shopItemErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateShopItem] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateShopItem] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -236,12 +211,7 @@ func DeleteShopItem(c *gin.Context) {
 	}
 	deleted, err := doDeleteShopItem(ctx, itemID)
 	if err != nil {
-		if err.Error() == shop.ItemNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteShopItem] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteShopItem] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopItemDelete, shop.TargetShopItem, deleted.ID, map[string]interface{}{
@@ -290,8 +260,7 @@ func ListShopOrders(c *gin.Context) {
 	}
 	total, orders, err := QueryShopOrders(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListShopOrders] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListShopOrders] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListShopOrdersResponseData{Total: total, Orders: orders}})
@@ -325,15 +294,7 @@ func RefundShopOrder(c *gin.Context) {
 	}
 	order, err := shop.Refund(ctx, operator.ID, orderID)
 	if err != nil {
-		switch err.Error() {
-		case shop.OrderNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case shop.OrderRefunded, shop.RefundInsufficient, shop.RefundUnavailable:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[RefundShopOrder] refund failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[RefundShopOrder] refund failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopOrderRefund, shop.TargetShopOrder, order.ID, map[string]interface{}{

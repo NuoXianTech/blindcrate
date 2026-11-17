@@ -30,6 +30,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
@@ -478,13 +479,13 @@ func queryState(ctx context.Context, matchID uint64) (*state, []DepotItem, []Use
 	var m match.Match
 	if err := m.Exact(tx, matchID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil, nil, errors.New(match.MatchNotFound)
+			return nil, nil, nil, fault.NotFound(match.MatchNotFound)
 		}
 		return nil, nil, nil, err
 	}
 	st, err := loadState(tx, &m)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil, nil, errors.New(match.MatchNotFound)
+		return nil, nil, nil, fault.NotFound(match.MatchNotFound)
 	}
 	if err != nil {
 		return nil, nil, nil, err
@@ -504,7 +505,7 @@ func QueryAuction(ctx context.Context, userID, matchID uint64) (*AuctionView, er
 	}
 	view := st.view(userID, items, uses)
 	if view == nil {
-		return nil, errors.New(match.MatchNotFound)
+		return nil, fault.NotFound(match.MatchNotFound)
 	}
 	return view, nil
 }

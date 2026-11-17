@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"gorm.io/gorm"
@@ -60,7 +61,7 @@ func Advance(ctx context.Context, matchID uint64, fn AdvanceFunc) (*Match, error
 			return err
 		}
 		if m.Status != StatusPlaying {
-			return errors.New(MatchNotPlaying)
+			return fault.Conflict(MatchNotPlaying)
 		}
 		if err := tx.Where("match_id = ?", matchID).Order("seat").Find(&players).Error; err != nil {
 			return err
@@ -106,7 +107,7 @@ func Cancel(ctx context.Context, matchID uint64) (*Match, error) {
 			return err
 		}
 		if m.Status != StatusPlaying {
-			return errors.New(MatchNotPlaying)
+			return fault.Conflict(MatchNotPlaying)
 		}
 		if err := tx.Where("match_id = ?", matchID).Order("seat").Find(&players).Error; err != nil {
 			return err
@@ -198,7 +199,7 @@ func AfterCommit(tx *gorm.DB, fn func(ctx context.Context)) {
 func lockMatch(tx *gorm.DB, m *Match, matchID uint64) error {
 	if err := m.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), matchID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(MatchNotFound)
+			return fault.NotFound(MatchNotFound)
 		}
 		return err
 	}
@@ -420,7 +421,7 @@ func QueryUserMatch(ctx context.Context, userID, matchID uint64) (*MatchView, er
 		return nil, err
 	}
 	if len(matches) == 0 {
-		return nil, errors.New(MatchNotFound)
+		return nil, fault.NotFound(MatchNotFound)
 	}
 	details, err := LoadDetails(db.DB(ctx), matches)
 	if err != nil {

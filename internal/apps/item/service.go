@@ -34,6 +34,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
@@ -190,16 +191,16 @@ func QueryQualities(ctx context.Context) ([]Quality, error) {
 // ValidateQuality 校验品质的代码、名称、颜色和特效
 func ValidateQuality(q *Quality) error {
 	if !codePattern.MatchString(q.Code) {
-		return errors.New(QualityCodeInvalid)
+		return fault.Invalid(QualityCodeInvalid)
 	}
 	if n := utf8.RuneCountInString(q.Name); n < 1 || n > 32 {
-		return errors.New(QualityNameInvalid)
+		return fault.Invalid(QualityNameInvalid)
 	}
 	if !qualityColorPattern.MatchString(q.Color) {
-		return errors.New(QualityColorInvalid)
+		return fault.Invalid(QualityColorInvalid)
 	}
 	if q.Effect != "" && q.Effect != QualityEffectRainbow {
-		return errors.New(QualityEffectInvalid)
+		return fault.Invalid(QualityEffectInvalid)
 	}
 	return nil
 }
@@ -211,7 +212,7 @@ func CheckQuality(tx *gorm.DB, level int16) error {
 	var q Quality
 	if err := q.Exact(tx.Clauses(clause.Locking{Strength: "SHARE"}), level); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(QualityNotFound)
+			return fault.Invalid(QualityNotFound)
 		}
 		return err
 	}

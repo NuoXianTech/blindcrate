@@ -27,12 +27,11 @@ package settings
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/db"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"gorm.io/gorm"
 )
 
@@ -113,7 +112,7 @@ func QueryGroups(ctx context.Context, category string) ([]GroupView, error) {
 func QueryGroup(ctx context.Context, key string) (*GroupView, error) {
 	g := findGroup(key)
 	if g == nil {
-		return nil, errors.New(GroupNotFound)
+		return nil, fault.NotFound(GroupNotFound)
 	}
 	var row Setting
 	if err := db.DB(ctx).Where("key = ?", key).Limit(1).Find(&row).Error; err != nil {
@@ -163,11 +162,11 @@ func queryRows(ctx context.Context) (map[string]*Setting, error) {
 // Update 保存一个设置组, 返回保存后的设置组和本次修改的字段
 //
 // 合并规则见 group.merge; 多人同时保存时依次合并, 改了同一个字段的以后保存的为准。
-// 返回的错误都可以直接展示: 数据库错误记录日志后返回 SaveFailed, 其余为 GroupNotFound 或校验失败。
+// 返回的错误写明了类别的可以直接展示(GroupNotFound 或校验失败), 其余为数据库错误, 见 fault。
 func Update(ctx context.Context, operatorID uint64, key string, raw json.RawMessage, clearSecrets []string) (*GroupView, map[string]interface{}, error) {
 	g := findGroup(key)
 	if g == nil {
-		return nil, nil, errors.New(GroupNotFound)
+		return nil, nil, fault.NotFound(GroupNotFound)
 	}
 	return g.save(ctx, operatorID, func(tx *gorm.DB, cur any, broken []string) (any, error) {
 		return g.merge(tx, cur, broken, raw, clearSecrets)
@@ -178,7 +177,7 @@ func Update(ctx context.Context, operatorID uint64, key string, raw json.RawMess
 func Reset(ctx context.Context, operatorID uint64, key string) (*GroupView, map[string]interface{}, error) {
 	g := findGroup(key)
 	if g == nil {
-		return nil, nil, errors.New(GroupNotFound)
+		return nil, nil, fault.NotFound(GroupNotFound)
 	}
 	return g.save(ctx, operatorID, func(_ *gorm.DB, _ any, _ []string) (any, error) {
 		return g.defaults(), nil
@@ -187,7 +186,7 @@ func Reset(ctx context.Context, operatorID uint64, key string) (*GroupView, map[
 
 // save 在新事务中用 build 生成新值后保存
 //
-// build 返回的错误原样返回, 数据库错误记录日志后返回 SaveFailed; 其余规则见 saveTx。
+// build 返回的错误和数据库错误都原样返回; 其余规则见 saveTx。
 func (g *group) save(ctx context.Context, operatorID uint64,
 	build func(tx *gorm.DB, cur any, broken []string) (any, error)) (*GroupView, map[string]interface{}, error) {
 	var (
@@ -207,8 +206,7 @@ func (g *group) save(ctx context.Context, operatorID uint64,
 		return nil, nil, failure
 	}
 	if err != nil {
-		logger.ErrorF(ctx, "[Settings] save %s failed: %v", g.key, err)
-		return nil, nil, errors.New(SaveFailed)
+		return nil, nil, err
 	}
 	return view, changes, nil
 }
@@ -242,7 +240,7 @@ func (g *group) saveTx(ctx context.Context, tx *gorm.DB, operatorID uint64,
 	}
 	stored, err := g.encode(next)
 	if err != nil {
-		if err.Error() == SecretKeyMissing {
+		if fault.KindOf(err) != fault.KindInternal {
 			return nil, nil, err, nil
 		}
 		return nil, nil, nil, err
@@ -307,12 +305,12 @@ func ImportLabel(key string) (string, bool) {
 // 返回的错误中 failure 可以直接展示, err 为数据库错误。
 func Import(ctx context.Context, tx *gorm.DB, operatorID uint64, key string, raw json.RawMessage) (changes map[string]interface{}, failure, err error) {
 	if _, ok := ImportLabel(key); !ok {
-		return nil, errors.New(GroupNotImportable), nil
+		return nil, fault.Invalid(GroupNotImportable), nil
 	}
 	g := findGroup(key)
 	var values map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &values); err != nil {
-		return nil, errors.New(ValueInvalid), nil
+		return nil, fault.Invalid(ValueInvalid), nil
 	}
 	for _, f := range g.fields {
 		if f.Secret {

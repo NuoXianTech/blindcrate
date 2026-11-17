@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/mission"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -77,7 +78,7 @@ func doCreateMission(ctx context.Context, req *MissionRequest) (*mission.Mission
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(mission.CodeTaken)
+			return nil, fault.Conflict(mission.CodeTaken)
 		}
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func doUpdateMission(ctx context.Context, missionID uint64, req *MissionRequest)
 			return err
 		}
 		if req.Code != target.Code {
-			return errors.New(mission.CodeImmutable)
+			return fault.Invalid(mission.CodeImmutable)
 		}
 		if err := CheckCycle(&target, req); err != nil {
 			return err
@@ -136,7 +137,7 @@ func doDeleteMission(ctx context.Context, missionID uint64) (*mission.Mission, e
 func LockMission(tx *gorm.DB, target *mission.Mission, missionID uint64) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), missionID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(mission.MissionNotFound)
+			return fault.NotFound(mission.MissionNotFound)
 		}
 		return err
 	}

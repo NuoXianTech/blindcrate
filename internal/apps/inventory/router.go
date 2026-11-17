@@ -30,7 +30,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -80,8 +80,7 @@ func ListItems(c *gin.Context) {
 	}
 	total, items, err := QueryUserItems(ctx, user.ID, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListItems] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListItems] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListItemsResponseData{Total: total, Items: items}})
@@ -129,8 +128,7 @@ func ListTransactions(c *gin.Context) {
 	}
 	total, records, err := QueryUserRecords(ctx, user.ID, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListTransactions] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListTransactions] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListTransactionsResponseData{Total: total, Records: records}})
@@ -179,15 +177,7 @@ func SellItems(c *gin.Context) {
 	}
 	order, replayed, err := doSellItems(ctx, user.ID, &req)
 	if err != nil {
-		switch err.Error() {
-		case SellItemDuplicated, ItemNotSellable, SellAmountExceeded, QuantityInvalid, InsufficientQuantity, wallet.CurrencyNotFound, wallet.CurrencyDisabled:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case SellPriceChanged, SellFeeRateChanged, IdempotencyConflict, DuplicateRequest:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[SellItems] sell failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[SellItems] sell failed")
 		return
 	}
 	// 重复提交只返回原出售单, 不重复记录
@@ -236,8 +226,7 @@ func ListSellOrders(c *gin.Context) {
 	}
 	total, orders, err := QueryUserSellOrders(ctx, user.ID, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListSellOrders] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListSellOrders] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListSellOrdersResponseData{Total: total, Orders: orders}})

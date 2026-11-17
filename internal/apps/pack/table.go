@@ -40,8 +40,6 @@ type Table[M, R any] struct {
 	Label string
 	Hint  string
 	Order int
-	// Invalid 同 Section.Invalid, 可以为 nil
-	Invalid func(err error) bool
 
 	// Query 导出时按顺序读取全部行的查询, 如 tx.Order("sort_order, id")
 	Query func(tx *gorm.DB) *gorm.DB
@@ -93,8 +91,7 @@ func RegisterTable[M, R any](t Table[M, R]) {
 			list, err := t.export(tx, image)
 			return list, len(list), err
 		},
-		Decode:  DecodeList(t.entry, t.Renamed),
-		Invalid: t.Invalid,
+		Decode: DecodeList(t.entry, t.Renamed),
 	})
 }
 

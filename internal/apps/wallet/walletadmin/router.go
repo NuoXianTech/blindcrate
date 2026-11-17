@@ -29,9 +29,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -62,8 +62,7 @@ func ListCurrencies(c *gin.Context) {
 	ctx := c.Request.Context()
 	currencies, err := wallet.QueryCurrencies(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListCurrencies] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListCurrencies] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListCurrenciesResponseData{Currencies: currencies}})
@@ -81,19 +80,6 @@ type CurrencyRequest struct {
 type CreateCurrencyRequest struct {
 	Code string `json:"code" binding:"required,max=32"` // 自然键, 小写字母、数字和下划线
 	CurrencyRequest
-}
-
-// currencyErrorStatus 货币配置错误对应的状态码, 不是配置错误时返回 0
-func currencyErrorStatus(err error) int {
-	switch err.Error() {
-	case wallet.CurrencyCodeInvalid, wallet.CurrencyNameInvalid:
-		return http.StatusBadRequest
-	case wallet.CurrencyNotFound:
-		return http.StatusNotFound
-	case wallet.CurrencyTaken, wallet.CurrencyInUse, wallet.CurrencyIsBase:
-		return http.StatusConflict
-	}
-	return 0
 }
 
 // CreateCurrency
@@ -123,12 +109,7 @@ func CreateCurrency(c *gin.Context) {
 	}
 	created, err := doCreateCurrency(ctx, &req)
 	if err != nil {
-		if status := currencyErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateCurrency] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateCurrency] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, wallet.ActionCurrencyCreate, wallet.TargetCurrency, 0, currencyFields(created))
@@ -166,12 +147,7 @@ func UpdateCurrency(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateCurrency(ctx, c.Param("code"), &req)
 	if err != nil {
-		if status := currencyErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateCurrency] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateCurrency] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -223,8 +199,7 @@ func ListWalletTransactions(c *gin.Context) {
 	}
 	total, transactions, err := QueryWalletTransactions(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListWalletTransactions] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListWalletTransactions] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListWalletTransactionsResponseData{Total: total, Transactions: transactions}})
@@ -257,12 +232,7 @@ func ListUserBalances(c *gin.Context) {
 	}
 	balances, err := queryUserBalances(ctx, userID)
 	if err != nil {
-		if err.Error() == auth.UserNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[ListUserBalances] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListUserBalances] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListUserBalancesResponseData{Balances: balances}})
@@ -307,17 +277,7 @@ func AdjustUserBalance(c *gin.Context) {
 	}
 	txn, replayed, err := doAdjustUserBalance(ctx, operator.ID, userID, &req)
 	if err != nil {
-		switch err.Error() {
-		case admin.RemarkInvalid, wallet.AmountInvalid, wallet.CurrencyNotFound, wallet.CurrencyDisabled, wallet.InsufficientBalance:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case auth.UserNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case wallet.IdempotencyConflict, wallet.DuplicateRequest:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[AdjustUserBalance] adjust failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[AdjustUserBalance] adjust failed")
 		return
 	}
 	// 重复提交只返回原流水, 不重复记录和推送

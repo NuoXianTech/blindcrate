@@ -32,6 +32,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
@@ -118,7 +119,7 @@ func Change(tx *gorm.DB, req *ChangeRequest) (*Transaction, bool, error) {
 		}
 		if existing.ID != 0 {
 			if !existing.sameChange(req) {
-				return nil, false, errors.New(IdempotencyConflict)
+				return nil, false, fault.Conflict(IdempotencyConflict)
 			}
 			return &existing, true, nil
 		}
@@ -148,7 +149,7 @@ func Change(tx *gorm.DB, req *ChangeRequest) (*Transaction, bool, error) {
 	if err := tx.Create(txn).Error; err != nil {
 		// 咨询锁之外的兜底, 正常不会走到
 		if db.IsUniqueViolation(err) {
-			return nil, false, errors.New(DuplicateRequest)
+			return nil, false, fault.Conflict(DuplicateRequest)
 		}
 		return nil, false, err
 	}
@@ -167,10 +168,10 @@ func validateChange(req *ChangeRequest) error {
 		return errors.New("wallet: biz_type " + req.BizType + " not registered")
 	}
 	if req.Amount == 0 && req.FrozenAmount == 0 {
-		return errors.New(AmountInvalid)
+		return fault.Invalid(AmountInvalid)
 	}
 	if !amountInRange(req.Amount) || !amountInRange(req.FrozenAmount) {
-		return errors.New(AmountInvalid)
+		return fault.Invalid(AmountInvalid)
 	}
 	return nil
 }
@@ -198,10 +199,10 @@ func currencyOptions(tx *gorm.DB) ([]params.Option, error) {
 // ValidateCurrency 校验货币的代码和名称
 func ValidateCurrency(c *Currency) error {
 	if !codePattern.MatchString(c.Code) {
-		return errors.New(CurrencyCodeInvalid)
+		return fault.Invalid(CurrencyCodeInvalid)
 	}
 	if n := utf8.RuneCountInString(c.Name); n < 1 || n > 32 {
-		return errors.New(CurrencyNameInvalid)
+		return fault.Invalid(CurrencyNameInvalid)
 	}
 	return nil
 }
@@ -215,7 +216,7 @@ func CheckDisable(tx *gorm.DB, code string) error {
 		return err
 	}
 	if economy.BaseCurrency == code {
-		return errors.New(CurrencyIsBase)
+		return fault.Conflict(CurrencyIsBase)
 	}
 	return nil
 }
@@ -225,12 +226,12 @@ func checkCurrency(tx *gorm.DB, code string) error {
 	var currency Currency
 	if err := currency.Exact(tx, code); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(CurrencyNotFound)
+			return fault.Invalid(CurrencyNotFound)
 		}
 		return err
 	}
 	if !currency.IsEnabled {
-		return errors.New(CurrencyDisabled)
+		return fault.Invalid(CurrencyDisabled)
 	}
 	return nil
 }
@@ -283,9 +284,9 @@ func applyBalance(tx *gorm.DB, req *ChangeRequest) (*Balance, error) {
 			return nil, err
 		}
 		if current.Balance+req.Amount < 0 {
-			return nil, errors.New(InsufficientBalance)
+			return nil, fault.Forbidden(InsufficientBalance)
 		}
-		return nil, errors.New(InsufficientFrozen)
+		return nil, fault.Forbidden(InsufficientFrozen)
 	}
 	return &balance, nil
 }

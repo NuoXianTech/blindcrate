@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"gorm.io/gorm"
@@ -45,6 +46,9 @@ func (e *InvalidError) Error() string {
 	}
 	return fmt.Sprintf(ConditionInvalid, e.Index, e.Reason)
 }
+
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
 
 // ScopeNamer 返回统计范围的展示名称, 如 "排位"、"码头仓库"
 type ScopeNamer func(tx *gorm.DB, scope string) (string, error)

@@ -33,6 +33,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -62,8 +63,7 @@ func ListRankedTiers(c *gin.Context) {
 	ctx := c.Request.Context()
 	tiers, err := queryRankedTiers(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListRankedTiers] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListRankedTiers] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListRankedTiersResponseData{Tiers: tiers}})
@@ -74,19 +74,6 @@ type RankedTierRequest struct {
 	Name      string `json:"name" binding:"required,max=32"`
 	MinRating int32  `json:"min_rating"`                     // 分数线, 段位分不低于它时属于这个段位, 0-1000000
 	Color     string `json:"color" binding:"required,max=7"` // #rrggbb
-}
-
-// rankedTierErrorStatus 段位配置错误对应的状态码, 不是配置错误时返回 0
-func rankedTierErrorStatus(err error) int {
-	switch err.Error() {
-	case ranked.TierNameInvalid, ranked.TierRatingInvalid, ranked.TierColorInvalid:
-		return http.StatusBadRequest
-	case ranked.TierNotFound:
-		return http.StatusNotFound
-	case ranked.TierRatingTaken:
-		return http.StatusConflict
-	}
-	return 0
 }
 
 // CreateRankedTier
@@ -116,12 +103,7 @@ func CreateRankedTier(c *gin.Context) {
 	}
 	created, err := doCreateRankedTier(ctx, &req)
 	if err != nil {
-		if status := rankedTierErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateRankedTier] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateRankedTier] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, ranked.ActionRankedTierCreate, ranked.TargetRankedTier, created.ID, rankedTierFields(created))
@@ -160,12 +142,7 @@ func UpdateRankedTier(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateRankedTier(ctx, tierID, &req)
 	if err != nil {
-		if status := rankedTierErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateRankedTier] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateRankedTier] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -202,12 +179,7 @@ func DeleteRankedTier(c *gin.Context) {
 	}
 	deleted, err := doDeleteRankedTier(ctx, tierID)
 	if err != nil {
-		if err.Error() == ranked.TierNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteRankedTier] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteRankedTier] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, ranked.ActionRankedTierDelete, ranked.TargetRankedTier, deleted.ID, rankedTierFields(deleted))
@@ -249,8 +221,7 @@ func ListRankedSuspects(c *gin.Context) {
 	}
 	total, suspects, err := auction.QuerySuspects(ctx, req.Reviewed, (req.Current-1)*req.Size, req.Size)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListRankedSuspects] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListRankedSuspects] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListRankedSuspectsResponseData{Total: total, Suspects: suspects}})
@@ -292,8 +263,7 @@ func ReviewRankedSuspect(c *gin.Context) {
 	note := strings.TrimSpace(req.Note)
 	review, err := auction.ReviewSuspect(ctx, operator.ID, req.UserA, req.UserB, req.LastMatchID, note)
 	if err != nil {
-		logger.ErrorF(ctx, "[ReviewRankedSuspect] review failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ReviewRankedSuspect] review failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, ranked.ActionSuspectReview, ranked.TargetSuspect, req.UserA, map[string]interface{}{

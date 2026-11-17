@@ -25,7 +25,6 @@
 package codexadmin
 
 import (
-	"errors"
 	"slices"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/codex"
@@ -44,10 +43,6 @@ func init() {
 	// 收集组按代码对应; 同代码的收集组已删除时只能改名导入
 	pack.RegisterTable(pack.Table[codex.Set, SetRequest]{
 		Code: PackCodexSets, Label: "收集组", Hint: "按代码对应, 物品按 ID 引用; 已删除或不是藏品的物品不导出", Order: OrderCodexSets,
-		Invalid: func(err error) bool {
-			var invalid *codex.InvalidError
-			return errors.As(err, &invalid)
-		},
 		Export: func(tx *gorm.DB, _ func(string) string) ([]SetRequest, error) {
 			var rows []codex.Set
 			if err := tx.Order("sort_order, id").Find(&rows).Error; err != nil {

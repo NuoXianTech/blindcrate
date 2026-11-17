@@ -32,6 +32,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -80,8 +81,7 @@ func ListMatches(c *gin.Context) {
 	}
 	total, matches, err := QueryMatches(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMatches] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMatches] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListMatchesResponseData{Total: total, Matches: matches}})
@@ -123,15 +123,7 @@ func CancelMatch(c *gin.Context) {
 	}
 	cancelled, err := match.Cancel(ctx, matchID)
 	if err != nil {
-		switch err.Error() {
-		case match.MatchNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case match.MatchNotPlaying:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[CancelMatch] cancel failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[CancelMatch] cancel failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, match.ActionMatchCancel, match.TargetMatch, cancelled.ID, map[string]interface{}{

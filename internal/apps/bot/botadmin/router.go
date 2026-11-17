@@ -25,7 +25,6 @@
 package botadmin
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -33,6 +32,8 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -79,8 +80,7 @@ func ListBotNames(c *gin.Context) {
 	}
 	total, names, err := QueryNames(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListBotNames] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListBotNames] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListNamesResponseData{Total: total, Names: names}})
@@ -102,20 +102,6 @@ type CreateNamesResponseData struct {
 type NameRequest struct {
 	Name      string `json:"name" binding:"required,max=64"` // 去掉首尾空白后为 1-32 个字符
 	IsEnabled bool   `json:"is_enabled"`
-}
-
-// nameErrorStatus 昵称错误对应的状态码, 不是昵称错误时返回 0
-func nameErrorStatus(err error) int {
-	var invalid *bot.InvalidError
-	switch {
-	case errors.As(err, &invalid):
-		return http.StatusBadRequest
-	case err.Error() == bot.NameNotFound:
-		return http.StatusNotFound
-	case err.Error() == bot.NameTaken:
-		return http.StatusConflict
-	}
-	return 0
 }
 
 // CreateBotNames
@@ -146,12 +132,7 @@ func CreateBotNames(c *gin.Context) {
 	}
 	result, err := doCreateNames(ctx, &req)
 	if err != nil {
-		if status := nameErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateBotNames] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateBotNames] create failed")
 		return
 	}
 	if len(result.Created) > 0 {
@@ -199,12 +180,7 @@ func UpdateBotName(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateName(ctx, nameID, &req)
 	if err != nil {
-		if status := nameErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateBotName] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateBotName] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -241,12 +217,7 @@ func DeleteBotName(c *gin.Context) {
 	}
 	deleted, err := doDeleteName(ctx, nameID)
 	if err != nil {
-		if err.Error() == bot.NameNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteBotName] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteBotName] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, bot.ActionNameDelete, bot.TargetName, deleted.ID, nameFields(deleted))
@@ -288,8 +259,7 @@ func ListBotPersonas(c *gin.Context) {
 	}
 	total, personas, err := QueryPersonas(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListBotPersonas] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListBotPersonas] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListPersonasResponseData{Total: total, Personas: personas}})
@@ -313,22 +283,8 @@ type InUseError struct {
 
 func (e *InUseError) Error() string { return fmt.Sprintf(bot.PersonaInUse, e.Venue) }
 
-// personaErrorStatus 风格配置错误对应的状态码, 不是配置错误时返回 0
-func personaErrorStatus(err error) int {
-	var (
-		invalid *bot.InvalidError
-		inUse   *InUseError
-	)
-	switch {
-	case errors.As(err, &invalid), err.Error() == bot.CodeImmutable:
-		return http.StatusBadRequest
-	case err.Error() == bot.PersonaNotFound:
-		return http.StatusNotFound
-	case err.Error() == bot.CodeTaken, errors.As(err, &inUse):
-		return http.StatusConflict
-	}
-	return 0
-}
+// Kind 错误的类别, 见 fault
+func (e *InUseError) Kind() fault.Kind { return fault.KindConflict }
 
 // CreateBotPersona
 // @Tags admin
@@ -357,12 +313,7 @@ func CreateBotPersona(c *gin.Context) {
 	}
 	created, err := doCreatePersona(ctx, &req)
 	if err != nil {
-		if status := personaErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateBotPersona] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateBotPersona] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, bot.ActionPersonaCreate, bot.TargetPersona, created.ID, personaFields(created))
@@ -400,12 +351,7 @@ func UpdateBotPersona(c *gin.Context) {
 	}
 	updated, changes, err := doUpdatePersona(ctx, personaID, &req)
 	if err != nil {
-		if status := personaErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateBotPersona] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateBotPersona] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -443,12 +389,7 @@ func DeleteBotPersona(c *gin.Context) {
 	}
 	deleted, err := doDeletePersona(ctx, personaID)
 	if err != nil {
-		if status := personaErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteBotPersona] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteBotPersona] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, bot.ActionPersonaDelete, bot.TargetPersona, deleted.ID, personaFields(deleted))
@@ -470,8 +411,7 @@ func ListBotStrategies(c *gin.Context) {
 	ctx := c.Request.Context()
 	strategies, err := bot.Strategies(db.DB(ctx))
 	if err != nil {
-		logger.ErrorF(ctx, "[ListBotStrategies] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListBotStrategies] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: strategies})

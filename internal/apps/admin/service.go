@@ -25,16 +25,17 @@
 package admin
 
 import (
-	"errors"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 )
 
 // NormalizeRemark 去除首尾空白并校验调整备注, 可以为空, 用户可在流水中看到
 func NormalizeRemark(remark string) (string, error) {
 	remark = strings.TrimSpace(remark)
 	if utf8.RuneCountInString(remark) > 255 || strings.ContainsRune(remark, 0) {
-		return "", errors.New(RemarkInvalid)
+		return "", fault.Invalid(RemarkInvalid)
 	}
 	return remark, nil
 }

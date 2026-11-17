@@ -26,7 +26,6 @@
 package redeemadmin
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -36,6 +35,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/redeem"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -82,8 +82,7 @@ func ListRedeemBatches(c *gin.Context) {
 	}
 	total, batches, err := QueryBatches(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListRedeemBatches] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListRedeemBatches] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListBatchesResponseData{Total: total, Batches: batches}})
@@ -108,20 +107,6 @@ type CreateBatchRequest struct {
 	Count          int    `json:"count"`                                                // 随机生成的个数, 1-10000; 指定了兑换码时忽略
 	Code           string `json:"code" binding:"max=64"`                                // 指定兑换码, 4-32 个字母、数字或汉字, 不区分大小写; 不为空时只生成这一个
 	IdempotencyKey string `json:"idempotency_key" binding:"required,max=64,printascii"` // 每次打开生成框生成一个, 重复提交只生成一次
-}
-
-// batchErrorStatus 批次配置错误对应的状态码, 不是配置错误时返回 0
-func batchErrorStatus(err error) int {
-	var invalid *redeem.InvalidError
-	switch {
-	case errors.As(err, &invalid):
-		return http.StatusBadRequest
-	case err.Error() == redeem.BatchNotFound:
-		return http.StatusNotFound
-	case err.Error() == redeem.CodeTaken, err.Error() == redeem.IdempotencyConflict:
-		return http.StatusConflict
-	}
-	return 0
 }
 
 // CreateRedeemBatch
@@ -152,12 +137,7 @@ func CreateRedeemBatch(c *gin.Context) {
 	}
 	created, replayed, err := doCreateBatch(ctx, operator.ID, &req)
 	if err != nil {
-		if status := batchErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateRedeemBatch] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateRedeemBatch] create failed")
 		return
 	}
 	if replayed {
@@ -203,12 +183,7 @@ func UpdateRedeemBatch(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateBatch(ctx, batchID, &req)
 	if err != nil {
-		if status := batchErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateRedeemBatch] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateRedeemBatch] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -245,12 +220,7 @@ func DeleteRedeemBatch(c *gin.Context) {
 	}
 	deleted, err := doDeleteBatch(ctx, batchID)
 	if err != nil {
-		if err.Error() == redeem.BatchNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteRedeemBatch] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteRedeemBatch] delete failed")
 		return
 	}
 	detail := batchFields(deleted)
@@ -287,12 +257,7 @@ func ListRedeemBatchCodes(c *gin.Context) {
 	}
 	codes, err := QueryCodes(ctx, batchID)
 	if err != nil {
-		if err.Error() == redeem.BatchNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[ListRedeemBatchCodes] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListRedeemBatchCodes] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListCodesResponseData{Codes: codes}})
@@ -334,8 +299,7 @@ func ListRedeemRecords(c *gin.Context) {
 	}
 	total, records, err := QueryRecords(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListRedeemRecords] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListRedeemRecords] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListRecordsResponseData{Total: total, Records: records}})

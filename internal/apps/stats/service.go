@@ -33,6 +33,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/task/schedule"
@@ -312,7 +313,7 @@ type UserStats struct {
 // QueryUserStats 获取用户在一个统计范围的累计数据和截至 now 的最近 RecentDays 天的数据
 func QueryUserStats(tx *gorm.DB, userID uint64, scope string, now time.Time) (*UserStats, error) {
 	if !ValidScope(scope) {
-		return nil, errors.New(ScopeInvalid)
+		return nil, fault.Invalid(ScopeInvalid)
 	}
 	result := &UserStats{Scope: scope, Metrics: Metrics(), Total: Values{}, Days: make([]DayValues, RecentDays)}
 	periods := []string{PeriodTotal}

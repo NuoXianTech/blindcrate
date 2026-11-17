@@ -30,7 +30,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
 
@@ -80,8 +80,7 @@ func ListAuditLogs(c *gin.Context) {
 	}
 	total, logs, err := QueryAuditLogs(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListAuditLogs] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListAuditLogs] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListAuditLogsResponseData{Total: total, Logs: logs}})

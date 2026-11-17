@@ -25,8 +25,6 @@
 package venueadmin
 
 import (
-	"errors"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
@@ -36,10 +34,6 @@ import (
 func init() {
 	pack.RegisterTable(pack.Table[venue.Venue, VenueRequest]{
 		Code: pack.PackVenues, Label: "地图", Hint: "按代码对应, 带上地图图片", Order: pack.OrderVenues,
-		Invalid: func(err error) bool {
-			var invalid *venue.InvalidError
-			return errors.As(err, &invalid)
-		},
 		Query: func(tx *gorm.DB) *gorm.DB { return tx.Order("sort_order, id") },
 		Pack: func(v *venue.Venue, image func(string) string) VenueRequest {
 			return VenueRequest{

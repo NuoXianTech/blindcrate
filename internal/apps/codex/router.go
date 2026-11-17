@@ -28,6 +28,7 @@ import (
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -57,8 +58,7 @@ func GetCodex(c *gin.Context) {
 	}
 	data, err := QueryCodex(ctx, user.ID)
 	if err != nil {
-		logger.ErrorF(ctx, "[GetCodex] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetCodex] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: data})
@@ -87,17 +87,7 @@ func ClaimCodexSet(c *gin.Context) {
 	}
 	result, err := Claim(ctx, user.ID, code)
 	if err != nil {
-		switch err.Error() {
-		case SetNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case NotCompleted, AlreadyClaimed:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		case RewardUnavailable, RewardTooLarge:
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[ClaimCodexSet] claim failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[ClaimCodexSet] claim failed")
 		return
 	}
 	logger.InfoF(ctx, "[ClaimCodexSet] %d claimed codex set %s", user.ID, code)

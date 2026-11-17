@@ -36,6 +36,8 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -95,13 +97,7 @@ func ExportPack(c *gin.Context) {
 	}
 	data, counts, err := doExportPack(ctx, &req)
 	if err != nil {
-		var packErr *PackError
-		if errors.As(err, &packErr) {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[ExportPack] export failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ExportPack] export failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, ActionPackExport, TargetPack, 0, map[string]interface{}{
@@ -196,13 +192,7 @@ func PreviewPack(c *gin.Context) {
 	}
 	preview, err := doPreviewPack(ctx, operator.ID, data, actions)
 	if err != nil {
-		var packErr *PackError
-		if errors.As(err, &packErr) {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[PreviewPack] preview failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[PreviewPack] preview failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: preview})
@@ -239,16 +229,12 @@ func ImportPack(c *gin.Context) {
 	}
 	record, results, err := doImportPack(ctx, operator.ID, data, actions)
 	if err != nil {
-		var packErr *PackError
-		switch {
-		case errors.As(err, &packErr) && results != nil:
+		// 有需要先选择处理方式的配置时带上每一项的结果, 前端据此展示
+		if fault.KindOf(err) == fault.KindInvalid && results != nil {
 			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error(), Data: results})
-		case errors.As(err, &packErr):
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[ImportPack] import failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+			return
 		}
+		reply.Fail(c, err, "[ImportPack] import failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, ActionPackImport, TargetPack, record.ID, map[string]interface{}{
@@ -299,8 +285,7 @@ func ListPackImports(c *gin.Context) {
 	}
 	total, imports, err := QueryPackImports(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListPackImports] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListPackImports] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListPackImportsResponseData{Total: total, Imports: imports}})
@@ -328,12 +313,7 @@ func GetPackImport(c *gin.Context) {
 	}
 	record, err := queryPackImport(ctx, importID)
 	if err != nil {
-		if err.Error() == ImportNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetPackImport] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetPackImport] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: record})

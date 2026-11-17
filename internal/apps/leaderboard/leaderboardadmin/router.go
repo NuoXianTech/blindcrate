@@ -31,6 +31,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -77,8 +78,7 @@ func ListLeaderboards(c *gin.Context) {
 	}
 	total, boards, err := QueryLeaderboards(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListLeaderboards] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListLeaderboards] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListLeaderboardsResponseData{Total: total, Boards: boards}})
@@ -103,8 +103,7 @@ func ListLeaderboardMetrics(c *gin.Context) {
 	ctx := c.Request.Context()
 	metrics, err := leaderboard.QueryMetrics(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListLeaderboardMetrics] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListLeaderboardMetrics] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListLeaderboardMetricsResponseData{Metrics: metrics}})
@@ -122,20 +121,6 @@ type LeaderboardRequest struct {
 	MinMatches  int64  `json:"min_matches"`                                   // 同一范围和周期内至少完成多少局才上榜
 	SortOrder   int32  `json:"sort_order" binding:"min=-1000000,max=1000000"` // 玩家页面的页签从小到大排列
 	IsEnabled   bool   `json:"is_enabled"`                                    // 停用后玩家看不到
-}
-
-// leaderboardErrorStatus 榜单配置错误对应的状态码, 不是配置错误时返回 0
-func leaderboardErrorStatus(err error) int {
-	switch err.Error() {
-	case leaderboard.CodeInvalid, leaderboard.NameInvalid, leaderboard.MetricInvalid, leaderboard.ScopeInvalid,
-		leaderboard.PeriodInvalid, leaderboard.SizeInvalid, leaderboard.MinMatchesInvalid, leaderboard.RatingBoardInvalid:
-		return http.StatusBadRequest
-	case leaderboard.BoardNotFound:
-		return http.StatusNotFound
-	case leaderboard.CodeTaken:
-		return http.StatusConflict
-	}
-	return 0
 }
 
 // CreateLeaderboard
@@ -165,12 +150,7 @@ func CreateLeaderboard(c *gin.Context) {
 	}
 	created, err := doCreateLeaderboard(ctx, &req)
 	if err != nil {
-		if status := leaderboardErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateLeaderboard] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateLeaderboard] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, leaderboard.ActionLeaderboardCreate, leaderboard.TargetLeaderboard, created.ID, leaderboardFields(created))
@@ -209,12 +189,7 @@ func UpdateLeaderboard(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateLeaderboard(ctx, boardID, &req)
 	if err != nil {
-		if status := leaderboardErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateLeaderboard] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateLeaderboard] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -251,12 +226,7 @@ func DeleteLeaderboard(c *gin.Context) {
 	}
 	deleted, err := doDeleteLeaderboard(ctx, boardID)
 	if err != nil {
-		if err.Error() == leaderboard.BoardNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteLeaderboard] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteLeaderboard] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, leaderboard.ActionLeaderboardDelete, leaderboard.TargetLeaderboard, deleted.ID, leaderboardFields(deleted))

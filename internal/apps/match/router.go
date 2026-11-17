@@ -27,14 +27,13 @@ package match
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"net/http"
 	"regexp"
 	"strconv"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/config"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -94,20 +93,7 @@ func JoinMatchmaking(c *gin.Context) {
 	}
 	status, err := Join(ctx, user.ID, req.Mode, Origin{IP: c.ClientIP(), Device: deviceOf(c)})
 	if err != nil {
-		var rejected *RejectedError
-		if errors.As(err, &rejected) {
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: rejected.Reason})
-			return
-		}
-		switch err.Error() {
-		case ModeNotFound:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case AlreadyQueued, InMatch:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[JoinMatchmaking] join failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[JoinMatchmaking] join failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: status})
@@ -131,8 +117,7 @@ func LeaveMatchmaking(c *gin.Context) {
 		return
 	}
 	if err := Leave(ctx, user.ID); err != nil {
-		logger.ErrorF(ctx, "[LeaveMatchmaking] leave failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[LeaveMatchmaking] leave failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{})
@@ -156,8 +141,7 @@ func GetMatchmaking(c *gin.Context) {
 	}
 	status, err := QueryMatchmakingStatus(ctx, user.ID)
 	if err != nil {
-		logger.ErrorF(ctx, "[GetMatchmaking] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetMatchmaking] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: status})
@@ -182,8 +166,7 @@ func GetCurrentMatch(c *gin.Context) {
 	}
 	view, err := QueryCurrentMatch(ctx, user.ID)
 	if err != nil {
-		logger.ErrorF(ctx, "[GetCurrentMatch] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetCurrentMatch] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: view})
@@ -230,8 +213,7 @@ func ListMatches(c *gin.Context) {
 	}
 	total, matches, err := QueryUserMatches(ctx, user.ID, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMatches] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMatches] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListMatchesResponseData{Total: total, Matches: matches}})
@@ -263,12 +245,7 @@ func GetMatch(c *gin.Context) {
 	}
 	view, err := QueryUserMatch(ctx, user.ID, matchID)
 	if err != nil {
-		if err.Error() == MatchNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetMatch] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetMatch] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: view})

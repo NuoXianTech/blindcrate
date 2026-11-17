@@ -37,6 +37,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -57,12 +58,18 @@ type InvalidError struct {
 
 func (e *InvalidError) Error() string { return e.Reason }
 
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
+
 // RejectedError 不能兑换, Error 返回的提示可以直接展示给玩家
 type RejectedError struct {
 	Reason string
 }
 
 func (e *RejectedError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *RejectedError) Kind() fault.Kind { return fault.KindForbidden }
 
 // Validate 保存批次前校验配置, 校验后合并奖励中的同类项
 //
@@ -162,7 +169,7 @@ type Result struct {
 func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 	code := Normalize(input)
 	if !ValidCode(code) {
-		return nil, errors.New(CodeNotFound)
+		return nil, fault.NotFound(CodeNotFound)
 	}
 	var (
 		batch    Batch
@@ -178,13 +185,13 @@ func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 			return err
 		}
 		if target.ID == 0 {
-			return errors.New(CodeNotFound)
+			return fault.NotFound(CodeNotFound)
 		}
 		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ? AND is_enabled", target.BatchID).Limit(1).Find(&batch).Error; err != nil {
 			return err
 		}
 		if batch.ID == 0 {
-			return errors.New(CodeNotFound)
+			return fault.NotFound(CodeNotFound)
 		}
 		// 先看是否兑换过, 兑换过的用户在兑换码到期或兑换完之后看到的仍是已兑换
 		var redeemed int64
@@ -192,13 +199,13 @@ func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 			return err
 		}
 		if redeemed > 0 {
-			return errors.New(AlreadyRedeemed)
+			return fault.Conflict(AlreadyRedeemed)
 		}
 		if batch.Expired(time.Now()) {
-			return errors.New(CodeExpired)
+			return fault.Conflict(CodeExpired)
 		}
 		if batch.MaxUses > 0 && target.Used >= batch.MaxUses {
-			return errors.New(CodeUsedUp)
+			return fault.Conflict(CodeUsedUp)
 		}
 		if batch.UserLimit > 0 {
 			var count int64
@@ -225,7 +232,7 @@ func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 		if err := tx.Create(&record).Error; err != nil {
 			// 咨询锁之外的兜底, 正常不会走到
 			if db.IsUniqueViolation(err) {
-				return errors.New(AlreadyRedeemed)
+				return fault.Conflict(AlreadyRedeemed)
 			}
 			return err
 		}
@@ -256,9 +263,9 @@ func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 func undeliverable(err error) error {
 	switch reward.FailureOf(err) {
 	case reward.Unavailable:
-		return errors.New(RewardUnavailable)
+		return fault.Forbidden(RewardUnavailable)
 	case reward.TooLarge:
-		return errors.New(RewardTooLarge)
+		return fault.Forbidden(RewardTooLarge)
 	}
 	return err
 }

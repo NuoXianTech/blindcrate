@@ -38,6 +38,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
@@ -328,12 +329,12 @@ func SetCarry(ctx context.Context, userID uint64, req *CarryRequest) (*CarryPref
 	var v venue.Venue
 	if err := v.ExactCode(tx, req.Venue); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(venue.VenueDisabled)
+			return nil, fault.NotFound(venue.VenueDisabled)
 		}
 		return nil, err
 	}
 	if !v.IsEnabled {
-		return nil, errors.New(venue.VenueDisabled)
+		return nil, fault.NotFound(venue.VenueDisabled)
 	}
 	pref := &CarryPreference{UserID: userID, Venue: v.Code, Amount: min(max(req.Amount, v.Auction.StartPrice), v.Auction.MaxCarry)}
 	if err := tx.Clauses(clause.OnConflict{
@@ -1269,6 +1270,9 @@ type bidError struct {
 
 func (e *bidError) Error() string { return e.reason }
 
+// Kind 错误的类别, 见 fault
+func (e *bidError) Kind() fault.Kind { return fault.KindForbidden }
+
 // rejectBid 拒绝出价或使用道具
 func rejectBid(format string, args ...any) error {
 	if len(args) == 0 {
@@ -1492,7 +1496,7 @@ func QueryUsableItems(ctx context.Context, userID, matchID uint64) ([]UsableItem
 	var m match.Match
 	if err := m.Exact(tx, matchID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(match.MatchNotFound)
+			return nil, fault.NotFound(match.MatchNotFound)
 		}
 		return nil, err
 	}
@@ -1505,7 +1509,7 @@ func QueryUsableItems(ctx context.Context, userID, matchID uint64) ([]UsableItem
 		return nil, err
 	}
 	if a.MatchID == 0 || userID == 0 || joined == 0 {
-		return nil, errors.New(match.MatchNotFound)
+		return nil, fault.NotFound(match.MatchNotFound)
 	}
 
 	usable := []UsableItem{}

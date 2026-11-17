@@ -25,13 +25,13 @@
 package codexadmin
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/codex"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -78,8 +78,7 @@ func ListCodexSets(c *gin.Context) {
 	}
 	total, sets, err := QuerySets(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListCodexSets] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListCodexSets] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListSetsResponseData{Total: total, Sets: sets}})
@@ -96,20 +95,6 @@ type SetRequest struct {
 	Reward      reward.Bundle `json:"reward" binding:"-"`   // 数量为正数, 不能为空
 	SortOrder   int32         `json:"sort_order" binding:"min=-1000000,max=1000000"`
 	IsEnabled   bool          `json:"is_enabled"`
-}
-
-// setErrorStatus 收集组配置错误对应的状态码, 不是配置错误时返回 0
-func setErrorStatus(err error) int {
-	var invalid *codex.InvalidError
-	switch {
-	case errors.As(err, &invalid), err.Error() == codex.CodeImmutable:
-		return http.StatusBadRequest
-	case err.Error() == codex.SetNotFound:
-		return http.StatusNotFound
-	case err.Error() == codex.CodeTaken:
-		return http.StatusConflict
-	}
-	return 0
 }
 
 // CreateCodexSet
@@ -139,12 +124,7 @@ func CreateCodexSet(c *gin.Context) {
 	}
 	created, err := doCreateSet(ctx, &req)
 	if err != nil {
-		if status := setErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateCodexSet] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateCodexSet] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, codex.ActionCreate, codex.TargetSet, created.ID, setFields(created))
@@ -182,12 +162,7 @@ func UpdateCodexSet(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateSet(ctx, setID, &req)
 	if err != nil {
-		if status := setErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateCodexSet] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateCodexSet] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -224,12 +199,7 @@ func DeleteCodexSet(c *gin.Context) {
 	}
 	deleted, err := doDeleteSet(ctx, setID)
 	if err != nil {
-		if err.Error() == codex.SetNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteCodexSet] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteCodexSet] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, codex.ActionDelete, codex.TargetSet, deleted.ID, setFields(deleted))

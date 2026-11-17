@@ -38,6 +38,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/crate"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item/itemadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard/leaderboardadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot/lootadmin"
@@ -281,11 +282,11 @@ func TestPackEntriesDuplicate(t *testing.T) {
 }
 
 func TestPackFailure(t *testing.T) {
-	if !pack.PackFailure(errors.New(pack.PackConflicts)) || !pack.PackFailure(&venue.InvalidError{}) || !pack.PackFailure(pack.PackErrorf(pack.PackImageMissing, "a")) {
+	if !pack.PackFailure(fault.Conflict(pack.PackConflicts)) || !pack.PackFailure(&venue.InvalidError{}) || !pack.PackFailure(pack.PackErrorf(pack.PackImageMissing, "a")) {
 		t.Error("validation errors should be failures")
 	}
-	if pack.PackFailure(fmt.Errorf("query: %w", errors.New("conn reset"))) {
-		t.Error("wrapped errors should abort")
+	if pack.PackFailure(errors.New("conn reset")) || pack.PackFailure(fmt.Errorf("query: %w", errors.New("conn reset"))) {
+		t.Error("internal errors should abort")
 	}
 }
 

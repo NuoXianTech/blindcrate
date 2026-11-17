@@ -32,6 +32,7 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/admin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -42,7 +43,7 @@ func queryUserInventory(ctx context.Context, userID uint64, req *inventory.ListI
 	var user auth.User
 	if err := user.Exact(db.DB(ctx), userID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return 0, nil, errors.New(auth.UserNotFound)
+			return 0, nil, fault.NotFound(auth.UserNotFound)
 		}
 		return 0, nil, err
 	}
@@ -66,7 +67,7 @@ func doAdjustUserInventory(ctx context.Context, operatorID, userID uint64, req *
 		var user auth.User
 		if err := user.Exact(tx, userID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return errors.New(auth.UserNotFound)
+				return fault.NotFound(auth.UserNotFound)
 			}
 			return err
 		}

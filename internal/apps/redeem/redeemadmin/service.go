@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/redeem"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -133,7 +134,7 @@ func doCreateBatch(ctx context.Context, operatorID uint64, req *CreateBatchReque
 				return err
 			}
 			if target.CodeCount != count || len(audit.Changes(batchFields(target), requested)) > 0 {
-				return errors.New(redeem.IdempotencyConflict)
+				return fault.Conflict(redeem.IdempotencyConflict)
 			}
 			return nil
 		}
@@ -148,7 +149,7 @@ func doCreateBatch(ctx context.Context, operatorID uint64, req *CreateBatchReque
 		}
 		// 包括已删除的批次中的兑换码; 随机生成时几乎不会遇到, 重新提交即可
 		if inserted.RowsAffected != int64(len(rows)) {
-			return errors.New(redeem.CodeTaken)
+			return fault.Conflict(redeem.CodeTaken)
 		}
 		return nil
 	})
@@ -204,7 +205,7 @@ func doDeleteBatch(ctx context.Context, batchID uint64) (*redeem.Batch, error) {
 func lockBatch(tx *gorm.DB, target *redeem.Batch, batchID uint64) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), batchID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(redeem.BatchNotFound)
+			return fault.NotFound(redeem.BatchNotFound)
 		}
 		return err
 	}
@@ -254,7 +255,7 @@ func QueryCodes(ctx context.Context, batchID uint64) ([]redeem.Code, error) {
 	var batch redeem.Batch
 	if err := batch.Exact(tx, batchID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(redeem.BatchNotFound)
+			return nil, fault.NotFound(redeem.BatchNotFound)
 		}
 		return nil, err
 	}

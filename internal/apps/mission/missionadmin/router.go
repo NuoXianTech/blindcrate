@@ -25,7 +25,6 @@
 package missionadmin
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/mission"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -82,8 +82,7 @@ func ListMissions(c *gin.Context) {
 	}
 	total, missions, err := QueryMissions(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMissions] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMissions] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListMissionsResponseData{Total: total, Missions: missions}})
@@ -108,8 +107,7 @@ func ListMissionOptions(c *gin.Context) {
 	ctx := c.Request.Context()
 	metrics, err := stats.ValueMetrics(db.DB(ctx))
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMissionOptions] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMissionOptions] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListMissionOptionsResponseData{Cycles: mission.Cycles(), Metrics: metrics}})
@@ -130,20 +128,6 @@ type MissionRequest struct {
 	Requirements []condition.Condition `json:"requirements" binding:"-"`  // 领取条件, 需要全部满足
 	SortOrder    int32                 `json:"sort_order" binding:"min=-1000000,max=1000000"`
 	IsEnabled    bool                  `json:"is_enabled"`
-}
-
-// missionErrorStatus 任务配置错误对应的状态码, 不是配置错误时返回 0
-func missionErrorStatus(err error) int {
-	var invalid *mission.InvalidError
-	switch {
-	case errors.As(err, &invalid), err.Error() == mission.CodeImmutable:
-		return http.StatusBadRequest
-	case err.Error() == mission.MissionNotFound:
-		return http.StatusNotFound
-	case err.Error() == mission.CodeTaken:
-		return http.StatusConflict
-	}
-	return 0
 }
 
 // CreateMission
@@ -173,12 +157,7 @@ func CreateMission(c *gin.Context) {
 	}
 	created, err := doCreateMission(ctx, &req)
 	if err != nil {
-		if status := missionErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateMission] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateMission] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, mission.ActionCreate, mission.TargetMission, created.ID, missionFields(created))
@@ -216,12 +195,7 @@ func UpdateMission(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateMission(ctx, missionID, &req)
 	if err != nil {
-		if status := missionErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateMission] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateMission] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -258,12 +232,7 @@ func DeleteMission(c *gin.Context) {
 	}
 	deleted, err := doDeleteMission(ctx, missionID)
 	if err != nil {
-		if err.Error() == mission.MissionNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteMission] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteMission] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, mission.ActionDelete, mission.TargetMission, deleted.ID, missionFields(deleted))

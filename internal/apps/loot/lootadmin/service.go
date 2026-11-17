@@ -34,6 +34,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
@@ -90,7 +91,7 @@ func doCreateLootPool(ctx context.Context, req *LootPoolRequest) (*loot.Pool, er
 	}
 	if err := db.DB(ctx).Create(target).Error; err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, errors.New(loot.PoolCodeTaken)
+			return nil, fault.Conflict(loot.PoolCodeTaken)
 		}
 		return nil, err
 	}
@@ -121,7 +122,7 @@ func doUpdateLootPool(ctx context.Context, poolID uint64, req *LootPoolRequest) 
 	})
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			return nil, nil, errors.New(loot.PoolCodeTaken)
+			return nil, nil, fault.Conflict(loot.PoolCodeTaken)
 		}
 		return nil, nil, err
 	}
@@ -156,7 +157,7 @@ func queryLootPoolEntries(ctx context.Context, poolID uint64) (*loot.Pool, []loo
 	var target loot.Pool
 	if err := target.Exact(db.DB(ctx), poolID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil, errors.New(loot.PoolNotFound)
+			return nil, nil, fault.NotFound(loot.PoolNotFound)
 		}
 		return nil, nil, err
 	}
@@ -216,18 +217,18 @@ func doReplaceLootPoolEntries(ctx context.Context, poolID uint64, req *ReplaceLo
 // BuildLootEntries 校验提交的条目并转换为待写入的条目
 func BuildLootEntries(poolID uint64, reqEntries []LootPoolEntryRequest) ([]loot.Entry, error) {
 	if len(reqEntries) > loot.MaxEntries {
-		return nil, errors.New(loot.EntryTooMany)
+		return nil, fault.Invalid(loot.EntryTooMany)
 	}
 	entries := make([]loot.Entry, len(reqEntries))
 	for i, reqEntry := range reqEntries {
 		if (reqEntry.ItemID != 0) == (reqEntry.Currency != "") {
-			return nil, errors.New(loot.EntryTargetInvalid)
+			return nil, fault.Invalid(loot.EntryTargetInvalid)
 		}
 		if reqEntry.MinQuantity > reqEntry.MaxQuantity {
-			return nil, errors.New(loot.EntryRangeInvalid)
+			return nil, fault.Invalid(loot.EntryRangeInvalid)
 		}
 		if reqEntry.ItemID != 0 && reqEntry.MaxQuantity > inventory.MaxQuantity {
-			return nil, errors.New(inventory.QuantityInvalid)
+			return nil, fault.Invalid(inventory.QuantityInvalid)
 		}
 		entries[i] = loot.Entry{
 			PoolID:      poolID,
@@ -259,7 +260,7 @@ func CheckLootTargets(tx *gorm.DB, entries []loot.Entry) error {
 			return err
 		}
 		if count != int64(len(itemIDs)) {
-			return errors.New(item.ItemNotFound)
+			return fault.Invalid(item.ItemNotFound)
 		}
 	}
 	if len(codes) > 0 {
@@ -268,7 +269,7 @@ func CheckLootTargets(tx *gorm.DB, entries []loot.Entry) error {
 			return err
 		}
 		if count != int64(len(codes)) {
-			return errors.New(wallet.CurrencyNotFound)
+			return fault.Invalid(wallet.CurrencyNotFound)
 		}
 	}
 	return nil
@@ -278,7 +279,7 @@ func CheckLootTargets(tx *gorm.DB, entries []loot.Entry) error {
 func LockLootPool(tx *gorm.DB, target *loot.Pool, poolID uint64) error {
 	if err := target.Exact(tx.Clauses(clause.Locking{Strength: "UPDATE"}), poolID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(loot.PoolNotFound)
+			return fault.NotFound(loot.PoolNotFound)
 		}
 		return err
 	}
@@ -288,11 +289,11 @@ func LockLootPool(tx *gorm.DB, target *loot.Pool, poolID uint64) error {
 // ApplyLootPool 校验请求并写入掉落池字段
 func ApplyLootPool(target *loot.Pool, req *LootPoolRequest) error {
 	if !lootPoolCodePattern.MatchString(req.Code) {
-		return errors.New(loot.PoolCodeInvalid)
+		return fault.Invalid(loot.PoolCodeInvalid)
 	}
 	name := strings.TrimSpace(req.Name)
 	if n := utf8.RuneCountInString(name); n < 1 || n > 64 {
-		return errors.New(loot.PoolNameInvalid)
+		return fault.Invalid(loot.PoolNameInvalid)
 	}
 
 	target.Code = req.Code

@@ -36,6 +36,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
@@ -63,6 +64,9 @@ type InvalidError struct {
 }
 
 func (e *InvalidError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
 
 // Validate 保存收集组前校验配置, 校验后物品去重并从小到大排列, 奖励合并同类项
 //
@@ -300,7 +304,7 @@ func Claim(ctx context.Context, userID uint64, code string) (*ClaimResult, error
 		var s Set
 		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("code = ? AND is_enabled", code).First(&s).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return errors.New(SetNotFound)
+				return fault.NotFound(SetNotFound)
 			}
 			return err
 		}
@@ -314,21 +318,21 @@ func Claim(ctx context.Context, userID uint64, code string) (*ClaimResult, error
 		}
 		// 组内没有启用的藏品时玩家看不到这个收集组
 		if len(ids) == 0 {
-			return errors.New(SetNotFound)
+			return fault.NotFound(SetNotFound)
 		}
 		inserted := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&ClaimRecord{SetID: s.ID, UserID: userID})
 		if inserted.Error != nil {
 			return inserted.Error
 		}
 		if inserted.RowsAffected == 0 {
-			return errors.New(AlreadyClaimed)
+			return fault.Conflict(AlreadyClaimed)
 		}
 		var collected int64
 		if err := tx.Model(&inventory.UserItem{}).Where("user_id = ? AND item_id IN ?", userID, ids).Count(&collected).Error; err != nil {
 			return err
 		}
 		if collected < int64(len(ids)) {
-			return errors.New(NotCompleted)
+			return fault.Conflict(NotCompleted)
 		}
 		// 奖励发不出时不记领取, 奖励改好后还可以领
 		var err error
@@ -342,9 +346,9 @@ func Claim(ctx context.Context, userID uint64, code string) (*ClaimResult, error
 		})
 		switch reward.FailureOf(err) {
 		case reward.Unavailable:
-			return errors.New(RewardUnavailable)
+			return fault.Forbidden(RewardUnavailable)
 		case reward.TooLarge:
-			return errors.New(RewardTooLarge)
+			return fault.Forbidden(RewardTooLarge)
 		}
 		return err
 	})

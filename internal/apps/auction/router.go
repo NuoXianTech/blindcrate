@@ -29,9 +29,7 @@ import (
 	"strconv"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/apps/match"
-	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
 
@@ -68,12 +66,7 @@ func GetAuction(c *gin.Context) {
 	}
 	view, err := QueryAuction(ctx, user.ID, matchID)
 	if err != nil {
-		if err.Error() == match.MatchNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[GetAuction] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[GetAuction] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: view})
@@ -111,12 +104,7 @@ func ListUsableItems(c *gin.Context) {
 	}
 	items, err := QueryUsableItems(ctx, user.ID, matchID)
 	if err != nil {
-		if err.Error() == match.MatchNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[ListUsableItems] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListUsableItems] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListUsableItemsResponseData{Items: items}})
@@ -145,8 +133,7 @@ func ListCarry(c *gin.Context) {
 	}
 	prefs, err := QueryCarry(ctx, user.ID)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListCarry] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListCarry] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListCarryResponseData{Preferences: prefs}})
@@ -179,12 +166,7 @@ func PutCarry(c *gin.Context) {
 	}
 	pref, err := SetCarry(ctx, user.ID, &req)
 	if err != nil {
-		if err.Error() == venue.VenueDisabled {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[PutCarry] save failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[PutCarry] save failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: pref})

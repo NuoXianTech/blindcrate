@@ -32,5 +32,4 @@ const (
 	SecretBroken       = "%s无法解密, 请重新填写或清空后再保存"
 	OptionInvalid      = "%s不是可选的值"
 	QueryFailed        = "获取设置失败"
-	SaveFailed         = "保存设置失败"
 )

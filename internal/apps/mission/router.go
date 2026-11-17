@@ -25,10 +25,10 @@
 package mission
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -58,8 +58,7 @@ func ListMissions(c *gin.Context) {
 	}
 	data, err := QueryMissions(ctx, user.ID)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListMissions] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListMissions] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: data})
@@ -88,20 +87,7 @@ func ClaimMission(c *gin.Context) {
 	}
 	result, err := Claim(ctx, user.ID, code)
 	if err != nil {
-		var rejected *RejectedError
-		switch {
-		case errors.As(err, &rejected):
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		case err.Error() == MissionNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case err.Error() == NotCompleted, err.Error() == AlreadyClaimed:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		case err.Error() == RewardUnavailable, err.Error() == RewardTooLarge:
-			c.JSON(http.StatusForbidden, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[ClaimMission] claim failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[ClaimMission] claim failed")
 		return
 	}
 	logger.InfoF(ctx, "[ClaimMission] %d claimed mission %s", user.ID, code)

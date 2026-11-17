@@ -31,7 +31,7 @@ import (
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
 
@@ -67,8 +67,7 @@ func CreateUpload(c *gin.Context) {
 	}
 	maxSize, err := MaxSize(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[CreateUpload] get settings failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateUpload] get settings failed")
 		return
 	}
 	tooLarge := fmt.Sprintf(FileTooLarge, maxSize>>10)
@@ -90,7 +89,7 @@ func CreateUpload(c *gin.Context) {
 	}
 	purpose := c.PostForm("purpose")
 	if err := CheckPurpose(ctx, purpose, user.IsAdmin); err != nil {
-		writeError(c, err, "check purpose")
+		reply.Fail(c, err, "[CreateUpload] check purpose failed")
 		return
 	}
 	file, err := c.FormFile("file")
@@ -104,36 +103,19 @@ func CreateUpload(c *gin.Context) {
 	}
 	f, err := file.Open()
 	if err != nil {
-		logger.ErrorF(ctx, "[CreateUpload] open file failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateUpload] open file failed")
 		return
 	}
 	defer f.Close()
 	data, err := io.ReadAll(io.LimitReader(f, maxSize+1))
 	if err != nil {
-		logger.ErrorF(ctx, "[CreateUpload] read file failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateUpload] read file failed")
 		return
 	}
 	view, err := Save(ctx, &SaveRequest{UserID: user.ID, IsAdmin: user.IsAdmin, Purpose: purpose, Data: data})
 	if err != nil {
-		writeError(c, err, "save")
+		reply.Fail(c, err, "[CreateUpload] save failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: view})
-}
-
-// writeError 按错误类型返回 400 / 403, 其他记录日志后返回 500
-func writeError(c *gin.Context, err error, action string) {
-	var invalid *InvalidError
-	var forbidden *ForbiddenError
-	switch {
-	case errors.As(err, &invalid):
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: invalid.Reason})
-	case errors.As(err, &forbidden):
-		c.JSON(http.StatusForbidden, Response{ErrorMsg: forbidden.Reason})
-	default:
-		logger.ErrorF(c.Request.Context(), "[CreateUpload] %s failed: %v", action, err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-	}
 }

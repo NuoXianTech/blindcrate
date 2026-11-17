@@ -35,6 +35,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -58,6 +59,9 @@ type InvalidError struct {
 }
 
 func (e *InvalidError) Error() string { return e.Reason }
+
+// Kind 错误的类别, 见 fault
+func (e *InvalidError) Kind() fault.Kind { return fault.KindInvalid }
 
 // ValidateName 校验人机昵称, 需要调用方先去掉首尾空白
 func ValidateName(name string) error {

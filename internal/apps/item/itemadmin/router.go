@@ -25,7 +25,6 @@
 package itemadmin
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
@@ -33,7 +32,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
@@ -82,8 +81,7 @@ func ListItems(c *gin.Context) {
 	}
 	total, items, err := QueryItems(ctx, req)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListItems] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListItems] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListItemsResponseData{Total: total, Items: items}})
@@ -133,20 +131,7 @@ func CreateItem(c *gin.Context) {
 	}
 	created, err := doCreateItem(ctx, &req)
 	if err != nil {
-		var invalid *effect.InvalidError
-		if errors.As(err, &invalid) {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-			return
-		}
-		switch err.Error() {
-		case item.ItemCodeInvalid, item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case item.ItemNameTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[CreateItem] create failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[CreateItem] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionItemCreate, item.TargetItem, created.ID, itemFields(created))
@@ -185,22 +170,7 @@ func UpdateItem(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateItem(ctx, itemID, &req)
 	if err != nil {
-		var invalid *effect.InvalidError
-		if errors.As(err, &invalid) {
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-			return
-		}
-		switch err.Error() {
-		case item.ItemCodeInvalid, item.ItemNameInvalid, item.QualityNotFound, item.CategoryNotFound, wallet.CurrencyNotFound:
-			c.JSON(http.StatusBadRequest, Response{ErrorMsg: err.Error()})
-		case item.ItemNotFound:
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-		case item.ItemNameTaken:
-			c.JSON(http.StatusConflict, Response{ErrorMsg: err.Error()})
-		default:
-			logger.ErrorF(ctx, "[UpdateItem] update failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
-		}
+		reply.Fail(c, err, "[UpdateItem] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -242,12 +212,7 @@ func DeleteItem(c *gin.Context) {
 	}
 	deleted, holders, err := doDeleteItem(ctx, itemID)
 	if err != nil {
-		if err.Error() == item.ItemNotFound {
-			c.JSON(http.StatusNotFound, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteItem] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteItem] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionItemDelete, item.TargetItem, deleted.ID, map[string]interface{}{
@@ -295,8 +260,7 @@ func ListItemEffects(c *gin.Context) {
 	ctx := c.Request.Context()
 	effects, err := effect.Types(db.DB(ctx))
 	if err != nil {
-		logger.ErrorF(ctx, "[ListItemEffects] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListItemEffects] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListItemEffectsResponseData{Effects: effects}})
@@ -321,8 +285,7 @@ func ListQualities(c *gin.Context) {
 	ctx := c.Request.Context()
 	qualities, err := queryQualities(ctx)
 	if err != nil {
-		logger.ErrorF(ctx, "[ListQualities] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[ListQualities] query failed")
 		return
 	}
 	c.JSON(http.StatusOK, Response{Data: ListQualitiesResponseData{Qualities: qualities}})
@@ -342,19 +305,6 @@ type CreateQualityRequest struct {
 	Level int16  `json:"level" binding:"required,min=1,max=999"` // 等级, 越大越稀有
 	Code  string `json:"code" binding:"required,max=32"`         // 自然键, 小写字母、数字和下划线
 	QualityRequest
-}
-
-// qualityErrorStatus 品质配置错误对应的状态码, 不是配置错误时返回 0
-func qualityErrorStatus(err error) int {
-	switch err.Error() {
-	case item.QualityCodeInvalid, item.QualityNameInvalid, item.QualityColorInvalid, item.QualityEffectInvalid:
-		return http.StatusBadRequest
-	case item.QualityNotFound:
-		return http.StatusNotFound
-	case item.QualityTaken, item.QualityInUse:
-		return http.StatusConflict
-	}
-	return 0
 }
 
 // CreateQuality
@@ -384,12 +334,7 @@ func CreateQuality(c *gin.Context) {
 	}
 	created, err := doCreateQuality(ctx, &req)
 	if err != nil {
-		if status := qualityErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[CreateQuality] create failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[CreateQuality] create failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionQualityCreate, item.TargetQuality, uint64(created.Level), qualityFields(created))
@@ -427,12 +372,7 @@ func UpdateQuality(c *gin.Context) {
 	}
 	updated, changes, err := doUpdateQuality(ctx, int16(level), &req)
 	if err != nil {
-		if status := qualityErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[UpdateQuality] update failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[UpdateQuality] update failed")
 		return
 	}
 	if len(changes) > 0 {
@@ -470,12 +410,7 @@ func DeleteQuality(c *gin.Context) {
 	}
 	deleted, err := doDeleteQuality(ctx, int16(level))
 	if err != nil {
-		if status := qualityErrorStatus(err); status != 0 {
-			c.JSON(status, Response{ErrorMsg: err.Error()})
-			return
-		}
-		logger.ErrorF(ctx, "[DeleteQuality] delete failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+		reply.Fail(c, err, "[DeleteQuality] delete failed")
 		return
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, item.ActionQualityDelete, item.TargetQuality, uint64(deleted.Level), qualityFields(deleted))
