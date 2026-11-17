@@ -44,18 +44,15 @@ import (
 func init() {
 	// 删除没有被引用的上传图片, 可以重复执行, 失败时重试几次; 未配置时不清理
 	task.Register(task.Job{Type: task.TypeUploadCleanup, Handler: HandleCleanup, Cron: config.Config.Schedule.UploadCleanup, Periodic: true, Queue: task.QueueLow, MaxRetry: 3})
+	RegisterPurpose(PurposeAvatar, false, true, 256)
+	RegisterReference("users", "avatar_url")
+	RegisterJSONReference("settings", "value")
 }
 
 // references 保存图片地址的位置, 见 RegisterReference 和 RegisterJSONReference; 只在启动前写入
 //
 // 已软删除的行也算引用, 恢复后图片仍可用; 设置组按整个 JSON 查找, 如站点 Logo。
-var references = []string{
-	urlReference("users", "avatar_url"),
-	urlReference("items", "image_url"),
-	urlReference("venues", "image_url"),
-	urlReference("shop_items", "image_url"),
-	jsonReference("settings", "value"),
-}
+var references []string
 
 // urlReference 字段保存一个图片地址, 地址以存储 key 结尾的上传视为被引用
 func urlReference(table, column string) string {

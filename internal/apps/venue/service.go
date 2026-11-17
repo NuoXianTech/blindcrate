@@ -45,6 +45,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
+	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -58,6 +59,8 @@ func init() {
 	condition.RegisterScopeNamer("mode", modeScopeName)
 	condition.RegisterScopeNamer("venue", venueScopeName)
 	stats.RegisterScopeOptions(scopeOptions)
+	upload.RegisterPurpose(ImagePurpose, true, false, 1280)
+	upload.RegisterReference("venues", "image_url")
 }
 
 // scopeOptions 统计范围的候选项: 每种模式、每张地图和地图的每种模式

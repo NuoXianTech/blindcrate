@@ -43,6 +43,9 @@ const (
 	LimitSeason = "season" // 每赛季
 )
 
+// ImagePurpose 商品图片的上传用途, 只有管理员可以上传, 见 upload.RegisterPurpose
+const ImagePurpose = "shop"
+
 // metricPrefix 限购计数指标的前缀, 见 Metric
 const metricPrefix = "shop_buy:"
 

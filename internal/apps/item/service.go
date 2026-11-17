@@ -36,6 +36,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -50,6 +51,8 @@ func init() {
 	audit.RegisterAction(ActionQualityDelete, "删除品质")
 	params.RegisterSource(SourceItem, params.Source{Options: itemOptions})
 	params.RegisterSource(SourceQuality, params.Source{Options: qualityOptions})
+	upload.RegisterPurpose(ImagePurpose, true, false, 512)
+	upload.RegisterReference("items", "image_url")
 }
 
 // itemOptions 可以选的物品: 全部没有删除的物品, 按品质从高到低; 已下架的不能新选

@@ -32,7 +32,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
-	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"gorm.io/gorm"
 )
 
@@ -120,7 +119,7 @@ func init() {
 			return current.ID != 0, err
 		},
 		Deleted: func(it *item.Item) bool { return it.DeletedAt.Valid },
-		Image:   func(req *ItemPack) (string, *string) { return upload.PurposeItem, &req.ImageURL },
+		Image:   func(req *ItemPack) (string, *string) { return item.ImagePurpose, &req.ImageURL },
 		Lock:    func(tx *gorm.DB, current *item.Item) error { return LockItem(tx, current, current.ID) },
 		Save: func(tx *gorm.DB, r *pack.Run, current *item.Item, req *ItemPack) error {
 			if current != nil {

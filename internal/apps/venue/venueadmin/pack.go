@@ -29,7 +29,6 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/bot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
-	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"gorm.io/gorm"
 )
@@ -73,7 +72,7 @@ func init() {
 			return current.ID != 0, err
 		},
 		Deleted: func(v *venue.Venue) bool { return v.DeletedAt.Valid },
-		Image:   func(req *VenueRequest) (string, *string) { return upload.PurposeVenue, &req.ImageURL },
+		Image:   func(req *VenueRequest) (string, *string) { return venue.ImagePurpose, &req.ImageURL },
 		Lock:    func(tx *gorm.DB, current *venue.Venue) error { return LockVenue(tx, current, current.ID) },
 		Save: func(tx *gorm.DB, _ *pack.Run, current *venue.Venue, req *VenueRequest) error {
 			target := current

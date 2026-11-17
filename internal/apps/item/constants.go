@@ -29,6 +29,9 @@ const (
 	CategoryCollectible = "collectible" // 藏品: 货仓只抽藏品
 )
 
+// ImagePurpose 物品图片的上传用途, 只有管理员可以上传, 见 upload.RegisterPurpose
+const ImagePurpose = "item"
+
 // PlaceholderQuality 占位物品的品质等级: 0 表示没有品质, 品质都由管理员配置, 等级从 1 开始
 const PlaceholderQuality int16 = 0
 

@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-// Package upload 图片上传: 头像、物品图片、地图封面和商品图片
+// Package upload 图片上传: 头像和各模块登记的图片, 如物品图片、地图封面和商品图片
 //
 //   - 上传: 按内容识别格式, 只接受 png、jpeg、webp, 按用途缩小尺寸后重新编码(去掉 EXIF 等元数据), 见 Save
 //   - 存储: 文件按内容的 sha256 命名, 同一用途的相同图片只存一份, 业务表只保存返回的地址, 见 storage
@@ -31,13 +31,11 @@
 // 新模块需要图片时用 RegisterPurpose 登记用途, 并用 RegisterReference 登记保存图片地址的字段, 否则图片会被清理。
 package upload
 
-// 图片的用途, 决定上传权限和缩小后的最大边长
-const (
-	PurposeAvatar = "avatar" // 头像, 登录用户都可以上传
-	PurposeItem   = "item"   // 物品图片, 只有管理员可以上传
-	PurposeVenue  = "venue"  // 地图封面, 只有管理员可以上传
-	PurposeShop   = "shop"   // 商品图片, 只有管理员可以上传
-)
+// PurposeAvatar 头像, 登录用户都可以上传, 可以在系统设置中关闭
+//
+// 用途决定上传权限和缩小后的最大边长, 其他用途由各模块用 RegisterPurpose 登记。
+// 头像由本模块登记: 用户模块被本模块引用, 不能反过来登记。
+const PurposeAvatar = "avatar"
 
 // purposeSpec 用途的上传限制
 type purposeSpec struct {
@@ -47,12 +45,7 @@ type purposeSpec struct {
 }
 
 // purposes 已登记的用途, 只在启动前写入, 见 RegisterPurpose
-var purposes = map[string]purposeSpec{
-	PurposeAvatar: {square: true, maxSide: 256},
-	PurposeItem:   {adminOnly: true, maxSide: 512},
-	PurposeVenue:  {adminOnly: true, maxSide: 1280},
-	PurposeShop:   {adminOnly: true, maxSide: 512},
-}
+var purposes = map[string]purposeSpec{}
 
 // 保存的图片格式, 原图有透明通道或为 png 时保存为 png, 其他保存为 jpeg
 const (

@@ -39,6 +39,9 @@ const (
 	ModeRanked = "ranked" // 排位模式, 至少 2 个真人, 不够时用人机补齐
 )
 
+// ImagePurpose 地图封面的上传用途, 只有管理员可以上传, 见 upload.RegisterPurpose
+const ImagePurpose = "venue"
+
 const (
 	// SimulationRuns 保存地图时模拟的货仓数
 	SimulationRuns = 10000

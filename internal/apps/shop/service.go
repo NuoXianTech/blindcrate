@@ -40,6 +40,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
+	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -51,6 +52,8 @@ func init() {
 	audit.RegisterAction(ActionShopItemUpdate, "修改商品")
 	audit.RegisterAction(ActionShopItemDelete, "删除商品")
 	audit.RegisterAction(ActionShopOrderRefund, "订单退款")
+	upload.RegisterPurpose(ImagePurpose, true, false, 512)
+	upload.RegisterReference("shop_items", "image_url")
 }
 
 // codePattern 商品代码, 小写字母、数字和下划线; 拼上前缀后不能超过 stats.metric 的长度

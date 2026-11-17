@@ -30,7 +30,6 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
 	"github.com/NuoXianTech/blindcrate/internal/apps/shop"
-	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"gorm.io/gorm"
 )
 
@@ -81,7 +80,7 @@ func init() {
 		Deleted: func(it *shop.Item) bool { return it.DeletedAt.Valid },
 		// 剩余库存随玩家购买变化, 不随配置覆盖
 		Keep:  func(current *shop.Item, req *ShopItemRequest) { req.Stock = current.Stock },
-		Image: func(req *ShopItemRequest) (string, *string) { return upload.PurposeShop, &req.ImageURL },
+		Image: func(req *ShopItemRequest) (string, *string) { return shop.ImagePurpose, &req.ImageURL },
 		Lock:  func(tx *gorm.DB, current *shop.Item) error { return LockShopItem(tx, current, current.ID) },
 		Save: func(tx *gorm.DB, _ *pack.Run, current *shop.Item, req *ShopItemRequest) error {
 			target := current
