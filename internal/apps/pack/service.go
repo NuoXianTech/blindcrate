@@ -91,8 +91,6 @@ type PackPreview struct {
 	Entries  []PackEntryResult `json:"entries"`
 }
 
-// 包中每种配置的一项, 字段与后台保存时提交的内容相同; 品质、地图、商品和榜单直接使用保存时的请求
-
 // pack 读取后的配置包
 type pack struct {
 	manifest PackManifest

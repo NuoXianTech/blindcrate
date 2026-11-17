@@ -40,4 +40,5 @@ const (
 	QualityEffectInvalid = "品质特效不存在"
 	QualityTaken         = "品质等级或代码已存在"
 	QualityInUse         = "还有物品使用该品质, 不能删除"
+	QualityCodeDiffers   = "已有的等级 %d 品质代码为 %s, 与包中的不同"
 )

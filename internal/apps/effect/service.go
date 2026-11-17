@@ -108,6 +108,22 @@ func Register[C, P, R any](code, scene, label, description string, apply func(ct
 	}
 }
 
+// Renamed 配置包中被引用的配置改名导入时, 把效果参数中引用它的字段改为新代码
+//
+// source 为这种配置的可选值来源, 如 loot.SourcePool: 参数结构体中 input 为它的字段都是对它的引用。
+// 效果不存在或没有这样的字段时不变, 新增的效果不用再登记改名的处理。
+func Renamed(code string, values map[string]any, source, old, next string) {
+	def, ok := definitions[code]
+	if !ok {
+		return
+	}
+	for _, f := range def.schema.Fields() {
+		if f.Input == source && values[f.Key] == old {
+			values[f.Key] = next
+		}
+	}
+}
+
 // Types 全部效果类型, 按注册顺序; 参数的表单描述带当前的可选值
 func Types(tx *gorm.DB) ([]TypeView, error) {
 	views := make([]TypeView, 0, len(codeOrder))

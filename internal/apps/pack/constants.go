@@ -43,7 +43,7 @@ const (
 	packFormOverhead = 1 << 20  // 上传表单中除文件以外的部分
 )
 
-// 内置的配置种类, 也是包中的文件名(加上 .json)
+// 被其他配置引用的配置种类, 也是包中的文件名(加上 .json); 除设置外由拥有数据的模块注册, 放在这里是为了引用它们的模块不用互相依赖
 const (
 	PackCurrencies   = "currencies"
 	PackQualities    = "qualities"
@@ -55,7 +55,7 @@ const (
 	PackSettings     = "settings" // 只有游戏分类的设置组, 不含密钥字段
 )
 
-// 内置配置种类的依赖顺序, 见 Section.Order; 其他模块按引用关系选择中间的值, 如引用物品和地图的配置用 55
+// 上面这些配置种类的依赖顺序, 见 Section.Order; 其他模块按引用关系选择中间的值, 如引用物品和地图的配置用 55
 const (
 	OrderCurrencies   = 10
 	OrderSettings     = 15 // 设置排在货币之后、地图之前: 地图保存时按玩法平衡和出售手续费推导金额

@@ -35,7 +35,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Section 一种配置, 由所属模块在 init 中注册
+// Section 一种配置, 由所属模块在 init 中注册; 一张表对应的配置用 RegisterTable 注册, 不用自己写比较和写入的流程
 type Section struct {
 	Code      string // 包中的文件名(加上 .json), 也是导入结果中的 section
 	Label     string // 名称, 用于提示

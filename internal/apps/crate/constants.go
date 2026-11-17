@@ -40,8 +40,5 @@ const EffectOpen = "open_crate"
 // BizDrop 流水业务类型: 开启箱子得到的货币和物品, biz_id 为使用记录 ID; 扣除箱子记为 inventory.BizItemUse, biz_id 相同
 const BizDrop = "crate_drop"
 
-// paramPool 效果参数中掉落池代码的 key, 与 OpenParams 的 json tag 一致
-const paramPool = "pool"
-
 // PoolInvalid 掉落池代码格式不对的提示
 const PoolInvalid = "掉落池代码需为 1-64 个小写字母、数字或下划线"

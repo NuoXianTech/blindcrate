@@ -57,13 +57,6 @@ func (p *OpenParams) Validate(_ *gorm.DB) (string, error) {
 	return "", nil
 }
 
-// RenamePool 掉落池改名时把箱子效果参数中的掉落池代码一起改为新代码, 用于配置包的改名导入; 不是箱子或用的不是这个掉落池时不变
-func RenamePool(effectCode string, params map[string]any, old, next string) {
-	if effectCode == EffectOpen && params[paramPool] == old {
-		params[paramPool] = next
-	}
-}
-
 // open 开启箱子: 从掉落池中可抽取的条目里按概率得到一项; 已下架或已删除的物品、已停用的货币不参与抽取
 //
 // 掉落池不存在、已停用或没有可抽取的条目时箱子暂时无法开启。

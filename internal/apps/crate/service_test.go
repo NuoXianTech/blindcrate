@@ -78,20 +78,23 @@ func TestOpenEffect(t *testing.T) {
 	}
 }
 
+// TestRenamePool 掉落池在配置包中改名导入时, 箱子效果参数中的掉落池代码跟着改: 按参数字段引用的可选值来源找到, 不用单独登记
 func TestRenamePool(t *testing.T) {
 	cases := []struct {
 		name   string
 		effect string
+		source string
 		params map[string]any
 		want   map[string]any
 	}{
-		{"renamed", EffectOpen, map[string]any{"pool": "old"}, map[string]any{"pool": "new"}},
-		{"other pool", EffectOpen, map[string]any{"pool": "other"}, map[string]any{"pool": "other"}},
-		{"other effect", "reveal_name", map[string]any{"pool": "old"}, map[string]any{"pool": "old"}},
-		{"no effect", "", nil, nil},
+		{"renamed", EffectOpen, loot.SourcePool, map[string]any{"pool": "old"}, map[string]any{"pool": "new"}},
+		{"other pool", EffectOpen, loot.SourcePool, map[string]any{"pool": "other"}, map[string]any{"pool": "other"}},
+		{"other source", EffectOpen, "currency", map[string]any{"pool": "old"}, map[string]any{"pool": "old"}},
+		{"other effect", "reveal_name", loot.SourcePool, map[string]any{"pool": "old"}, map[string]any{"pool": "old"}},
+		{"no effect", "", loot.SourcePool, nil, nil},
 	}
 	for _, c := range cases {
-		RenamePool(c.effect, c.params, "old", "new")
+		effect.Renamed(c.effect, c.params, c.source, "old", "new")
 		if !reflect.DeepEqual(c.params, c.want) {
 			t.Errorf("%s: got %v, want %v", c.name, c.params, c.want)
 		}
