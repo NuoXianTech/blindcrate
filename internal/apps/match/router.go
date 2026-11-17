@@ -29,7 +29,6 @@ import (
 	"encoding/hex"
 	"net/http"
 	"regexp"
-	"strconv"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
@@ -39,12 +38,6 @@ import (
 
 // devicePattern 设备标识, 32 位小写十六进制
 var devicePattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
-
-// Response 统一的 match 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // JoinMatchmakingRequest 加入匹配请求体
 type JoinMatchmakingRequest struct {
@@ -71,32 +64,27 @@ func deviceOf(c *gin.Context) string {
 // @Accept json
 // @Produce json
 // @Param request body JoinMatchmakingRequest true "request body"
-// @Success 200 {object} Response{data=MatchmakingStatus}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 429 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=MatchmakingStatus}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 429 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/matchmaking [post]
 func JoinMatchmaking(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req JoinMatchmakingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	status, err := Join(ctx, user.ID, req.Mode, Origin{IP: c.ClientIP(), Device: deviceOf(c)})
 	if err != nil {
 		reply.Fail(c, err, "[JoinMatchmaking] join failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: status})
+	reply.OK(c, status)
 }
 
 // LeaveMatchmaking
@@ -104,47 +92,39 @@ func JoinMatchmaking(c *gin.Context) {
 // @Summary 离开匹配队列
 // @Description 不在队列中时什么都不做; 已经开局时无法离开
 // @Produce json
-// @Success 200 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/matchmaking [delete]
 func LeaveMatchmaking(c *gin.Context) {
 	ctx := c.Request.Context()
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	if err := Leave(ctx, user.ID); err != nil {
 		reply.Fail(c, err, "[LeaveMatchmaking] leave failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }
 
 // GetMatchmaking
 // @Tags match
 // @Summary 获取当前用户的匹配状态
 // @Produce json
-// @Success 200 {object} Response{data=MatchmakingStatus}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=MatchmakingStatus}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/matchmaking [get]
 func GetMatchmaking(c *gin.Context) {
 	ctx := c.Request.Context()
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	status, err := QueryMatchmakingStatus(ctx, user.ID)
 	if err != nil {
 		reply.Fail(c, err, "[GetMatchmaking] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: status})
+	reply.OK(c, status)
 }
 
 // GetCurrentMatch
@@ -152,24 +132,20 @@ func GetMatchmaking(c *gin.Context) {
 // @Summary 获取当前用户正在进行中的对局
 // @Description 没有进行中的对局时 data 为 null; 已释放(玩家已结算、可以离开)的对局不算; 断线重连后用它恢复对局
 // @Produce json
-// @Success 200 {object} Response{data=MatchView}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=MatchView}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/matches/current [get]
 func GetCurrentMatch(c *gin.Context) {
 	ctx := c.Request.Context()
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	view, err := QueryCurrentMatch(ctx, user.ID)
 	if err != nil {
 		reply.Fail(c, err, "[GetCurrentMatch] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: view})
+	reply.OK(c, view)
 }
 
 // ListMatchesRequest 对局记录查询参数
@@ -193,30 +169,25 @@ type ListMatchesResponseData struct {
 // @Description 可按玩法代码冒号前后的部分筛选, 如 prefix=pve、suffix=<地图代码>; 玩法实现了 Summarizer 时附带 summary, 暗拍为 auction.Summary
 // @Produce json
 // @Param request query ListMatchesRequest true "request query"
-// @Success 200 {object} Response{data=ListMatchesResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListMatchesResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/matches [get]
 func ListMatches(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListMatchesRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	total, matches, err := QueryUserMatches(ctx, user.ID, req)
 	if err != nil {
 		reply.Fail(c, err, "[ListMatches] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListMatchesResponseData{Total: total, Matches: matches}})
+	reply.OK(c, ListMatchesResponseData{Total: total, Matches: matches})
 }
 
 // GetMatch
@@ -224,29 +195,24 @@ func ListMatches(c *gin.Context) {
 // @Summary 获取当前用户参与过的一局对局
 // @Produce json
 // @Param id path int true "match id"
-// @Success 200 {object} Response{data=MatchView}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=MatchView}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/matches/{id} [get]
 func GetMatch(c *gin.Context) {
 	ctx := c.Request.Context()
-	matchID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	user, ok := auth.GetUserFromContext(c)
+	matchID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	user := auth.CurrentUser(c)
 	view, err := QueryUserMatch(ctx, user.ID, matchID)
 	if err != nil {
 		reply.Fail(c, err, "[GetMatch] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: view})
+	reply.OK(c, view)
 }

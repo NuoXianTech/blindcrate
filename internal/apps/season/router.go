@@ -25,21 +25,12 @@
 package season
 
 import (
-	"net/http"
 	"time"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/db"
-	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 season 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // GetCurrentResponseData 当前和下一个赛季
 type GetCurrentResponseData struct {
@@ -53,10 +44,10 @@ type GetCurrentResponseData struct {
 // @Summary 获取当前赛季
 // @Description 进行中的赛季和下一个未开始的赛季, 都可能为空; 带进行中的赛季的奖励
 // @Produce json
-// @Success 200 {object} Response{data=GetCurrentResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=GetCurrentResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/seasons/current [get]
 func GetCurrent(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -77,8 +68,7 @@ func GetCurrent(c *gin.Context) {
 		view := NewView(current, now)
 		data.Current = &view
 		if data.Rewards, err = ResolveRewards(tx, current.Rewards); err != nil {
-			logger.ErrorF(ctx, "[GetCurrentSeason] resolve rewards failed: %v", err)
-			c.JSON(http.StatusInternalServerError, Response{ErrorMsg: auth.InternalError})
+			reply.Fail(c, err, "[GetCurrentSeason] resolve rewards failed")
 			return
 		}
 	}
@@ -86,5 +76,5 @@ func GetCurrent(c *gin.Context) {
 		view := NewView(next, now)
 		data.Next = &view
 	}
-	c.JSON(http.StatusOK, Response{Data: data})
+	reply.OK(c, data)
 }

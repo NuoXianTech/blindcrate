@@ -25,19 +25,11 @@
 package redeem
 
 import (
-	"net/http"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 redeem 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // RedeemRequest 兑换请求体
 type RedeemRequest struct {
@@ -51,27 +43,22 @@ type RedeemRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body RedeemRequest true "request body"
-// @Success 200 {object} Response{data=Result}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 429 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=Result}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 429 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/redeem [post]
 func RedeemCode(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req RedeemRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	result, err := Redeem(ctx, user.ID, req.Code)
 	if err != nil {
 		reply.Fail(c, err, "[RedeemCode] redeem failed")
@@ -79,5 +66,5 @@ func RedeemCode(c *gin.Context) {
 	}
 	// 兑换码本身不记进日志
 	logger.InfoF(ctx, "[RedeemCode] %d redeemed a code of %s", user.ID, result.Name)
-	c.JSON(http.StatusOK, Response{Data: result})
+	reply.OK(c, result)
 }

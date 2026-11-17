@@ -27,26 +27,21 @@ package health
 import (
 	"net/http"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
 
-// Response 统一的 health 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
-
 // Health
 // @Tags health
 // @Summary 存活检查
 // @Produce json
-// @Success 200 {object} Response
+// @Success 200 {object} reply.Response
 // @Router /api/v1/health [get]
 func Health(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }
 
 // Ready
@@ -54,8 +49,8 @@ func Health(c *gin.Context) {
 // @Summary 就绪检查
 // @Description 检查已启用的 PostgreSQL 和 Redis 是否可用
 // @Produce json
-// @Success 200 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/ready [get]
 func Ready(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -64,12 +59,12 @@ func Ready(c *gin.Context) {
 		sqlDB, err := db.DB(ctx).DB()
 		if err != nil {
 			logger.ErrorF(ctx, "[Ready] postgres check failed: %v", err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, Response{})
+			reply.Abort(c, http.StatusInternalServerError, "")
 			return
 		}
 		if err := sqlDB.PingContext(ctx); err != nil {
 			logger.ErrorF(ctx, "[Ready] postgres check failed: %v", err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, Response{})
+			reply.Abort(c, http.StatusInternalServerError, "")
 			return
 		}
 	}
@@ -77,9 +72,9 @@ func Ready(c *gin.Context) {
 	if config.Config.Redis.Enabled {
 		if err := db.Redis.Ping(ctx).Err(); err != nil {
 			logger.ErrorF(ctx, "[Ready] redis check failed: %v", err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, Response{})
+			reply.Abort(c, http.StatusInternalServerError, "")
 			return
 		}
 	}
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }

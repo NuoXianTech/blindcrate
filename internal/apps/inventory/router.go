@@ -25,7 +25,6 @@
 package inventory
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
@@ -34,12 +33,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 inventory 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListItemsRequest 背包物品查询参数
 type ListItemsRequest struct {
@@ -60,30 +53,25 @@ type ListItemsResponseData struct {
 // @Description 只返回数量大于 0 的物品, 已删除的物品按占位物品返回
 // @Produce json
 // @Param request query ListItemsRequest true "request query"
-// @Success 200 {object} Response{data=ListItemsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListItemsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/inventory/items [get]
 func ListItems(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListItemsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	total, items, err := QueryUserItems(ctx, user.ID, req)
 	if err != nil {
 		reply.Fail(c, err, "[ListItems] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListItemsResponseData{Total: total, Items: items}})
+	reply.OK(c, ListItemsResponseData{Total: total, Items: items})
 }
 
 // ListTransactionsRequest 背包记录查询参数
@@ -108,30 +96,25 @@ type ListTransactionsResponseData struct {
 // @Description 同一次变动的多种物品合并为一条, 如一局拍下的全部藏品; 按时间倒序, 按物品筛选时每条记录只含这种物品
 // @Produce json
 // @Param request query ListTransactionsRequest true "request query"
-// @Success 200 {object} Response{data=ListTransactionsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListTransactionsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/inventory/transactions [get]
 func ListTransactions(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListTransactionsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	total, records, err := QueryUserRecords(ctx, user.ID, req)
 	if err != nil {
 		reply.Fail(c, err, "[ListTransactions] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListTransactionsResponseData{Total: total, Records: records}})
+	reply.OK(c, ListTransactionsResponseData{Total: total, Records: records})
 }
 
 // SellItemsRequestItem 出售的一种物品
@@ -156,25 +139,20 @@ type SellItemsRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body SellItemsRequest true "request body"
-// @Success 200 {object} Response{data=SellOrderDetail}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=SellOrderDetail}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/inventory/sell [post]
 func SellItems(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req SellItemsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	order, replayed, err := doSellItems(ctx, user.ID, &req)
 	if err != nil {
 		reply.Fail(c, err, "[SellItems] sell failed")
@@ -184,7 +162,7 @@ func SellItems(c *gin.Context) {
 	if !replayed {
 		logger.InfoF(ctx, "[SellItems] %d sold %d kinds of items in order %d", user.ID, len(order.Items), order.ID)
 	}
-	c.JSON(http.StatusOK, Response{Data: order})
+	reply.OK(c, order)
 }
 
 // ListSellOrdersRequest 出售记录查询参数
@@ -206,30 +184,25 @@ type ListSellOrdersResponseData struct {
 // @Summary 获取当前用户的出售记录
 // @Produce json
 // @Param request query ListSellOrdersRequest true "request query"
-// @Success 200 {object} Response{data=ListSellOrdersResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListSellOrdersResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/inventory/sell-orders [get]
 func ListSellOrders(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListSellOrdersRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	total, orders, err := QueryUserSellOrders(ctx, user.ID, req)
 	if err != nil {
 		reply.Fail(c, err, "[ListSellOrders] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListSellOrdersResponseData{Total: total, Orders: orders}})
+	reply.OK(c, ListSellOrdersResponseData{Total: total, Orders: orders})
 }
 
 // ListBizTypesResponseData 业务类型和名称
@@ -242,10 +215,10 @@ type ListBizTypesResponseData struct {
 // @Summary 获取背包流水的业务类型和名称
 // @Description 用于展示流水和筛选, 按登记顺序
 // @Produce json
-// @Success 200 {object} Response{data=ListBizTypesResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
+// @Success 200 {object} reply.Response{data=ListBizTypesResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
 // @Router /api/v1/inventory/biz-types [get]
 func ListBizTypes(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{Data: ListBizTypesResponseData{BizTypes: ledger.BizTypes(ledger.KindInventory)}})
+	reply.OK(c, ListBizTypesResponseData{BizTypes: ledger.BizTypes(ledger.KindInventory)})
 }

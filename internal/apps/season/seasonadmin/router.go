@@ -25,8 +25,6 @@
 package seasonadmin
 
 import (
-	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
@@ -36,12 +34,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListSeasonsRequest 赛季列表查询参数
 type ListSeasonsRequest struct {
@@ -63,17 +55,16 @@ type ListSeasonsResponseData struct {
 // @Description 按开始时间从晚到早排列
 // @Produce json
 // @Param request query ListSeasonsRequest true "request query"
-// @Success 200 {object} Response{data=ListSeasonsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListSeasonsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/seasons [get]
 func ListSeasons(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListSeasonsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, seasons, err := QuerySeasons(ctx, req)
@@ -81,7 +72,7 @@ func ListSeasons(c *gin.Context) {
 		reply.Fail(c, err, "[ListSeasons] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListSeasonsResponseData{Total: total, Seasons: seasons}})
+	reply.OK(c, ListSeasonsResponseData{Total: total, Seasons: seasons})
 }
 
 // SeasonRequest 修改赛季请求体, 代码创建后不能修改; 时间精确到分钟, 秒会被舍去
@@ -106,25 +97,20 @@ type CreateSeasonRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body CreateSeasonRequest true "request body"
-// @Success 200 {object} Response{data=season.View}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=season.View}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/seasons [post]
 func CreateSeason(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req CreateSeasonRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, err := doCreateSeason(ctx, &req)
 	if err != nil {
 		reply.Fail(c, err, "[CreateSeason] create failed")
@@ -132,7 +118,7 @@ func CreateSeason(c *gin.Context) {
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, season.ActionSeasonCreate, season.TargetSeason, created.ID, seasonFields(&created.Season))
 	logger.InfoF(ctx, "[CreateSeason] %d created season %d %s", operator.ID, created.ID, created.Code)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateSeason
@@ -143,27 +129,22 @@ func CreateSeason(c *gin.Context) {
 // @Produce json
 // @Param id path int true "season id"
 // @Param request body SeasonRequest true "request body"
-// @Success 200 {object} Response{data=season.View}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=season.View}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/seasons/{id} [put]
 func UpdateSeason(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req SeasonRequest
-	seasonID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	seasonID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateSeason(ctx, seasonID, &req)
 	if err != nil {
 		reply.Fail(c, err, "[UpdateSeason] update failed")
@@ -173,7 +154,7 @@ func UpdateSeason(c *gin.Context) {
 		audit.Record(c, operator.ID, audit.ScopeAdmin, season.ActionSeasonUpdate, season.TargetSeason, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateSeason] %d updated season %d %s", operator.ID, updated.ID, updated.Code)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteSeason
@@ -182,26 +163,21 @@ func UpdateSeason(c *gin.Context) {
 // @Description 只能删除未开始的赛季
 // @Produce json
 // @Param id path int true "season id"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/seasons/{id} [delete]
 func DeleteSeason(c *gin.Context) {
 	ctx := c.Request.Context()
-	seasonID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	seasonID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	deleted, err := doDeleteSeason(ctx, seasonID)
 	if err != nil {
 		reply.Fail(c, err, "[DeleteSeason] delete failed")
@@ -209,7 +185,7 @@ func DeleteSeason(c *gin.Context) {
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, season.ActionSeasonDelete, season.TargetSeason, deleted.ID, seasonFields(deleted))
 	logger.InfoF(ctx, "[DeleteSeason] %d deleted season %d %s", operator.ID, deleted.ID, deleted.Code)
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }
 
 // EndSeason
@@ -218,26 +194,21 @@ func DeleteSeason(c *gin.Context) {
 // @Description 把进行中的赛季的结束时间改为当前时间, 之后的对局不再计入该赛季
 // @Produce json
 // @Param id path int true "season id"
-// @Success 200 {object} Response{data=season.View}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=season.View}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/seasons/{id}/end [post]
 func EndSeason(c *gin.Context) {
 	ctx := c.Request.Context()
-	seasonID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	seasonID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	ended, changes, err := doEndSeason(ctx, seasonID)
 	if err != nil {
 		reply.Fail(c, err, "[EndSeason] end failed")
@@ -245,5 +216,5 @@ func EndSeason(c *gin.Context) {
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, season.ActionSeasonEnd, season.TargetSeason, ended.ID, changes)
 	logger.InfoF(ctx, "[EndSeason] %d ended season %d %s", operator.ID, ended.ID, ended.Code)
-	c.JSON(http.StatusOK, Response{Data: ended})
+	reply.OK(c, ended)
 }

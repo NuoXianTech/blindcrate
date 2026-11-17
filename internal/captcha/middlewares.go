@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
@@ -55,11 +56,11 @@ func Required(scene string) gin.HandlerFunc {
 
 		token := strings.TrimSpace(c.GetHeader(TokenHeader))
 		if token == "" {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error_msg": TokenRequired, "data": nil})
+			reply.Abort(c, http.StatusBadRequest, TokenRequired)
 			return
 		}
 		if len(token) > maxTokenLength {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error_msg": VerifyFailed, "data": nil})
+			reply.Abort(c, http.StatusForbidden, VerifyFailed)
 			return
 		}
 		// 熔断中不请求 Cloudflare, 直接放行
@@ -75,7 +76,7 @@ func Required(scene string) gin.HandlerFunc {
 		}
 		if !passed {
 			logger.WarnF(ctx, "[Captcha] verify %s rejected: %v", scene, codes)
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error_msg": VerifyFailed, "data": nil})
+			reply.Abort(c, http.StatusForbidden, VerifyFailed)
 			return
 		}
 		c.Next()

@@ -25,8 +25,6 @@
 package inventoryadmin
 
 import (
-	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
@@ -36,12 +34,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListUserInventoryResponseData 指定用户背包物品分页结果
 type ListUserInventoryResponseData struct {
@@ -55,19 +47,18 @@ type ListUserInventoryResponseData struct {
 // @Produce json
 // @Param id path int true "user id"
 // @Param request query inventory.ListItemsRequest true "request query"
-// @Success 200 {object} Response{data=ListUserInventoryResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListUserInventoryResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/users/{id}/inventory/items [get]
 func ListUserInventory(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &inventory.ListItemsRequest{}
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindQuery(req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	userID, ok := reply.ID(c, "id")
+	if !ok || !reply.Query(c, req) {
 		return
 	}
 	total, items, err := queryUserInventory(ctx, userID, req)
@@ -75,7 +66,7 @@ func ListUserInventory(c *gin.Context) {
 		reply.Fail(c, err, "[ListUserInventory] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListUserInventoryResponseData{Total: total, Items: items}})
+	reply.OK(c, ListUserInventoryResponseData{Total: total, Items: items})
 }
 
 // AdjustUserInventoryRequest 发放或扣除物品请求体
@@ -94,27 +85,22 @@ type AdjustUserInventoryRequest struct {
 // @Produce json
 // @Param id path int true "user id"
 // @Param request body AdjustUserInventoryRequest true "request body"
-// @Success 200 {object} Response{data=inventory.Transaction}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=inventory.Transaction}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/users/{id}/inventory/adjust [post]
 func AdjustUserInventory(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req AdjustUserInventoryRequest
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	userID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	txn, replayed, err := doAdjustUserInventory(ctx, operator.ID, userID, &req)
 	if err != nil {
 		reply.Fail(c, err, "[AdjustUserInventory] adjust failed")
@@ -133,7 +119,7 @@ func AdjustUserInventory(c *gin.Context) {
 		})
 		logger.InfoF(ctx, "[AdjustUserInventory] %d adjusted %d item %d by %d, quantity %d", operator.ID, userID, txn.ItemID, txn.Quantity, txn.QuantityAfter)
 	}
-	c.JSON(http.StatusOK, Response{Data: txn})
+	reply.OK(c, txn)
 }
 
 // ListInventoryTransactionsRequest 背包流水查询参数
@@ -160,17 +146,16 @@ type ListInventoryTransactionsResponseData struct {
 // @Summary 获取全部用户的背包流水
 // @Produce json
 // @Param request query ListInventoryTransactionsRequest true "request query"
-// @Success 200 {object} Response{data=ListInventoryTransactionsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListInventoryTransactionsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/inventory/transactions [get]
 func ListInventoryTransactions(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListInventoryTransactionsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, transactions, err := QueryInventoryTransactions(ctx, req)
@@ -178,5 +163,5 @@ func ListInventoryTransactions(c *gin.Context) {
 		reply.Fail(c, err, "[ListInventoryTransactions] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListInventoryTransactionsResponseData{Total: total, Transactions: transactions}})
+	reply.OK(c, ListInventoryTransactionsResponseData{Total: total, Transactions: transactions})
 }

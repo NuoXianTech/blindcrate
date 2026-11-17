@@ -25,8 +25,6 @@
 package shopadmin
 
 import (
-	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
@@ -38,12 +36,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListShopItemsRequest 商品列表查询参数
 type ListShopItemsRequest struct {
@@ -67,17 +59,16 @@ type ListShopItemsResponseData struct {
 // @Description 按排序值和 ID 排列, 不含已删除的商品
 // @Produce json
 // @Param request query ListShopItemsRequest true "request query"
-// @Success 200 {object} Response{data=ListShopItemsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListShopItemsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/shop/items [get]
 func ListShopItems(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListShopItemsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	data, err := QueryShopItems(ctx, req)
@@ -85,7 +76,7 @@ func ListShopItems(c *gin.Context) {
 		reply.Fail(c, err, "[ListShopItems] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: data})
+	reply.OK(c, data)
 }
 
 // ShopItemRequest 新建或修改商品请求体
@@ -115,25 +106,20 @@ type ShopItemRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body ShopItemRequest true "request body"
-// @Success 200 {object} Response{data=shop.Item}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=shop.Item}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/shop/items [post]
 func CreateShopItem(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req ShopItemRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, err := doCreateShopItem(ctx, &req)
 	if err != nil {
 		reply.Fail(c, err, "[CreateShopItem] create failed")
@@ -141,7 +127,7 @@ func CreateShopItem(c *gin.Context) {
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopItemCreate, shop.TargetShopItem, created.ID, shopItemFields(created))
 	logger.InfoF(ctx, "[CreateShopItem] %d created shop item %d %s", operator.ID, created.ID, created.Code)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateShopItem
@@ -152,26 +138,21 @@ func CreateShopItem(c *gin.Context) {
 // @Produce json
 // @Param id path int true "shop item id"
 // @Param request body ShopItemRequest true "request body"
-// @Success 200 {object} Response{data=shop.Item}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=shop.Item}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/shop/items/{id} [put]
 func UpdateShopItem(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req ShopItemRequest
-	itemID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	itemID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateShopItem(ctx, itemID, &req)
 	if err != nil {
 		reply.Fail(c, err, "[UpdateShopItem] update failed")
@@ -181,7 +162,7 @@ func UpdateShopItem(c *gin.Context) {
 		audit.Record(c, operator.ID, audit.ScopeAdmin, shop.ActionShopItemUpdate, shop.TargetShopItem, updated.ID, changes)
 		logger.InfoF(ctx, "[UpdateShopItem] %d updated shop item %d %s", operator.ID, updated.ID, updated.Code)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // DeleteShopItem
@@ -190,25 +171,20 @@ func UpdateShopItem(c *gin.Context) {
 // @Description 软删除, 代码不能再被新商品使用; 已有订单仍可退款
 // @Produce json
 // @Param id path int true "shop item id"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/shop/items/{id} [delete]
 func DeleteShopItem(c *gin.Context) {
 	ctx := c.Request.Context()
-	itemID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	itemID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	deleted, err := doDeleteShopItem(ctx, itemID)
 	if err != nil {
 		reply.Fail(c, err, "[DeleteShopItem] delete failed")
@@ -219,7 +195,7 @@ func DeleteShopItem(c *gin.Context) {
 		"name": deleted.Name,
 	})
 	logger.InfoF(ctx, "[DeleteShopItem] %d deleted shop item %d %s", operator.ID, deleted.ID, deleted.Code)
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }
 
 // ListShopOrdersRequest 订单列表查询参数
@@ -245,17 +221,16 @@ type ListShopOrdersResponseData struct {
 // @Description 从新到旧, 带上用户和退款的管理员的用户名
 // @Produce json
 // @Param request query ListShopOrdersRequest true "request query"
-// @Success 200 {object} Response{data=ListShopOrdersResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListShopOrdersResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/shop/orders [get]
 func ListShopOrders(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListShopOrdersRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, orders, err := QueryShopOrders(ctx, req)
@@ -263,7 +238,7 @@ func ListShopOrders(c *gin.Context) {
 		reply.Fail(c, err, "[ListShopOrders] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListShopOrdersResponseData{Total: total, Orders: orders}})
+	reply.OK(c, ListShopOrdersResponseData{Total: total, Orders: orders})
 }
 
 // RefundShopOrder
@@ -272,26 +247,21 @@ func ListShopOrders(c *gin.Context) {
 // @Description 退还价格并收回商品, 恢复库存和购买时所在周期的限购数量; 价格中已下架的物品按回收价折成货币退还, 用户的货币或物品不足以收回商品时返回 409
 // @Produce json
 // @Param id path int true "order id"
-// @Success 200 {object} Response{data=shop.Order}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=shop.Order}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/shop/orders/{id}/refund [post]
 func RefundShopOrder(c *gin.Context) {
 	ctx := c.Request.Context()
-	orderID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	operator, ok := auth.GetUserFromContext(c)
+	orderID, ok := reply.ID(c, "id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	operator := auth.CurrentUser(c)
 	order, err := shop.Refund(ctx, operator.ID, orderID)
 	if err != nil {
 		reply.Fail(c, err, "[RefundShopOrder] refund failed")
@@ -305,5 +275,5 @@ func RefundShopOrder(c *gin.Context) {
 		"goods":     order.Goods,
 	})
 	logger.InfoF(ctx, "[RefundShopOrder] %d refunded shop order %d of user %d", operator.ID, order.ID, order.UserID)
-	c.JSON(http.StatusOK, Response{Data: order})
+	reply.OK(c, order)
 }

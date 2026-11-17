@@ -25,18 +25,10 @@
 package venue
 
 import (
-	"net/http"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 venue 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListVenuesResponseData 地图列表
 type ListVenuesResponseData struct {
@@ -48,24 +40,20 @@ type ListVenuesResponseData struct {
 // @Summary 获取启用的地图
 // @Description 按排序值排列, 附带当前用户对每个入场条件的达成情况和货仓价值区间; 价值区间为保存地图时的模拟结果
 // @Produce json
-// @Success 200 {object} Response{data=ListVenuesResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListVenuesResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/venues [get]
 func ListVenues(c *gin.Context) {
 	ctx := c.Request.Context()
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	venues, err := QueryVenues(ctx, user.ID)
 	if err != nil {
 		reply.Fail(c, err, "[ListVenues] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListVenuesResponseData{Venues: venues}})
+	reply.OK(c, ListVenuesResponseData{Venues: venues})
 }
 
 // GetVenue
@@ -74,23 +62,19 @@ func ListVenues(c *gin.Context) {
 // @Description 在列表的基础上附带货仓各档位掉落池的公示概率; 掉落池不可用时该档位的 odds 为 null
 // @Produce json
 // @Param code path string true "venue code"
-// @Success 200 {object} Response{data=VenueDetail}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=VenueDetail}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/venues/{code} [get]
 func GetVenue(c *gin.Context) {
 	ctx := c.Request.Context()
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	detail, err := QueryVenue(ctx, user.ID, c.Param("code"))
 	if err != nil {
 		reply.Fail(c, err, "[GetVenue] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: detail})
+	reply.OK(c, detail)
 }

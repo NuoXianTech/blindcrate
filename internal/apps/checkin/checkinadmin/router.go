@@ -25,8 +25,6 @@
 package checkinadmin
 
 import (
-	"net/http"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/checkin"
@@ -36,12 +34,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // DaysData 签到周期中每一天的奖励
 type DaysData struct {
@@ -53,10 +45,10 @@ type DaysData struct {
 // @Tags admin
 // @Summary 获取签到奖励
 // @Produce json
-// @Success 200 {object} Response{data=DaysData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=DaysData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/checkin/days [get]
 func ListCheckinDays(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -65,7 +57,7 @@ func ListCheckinDays(c *gin.Context) {
 		reply.Fail(c, err, "[ListCheckinDays] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: DaysData{Days: days, MaxDays: checkin.MaxDays}})
+	reply.OK(c, DaysData{Days: days, MaxDays: checkin.MaxDays})
 }
 
 // UpdateDaysRequest 整体保存签到奖励的请求体
@@ -85,24 +77,19 @@ type DayRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body UpdateDaysRequest true "request body"
-// @Success 200 {object} Response{data=DaysData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=DaysData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/checkin/days [put]
 func UpdateCheckinDays(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req UpdateDaysRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	rewards := make([]reward.Bundle, len(req.Days))
 	for i := range req.Days {
 		rewards[i] = req.Days[i].Reward
@@ -116,5 +103,5 @@ func UpdateCheckinDays(c *gin.Context) {
 		audit.Record(c, operator.ID, audit.ScopeAdmin, checkin.ActionUpdateDays, checkin.TargetCheckinDays, 0, changes)
 		logger.InfoF(ctx, "[UpdateCheckinDays] %d updated checkin days to %d days", operator.ID, len(days))
 	}
-	c.JSON(http.StatusOK, Response{Data: DaysData{Days: days, MaxDays: checkin.MaxDays}})
+	reply.OK(c, DaysData{Days: days, MaxDays: checkin.MaxDays})
 }

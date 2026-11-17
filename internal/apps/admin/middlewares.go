@@ -28,6 +28,8 @@ import (
 	"net/http"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/NuoXianTech/blindcrate/internal/otel_trace"
 	"github.com/gin-gonic/gin"
@@ -42,11 +44,11 @@ func LoginAdminRequired() gin.HandlerFunc {
 
 		user, ok := auth.GetUserFromContext(c)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_msg": auth.UnAuthorized, "data": nil})
+			reply.Abort(c, http.StatusUnauthorized, fault.Unauthorized)
 			return
 		}
 		if !user.IsAdmin {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error_msg": Forbidden, "data": nil})
+			reply.Abort(c, http.StatusForbidden, Forbidden)
 			return
 		}
 

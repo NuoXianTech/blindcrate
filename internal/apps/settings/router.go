@@ -27,31 +27,26 @@ package settings
 import (
 	"net/http"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 settings 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // PublicSettings
 // @Tags settings
 // @Summary 获取公开设置
 // @Description 如站点名称、是否开放注册, 无需登录; 返回 设置组 -> 字段 -> 值, 只包含公开字段
 // @Produce json
-// @Success 200 {object} Response{data=map[string]object}
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=map[string]object}
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/settings/public [get]
 func PublicSettings(c *gin.Context) {
 	ctx := c.Request.Context()
 	data, err := QueryPublic(ctx)
 	if err != nil {
 		logger.ErrorF(ctx, "[PublicSettings] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, Response{ErrorMsg: QueryFailed})
+		reply.Error(c, http.StatusInternalServerError, QueryFailed)
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: data})
+	reply.OK(c, data)
 }

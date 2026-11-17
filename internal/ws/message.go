@@ -40,7 +40,7 @@ type Message struct {
 
 // HandlerFunc 处理一种客户端消息, 返回值作为回复的 data
 //
-// 返回的错误信息会直接发给客户端, 内部错误需要自行记录日志, 再返回 auth.InternalError。
+// 返回的错误信息会直接发给客户端, 内部错误需要自行记录日志, 再返回 fault.InternalError。
 // 处理函数在读取消息的 goroutine 中执行, 同一连接的消息按顺序处理; 耗时过长会阻塞该连接后续的消息,
 // 超过 pongTimeout 还会因读不到 pong 被当作断线, 耗时的操作交给异步任务。
 type HandlerFunc func(ctx context.Context, client *Client, data json.RawMessage) (interface{}, error)

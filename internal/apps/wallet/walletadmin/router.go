@@ -25,8 +25,6 @@
 package walletadmin
 
 import (
-	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
@@ -36,12 +34,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListCurrenciesResponseData 全部货币定义
 type ListCurrenciesResponseData struct {
@@ -53,10 +45,10 @@ type ListCurrenciesResponseData struct {
 // @Summary 获取全部货币定义
 // @Description 包含已停用的货币
 // @Produce json
-// @Success 200 {object} Response{data=ListCurrenciesResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListCurrenciesResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/currencies [get]
 func ListCurrencies(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -65,7 +57,7 @@ func ListCurrencies(c *gin.Context) {
 		reply.Fail(c, err, "[ListCurrencies] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListCurrenciesResponseData{Currencies: currencies}})
+	reply.OK(c, ListCurrenciesResponseData{Currencies: currencies})
 }
 
 // CurrencyRequest 修改货币请求体, 代码创建后不能修改
@@ -88,25 +80,20 @@ type CreateCurrencyRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body CreateCurrencyRequest true "request body"
-// @Success 200 {object} Response{data=wallet.Currency}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=wallet.Currency}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/currencies [post]
 func CreateCurrency(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req CreateCurrencyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	created, err := doCreateCurrency(ctx, &req)
 	if err != nil {
 		reply.Fail(c, err, "[CreateCurrency] create failed")
@@ -114,7 +101,7 @@ func CreateCurrency(c *gin.Context) {
 	}
 	audit.Record(c, operator.ID, audit.ScopeAdmin, wallet.ActionCurrencyCreate, wallet.TargetCurrency, 0, currencyFields(created))
 	logger.InfoF(ctx, "[CreateCurrency] %d created currency %s", operator.ID, created.Code)
-	c.JSON(http.StatusOK, Response{Data: created})
+	reply.OK(c, created)
 }
 
 // UpdateCurrency
@@ -125,26 +112,21 @@ func CreateCurrency(c *gin.Context) {
 // @Produce json
 // @Param code path string true "currency code"
 // @Param request body CurrencyRequest true "request body"
-// @Success 200 {object} Response{data=wallet.Currency}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=wallet.Currency}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/currencies/{code} [put]
 func UpdateCurrency(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req CurrencyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	updated, changes, err := doUpdateCurrency(ctx, c.Param("code"), &req)
 	if err != nil {
 		reply.Fail(c, err, "[UpdateCurrency] update failed")
@@ -157,7 +139,7 @@ func UpdateCurrency(c *gin.Context) {
 		})
 		logger.InfoF(ctx, "[UpdateCurrency] %d updated currency %s", operator.ID, updated.Code)
 	}
-	c.JSON(http.StatusOK, Response{Data: updated})
+	reply.OK(c, updated)
 }
 
 // ListWalletTransactionsRequest 余额流水查询参数
@@ -184,17 +166,16 @@ type ListWalletTransactionsResponseData struct {
 // @Summary 获取全部用户的余额流水
 // @Produce json
 // @Param request query ListWalletTransactionsRequest true "request query"
-// @Success 200 {object} Response{data=ListWalletTransactionsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListWalletTransactionsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/wallet/transactions [get]
 func ListWalletTransactions(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListWalletTransactionsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, transactions, err := QueryWalletTransactions(ctx, req)
@@ -202,7 +183,7 @@ func ListWalletTransactions(c *gin.Context) {
 		reply.Fail(c, err, "[ListWalletTransactions] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListWalletTransactionsResponseData{Total: total, Transactions: transactions}})
+	reply.OK(c, ListWalletTransactionsResponseData{Total: total, Transactions: transactions})
 }
 
 // ListUserBalancesResponseData 指定用户的各货币余额
@@ -216,18 +197,17 @@ type ListUserBalancesResponseData struct {
 // @Description 包含已停用的货币
 // @Produce json
 // @Param id path int true "user id"
-// @Success 200 {object} Response{data=ListUserBalancesResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListUserBalancesResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/users/{id}/wallet/balances [get]
 func ListUserBalances(c *gin.Context) {
 	ctx := c.Request.Context()
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	userID, ok := reply.ID(c, "id")
+	if !ok {
 		return
 	}
 	balances, err := queryUserBalances(ctx, userID)
@@ -235,7 +215,7 @@ func ListUserBalances(c *gin.Context) {
 		reply.Fail(c, err, "[ListUserBalances] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListUserBalancesResponseData{Balances: balances}})
+	reply.OK(c, ListUserBalancesResponseData{Balances: balances})
 }
 
 // AdjustUserBalanceRequest 调账请求体
@@ -254,27 +234,22 @@ type AdjustUserBalanceRequest struct {
 // @Produce json
 // @Param id path int true "user id"
 // @Param request body AdjustUserBalanceRequest true "request body"
-// @Success 200 {object} Response{data=wallet.Transaction}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=wallet.Transaction}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/users/{id}/wallet/adjust [post]
 func AdjustUserBalance(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req AdjustUserBalanceRequest
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || c.ShouldBindJSON(&req) != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	userID, ok := reply.ID(c, "id")
+	if !ok || !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	txn, replayed, err := doAdjustUserBalance(ctx, operator.ID, userID, &req)
 	if err != nil {
 		reply.Fail(c, err, "[AdjustUserBalance] adjust failed")
@@ -292,5 +267,5 @@ func AdjustUserBalance(c *gin.Context) {
 		})
 		logger.InfoF(ctx, "[AdjustUserBalance] %d adjusted %d %s by %d, balance %d", operator.ID, userID, txn.Currency, txn.Amount, txn.BalanceAfter)
 	}
-	c.JSON(http.StatusOK, Response{Data: txn})
+	reply.OK(c, txn)
 }

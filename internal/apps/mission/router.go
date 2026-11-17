@@ -25,43 +25,31 @@
 package mission
 
 import (
-	"net/http"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
 
-// Response 统一的 mission 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
-
 // ListMissions
 // @Tags mission
 // @Summary 获取任务
 // @Description 启用的任务按每日、每周、成就分组, 每项带当前周期的进度和领取情况; 不满足任务条件的也返回, 见 requirements
 // @Produce json
-// @Success 200 {object} Response{data=MissionsData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=MissionsData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/missions [get]
 func ListMissions(c *gin.Context) {
 	ctx := c.Request.Context()
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	data, err := QueryMissions(ctx, user.ID)
 	if err != nil {
 		reply.Fail(c, err, "[ListMissions] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: data})
+	reply.OK(c, data)
 }
 
 // ClaimMission
@@ -70,26 +58,22 @@ func ListMissions(c *gin.Context) {
 // @Description 进度达到目标且满足任务条件时领取当前周期的奖励; 已下架的物品按回收价折成货币发放。不满足条件或奖励暂时无法发放时返回 403
 // @Produce json
 // @Param code path string true "mission code"
-// @Success 200 {object} Response{data=ClaimResult}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ClaimResult}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/missions/{code}/claim [post]
 func ClaimMission(c *gin.Context) {
 	ctx := c.Request.Context()
 	code := c.Param("code")
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	result, err := Claim(ctx, user.ID, code)
 	if err != nil {
 		reply.Fail(c, err, "[ClaimMission] claim failed")
 		return
 	}
 	logger.InfoF(ctx, "[ClaimMission] %d claimed mission %s", user.ID, code)
-	c.JSON(http.StatusOK, Response{Data: result})
+	reply.OK(c, result)
 }

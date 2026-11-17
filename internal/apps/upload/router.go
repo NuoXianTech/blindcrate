@@ -35,12 +35,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Response 统一的 upload 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
-
 // CreateUpload
 // @Tags upload
 // @Summary 上传图片
@@ -50,21 +44,17 @@ type Response struct {
 // @Produce json
 // @Param purpose formData string true "用途" Enums(avatar, item, venue, shop)
 // @Param file formData file true "图片"
-// @Success 200 {object} Response{data=View}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 413 {object} Response
-// @Failure 429 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=View}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 413 {object} reply.Response
+// @Failure 429 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/uploads [post]
 func CreateUpload(c *gin.Context) {
 	ctx := c.Request.Context()
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	maxSize, err := MaxSize(ctx)
 	if err != nil {
 		reply.Fail(c, err, "[CreateUpload] get settings failed")
@@ -73,7 +63,7 @@ func CreateUpload(c *gin.Context) {
 	tooLarge := fmt.Sprintf(FileTooLarge, maxSize>>10)
 	// 请求头中的大小已经超过上限时直接拒绝, 不读取请求体(客户端等待 100 Continue 时不会再上传)
 	if c.Request.ContentLength > maxSize+multipartOverhead {
-		c.JSON(http.StatusRequestEntityTooLarge, Response{ErrorMsg: tooLarge})
+		reply.Error(c, http.StatusRequestEntityTooLarge, tooLarge)
 		return
 	}
 	// 读取表单前限制请求体大小, 超大的请求不会写入临时文件
@@ -81,10 +71,10 @@ func CreateUpload(c *gin.Context) {
 	if err := c.Request.ParseMultipartForm(maxSize + multipartOverhead); err != nil {
 		var maxBytes *http.MaxBytesError
 		if errors.As(err, &maxBytes) {
-			c.JSON(http.StatusRequestEntityTooLarge, Response{ErrorMsg: tooLarge})
+			reply.Error(c, http.StatusRequestEntityTooLarge, tooLarge)
 			return
 		}
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: FileRequired})
+		reply.Error(c, http.StatusBadRequest, FileRequired)
 		return
 	}
 	purpose := c.PostForm("purpose")
@@ -94,11 +84,11 @@ func CreateUpload(c *gin.Context) {
 	}
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: FileRequired})
+		reply.Error(c, http.StatusBadRequest, FileRequired)
 		return
 	}
 	if file.Size > maxSize {
-		c.JSON(http.StatusRequestEntityTooLarge, Response{ErrorMsg: tooLarge})
+		reply.Error(c, http.StatusRequestEntityTooLarge, tooLarge)
 		return
 	}
 	f, err := file.Open()
@@ -117,5 +107,5 @@ func CreateUpload(c *gin.Context) {
 		reply.Fail(c, err, "[CreateUpload] save failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: view})
+	reply.OK(c, view)
 }

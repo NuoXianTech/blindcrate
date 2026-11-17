@@ -25,7 +25,6 @@
 package wallet
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
@@ -33,12 +32,6 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 wallet 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListBalancesResponseData 当前用户的各货币余额
 type ListBalancesResponseData struct {
@@ -50,24 +43,20 @@ type ListBalancesResponseData struct {
 // @Summary 获取当前用户的各货币余额
 // @Description 没有余额行的货币按 0 返回, 已停用且没有余额的货币不返回
 // @Produce json
-// @Success 200 {object} Response{data=ListBalancesResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListBalancesResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/wallet/balances [get]
 func ListBalances(c *gin.Context) {
 	ctx := c.Request.Context()
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	balances, err := QueryBalances(ctx, user.ID, false)
 	if err != nil {
 		reply.Fail(c, err, "[ListBalances] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListBalancesResponseData{Balances: balances}})
+	reply.OK(c, ListBalancesResponseData{Balances: balances})
 }
 
 // ListTransactionsRequest 余额流水查询参数
@@ -91,30 +80,25 @@ type ListTransactionsResponseData struct {
 // @Summary 获取当前用户的余额流水
 // @Produce json
 // @Param request query ListTransactionsRequest true "request query"
-// @Success 200 {object} Response{data=ListTransactionsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListTransactionsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/wallet/transactions [get]
 func ListTransactions(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListTransactionsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	total, transactions, err := QueryUserTransactions(ctx, user.ID, req)
 	if err != nil {
 		reply.Fail(c, err, "[ListTransactions] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListTransactionsResponseData{Total: total, Transactions: transactions}})
+	reply.OK(c, ListTransactionsResponseData{Total: total, Transactions: transactions})
 }
 
 // ListBizTypesResponseData 业务类型和名称
@@ -127,10 +111,10 @@ type ListBizTypesResponseData struct {
 // @Summary 获取余额流水的业务类型和名称
 // @Description 用于展示流水和筛选, 按登记顺序
 // @Produce json
-// @Success 200 {object} Response{data=ListBizTypesResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
+// @Success 200 {object} reply.Response{data=ListBizTypesResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
 // @Router /api/v1/wallet/biz-types [get]
 func ListBizTypes(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{Data: ListBizTypesResponseData{BizTypes: ledger.BizTypes(ledger.KindWallet)}})
+	reply.OK(c, ListBizTypesResponseData{BizTypes: ledger.BizTypes(ledger.KindWallet)})
 }

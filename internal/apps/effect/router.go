@@ -25,20 +25,11 @@
 package effect
 
 import (
-	"net/http"
-	"strconv"
-
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的 effect 响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // GetItemUse
 // @Tags inventory
@@ -46,30 +37,25 @@ type Response struct {
 // @Description 返回当前用户持有的数量、使用方式和可以得到的内容, 按概率得到时带每一项的概率, 与使用时一致; 物品不能在背包中使用时返回 404, 现在不能使用(如箱子的掉落池不可用)时返回 403
 // @Produce json
 // @Param item_id path int true "item id"
-// @Success 200 {object} Response{data=UseView}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=UseView}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/inventory/items/{item_id}/use [get]
 func GetItemUse(c *gin.Context) {
-	itemID, err := strconv.ParseUint(c.Param("item_id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
-		return
-	}
-	user, ok := auth.GetUserFromContext(c)
+	itemID, ok := reply.ID(c, "item_id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
 		return
 	}
+	user := auth.CurrentUser(c)
 	view, err := QueryUse(c.Request.Context(), user.ID, itemID)
 	if err != nil {
 		reply.Fail(c, err, "[GetItemUse] failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: view})
+	reply.OK(c, view)
 }
 
 // UseItem
@@ -80,32 +66,26 @@ func GetItemUse(c *gin.Context) {
 // @Produce json
 // @Param item_id path int true "item id"
 // @Param request body InventoryUseRequest true "request body"
-// @Success 200 {object} Response{data=UseResult}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 409 {object} Response
-// @Failure 429 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=UseResult}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 409 {object} reply.Response
+// @Failure 429 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/inventory/items/{item_id}/use [post]
 func UseItem(c *gin.Context) {
 	ctx := c.Request.Context()
-	itemID, err := strconv.ParseUint(c.Param("item_id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	itemID, ok := reply.ID(c, "item_id")
+	if !ok {
 		return
 	}
 	var req InventoryUseRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	user, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	user := auth.CurrentUser(c)
 	result, replayed, err := UseInInventory(ctx, user.ID, itemID, &req)
 	if err != nil {
 		reply.Fail(c, err, "[UseItem] failed")
@@ -115,5 +95,5 @@ func UseItem(c *gin.Context) {
 	if !replayed {
 		logger.InfoF(ctx, "[UseItem] %d used item %d in record %d", user.ID, itemID, result.ID)
 	}
-	c.JSON(http.StatusOK, Response{Data: result})
+	reply.OK(c, result)
 }

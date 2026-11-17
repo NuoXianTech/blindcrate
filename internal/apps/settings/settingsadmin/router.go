@@ -38,12 +38,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
-
 // ListSettingsRequest 获取设置组请求参数
 type ListSettingsRequest struct {
 	Category string `json:"category" form:"category" binding:"omitempty,oneof=system game"` // 为空时返回全部
@@ -61,17 +55,16 @@ type ListSettingsResponseData struct {
 // @Description 包含表单描述和当前值, 密钥字段不返回明文; 可以按分类筛选
 // @Produce json
 // @Param request query ListSettingsRequest true "request query"
-// @Success 200 {object} Response{data=ListSettingsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListSettingsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/settings [get]
 func ListSettings(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListSettingsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	groups, err := settings.QueryGroups(ctx, req.Category)
@@ -79,7 +72,7 @@ func ListSettings(c *gin.Context) {
 		reply.Fail(c, err, "[ListSettings] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListSettingsResponseData{Categories: settings.Categories, Groups: groups}})
+	reply.OK(c, ListSettingsResponseData{Categories: settings.Categories, Groups: groups})
 }
 
 // GetSetting
@@ -87,11 +80,11 @@ func ListSettings(c *gin.Context) {
 // @Summary 获取一个设置组
 // @Produce json
 // @Param key path string true "setting group key"
-// @Success 200 {object} Response{data=settings.GroupView}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=settings.GroupView}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/settings/{key} [get]
 func GetSetting(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -100,7 +93,7 @@ func GetSetting(c *gin.Context) {
 		reply.Fail(c, err, "[GetSetting] query "+c.Param("key")+" failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: group})
+	reply.OK(c, group)
 }
 
 // UpdateSettingRequest 保存设置组请求体
@@ -117,32 +110,27 @@ type UpdateSettingRequest struct {
 // @Produce json
 // @Param key path string true "setting group key"
 // @Param request body UpdateSettingRequest true "request body"
-// @Success 200 {object} Response{data=settings.GroupView}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=settings.GroupView}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/settings/{key} [put]
 func UpdateSetting(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req UpdateSettingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	group, changes, err := settings.Update(ctx, operator.ID, c.Param("key"), req.Value, req.ClearSecrets)
 	if err != nil {
 		reply.Fail(c, err, "[UpdateSetting] save failed")
 		return
 	}
 	recordSettingChange(c, operator.ID, settings.ActionSettingsUpdate, group, changes)
-	c.JSON(http.StatusOK, Response{Data: group})
+	reply.OK(c, group)
 }
 
 // ResetSetting
@@ -151,27 +139,23 @@ func UpdateSetting(c *gin.Context) {
 // @Description 恢复为代码中的默认值, 立即生效, 密钥字段会被清空
 // @Produce json
 // @Param key path string true "setting group key"
-// @Success 200 {object} Response{data=settings.GroupView}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 404 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=settings.GroupView}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 404 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/settings/{key}/reset [post]
 func ResetSetting(c *gin.Context) {
 	ctx := c.Request.Context()
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	group, changes, err := settings.Reset(ctx, operator.ID, c.Param("key"))
 	if err != nil {
 		reply.Fail(c, err, "[ResetSetting] reset failed")
 		return
 	}
 	recordSettingChange(c, operator.ID, settings.ActionSettingsReset, group, changes)
-	c.JSON(http.StatusOK, Response{Data: group})
+	reply.OK(c, group)
 }
 
 // recordSettingChange 记录设置组的修改, 没有任何修改时不记录
@@ -198,26 +182,21 @@ type TestMailRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body TestMailRequest true "request body"
-// @Success 200 {object} Response
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 429 {object} Response
-// @Failure 500 {object} Response
-// @Failure 502 {object} Response
+// @Success 200 {object} reply.Response
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 429 {object} reply.Response
+// @Failure 500 {object} reply.Response
+// @Failure 502 {object} reply.Response
 // @Router /api/v1/admin/settings/mail/test [post]
 func TestMail(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req TestMailRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.JSON(c, &req) {
 		return
 	}
-	operator, ok := auth.GetUserFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, Response{ErrorMsg: auth.UnAuthorized})
-		return
-	}
+	operator := auth.CurrentUser(c)
 	to, mailConfig, err := prepareTestMail(ctx, &req)
 	if err != nil {
 		reply.Fail(c, err, "[TestMail] query settings failed")
@@ -232,8 +211,8 @@ func TestMail(c *gin.Context) {
 	audit.Record(c, operator.ID, audit.ScopeAdmin, settings.ActionMailTest, settings.TargetSetting, 0, detail)
 	if sendErr != nil {
 		logger.WarnF(ctx, "[TestMail] %d send to %s failed: %v", operator.ID, to, sendErr)
-		c.JSON(http.StatusBadGateway, Response{ErrorMsg: fmt.Sprintf("%s: %s", MailTestFailed, sendErr.Error())})
+		reply.Error(c, http.StatusBadGateway, fmt.Sprintf("%s: %s", MailTestFailed, sendErr.Error()))
 		return
 	}
-	c.JSON(http.StatusOK, Response{})
+	reply.OK(c, nil)
 }

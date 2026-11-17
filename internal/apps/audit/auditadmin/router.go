@@ -25,20 +25,12 @@
 package auditadmin
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
-	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
 	"github.com/gin-gonic/gin"
 )
-
-// Response 统一的响应壳, 保持与其他 app 一致
-type Response struct {
-	ErrorMsg string      `json:"error_msg"`
-	Data     interface{} `json:"data"`
-}
 
 // ListAuditLogsRequest 操作日志查询参数
 type ListAuditLogsRequest struct {
@@ -65,17 +57,16 @@ type ListAuditLogsResponseData struct {
 // @Description 包含用户和管理员的操作
 // @Produce json
 // @Param request query ListAuditLogsRequest true "request query"
-// @Success 200 {object} Response{data=ListAuditLogsResponseData}
-// @Failure 400 {object} Response
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
-// @Failure 500 {object} Response
+// @Success 200 {object} reply.Response{data=ListAuditLogsResponseData}
+// @Failure 400 {object} reply.Response
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
+// @Failure 500 {object} reply.Response
 // @Router /api/v1/admin/audit-logs [get]
 func ListAuditLogs(c *gin.Context) {
 	ctx := c.Request.Context()
 	req := &ListAuditLogsRequest{}
-	if err := c.ShouldBindQuery(req); err != nil {
-		c.JSON(http.StatusBadRequest, Response{ErrorMsg: auth.InvalidParams})
+	if !reply.Query(c, req) {
 		return
 	}
 	total, logs, err := QueryAuditLogs(ctx, req)
@@ -83,7 +74,7 @@ func ListAuditLogs(c *gin.Context) {
 		reply.Fail(c, err, "[ListAuditLogs] query failed")
 		return
 	}
-	c.JSON(http.StatusOK, Response{Data: ListAuditLogsResponseData{Total: total, Logs: logs}})
+	reply.OK(c, ListAuditLogsResponseData{Total: total, Logs: logs})
 }
 
 // ListAuditActionsResponseData 操作类型和名称
@@ -96,10 +87,10 @@ type ListAuditActionsResponseData struct {
 // @Summary 获取操作日志的操作类型和名称
 // @Description 用于展示日志和筛选, 按登记顺序
 // @Produce json
-// @Success 200 {object} Response{data=ListAuditActionsResponseData}
-// @Failure 401 {object} Response
-// @Failure 403 {object} Response
+// @Success 200 {object} reply.Response{data=ListAuditActionsResponseData}
+// @Failure 401 {object} reply.Response
+// @Failure 403 {object} reply.Response
 // @Router /api/v1/admin/audit-logs/actions [get]
 func ListAuditActions(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{Data: ListAuditActionsResponseData{Actions: audit.Actions()}})
+	reply.OK(c, ListAuditActionsResponseData{Actions: audit.Actions()})
 }

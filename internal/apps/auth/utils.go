@@ -86,6 +86,17 @@ func GetUserFromContext(c *gin.Context) (*User, bool) {
 	return u, ok
 }
 
+// CurrentUser 当前登录的用户, 只能在 LoginRequired 之后的接口中调用
+//
+// 没有用户说明接口没有注册在需要登录的分组下, 属于代码错误, 直接 panic, 由 Recovery 返回 500。
+func CurrentUser(c *gin.Context) *User {
+	user, ok := GetUserFromContext(c)
+	if !ok {
+		panic("auth: CurrentUser called outside LoginRequired")
+	}
+	return user
+}
+
 // SetUserToContext 将User对象存储到Context中
 func SetUserToContext(c *gin.Context, user *User) {
 	c.Set(UserObjKey, user)
