@@ -25,6 +25,7 @@
 package condition
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"time"
@@ -32,18 +33,25 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"gorm.io/gorm"
 )
 
 func init() {
+	// 条件组的参数是一组条件, 要在注册用到它的条件类型之前登记
+	params.RegisterKind[[]Condition](KindConditions)
+
 	Register(TypeMinBalance, "最低余额", "可用余额不少于指定金额, 只检查不扣除; 入场费请配置为入场代价", checkMinBalance)
-	Register(TypeMinStat, "统计数据", "在统计范围内累计的统计数据不少于指定值, 如完成 10 局排位、胜利 3 次", checkMinStat)
+	Register(TypeMinStat, "统计数据", "一个周期内在统计范围内的统计数据不少于指定值, 如累计完成 10 局排位、本周胜利 3 次", checkMinStat)
+	Register(TypeStatLimit, "统计上限", "一个周期内在统计范围内的统计数据达到指定值后不再满足, 如每天最多 5 局、累计最多 20 局的新手图、每赛季最多 3 次", checkStatLimit)
 	Register(TypeHasItem, "持有物品", "背包中持有的指定物品不少于指定数量, 只检查不消耗; 需要消耗时请配置为入场代价", checkHasItem)
 	Register(TypeAccountAge, "注册天数", "注册满指定天数", checkAccountAge)
 	Register(TypeEmailVerified, "验证邮箱", "已验证邮箱", checkEmailVerified)
-	Register(TypeDailyLimit, "每日上限", "今天在统计范围内的统计数据少于指定值, 如每天最多 5 局", checkDailyLimit)
+	Register(TypeTimeWindow, "时间窗口", "现在在指定的时间内: 起止时间、星期几、每天几点到几点, 填了的几项需要同时满足; 用于限时地图、周末活动商品", checkTimeWindow)
+	Register(TypeAnyOf, "满足其中几个", "列出的条件中至少满足指定的个数, 如持有门票或段位分够高", checkAnyOf)
+	Register(TypeNoneOf, "都不满足", "列出的条件一个都不满足时才算满足, 如还没有持有某件物品", checkNoneOf)
 }
 
 // minBalanceParams 最低余额的参数
@@ -86,24 +94,56 @@ func checkMinBalance(tx *gorm.DB, userID uint64, p *minBalanceParams) (*Progress
 type minStatParams struct {
 	Metric string `json:"metric" label:"统计数据" binding:"required,max=64" input:"metric"`
 	Scope  string `json:"scope" label:"统计范围" help:"all 为全部对局, mode:<模式> 为某种模式, venue:<地图> 为某张地图, venue:<地图>:<模式> 为某张地图的某种模式" binding:"required,max=64" input:"scope"`
+	Period string `json:"period" label:"统计周期" help:"只算这个周期内的数据, 留空为累计; 本赛季只在赛季进行中有数据" binding:"max=16" input:"period"`
 	Count  int64  `json:"count" label:"不少于" binding:"min=1,max=1000000"`
 }
 
-// Validate 指标必须已注册, 统计范围的格式必须正确
+// Validate 指标和周期必须已注册, 统计范围的格式必须正确
 func (p *minStatParams) Validate(*gorm.DB) (string, error) {
-	return validateStat(p.Metric, p.Scope), nil
+	return validateStat(p.Metric, p.Scope, p.Period), nil
 }
 
 func checkMinStat(tx *gorm.DB, userID uint64, p *minStatParams) (*Progress, error) {
-	value, name, err := scopeStat(tx, userID, p.Scope, stats.PeriodTotal, p.Metric)
+	value, name, err := periodStat(tx, userID, p.Scope, p.Period, p.Metric)
 	if err != nil {
 		return nil, err
+	}
+	// 累计的不写周期, 如 "排位对局数达到 10(3/10)"; 其他的写在最前面, 如 "本周排位对局数达到 10(3/10)"
+	period := ""
+	if p.Period != "" && p.Period != stats.PeriodTotal {
+		period = stats.PeriodLabel(p.Period)
 	}
 	return &Progress{
 		Met:     value >= p.Count,
 		Current: value,
 		Target:  p.Count,
-		Text:    fmt.Sprintf("%s%s达到 %d(%d/%d)", name, metricLabel(p.Metric), p.Count, value, p.Count),
+		Text:    fmt.Sprintf("%s%s%s达到 %d(%d/%d)", period, name, metricLabel(p.Metric), p.Count, value, p.Count),
+	}, nil
+}
+
+// statLimitParams 统计上限的参数
+type statLimitParams struct {
+	Metric string `json:"metric" label:"统计数据" binding:"required,max=64" input:"metric"`
+	Scope  string `json:"scope" label:"统计范围" help:"all 为全部对局, mode:<模式> 为某种模式, venue:<地图> 为某张地图, venue:<地图>:<模式> 为某张地图的某种模式" binding:"required,max=64" input:"scope"`
+	Period string `json:"period" label:"统计周期" help:"只算这个周期内的数据, 留空为累计; 本赛季只在赛季进行中有数据" binding:"max=16" input:"period"`
+	Count  int64  `json:"count" label:"最多" help:"达到这个数之后不再满足" binding:"min=1,max=1000000"`
+}
+
+// Validate 指标和周期必须已注册, 统计范围的格式必须正确
+func (p *statLimitParams) Validate(*gorm.DB) (string, error) {
+	return validateStat(p.Metric, p.Scope, p.Period), nil
+}
+
+func checkStatLimit(tx *gorm.DB, userID uint64, p *statLimitParams) (*Progress, error) {
+	value, name, err := periodStat(tx, userID, p.Scope, p.Period, p.Metric)
+	if err != nil {
+		return nil, err
+	}
+	return &Progress{
+		Met:     value < p.Count,
+		Current: value,
+		Target:  p.Count,
+		Text:    fmt.Sprintf("%s%s%s最多 %d(%d/%d)", stats.PeriodLabel(periodOf(p.Period)), name, metricLabel(p.Metric), p.Count, value, p.Count),
 	}, nil
 }
 
@@ -173,40 +213,23 @@ func checkEmailVerified(tx *gorm.DB, userID uint64, _ *emailVerifiedParams) (*Pr
 	return &Progress{Met: user.EmailVerifiedAt != nil, Text: "已验证邮箱"}, nil
 }
 
-// dailyLimitParams 每日上限的参数
-type dailyLimitParams struct {
-	Metric string `json:"metric" label:"统计数据" binding:"required,max=64" input:"metric"`
-	Scope  string `json:"scope" label:"统计范围" help:"all 为全部对局, mode:<模式> 为某种模式, venue:<地图> 为某张地图, venue:<地图>:<模式> 为某张地图的某种模式" binding:"required,max=64" input:"scope"`
-	Count  int64  `json:"count" label:"每天最多" binding:"min=1,max=1000000"`
-}
-
-// Validate 指标必须已注册, 统计范围的格式必须正确
-func (p *dailyLimitParams) Validate(*gorm.DB) (string, error) {
-	return validateStat(p.Metric, p.Scope), nil
-}
-
-func checkDailyLimit(tx *gorm.DB, userID uint64, p *dailyLimitParams) (*Progress, error) {
-	value, name, err := scopeStat(tx, userID, p.Scope, stats.PeriodDay(time.Now()), p.Metric)
-	if err != nil {
-		return nil, err
-	}
-	return &Progress{
-		Met:     value < p.Count,
-		Current: value,
-		Target:  p.Count,
-		Text:    fmt.Sprintf("%s每天%s最多 %d(今天 %d/%d)", name, metricLabel(p.Metric), p.Count, value, p.Count),
-	}, nil
-}
-
-// validateStat 指标未注册或统计范围的格式不正确时返回原因
-func validateStat(metric, scope string) string {
+// validateStat 指标或周期未注册、统计范围的格式不正确时返回原因
+func validateStat(metric, scope, period string) string {
 	if stats.FindMetric(metric) == nil {
 		return MetricNotFound
 	}
 	if !stats.ValidScope(scope) {
 		return ScopeInvalid
 	}
+	if !stats.HasPeriod(periodOf(period)) {
+		return PeriodNotFound
+	}
 	return ""
+}
+
+// periodOf 参数中的周期名称, 留空为累计
+func periodOf(period string) string {
+	return cmp.Or(period, stats.PeriodTotal)
 }
 
 // metricLabel 指标的展示名称, 指标已不再注册时展示 key
@@ -217,11 +240,20 @@ func metricLabel(metric string) string {
 	return metric
 }
 
-// scopeStat 获取用户在统计范围内的一个指标和范围的展示名称
-func scopeStat(tx *gorm.DB, userID uint64, scope, period, metric string) (int64, string, error) {
-	value, err := stats.Get(tx, userID, scope, period, metric)
+// periodStat 获取用户现在所在的周期内, 在统计范围内的一个指标, 以及范围的展示名称; period 为周期的名称, 现在没有这种周期(如不在赛季中)时为 0
+func periodStat(tx *gorm.DB, userID uint64, scope, period, metric string) (int64, string, error) {
+	key, ok, err := stats.PeriodKey(tx, periodOf(period), time.Now())
 	if err != nil {
 		return 0, "", err
+	}
+	if !ok {
+		return 0, "", fmt.Errorf("condition: unknown period %s", period)
+	}
+	var value int64
+	if key != "" {
+		if value, err = stats.Get(tx, userID, scope, key, metric); err != nil {
+			return 0, "", err
+		}
 	}
 	name, err := ScopeName(tx, scope)
 	if err != nil {

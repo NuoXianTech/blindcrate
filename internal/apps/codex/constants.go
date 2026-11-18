@@ -30,10 +30,21 @@
 //     下架期间集齐其余藏品的玩家即可领取, 重新上架后已领取的不受影响
 //   - 展示: 没有收集的藏品只返回品质和图片, 名称、说明和售价收集后才返回; 售价随物品的当前价格变动
 //   - 领取: 集齐收集组中全部启用的藏品后领取, 每个收集组只能领取一次, 见 Claim
+//   - 条件: 注册按图鉴进度检查的条件类型, 地图、商品和任务可以要求收集过某件物品、集齐某个收集组或收集够多少种, 见 conditions.go
 package codex
 
 // BizReward 领取收集组奖励的流水业务类型, biz_id 为收集组 ID
 const BizReward = "codex_reward"
+
+// 条件类型
+const (
+	TypeCollected      = "codex_item"  // 收集过指定的物品
+	TypeSetCompleted   = "codex_set"   // 集齐指定的收集组
+	TypeCollectedCount = "codex_count" // 图鉴中已收集的藏品不少于指定的种数
+)
+
+// SourceSet 可选值来源: 全部收集组, 值为收集组代码
+const SourceSet = "codex_set"
 
 // 操作日志
 const (

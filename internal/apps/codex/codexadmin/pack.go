@@ -33,16 +33,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// 配置包中的收集组
-const (
-	PackCodexSets  = "codex_sets"
-	OrderCodexSets = 85 // 排在物品之后, 收集组按 ID 引用物品
-)
-
 func init() {
+	// 条件里按代码引用收集组(如集齐收集组), 收集组改名导入时一起改
+	pack.RegisterReference(pack.PackCodexSets, codex.SourceSet)
 	// 收集组按代码对应; 同代码的收集组已删除时只能改名导入
 	pack.RegisterTable(pack.Table[codex.Set, SetRequest]{
-		Code: PackCodexSets, Label: "收集组", Hint: "按代码对应, 物品按 ID 引用; 已删除或不是藏品的物品不导出", Order: OrderCodexSets,
+		Code: pack.PackCodexSets, Label: "收集组", Hint: "按代码对应, 物品按 ID 引用; 已删除或不是藏品的物品不导出", Order: pack.OrderCodexSets,
 		Export: func(tx *gorm.DB, _ func(string) string) ([]SetRequest, error) {
 			var rows []codex.Set
 			if err := tx.Order("sort_order, id").Find(&rows).Error; err != nil {

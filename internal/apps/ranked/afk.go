@@ -79,15 +79,17 @@ func RecordAfk(ctx context.Context, userID, matchID uint64) (time.Duration, erro
 
 // AfkBanReason 用户因挂机禁赛中时返回带剩余时间的原因, 可以直接展示; 没有禁赛时返回空字符串
 func AfkBanReason(ctx context.Context, userID uint64) (string, error) {
-	remaining, err := db.Redis.PTTL(ctx, afkBanKeyPrefix+strconv.FormatUint(userID, 10)).Result()
-	if err != nil {
+	remaining, err := afkBanRemaining(ctx, userID)
+	if err != nil || remaining <= 0 {
 		return "", err
 	}
-	// 没有禁赛时为 -2, 没有过期时间时为 -1, 禁赛总会带过期时间
-	if remaining <= 0 {
-		return "", nil
-	}
 	return fmt.Sprintf(AfkBanned, formatRemaining(remaining)), nil
+}
+
+// afkBanRemaining 用户挂机禁赛还剩多久, 没有禁赛时不大于 0
+func afkBanRemaining(ctx context.Context, userID uint64) (time.Duration, error) {
+	// 没有禁赛时为 -2, 没有过期时间时为 -1, 禁赛总会带过期时间
+	return db.Redis.PTTL(ctx, afkBanKeyPrefix+strconv.FormatUint(userID, 10)).Result()
 }
 
 // formatRemaining 剩余时间, 不足一分钟按一分钟, 如 "5 分钟"、"1 小时 30 分钟"

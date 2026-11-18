@@ -29,3 +29,9 @@ const MaxIdempotencyKeyLength = 95
 
 // MaxLines 配置中的一组奖励或价格, 货币和物品各自最多的行数, 见 Check
 const MaxLines = 8
+
+// 结构化的参数类型, 见 params.RegisterKind; 后台有同名的编辑器
+const (
+	KindBundle     = "bundle"      // 参数结构体中类型为 Bundle 的字段: 一组货币和物品
+	KindBundleList = "bundle_list" // 类型为 []Bundle 的字段: 几组货币和物品, 如自选礼包的选项
+)

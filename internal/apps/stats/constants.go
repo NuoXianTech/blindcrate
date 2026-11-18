@@ -22,11 +22,12 @@
  * SOFTWARE.
  */
 
-// Package stats 玩家的统计数据, 按统计范围、周期和指标分别累加, 供条件检查、每日上限和排行榜使用
+// Package stats 玩家的统计数据, 按统计范围、周期和指标分别累加, 供条件检查、限购和排行榜使用
 //
 // 每个用户每个范围每个周期每个指标一行, 结算时在同一个事务中调用 Add 一次写入所有组合:
 //   - 范围: 全部、某种模式、某张地图、某张地图的某种模式, 见 ScopeAll 和 Scope 开头的函数
-//   - 周期: 累计、当天和当周, 见 PeriodTotal、PeriodDay 和 PeriodWeek; 日期按 schedule.time_zone 计算, 与定时任务一致; 赛季等周期见 RegisterPeriod
+//   - 周期: 累计、当天和当周, 见 PeriodTotal、PeriodDay 和 PeriodWeek; 日期按 schedule.time_zone 计算, 与定时任务一致; 赛季等周期见 RegisterPeriod;
+//     条件等配置中按名称选择周期(累计、今天、本周、本赛季), 检查时换成当时的周期, 见 PeriodKey
 //   - 指标: 对局数、胜利次数等计数指标用 RegisterMetric 注册, 可以在条件中使用; 净收益按货币分开, 见 MetricProfit
 //
 // 新增一种统计数据只需注册指标并在结算时写入, 不需要改表; 练习局不写统计。
@@ -39,10 +40,17 @@ const ScopeAll = "all"
 const (
 	SourceMetric = "metric" // 已注册的计数指标, 值为指标的 key
 	SourceScope  = "scope"  // 统计范围, 候选项见 RegisterScopeOptions, 也可以手动填写
+	SourcePeriod = "period" // 可以按名称选择的统计周期, 值为周期的名称, 见 PeriodKey
 )
 
-// PeriodTotal 统计周期: 累计
+// PeriodTotal 统计周期: 累计, 也是这种周期的名称
 const PeriodTotal = "total"
+
+// 内置周期的名称, 条件等配置中保存名称, 检查时用 PeriodKey 换成当时的周期; 其他周期的名称见 RegisterPeriod
+const (
+	PeriodNameDay  = "day"  // 当天, 见 PeriodDay
+	PeriodNameWeek = "week" // 当周, 见 PeriodWeek
+)
 
 // 按天和按周统计周期的前缀, 见 PeriodDay 和 PeriodWeek
 const (

@@ -32,8 +32,10 @@ import (
 	"unicode/utf8"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
+	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"gorm.io/gorm"
@@ -44,14 +46,72 @@ func init() {
 	audit.RegisterAction(ActionSeasonUpdate, "修改赛季")
 	audit.RegisterAction(ActionSeasonDelete, "删除赛季")
 	audit.RegisterAction(ActionSeasonEnd, "提前结束赛季")
-	// 进行中的赛季在结算对局时额外写入赛季周期
-	stats.RegisterPeriod(func(tx *gorm.DB, at time.Time) (string, error) {
+	// 进行中的赛季在结算对局时额外写入赛季周期, 条件中的"本赛季"也按它读取
+	stats.RegisterPeriod(PeriodName, "本赛季", func(tx *gorm.DB, at time.Time) (string, error) {
 		current, err := Current(tx, at)
 		if err != nil || current == nil {
 			return "", err
 		}
 		return Period(current.Code), nil
 	})
+	params.RegisterSource(SourceSeason, params.Source{Options: seasonOptions, Default: AnySeason})
+	condition.Register(TypeSeasonActive, "赛季进行中", "现在有进行中的赛季, 或者进行中的是指定的赛季; 用于赛季限定的地图、商品和活动", checkSeasonActive)
+}
+
+// seasonOptions 可以选的赛季: 任意赛季, 以及还没结束的赛季, 按开始时间
+func seasonOptions(tx *gorm.DB) ([]params.Option, error) {
+	var seasons []Season
+	if err := tx.Where("ends_at > ?", time.Now()).Order("starts_at").Find(&seasons).Error; err != nil {
+		return nil, err
+	}
+	options := []params.Option{{Value: AnySeason, Label: "任意赛季"}}
+	for _, s := range seasons {
+		options = append(options, params.Option{Value: s.Code, Label: s.Name, Hint: s.Code})
+	}
+	return options, nil
+}
+
+// seasonActiveParams 赛季进行中的参数
+type seasonActiveParams struct {
+	Season string `json:"season" label:"赛季" help:"选任意赛季时只要有进行中的赛季就满足" binding:"required,max=24" input:"season"`
+}
+
+// Validate 指定的赛季必须存在
+func (p *seasonActiveParams) Validate(tx *gorm.DB) (string, error) {
+	if p.Season == AnySeason {
+		return "", nil
+	}
+	found, err := first(tx.Where("code = ?", p.Season))
+	if err != nil {
+		return "", err
+	}
+	if found == nil {
+		return SeasonNotFound, nil
+	}
+	return "", nil
+}
+
+func checkSeasonActive(tx *gorm.DB, _ uint64, p *seasonActiveParams) (*condition.Progress, error) {
+	current, err := Current(tx, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	if p.Season == AnySeason {
+		return &condition.Progress{Met: current != nil, Text: "赛季进行中"}, nil
+	}
+	if current != nil && current.Code == p.Season {
+		return &condition.Progress{Met: true, Text: current.Name + "进行中"}, nil
+	}
+	// 赛季被删除时按代码展示
+	name := p.Season
+	target, err := first(tx.Where("code = ?", p.Season))
+	if err != nil {
+		return nil, err
+	}
+	if target != nil {
+		name = target.Name
+	}
+	return &condition.Progress{Text: name + "进行中"}, nil
 }
 
 // codePattern 赛季代码, 小写字母、数字和下划线; 拼上前缀后不能超过 stats.period 的长度

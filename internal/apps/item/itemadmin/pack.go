@@ -30,7 +30,6 @@ import (
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/effect"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
-	"github.com/NuoXianTech/blindcrate/internal/apps/loot"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
 	"gorm.io/gorm"
 )
@@ -108,10 +107,10 @@ func init() {
 		Key:   func(req *ItemPack) string { return strconv.FormatUint(req.ID, 10) },
 		Name:  func(req *ItemPack) string { return req.Name },
 		Taken: item.ItemNameTaken,
-		// 效果参数中引用的掉落池(如箱子的掉落池)跟着掉落池一起改名
+		// 效果参数中引用的配置(如箱子的掉落池)跟着一起改名
 		Renamed: func(req *ItemPack, section, old, next string) {
-			if section == pack.PackLootPools {
-				effect.Renamed(req.Effect, req.EffectParams, loot.SourcePool, old, next)
+			for _, source := range pack.References(section) {
+				effect.Renamed(req.Effect, req.EffectParams, source, old, next)
 			}
 		},
 		Find: func(tx *gorm.DB, req *ItemPack, current *item.Item) (bool, error) {

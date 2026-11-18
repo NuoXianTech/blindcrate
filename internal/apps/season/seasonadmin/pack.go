@@ -32,16 +32,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// 配置包中的赛季
-const (
-	PackSeasons  = "seasons"
-	OrderSeasons = 90 // 排在物品之后, 赛季奖励引用货币和物品
-)
-
 func init() {
 	// 赛季按代码对应; 与后台新建、修改的规则相同, 如时间不能重叠、已开始的赛季不能改开始时间
 	pack.RegisterTable(pack.Table[season.Season, CreateSeasonRequest]{
-		Code: PackSeasons, Label: "赛季", Hint: "按代码对应, 含时间、段位分继承比例和奖励; 已结束的赛季只导出, 导入时只能新增或修改未结束的赛季", Order: OrderSeasons,
+		Code: pack.PackSeasons, Label: "赛季", Hint: "按代码对应, 含时间、段位分继承比例和奖励; 已结束的赛季只导出, 导入时只能新增或修改未结束的赛季", Order: pack.OrderSeasons,
 		Query: func(tx *gorm.DB) *gorm.DB { return tx.Order("starts_at, id") },
 		// 时间统一为 UTC, 便于比较
 		Pack: func(s *season.Season, _ func(string) string) CreateSeasonRequest {

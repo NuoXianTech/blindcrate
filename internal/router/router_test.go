@@ -40,8 +40,8 @@ func TestPackSections(t *testing.T) {
 		codes = append(codes, s.Code)
 	}
 	want := []string{
-		"currencies", "settings", "qualities", "items", "loot_pools", "bot_personas", "bot_names", "venues",
-		"shop_items", "leaderboards", "missions", "checkin_days", "ranked_tiers", "codex_sets", "seasons",
+		"currencies", "settings", "qualities", "items", "codex_sets", "seasons", "loot_pools", "bot_personas", "bot_names", "venues",
+		"shop_items", "leaderboards", "missions", "checkin_days", "ranked_tiers",
 	}
 	if !reflect.DeepEqual(codes, want) {
 		t.Errorf("sections = %v, want %v", codes, want)
