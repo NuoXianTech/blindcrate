@@ -61,6 +61,18 @@ export const AUCTION_EFFECT = {
   revealName: 'reveal_name',
   /** 货仓价值的区间 */
   valueRange: 'value_range',
+  /** 藏品件数的区间 */
+  countRange: 'count_range',
+  /** 回收价最高的几件藏品的位置和轮廓 */
+  revealTop: 'reveal_top',
+  /** 几个确定没有藏品的格子 */
+  probeEmpty: 'probe_empty',
+  /** 主持人这一轮的提示是真是假 */
+  verifyHint: 'verify_hint',
+  /** 下一次再次扫描会扫出的轮廓 */
+  foreseeScan: 'foresee_scan',
+  /** 下一个拍品里几件藏品的轮廓 */
+  peekNext: 'peek_next',
 } as const;
 
 /** 对局中展示的地图参数, 来自开局时的快照; 每个拍品的起拍价等见 LotView */

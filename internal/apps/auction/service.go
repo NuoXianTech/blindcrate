@@ -1443,13 +1443,34 @@ func UseItem(ctx context.Context, userID uint64, req *UseRequest) (*AuctionView,
 		}
 		pushResult(tx, result, replayed)
 
-		items, err := loadItems(tx, m.ID, st.lot.LotNo)
+		items, err := loadItems(tx, m.ID, 0)
 		if err != nil {
 			return nil, err
 		}
-		useCtx := newUseContext(st.lot.Value, expectedValue(st.lot.Odds), items, st.lot.Round(m.Round), lotUses(uses, st.lot.LotNo), rand.Int64N)
-		intel, err := effect.Apply[*UseContext, Intel](effect.SceneMatch, target.Effect, useCtx, target.EffectParams)
+		scene := &useScene{
+			Lot:      st.lot,
+			Rule:     st.rule(),
+			Currency: a.Venue.BidCurrency,
+			Round:    m.Round,
+			Items:    lotItems(items, st.lot.LotNo),
+			Uses:     uses,
+		}
+		if int(st.lot.LotNo) < len(st.lots) {
+			scene.Next = &st.lots[st.lot.LotNo]
+			scene.NextItems = lotItems(items, scene.Next.LotNo)
+		}
+		if a.Host != "" {
+			if scene.Hints, err = loadHints(tx, m.ID, st.lot.LotNo); err != nil {
+				return nil, err
+			}
+		}
+		intel, err := effect.Apply[*UseContext, Intel](effect.SceneMatch, target.Effect, newUseContext(scene, rand.Int64N), target.EffectParams)
 		if err != nil {
+			// 现在用不了的道具不扣除: 返回错误时整个事务回滚
+			var unusable *effect.UseError
+			if errors.As(err, &unusable) {
+				return nil, &bidError{reason: unusable.Reason}
+			}
 			return nil, err
 		}
 		return nil, tx.Create(&Use{

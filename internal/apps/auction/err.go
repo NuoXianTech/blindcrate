@@ -45,5 +45,12 @@ const (
 	UseRepeated      = "本轮已经用过这个道具"
 	UseQuantityShort = "道具数量不足"
 
+	UseNoHint       = "主持人这一轮没有给出提示"
+	UseHintVerified = "这一轮的提示已经验证过了"
+	UseNoRescan     = "这个拍品之后不会再扫描了"
+	UseScanForeseen = "下一次扫描已经预知过了"
+	UseTopKnown     = "这个货仓最贵的藏品已经标出来了"
+	UseLastLot      = "这已经是最后一个拍品了"
+
 	BotFactorsInvalid = "出价系数需满足首轮系数 ≤ 末轮系数 ≤ 上限系数"
 )
