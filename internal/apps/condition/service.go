@@ -26,6 +26,7 @@ package condition
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
@@ -58,6 +59,7 @@ type definition struct {
 	label       string
 	description string
 	schema      *params.Schema
+	group       bool // 参数中有一组条件, 即条件组; 条件组里不能再放条件组
 	check       func(tx *gorm.DB, userID uint64, decoded any) (*Progress, error)
 }
 
@@ -72,8 +74,9 @@ var (
 
 // Register 注册一种条件类型, 需要在启动前调用; 类型为空、过长、重复或参数结构体有不支持的字段时 panic
 //
-// P 为参数结构体, 字段的 tag 见 params 包, 可用 input 引用可选值来源(如 currency、item、quality、scope、metric);
+// P 为参数结构体, 字段的 tag 见 params 包, 可用 input 引用可选值来源(如 currency、item、quality、scope、metric、period);
 // P 的指针可以实现 params.Validator。check 只读, 不能有副作用, 返回的 Progress 不需要填 Type。
+// 由拥有数据的模块在自己的 init 中注册, 如段位分的条件在 ranked、图鉴的条件在 codex。
 func Register[P any](conditionType, label, description string, check func(tx *gorm.DB, userID uint64, decoded *P) (*Progress, error)) {
 	if conditionType == "" || len(conditionType) > 32 {
 		panic(fmt.Sprintf("condition: invalid type %q", conditionType))
@@ -81,10 +84,12 @@ func Register[P any](conditionType, label, description string, check func(tx *go
 	if _, ok := definitions[conditionType]; ok {
 		panic(fmt.Sprintf("condition: type %s already registered", conditionType))
 	}
+	schema := params.New[P](conditionType, params.Plain, nil)
 	definitions[conditionType] = &definition{
 		label:       label,
 		description: description,
-		schema:      params.New[P](conditionType, params.Plain, nil),
+		schema:      schema,
+		group:       slices.ContainsFunc(schema.Fields(), func(f params.Field) bool { return f.Type == KindConditions }),
 		check: func(tx *gorm.DB, userID uint64, decoded any) (*Progress, error) {
 			return check(tx, userID, decoded.(*P))
 		},

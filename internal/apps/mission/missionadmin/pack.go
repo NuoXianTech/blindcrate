@@ -60,11 +60,12 @@ func init() {
 		Name:   func(req *MissionRequest) string { return req.Name },
 		Taken:  mission.CodeTaken,
 		Rename: func(req *MissionRequest, code string) { req.Code = code },
+		// 范围里的地图和领取条件中引用的配置跟着一起改名
 		Renamed: func(req *MissionRequest, section, old, next string) {
 			if section == pack.PackVenues {
 				req.Scope = pack.RenameScope(req.Scope, old, next)
-				pack.RenameConditionScopes(req.Requirements, old, next)
 			}
+			pack.RenameConditions(req.Requirements, section, old, next)
 		},
 		Find: func(tx *gorm.DB, req *MissionRequest, current *mission.Mission) (bool, error) {
 			err := tx.Unscoped().Where("code = ?", req.Code).Limit(1).Find(current).Error

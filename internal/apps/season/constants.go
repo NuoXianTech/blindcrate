@@ -26,7 +26,8 @@
 //
 //   - 时间: 从开始时间(含)到结束时间(不含), 赛季之间不能重叠, 可以有间隔, 同一时刻最多一个进行中的赛季
 //   - 状态: 由时间推算出未开始、进行中、已结束, 赛季奖励发完后为已结算, 见 Season.StatusAt
-//   - 统计: 进行中的赛季在结算对局时额外写入 season:<code> 周期, 见 Period, 不需要清空数据
+//   - 统计: 进行中的赛季在结算对局时额外写入 season:<code> 周期, 见 Period, 不需要清空数据; 条件中按 PeriodName 选择"本赛季"
+//   - 条件: 注册条件类型 season_active, 地图、商品和活动可以限定在赛季进行时
 //   - 奖励: 按赛季中的最高段位分分档, 赛季结束后由定时任务发放, 见 Season.RewardOf 和 ranked.HandleSeasonSettle
 package season
 
@@ -40,6 +41,18 @@ const (
 
 // periodPrefix 赛季统计周期的前缀, 见 Period
 const periodPrefix = "season:"
+
+// PeriodName 赛季统计周期的名称, 条件等配置中按它选择"本赛季", 见 stats.PeriodKey
+const PeriodName = "season"
+
+// TypeSeasonActive 条件类型: 赛季进行中, 可以指定赛季
+const TypeSeasonActive = "season_active"
+
+// SourceSeason 可选值来源: 任意赛季和还没结束的赛季, 值为赛季代码或 AnySeason
+const SourceSeason = "season"
+
+// AnySeason 条件参数中表示任意赛季, 不是合法的赛季代码
+const AnySeason = "*"
 
 // 赛季奖励的限制
 const (

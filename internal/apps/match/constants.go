@@ -48,6 +48,9 @@ const (
 	StatusCancelled = "cancelled" // 被管理员取消
 )
 
+// TypeNoActiveMatch 条件类型: 现在没有进行中的对局, 已经可以离开的对局不算
+const TypeNoActiveMatch = "no_active_match"
+
 // 推送给客户端的消息类型
 const (
 	MessageUpdated             = "match:updated"              // 对局开始、切换阶段或结束, data 为 MatchView

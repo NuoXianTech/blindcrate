@@ -59,10 +59,9 @@ func init() {
 		Name:   func(req *ShopItemRequest) string { return req.Name },
 		Taken:  shop.CodeTaken,
 		Rename: func(req *ShopItemRequest, code string) { req.Code = code },
+		// 购买条件中引用的配置(如统计范围里的地图)跟着一起改名
 		Renamed: func(req *ShopItemRequest, section, old, next string) {
-			if section == pack.PackVenues {
-				pack.RenameConditionScopes(req.Requirements, old, next)
-			}
+			pack.RenameConditions(req.Requirements, section, old, next)
 		},
 		// 包中的时间与已有配置按分钟比较
 		Prepare: func(req *ShopItemRequest) {

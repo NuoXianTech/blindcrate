@@ -34,9 +34,16 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/params"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"gorm.io/gorm"
 )
+
+func init() {
+	// 物品效果等的参数结构体可以直接用 Bundle 和 []Bundle 作为字段, 后台按名称选择编辑器; 内容由参数结构体的 Validate 用 Check 校验
+	params.RegisterKind[Bundle](KindBundle)
+	params.RegisterKind[[]Bundle](KindBundleList)
+}
 
 // RegisterBizType 登记一种既会变动货币也会变动物品的流水业务类型, 钱包和背包各登记一次, 名称相同; 需要在启动前调用
 //

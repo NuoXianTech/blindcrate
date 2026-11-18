@@ -82,7 +82,7 @@ func init() {
 	})
 }
 
-// venueRenamed 地图引用的掉落池和人机风格改名, 以及条件中统计范围的地图代码改名
+// venueRenamed 地图引用的掉落池和人机风格改名, 以及入场条件中引用的配置改名
 func venueRenamed(req *VenueRequest, section, old, next string) {
 	switch section {
 	case pack.PackLootPools:
@@ -102,7 +102,6 @@ func venueRenamed(req *VenueRequest, section, old, next string) {
 				}
 			}
 		}
-	case pack.PackVenues:
-		pack.RenameConditionScopes(req.Requirements, old, next)
 	}
+	pack.RenameConditions(req.Requirements, section, old, next)
 }

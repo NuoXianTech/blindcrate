@@ -31,4 +31,16 @@ const (
 	ParamsInvalid     = "条件参数格式不正确"
 	ScopeInvalid      = "统计范围格式不正确"
 	MetricNotFound    = "统计数据不存在"
+	PeriodNotFound    = "统计周期不存在"
+
+	NestedInvalid   = "组内第 %d 个条件: %s"
+	NestedTooDeep   = "条件组里不能再放条件组"
+	NestedCountOver = "至少满足的个数不能超过条件的个数"
+
+	WindowEmpty       = "至少填写一项时间限制"
+	WindowTimeInvalid = "开始时间和结束时间需为有效的时间"
+	WindowTimeOrder   = "结束时间需晚于开始时间"
+	WindowClockPair   = "每天开始和每天结束需要同时填写"
+	WindowClockFormat = "每天的时间需为 时:分, 如 19:00, 每天结束最晚为 24:00"
+	WindowClockSame   = "每天开始和每天结束不能相同"
 )

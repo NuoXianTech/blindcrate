@@ -48,6 +48,8 @@ func init() {
 	audit.RegisterAction(ActionRankedTierDelete, "删除段位")
 	audit.RegisterAction(ActionSuspectReview, "处理可疑账号")
 	condition.Register(TypeMinRating, "段位分", "当前赛季的段位分不少于指定值, 本赛季还没打过排位时按初始分计算", checkMinRating)
+	condition.Register(TypeMaxRating, "段位分上限", "当前赛季的段位分不高于指定值, 本赛季还没打过排位时按初始分计算; 用于新手保护的地图, 不让高分玩家进场", checkMaxRating)
+	condition.Register(TypeNoAfkBan, "没有挂机禁赛", "现在没有因为排位挂机被禁赛; 排位本身总会检查, 用于其他想一并限制的地图、商品和活动", checkNoAfkBan)
 	stats.RegisterMetric(MetricAfk, "排位挂机次数")
 }
 
@@ -280,4 +282,37 @@ func checkMinRating(tx *gorm.DB, userID uint64, p *minRatingParams) (*condition.
 		Target:  p.Rating,
 		Text:    fmt.Sprintf("段位分达到 %d(当前 %d)", p.Rating, current),
 	}, nil
+}
+
+// maxRatingParams 段位分上限的参数
+type maxRatingParams struct {
+	Rating int64 `json:"rating" label:"段位分" help:"高于这个分数后不再满足" binding:"min=0,max=1000000"`
+}
+
+func checkMaxRating(tx *gorm.DB, userID uint64, p *maxRatingParams) (*condition.Progress, error) {
+	view, err := Query(tx, userID, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	current := int64(view.Rating)
+	return &condition.Progress{
+		Met:     current <= p.Rating,
+		Current: current,
+		Target:  p.Rating,
+		Text:    fmt.Sprintf("段位分不高于 %d(当前 %d)", p.Rating, current),
+	}, nil
+}
+
+// noAfkBanParams 没有挂机禁赛没有参数
+type noAfkBanParams struct{}
+
+func checkNoAfkBan(tx *gorm.DB, userID uint64, _ *noAfkBanParams) (*condition.Progress, error) {
+	remaining, err := afkBanRemaining(tx.Statement.Context, userID)
+	if err != nil {
+		return nil, err
+	}
+	if remaining > 0 {
+		return &condition.Progress{Text: fmt.Sprintf("没有因挂机被禁赛(%s后解除)", formatRemaining(remaining))}, nil
+	}
+	return &condition.Progress{Met: true, Text: "没有因挂机被禁赛"}, nil
 }

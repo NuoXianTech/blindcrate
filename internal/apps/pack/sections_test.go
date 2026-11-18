@@ -36,13 +36,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/NuoXianTech/blindcrate/internal/apps/codex/codexadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/crate"
 	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item/itemadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/leaderboard/leaderboardadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/loot/lootadmin"
+	"github.com/NuoXianTech/blindcrate/internal/apps/mission/missionadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
+	_ "github.com/NuoXianTech/blindcrate/internal/apps/season/seasonadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/shop/shopadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
 	"github.com/NuoXianTech/blindcrate/internal/apps/venue/venueadmin"
@@ -193,6 +196,12 @@ func TestCompareStatus(t *testing.T) {
 }
 
 func TestChooseActions(t *testing.T) {
+	stat := func(scope string) condition.Condition {
+		return condition.Condition{Type: condition.TypeMinStat, Params: json.RawMessage(`{"metric":"wins","scope":"` + scope + `","count":3}`)}
+	}
+	// 条件组里的条件: 统计范围中的地图和集齐的收集组
+	group := condition.Condition{Type: condition.TypeAnyOf, Params: json.RawMessage(
+		`{"count":1,"conditions":[{"type":"min_stat","params":{"metric":"wins","scope":"venue:dock","count":1}},{"type":"codex_set","params":{"set":"relics"}},{"type":"codex_set","params":{"set":"coins"}}]}`)}
 	newPack := func() (*pack.Run, []*pack.Entry) {
 		r := newRun(t, map[string]pack.Content{
 			pack.PackCurrencies: contentOf(t, pack.PackCurrencies, walletadmin.CurrencyPack{Code: "chip"}),
@@ -200,16 +209,19 @@ func TestChooseActions(t *testing.T) {
 				itemadmin.ItemPack{ID: 3, ItemRequest: itemadmin.ItemRequest{Effect: crate.EffectOpen, EffectParams: map[string]any{"pool": "crate"}}},
 				itemadmin.ItemPack{ID: 4, ItemRequest: itemadmin.ItemRequest{Effect: crate.EffectOpen, EffectParams: map[string]any{"pool": "box"}}},
 			),
+			pack.PackCodexSets: contentOf(t, pack.PackCodexSets, codexadmin.SetRequest{Code: "relics"}, codexadmin.SetRequest{Code: "coins"}),
 			pack.PackLootPools: contentOf(t, pack.PackLootPools,
 				lootadmin.PoolPack{LootPoolRequest: lootadmin.LootPoolRequest{Code: "crate"}}, lootadmin.PoolPack{LootPoolRequest: lootadmin.LootPoolRequest{Code: "box"}}),
 			pack.PackVenues: contentOf(t, pack.PackVenues, venueadmin.VenueRequest{
 				Code:         "dock",
 				Lots:         venue.LotRule{Tiers: []venue.Tier{{Depot: venue.DepotRule{Slots: []venue.Slot{{Pool: "crate"}, {Pool: "box"}}}}}},
-				Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"metric":"wins","scope":"venue:dock:pve"}`)}},
+				Requirements: []condition.Condition{stat("venue:dock:pve"), group},
 			}),
 			pack.PackShopItems: contentOf(t, pack.PackShopItems,
-				shopadmin.ShopItemRequest{Code: "pass", Requirements: []condition.Condition{{Type: "stat", Params: json.RawMessage(`{"metric":"wins","scope":"venue:dock"}`)}}}),
+				shopadmin.ShopItemRequest{Code: "pass", Requirements: []condition.Condition{stat("venue:dock"), stat("venue:docks")}}),
 			pack.PackLeaderboards: contentOf(t, pack.PackLeaderboards, leaderboardadmin.LeaderboardRequest{Code: "wins", Scope: "venue:dock"}),
+			missionadmin.PackMissions: contentOf(t, missionadmin.PackMissions,
+				missionadmin.MissionRequest{Code: "regular", Scope: "venue:dock:pve", Requirements: []condition.Condition{group}}),
 		})
 		entries, err := r.Entries()
 		if err != nil {
@@ -222,21 +234,27 @@ func TestChooseActions(t *testing.T) {
 	chosen, err := r.ChooseActions(entries, []pack.PackAction{
 		{Section: pack.PackLootPools, Key: "crate", Action: pack.PackActionRename, Code: "crate_2"},
 		{Section: pack.PackVenues, Key: "dock", Action: pack.PackActionRename, Code: "pier"},
+		{Section: pack.PackCodexSets, Key: "relics", Action: pack.PackActionRename, Code: "relics_2"},
 		{Section: pack.PackCurrencies, Key: "chip", Action: pack.PackActionSkip},
 		{Section: pack.PackItems, Key: "9", Action: pack.PackActionSkip}, // 包中没有, 忽略
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if chosen != 3 {
-		t.Errorf("chosen = %d, want 3", chosen)
+	if chosen != 4 {
+		t.Errorf("chosen = %d, want 4", chosen)
 	}
+	// 条件组里引用的地图和收集组跟着改名, 没有改名的收集组不变
+	const renamedGroup = `{"conditions":[{"type":"min_stat","params":{"count":1,"metric":"wins","scope":"venue:pier"}},{"type":"codex_set","params":{"set":"relics_2"}},{"type":"codex_set","params":{"set":"coins"}}],"count":1}`
 	v := itemsOf[venueadmin.VenueRequest](r.Content(pack.PackVenues))[0]
 	if v.Code != "pier" || v.Lots.Tiers[0].Depot.Slots[0].Pool != "crate_2" || v.Lots.Tiers[0].Depot.Slots[1].Pool != "box" {
 		t.Errorf("venue = %+v", v)
 	}
 	if !strings.Contains(string(v.Requirements[0].Params), `"venue:pier:pve"`) {
 		t.Errorf("requirement params = %s", v.Requirements[0].Params)
+	}
+	if got := string(v.Requirements[1].Params); got != renamedGroup {
+		t.Errorf("group params = %s", got)
 	}
 	// 箱子的掉落池跟着掉落池一起改名
 	if crates := itemsOf[itemadmin.ItemPack](r.Content(pack.PackItems)); crates[0].EffectParams["pool"] != "crate_2" || crates[1].EffectParams["pool"] != "box" {
@@ -245,11 +263,22 @@ func TestChooseActions(t *testing.T) {
 	if pools := itemsOf[lootadmin.PoolPack](r.Content(pack.PackLootPools)); pools[0].Code != "crate_2" || pools[1].Code != "box" {
 		t.Errorf("pools = %s, %s", pools[0].Code, pools[1].Code)
 	}
+	if sets := itemsOf[codexadmin.SetRequest](r.Content(pack.PackCodexSets)); sets[0].Code != "relics_2" || sets[1].Code != "coins" {
+		t.Errorf("sets = %s, %s", sets[0].Code, sets[1].Code)
+	}
 	if board := itemsOf[leaderboardadmin.LeaderboardRequest](r.Content(pack.PackLeaderboards))[0]; board.Scope != "venue:pier" {
 		t.Errorf("leaderboard scope = %s", board.Scope)
 	}
-	if item := itemsOf[shopadmin.ShopItemRequest](r.Content(pack.PackShopItems))[0]; !strings.Contains(string(item.Requirements[0].Params), `"venue:pier"`) {
+	// 代码只是前缀相同的地图不受影响, 没有改动的条件保持原来的写法
+	item := itemsOf[shopadmin.ShopItemRequest](r.Content(pack.PackShopItems))[0]
+	if !strings.Contains(string(item.Requirements[0].Params), `"venue:pier"`) {
 		t.Errorf("shop item params = %s", item.Requirements[0].Params)
+	}
+	if got, want := string(item.Requirements[1].Params), string(stat("venue:docks").Params); got != want {
+		t.Errorf("untouched params = %s, want %s", got, want)
+	}
+	if m := itemsOf[missionadmin.MissionRequest](r.Content(missionadmin.PackMissions))[0]; m.Scope != "venue:pier:pve" || string(m.Requirements[0].Params) != renamedGroup {
+		t.Errorf("mission scope = %s, params = %s", m.Scope, m.Requirements[0].Params)
 	}
 
 	for _, c := range []struct {
@@ -291,8 +320,8 @@ func TestPackFailure(t *testing.T) {
 }
 
 func TestSections(t *testing.T) {
-	// 被其他配置引用的种类按依赖顺序排列, 其他模块注册的种类排在它们之间
-	want := []string{pack.PackCurrencies, pack.PackSettings, pack.PackQualities, pack.PackItems, pack.PackLootPools, pack.PackVenues, pack.PackShopItems, pack.PackLeaderboards}
+	// 被其他配置引用的种类按依赖顺序排列, 其他模块注册的种类排在它们之间; 收集组和赛季排在带条件的配置之前
+	want := []string{pack.PackCurrencies, pack.PackSettings, pack.PackQualities, pack.PackItems, pack.PackCodexSets, pack.PackSeasons, pack.PackLootPools, pack.PackVenues, pack.PackShopItems, pack.PackLeaderboards}
 	var codes []string
 	renamable := map[string]bool{}
 	for _, s := range pack.Sections() {
@@ -304,14 +333,24 @@ func TestSections(t *testing.T) {
 	if !reflect.DeepEqual(codes, want) {
 		t.Errorf("sections = %v, want %v", codes, want)
 	}
-	// 能不能改名由注册时有没有 Rename 决定: 物品按 ID 被引用, 货币和品质的代码被直接引用, 都不能改名
+	// 能不能改名由注册时有没有 Rename 决定: 物品按 ID 被引用, 货币和品质的代码被直接引用, 赛季的代码拼进统计周期, 都不能改名
 	for code, wantRenamable := range map[string]bool{
-		pack.PackCurrencies: false, pack.PackSettings: false, pack.PackQualities: false, pack.PackItems: false,
-		pack.PackLootPools: true, pack.PackVenues: true, pack.PackShopItems: true, pack.PackLeaderboards: true,
+		pack.PackCurrencies: false, pack.PackSettings: false, pack.PackQualities: false, pack.PackItems: false, pack.PackSeasons: false,
+		pack.PackCodexSets: true, pack.PackLootPools: true, pack.PackVenues: true, pack.PackShopItems: true, pack.PackLeaderboards: true,
 	} {
 		if renamable[code] != wantRenamable {
 			t.Errorf("%s renamable = %v, want %v", code, renamable[code], wantRenamable)
 		}
+	}
+	// 改名时按登记的可选值来源找引用它的参数
+	if got := pack.References(pack.PackLootPools); !reflect.DeepEqual(got, []string{"pool"}) {
+		t.Errorf("loot pool references = %v", got)
+	}
+	if got := pack.References(pack.PackCodexSets); !reflect.DeepEqual(got, []string{"codex_set"}) {
+		t.Errorf("codex set references = %v", got)
+	}
+	if got := pack.References(pack.PackItems); len(got) != 0 {
+		t.Errorf("item references = %v", got)
 	}
 
 	export := func(context.Context, *gorm.DB, func(string) string) (any, int, error) { return nil, 0, nil }

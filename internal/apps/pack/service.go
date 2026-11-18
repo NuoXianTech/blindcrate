@@ -46,6 +46,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/apps/stats"
 	"github.com/NuoXianTech/blindcrate/internal/apps/upload"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
@@ -643,26 +644,42 @@ func RenameScope(scope, old, next string) string {
 	return scope
 }
 
-// RenameConditionScopes 条件参数中统计范围的地图代码改名
-func RenameConditionScopes(conditions []condition.Condition, old, next string) {
-	for i := range conditions {
-		var params map[string]json.RawMessage
-		if json.Unmarshal(conditions[i].Params, &params) != nil {
-			continue
-		}
-		var scope string
-		if raw, ok := params["scope"]; !ok || json.Unmarshal(raw, &scope) != nil {
-			continue
-		}
-		renamed := RenameScope(scope, old, next)
-		if renamed == scope {
-			continue
-		}
-		params["scope"], _ = json.Marshal(renamed)
-		if data, err := json.Marshal(params); err == nil {
-			conditions[i].Params = data
-		}
+// references 配置种类 -> 引用它的可选值来源, 只在启动前写入
+var references = map[string][]string{}
+
+// RegisterReference 登记一种可选值来源保存的是 section 中一项的代码, 由拥有这种配置的模块在 init 中调用
+//
+// 这一项改名导入时, 包中条件和使用效果的参数里输入方式为 source 的字段一起改为新代码, 见 RenameConditions 和 References;
+// 新增的条件类型和效果只要用这种来源作为输入方式, 不用再登记改名的处理。
+func RegisterReference(section, source string) {
+	if section == "" || source == "" || slices.Contains(references[section], source) {
+		panic(fmt.Sprintf("pack: invalid reference %q of section %q", source, section))
 	}
+	references[section] = append(references[section], source)
+}
+
+// References 保存 section 中一项的代码的可选值来源, 见 RegisterReference
+func References(section string) []string {
+	return slices.Clone(references[section])
+}
+
+// RenameConditions 包中 section 的一项改名导入时, 把条件参数中对它的引用一起改为新代码, 条件组里的条件也一起改
+//
+// 地图改名时改统计范围中的地图代码; 其他配置按 RegisterReference 登记的可选值来源找引用它的参数。
+func RenameConditions(conditions []condition.Condition, section, old, next string) {
+	sources := references[section]
+	if section != PackVenues && len(sources) == 0 {
+		return
+	}
+	condition.Rewrite(conditions, func(input, value string) string {
+		switch {
+		case section == PackVenues && input == stats.SourceScope:
+			return RenameScope(value, old, next)
+		case value == old && slices.Contains(sources, input):
+			return next
+		}
+		return value
+	})
 }
 
 // entries 按依赖顺序列出包中的每一项, 同一种配置的代码重复时返回 PackKeyDuplicate

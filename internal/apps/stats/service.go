@@ -44,6 +44,7 @@ import (
 func init() {
 	params.RegisterSource(SourceMetric, params.Source{Options: metricOptions, First: true})
 	params.RegisterSource(SourceScope, params.Source{Options: scopeOptions, Free: true, Default: ScopeAll})
+	params.RegisterSource(SourcePeriod, params.Source{Options: periodOptions, Default: PeriodTotal})
 }
 
 // metricOptions 可以选的计数指标, 按注册顺序
@@ -105,9 +106,78 @@ var (
 		{Key: MetricMatches, Label: "对局数"},
 		{Key: MetricWins, Label: "胜利次数"},
 	}
-	// periodFuncs 已注册的额外统计周期, 只在启动前写入
-	periodFuncs []PeriodFunc
+	// periodPattern 周期名称的格式
+	periodPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,15}$`)
+	// extraPeriods 已注册的额外统计周期, 按注册顺序, 只在启动前写入
+	extraPeriods []namedPeriod
 )
+
+// namedPeriod 一种注册的额外统计周期
+type namedPeriod struct {
+	name  string
+	label string
+	key   PeriodFunc
+}
+
+// builtinPeriods 内置周期的名称和展示名称, 按展示的顺序
+var builtinPeriods = []params.Option{
+	{Value: PeriodTotal, Label: "累计"},
+	{Value: PeriodNameDay, Label: "今天"},
+	{Value: PeriodNameWeek, Label: "本周"},
+}
+
+// periodOptions 可以按名称选择的统计周期: 累计、今天、本周, 以及各模块注册的
+func periodOptions(_ *gorm.DB) ([]params.Option, error) {
+	options := slices.Clone(builtinPeriods)
+	for _, p := range extraPeriods {
+		options = append(options, params.Option{Value: p.name, Label: p.label})
+	}
+	return options, nil
+}
+
+// HasPeriod 是否有名称为 name 的周期, 用于校验配置中选择的周期
+func HasPeriod(name string) bool {
+	if slices.ContainsFunc(builtinPeriods, func(o params.Option) bool { return o.Value == name }) {
+		return true
+	}
+	return slices.ContainsFunc(extraPeriods, func(p namedPeriod) bool { return p.name == name })
+}
+
+// PeriodLabel 周期名称对应的展示名称, 如 day 为 "今天"; 名称不存在时返回名称本身
+func PeriodLabel(name string) string {
+	for _, option := range builtinPeriods {
+		if option.Value == name {
+			return option.Label
+		}
+	}
+	for _, p := range extraPeriods {
+		if p.name == name {
+			return p.label
+		}
+	}
+	return name
+}
+
+// PeriodKey 名称为 name 的周期在 at 时对应的 stats.period, 如 day 对应 day:2026-10-28, 用于读取配置中按名称选择的周期
+//
+// 名称不存在时 ok 为 false; 当时没有这种周期(如不在赛季中)时 key 为空, 这时没有任何统计。
+func PeriodKey(tx *gorm.DB, name string, at time.Time) (key string, ok bool, err error) {
+	switch name {
+	case PeriodTotal:
+		return PeriodTotal, true, nil
+	case PeriodNameDay:
+		return PeriodDay(at), true, nil
+	case PeriodNameWeek:
+		return PeriodWeek(at), true, nil
+	}
+	for _, p := range extraPeriods {
+		if p.name == name {
+			key, err = p.key(tx, at)
+			return key, true, err
+		}
+	}
+	return "", false, nil
+}
 
 // ValidScope 统计范围的格式是否正确, 用于校验配置中填写的范围
 func ValidScope(scope string) bool {
@@ -130,14 +200,22 @@ func PeriodWeek(t time.Time) string {
 	return fmt.Sprintf("%s%04d-W%02d", periodWeekPrefix, year, week)
 }
 
-// PeriodFunc 返回在 at 时累加统计需要额外写入的周期, 如赛季周期 season:s1; 不需要时返回空字符串
+// PeriodFunc 返回一种额外的统计周期在 at 时的周期, 如赛季周期 season:s1; 当时没有这种周期(如不在赛季中)时返回空字符串
 //
-// 在结算的事务中调用, 返回的周期不能超过 stats.period 的长度。
+// 结算时在事务中调用, 返回的周期不能超过 stats.period 的长度。
 type PeriodFunc func(tx *gorm.DB, at time.Time) (string, error)
 
-// RegisterPeriod 注册一种额外的统计周期, Add 时与累计、当天和本周一起写入, 需要在启动前调用
-func RegisterPeriod(fn PeriodFunc) {
-	periodFuncs = append(periodFuncs, fn)
+// RegisterPeriod 注册一种额外的统计周期, 需要在启动前调用; 名称格式不正确或重复时 panic
+//
+// Add 时与累计、当天和本周一起写入; 条件等配置中可以按 name 选择它, label 为展示名称(如 "本赛季"), 见 PeriodKey。
+func RegisterPeriod(name, label string, fn PeriodFunc) {
+	if !periodPattern.MatchString(name) || label == "" || fn == nil {
+		panic(fmt.Sprintf("stats: invalid period %q", name))
+	}
+	if HasPeriod(name) {
+		panic(fmt.Sprintf("stats: period %s already registered", name))
+	}
+	extraPeriods = append(extraPeriods, namedPeriod{name: name, label: label, key: fn})
 }
 
 // MetricProfit 指标: 以某种货币计的净收益, 如 profit:chip; 不同货币的收益不能相加, 所以按货币分开
@@ -245,9 +323,9 @@ func Add(tx *gorm.DB, userID uint64, scopes []string, at time.Time, values Value
 		return nil
 	}
 
-	periods := []string{PeriodDay(at), PeriodWeek(at), PeriodTotal}
-	for _, fn := range periodFuncs {
-		period, err := fn(tx, at)
+	written := []string{PeriodDay(at), PeriodWeek(at), PeriodTotal}
+	for _, p := range extraPeriods {
+		period, err := p.key(tx, at)
 		if err != nil {
 			return err
 		}
@@ -255,19 +333,19 @@ func Add(tx *gorm.DB, userID uint64, scopes []string, at time.Time, values Value
 			return errors.New("stats: invalid period " + period)
 		}
 		if period != "" {
-			periods = append(periods, period)
+			written = append(written, period)
 		}
 	}
 
 	// 按主键顺序写入, 同一用户的并发累加按相同顺序加锁, 不会互相死锁
 	scopes = slices.Compact(slices.Sorted(slices.Values(scopes)))
-	periods = slices.Compact(slices.Sorted(slices.Values(periods)))
-	rows := make([]Stat, 0, len(scopes)*len(periods)*len(keys))
+	written = slices.Compact(slices.Sorted(slices.Values(written)))
+	rows := make([]Stat, 0, len(scopes)*len(written)*len(keys))
 	for _, scope := range scopes {
 		if scope == "" || len(scope) > maxScopeLength {
 			return errors.New("stats: invalid scope " + scope)
 		}
-		for _, period := range periods {
+		for _, period := range written {
 			for _, key := range keys {
 				rows = append(rows, Stat{UserID: userID, Scope: scope, Period: period, Metric: key, Value: values[key]})
 			}

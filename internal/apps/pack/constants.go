@@ -48,6 +48,8 @@ const (
 	PackCurrencies   = "currencies"
 	PackQualities    = "qualities"
 	PackItems        = "items"
+	PackCodexSets    = "codex_sets"
+	PackSeasons      = "seasons"
 	PackLootPools    = "loot_pools"
 	PackVenues       = "venues"
 	PackShopItems    = "shop_items"
@@ -61,6 +63,8 @@ const (
 	OrderSettings     = 15 // 设置排在货币之后、地图之前: 地图保存时按玩法平衡和出售手续费推导金额
 	OrderQualities    = 20
 	OrderItems        = 30
+	OrderCodexSets    = 35 // 收集组和赛季排在带条件的配置之前: 条件可以要求集齐收集组、某个赛季进行中
+	OrderSeasons      = 36
 	OrderLootPools    = 40
 	OrderVenues       = 50
 	OrderShopItems    = 60

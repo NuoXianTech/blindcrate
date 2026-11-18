@@ -31,12 +31,28 @@ import (
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
+	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func init() {
+	condition.Register(TypeNoActiveMatch, "不在对局中", "现在没有进行中的对局, 已经可以离开的对局不算; 用于不想让玩家在对局中途做的事, 如购买某些商品、领取活动奖励", checkNoActiveMatch)
+}
+
+// noActiveMatchParams 不在对局中没有参数
+type noActiveMatchParams struct{}
+
+func checkNoActiveMatch(tx *gorm.DB, userID uint64, _ *noActiveMatchParams) (*condition.Progress, error) {
+	matchID, err := activeMatchID(tx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return &condition.Progress{Met: matchID == 0, Text: "不在对局中"}, nil
+}
 
 // AdvanceFunc 在锁定对局的事务内执行, 返回非 nil 的阶段时切换到该阶段
 type AdvanceFunc func(tx *gorm.DB, m *Match, players []Player) (*Phase, error)

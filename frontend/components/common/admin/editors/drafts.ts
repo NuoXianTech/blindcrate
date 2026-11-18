@@ -120,11 +120,15 @@ function toParamDraft(field: ConditionField | undefined, value: ParamValue, ctx:
   return typeof value === 'object' ? '' : String(value);
 }
 
-/** 已保存的参数转为编辑中的草稿, 基点参数转为百分比, 时间转为本地时间 */
+/** 已保存的参数转为编辑中的草稿, 基点参数转为百分比, 时间转为本地时间; 没有保存或留空的参数有默认值时按默认值展示, 如之后才新增的统计周期 */
 export function toParamsDraft(fields: ConditionField[], params: Record<string, ParamValue> | undefined, ctx: DraftContext = {currencies: []}): ParamsDraft {
-  return Object.fromEntries(
+  const draft: ParamsDraft = Object.fromEntries(
       Object.entries(params ?? {}).map(([key, value]) => [key, toParamDraft(fields.find((f) => f.key === key), value, ctx)]),
   );
+  for (const field of fields) {
+    if (field.default && (draft[field.key] === undefined || draft[field.key] === '')) draft[field.key] = field.default;
+  }
+  return draft;
 }
 
 /** 按字段转换参数, 校验不通过时中断提交; row 为提示的前缀, 如 "入场条件第 1 条" */

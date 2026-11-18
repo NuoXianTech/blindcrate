@@ -27,15 +27,19 @@
 //   - 赛季: 进行中的赛季按赛季 ID 记分, 赛季之外的排位记在赛季 0, 见 seasonIDOf
 //   - 初始分: 第一次在赛季中结算排位时创建, 有上一个赛季的段位分时按赛季的继承比例向基础分靠拢, 见 initialRating
 //   - 加减: 成交的排位局按名次加减, 人机占名次但不计分, 流拍不计分; 扣到 0 为止, 见 Settle
-//   - 条件: 注册条件类型 min_rating, 地图可以按段位分限制入场
+//   - 条件: 注册条件类型 min_rating、max_rating 和 no_afk_ban, 地图可以按段位分限制入场, 也可以把挂机禁赛的人挡在其他地方
 //   - 赛季奖励: 赛季结束后按赛季中的最高段位分发放, 见 HandleSeasonSettle
 //   - 挂机: 一局中所有轮次都没有提交出价记为一次挂机, 写入统计指标 afk; 24 小时内次数达到设置时禁止排位, 见 RecordAfk、AfkBanReason
 package ranked
 
 import "time"
 
-// TypeMinRating 条件类型: 当前赛季的段位分不少于
-const TypeMinRating = "min_rating"
+// 条件类型
+const (
+	TypeMinRating = "min_rating" // 当前赛季的段位分不少于
+	TypeMaxRating = "max_rating" // 当前赛季的段位分不高于
+	TypeNoAfkBan  = "no_afk_ban" // 现在没有因挂机被禁赛
+)
 
 // MetricAfk 统计指标: 排位挂机次数, 结算时累加
 const MetricAfk = "afk"

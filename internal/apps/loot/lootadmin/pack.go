@@ -38,6 +38,8 @@ type PoolPack struct {
 }
 
 func init() {
+	// 使用效果的参数里按代码引用掉落池(如箱子的掉落池), 掉落池改名导入时一起改
+	pack.RegisterReference(pack.PackLootPools, loot.SourcePool)
 	pack.RegisterTable(pack.Table[loot.Pool, PoolPack]{
 		Code: pack.PackLootPools, Label: "掉落池", Hint: "按代码对应, 含条目; 已删除物品的条目不导出", Order: pack.OrderLootPools,
 		Export: func(tx *gorm.DB, _ func(string) string) ([]PoolPack, error) {
