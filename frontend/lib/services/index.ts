@@ -13,6 +13,7 @@ import {MailboxAdminService, MailboxService} from './mailbox';
 import {MatchAdminService, MatchService} from './match';
 import {MissionAdminService, MissionService} from './mission';
 import {PackAdminService} from './pack';
+import {PlayerSettingsService} from './player-settings';
 import {RankedAdminService, RankedService} from './ranked';
 import {RedeemAdminService, RedeemService} from './redeem';
 import {SeasonAdminService, SeasonService} from './season';
@@ -47,6 +48,8 @@ import {WalletAdminService, WalletService} from './wallet';
 const services = {
   /** 登录、注册、个人资料 */
   auth: AuthService,
+  /** 当前账号的游戏偏好 */
+  playerSettings: PlayerSettingsService,
   /** 钱包余额和流水 */
   wallet: WalletService,
   /** 背包物品和记录 */

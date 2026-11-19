@@ -7206,6 +7206,18 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "maxItems": 100,
+                        "uniqueItems": true,
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "出售确认时按 ID 重新读取, 最多 100 种",
+                        "name": "item_ids",
+                        "in": "query"
+                    },
+                    {
                         "minimum": 1,
                         "type": "integer",
                         "description": "品质等级",
@@ -9194,6 +9206,18 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "maxItems": 100,
+                        "uniqueItems": true,
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "出售确认时按 ID 重新读取, 最多 100 种",
+                        "name": "item_ids",
+                        "in": "query"
+                    },
+                    {
                         "minimum": 1,
                         "type": "integer",
                         "description": "品质等级",
@@ -10765,6 +10789,117 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/reply.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/reply.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reply.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/player-settings": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "player-settings"
+                ],
+                "summary": "获取自己的游戏设置",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/reply.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/playersettings.Settings"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reply.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reply.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "修改后立即生效; 版本不同返回 409, 不覆盖其他设备刚保存的设置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "player-settings"
+                ],
+                "summary": "修改自己的游戏设置",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/playersettings.UpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/reply.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/playersettings.Settings"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reply.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/reply.Response"
                         }
@@ -14251,6 +14386,11 @@ const docTemplate = `{
                     "maximum": 10000,
                     "minimum": 0
                 },
+                "game_settings_version": {
+                    "description": "确认框读取的游戏设置版本; 旧客户端可不传, 收藏保护仍强制执行",
+                    "type": "integer",
+                    "minimum": 0
+                },
                 "idempotency_key": {
                     "description": "每次打开出售确认框生成一个, 重复提交只生效一次",
                     "type": "string",
@@ -14322,6 +14462,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/inventory.SellOrderItem"
                     }
+                },
+                "keep_one_collectible": {
+                    "type": "boolean"
                 }
             }
         },
@@ -16809,6 +16952,36 @@ const docTemplate = `{
                 },
                 "value": {
                     "type": "string"
+                }
+            }
+        },
+        "playersettings.Settings": {
+            "type": "object",
+            "properties": {
+                "keep_one_collectible": {
+                    "type": "boolean"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "playersettings.UpdateRequest": {
+            "type": "object",
+            "required": [
+                "keep_one_collectible",
+                "version"
+            ],
+            "properties": {
+                "keep_one_collectible": {
+                    "type": "boolean"
+                },
+                "version": {
+                    "type": "integer",
+                    "minimum": 0
                 }
             }
         },

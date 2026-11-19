@@ -45,6 +45,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/match"
 	"github.com/NuoXianTech/blindcrate/internal/apps/mission"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
+	"github.com/NuoXianTech/blindcrate/internal/apps/playersettings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/apps/redeem"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
@@ -117,6 +118,7 @@ func runAutoMigrate() {
 	if err := db.DB(context.Background()).AutoMigrate(
 		&auth.User{},
 		&auth.UserIdentity{},
+		&playersettings.Settings{},
 		&audit.Log{},
 		&wallet.Currency{},
 		&wallet.Balance{},

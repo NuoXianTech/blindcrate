@@ -10,11 +10,14 @@ import {useQualities} from '@/components/common/site';
 import type {UserItem} from '@/lib/services/inventory';
 import type {BalanceItem} from '@/lib/services/wallet';
 import {formatDateTime} from '@/lib/utils';
+import {sellableQuantity} from './sell';
 
 /**
  * 物品详情对话框的Props接口
  */
 interface ItemDetailDialogProps {
+  keepOne: boolean;
+  settingsReady: boolean;
   /** 要查看的物品, null 时关闭 */
   item: UserItem | null;
   /** 货币列表, 用于展示售价的货币名称和小数位 */
@@ -32,7 +35,7 @@ interface ItemDetailDialogProps {
 /**
  * 物品详情对话框
  */
-export function ItemDetailDialog({item, currencies, onClose, onViewRecords, onSell, onUse}: ItemDetailDialogProps) {
+export function ItemDetailDialog({item, currencies, keepOne, settingsReady, onClose, onViewRecords, onSell, onUse}: ItemDetailDialogProps) {
   const q = useQualities().qualityOf(item?.quality ?? 0);
 
   return (
@@ -79,9 +82,9 @@ export function ItemDetailDialog({item, currencies, onClose, onViewRecords, onSe
                 查看记录
               </Button>
               {item.sell_price > 0 && (
-                <Button variant={item.usable ? 'outline' : 'default'} onClick={() => onSell(item)}>
+                <Button variant={item.usable ? 'outline' : 'default'} disabled={!settingsReady || sellableQuantity(item, keepOne) === 0} onClick={() => onSell(item)}>
                   <HandCoins />
-                  出售
+                  {!settingsReady ? '等待读取设置' : sellableQuantity(item, keepOne) === 0 ? '保留收藏' : '出售'}
                 </Button>
               )}
               {item.usable && (
