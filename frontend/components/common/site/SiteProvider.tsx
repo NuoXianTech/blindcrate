@@ -1,6 +1,6 @@
 'use client';
 
-import {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
+import {createContext, useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react';
 import {UNKNOWN_QUALITY, qualityStyle, qualityStyleSheet, type Quality, type QualityStyle} from '@/lib/quality';
 import services from '@/lib/services';
 import type {PublicSettings} from '@/lib/site';
@@ -10,6 +10,8 @@ interface SiteContextValue {
   qualities: Quality[];
   /** 向后端读取最新的公开设置 */
   refresh: () => void;
+  /** 向后端读取最新品质, 同步全站的选项、名称和颜色 */
+  refreshQualities: () => Promise<void>;
 }
 
 const SiteContext = createContext<SiteContextValue | null>(null);
@@ -32,11 +34,39 @@ export function SiteProvider({settings, qualities, children}: {
         });
   }, [settings]);
   const current = live?.base === settings ? live.settings : settings;
-  const value = useMemo(() => ({settings: current, qualities, refresh}), [current, qualities, refresh]);
+  // 浏览器读到的品质优先于服务端缓存, 路由刷新返回旧快照时也不回退。
+  const [liveQualities, setLiveQualities] = useState<Quality[] | null>(null);
+  const qualityRequest = useRef(0);
+  const pendingQualities = useRef<Promise<void> | null>(null);
+  const loadQualities = useCallback((force = false) => {
+    // 挂载和路由刷新复用当前请求; 保存或导入后必须重新请求, 跳过写入前的旧请求。
+    if (!force && pendingQualities.current) return pendingQualities.current;
+    const request = ++qualityRequest.current;
+    const pending = services.item.listQualities()
+        .then((latest) => {
+          if (request === qualityRequest.current) setLiveQualities(latest.qualities);
+        })
+        .finally(() => {
+          if (request === qualityRequest.current) pendingQualities.current = null;
+        });
+    pendingQualities.current = pending;
+    return pending;
+  }, []);
+  const refreshQualities = useCallback(() => loadQualities(true), [loadQualities]);
+  useEffect(() => {
+    void loadQualities().catch(() => {
+      // 读取失败时保留已有品质, 下次进入物品管理或修改品质后重试。
+    });
+  }, [qualities, loadQualities]);
+  const currentQualities = liveQualities ?? qualities;
+  const value = useMemo(
+      () => ({settings: current, qualities: currentQualities, refresh, refreshQualities}),
+      [current, currentQualities, refresh, refreshQualities],
+  );
   return (
     <SiteContext.Provider value={value}>
       {/* 颜色已按 #rrggbb 过滤 */}
-      <style dangerouslySetInnerHTML={{__html: qualityStyleSheet(qualities)}} />
+      <style dangerouslySetInnerHTML={{__html: qualityStyleSheet(currentQualities)}} />
       {children}
     </SiteContext.Provider>
   );
@@ -68,11 +98,11 @@ export function useLiveSite(): PublicSettings {
 /**
  * 读取品质: 按排序值排列的品质, 以及按等级取品质, 等级不存在时为未知品质
  */
-export function useQualities(): { qualities: QualityStyle[]; qualityOf: (level: number) => QualityStyle } {
-  const {qualities} = useSiteContext();
+export function useQualities(): { qualities: QualityStyle[]; qualityOf: (level: number) => QualityStyle; refresh: () => Promise<void> } {
+  const {qualities, refreshQualities} = useSiteContext();
   return useMemo(() => {
     const styles = qualities.map(qualityStyle);
     const byLevel = new Map(styles.map((q) => [q.level, q]));
-    return {qualities: styles, qualityOf: (level: number) => byLevel.get(level) ?? UNKNOWN_QUALITY};
-  }, [qualities]);
+    return {qualities: styles, qualityOf: (level: number) => byLevel.get(level) ?? UNKNOWN_QUALITY, refresh: refreshQualities};
+  }, [qualities, refreshQualities]);
 }

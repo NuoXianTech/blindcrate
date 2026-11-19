@@ -74,8 +74,9 @@ function ItemForm({item, items, currencies, categories, effects, onClose, onSave
   const [code, setCode] = useState(item?.code ?? '');
   const [name, setName] = useState(item?.name ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
-  // 品质没有内置数据, 还没有品质时为空, 提交时提示先新建
   const [quality, setQuality] = useState(String(item?.quality ?? qualities[0]?.level ?? ''));
+  // 新建时首次加载到品质才补默认值, 之后的排序变化不能改变正在编辑的品质。
+  if (!item && !quality && qualities.length) setQuality(String(qualities[0].level));
   const [category, setCategory] = useState(item?.category ?? categories[0]?.code ?? 'collectible');
   const [imageURL, setImageURL] = useState(item?.image_url ?? '');
   const [sellCurrency, setSellCurrency] = useState(
@@ -119,7 +120,8 @@ function ItemForm({item, items, currencies, categories, effects, onClose, onSave
       effect_params: {},
     };
     check(body.effect && !effect ? '使用效果不存在, 请重新选择' : null);
-    check(quality ? null : '还没有品质, 请先在品质管理中新建或导入配置包');
+    check(qualities.length ? null : '还没有品质, 请先在品质管理中新建或导入配置包');
+    check(qualities.some((q) => q.level === body.quality) ? null : '品质不存在, 请重新选择');
     check(sellCurrency ? null : '还没有货币, 请先在货币管理中新建或导入配置包');
     if (effect) body.effect_params = fromParamsDraft(effect.fields, effectParams, '效果参数', {currencies});
     check(CODE_PATTERN.test(body.code) ? null : '物品代码需为 1-64 个小写字母、数字或下划线');

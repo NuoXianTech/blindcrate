@@ -19,6 +19,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Switch} from '@/components/ui/switch';
+import {useQualities} from '@/components/common/site';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import {ApiError} from '@/lib/services/core';
@@ -43,6 +44,7 @@ const DEFAULT_CHOICE: Choice = {action: 'overwrite', code: ''};
  */
 export function ImportPanel({onImported}: { onImported: (record: PackImport) => void }) {
   const router = useRouter();
+  const {refresh: refreshLiveQualities} = useQualities();
   const inputRef = useRef<HTMLInputElement>(null);
   const {sections} = usePackSections();
   const [file, setFile] = useState<File | null>(null);
@@ -98,8 +100,8 @@ export function ImportPanel({onImported}: { onImported: (record: PackImport) => 
       setFile(null);
       setPreview(null);
       setChoices({});
-      // 配置包里可能有品质: 刷新服务端缓存的品质, 全站的名称和颜色随即更新; 刷新失败不算导入失败, 缓存过一会儿也会自动更新
-      await refreshQualities().catch(() => undefined);
+      // 同时更新浏览器的品质和服务端缓存, 缓存刷新失败不影响已导入的数据。
+      await Promise.allSettled([refreshLiveQualities(), refreshQualities()]);
       router.refresh();
       onImported(record);
     } catch (err) {

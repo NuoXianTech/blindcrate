@@ -6,7 +6,7 @@ import {CheckinAdminService, CheckinService} from './checkin';
 import {CodexAdminService, CodexService} from './codex';
 import {ConditionAdminService} from './condition';
 import {InventoryAdminService, InventoryService} from './inventory';
-import {ItemAdminService} from './item';
+import {ItemAdminService, ItemService} from './item';
 import {LeaderboardAdminService, LeaderboardService} from './leaderboard';
 import {LootAdminService} from './loot';
 import {MailboxAdminService, MailboxService} from './mailbox';
@@ -51,6 +51,8 @@ const services = {
   wallet: WalletService,
   /** 背包物品和记录 */
   inventory: InventoryService,
+  /** 物品品质 */
+  item: ItemService,
   /** 地图 */
   venue: VenueService,
   /** 匹配和对局 */

@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {useQualities} from '@/components/common/site';
 import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminQuality} from '@/lib/services/item';
@@ -27,6 +28,7 @@ export function DeleteQualityDialog({quality, onClose, onSaved}: {
   onSaved: () => void;
 }) {
   const router = useRouter();
+  const {refresh: refreshLiveQualities} = useQualities();
   const {pending, submit} = useSubmit();
   const inUse = !!quality && quality.item_count > 0;
 
@@ -34,8 +36,8 @@ export function DeleteQualityDialog({quality, onClose, onSaved}: {
     if (!quality) return;
     await services.itemAdmin.deleteQuality(quality.level);
     toast.success(`已删除 ${quality.name}`);
-    // 已经删除, 刷新缓存失败不算删除失败, 缓存过一会儿也会自动更新
-    await refreshQualities().catch(() => undefined);
+    // 已经删除, 浏览器品质和服务端缓存各自刷新, 失败不算删除失败。
+    await Promise.allSettled([refreshLiveQualities(), refreshQualities()]);
     router.refresh();
     onSaved();
     onClose();
