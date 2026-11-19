@@ -16,7 +16,7 @@ import {AUCTION_OUTCOME, type AuctionAdminView, type AuctionPlayer, type LotView
 import {toErrorMessage} from '@/lib/services/core';
 import {MATCH_STATUS, type AdminMatch, type AdminMatchPlayer} from '@/lib/services/match';
 import {formatAmount, formatDateTime} from '@/lib/utils';
-import {STATUS_LABELS, phaseLabel} from './constants';
+import {phaseLabel, statusOf} from './constants';
 
 /**
  * 对局详情: 时间、每个座位, 暗拍还显示每个拍品的档次、价值和成交结果, 每个座位的带入资金、已花、当前出价、估值和盈亏, 道具的使用记录, 以及各拍品的货仓
@@ -63,7 +63,7 @@ function MatchDetail({match: m, venueName, decimalsOf, onCancel}: {
         .finally(() => setLoading(false));
   }, [m.id, isAuction]);
 
-  const status = STATUS_LABELS[m.status];
+  const status = statusOf(m);
   const currency = auction?.venue.bid_currency ?? '';
   const decimals = decimalsOf(currency);
   // 仓库结束后才有名次和盈亏

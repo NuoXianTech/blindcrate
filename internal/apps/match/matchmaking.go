@@ -45,7 +45,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// joinScript 用户不在任何队列中时加入队列, 同时记录来源, 来源为空时删除旧的来源
+// joinScript 用户不在任何队列中时加入队列, 同时记录匹配版本和来源
 //
 // KEYS[1] 队列, KEYS[2] 用户所在的队列, KEYS[3] 来源; ARGV[1] 用户 ID, ARGV[2] 玩法, ARGV[3] 当前毫秒时间戳, ARGV[4] 来源。
 // 返回 {0, 加入时间}: 新加入; {1, 加入时间}: 已在同一个队列中; {2, 玩法}: 已在其他队列中。
@@ -69,9 +69,16 @@ return {0, ARGV[3]}
 
 // leaveScript 用户仍在这个队列中时移出
 //
-// KEYS[1] 队列, KEYS[2] 用户所在的队列, KEYS[3] 来源; ARGV[1] 用户 ID, ARGV[2] 玩法。
+// KEYS[1] 队列, KEYS[2] 用户所在的队列, KEYS[3] 来源; ARGV[1] 用户 ID, ARGV[2] 玩法, ARGV[3] 可选的匹配版本。
 var leaveScript = redis.NewScript(`
 if redis.call('HGET', KEYS[2], ARGV[1]) == ARGV[2] then
+	if ARGV[3] then
+		local raw = redis.call('HGET', KEYS[3], ARGV[1])
+		local origin = raw and cjson.decode(raw) or {}
+		if (origin.match_id or '0') ~= ARGV[3] then
+			return 0
+		end
+	end
 	redis.call('HDEL', KEYS[2], ARGV[1])
 	redis.call('HDEL', KEYS[3], ARGV[1])
 	redis.call('ZREM', KEYS[1], ARGV[1])
@@ -87,7 +94,7 @@ return 0
 //
 // KEYS[1] 队列, KEYS[2] 用户所在的队列, KEYS[3] 来源; ARGV[1] 每局最多的真人数, ARGV[2] 开局至少需要的真人数,
 // ARGV[3] 加入时间不晚于它的人可以补位, 为空表示不补位, ARGV[4] 玩法。
-// 返回 {用户 ID, 加入时间, ...}。取出和移出队列是原子的, 多个实例同时组局也不会把同一个人放进两局; 来源由 forgetScript 清理。
+// 返回 {用户 ID, 加入时间, 入队时的上一局 ID, 来源快照, ...}。回队使用取出时的来源, 不依赖处理期间可能被清理的全局哈希。
 var popScript = redis.NewScript(`
 local count = tonumber(ARGV[1])
 local least = tonumber(ARGV[2])
@@ -154,6 +161,8 @@ local function take(picked)
 		end
 		popped[#popped + 1] = members[i]
 		popped[#popped + 1] = members[i + 1]
+		popped[#popped + 1] = origin(members[i]).match_id or '0'
+		popped[#popped + 1] = cjson.encode(origin(members[i]))
 	end
 	return popped
 end
@@ -197,11 +206,12 @@ return 0
 
 // requeueScript 把取出后没能开局的用户按原来的加入时间放回队列, 已在其他队列中的用户跳过
 //
-// KEYS[1] 队列, KEYS[2] 用户所在的队列; ARGV[1] 玩法, 之后为 {用户 ID, 加入时间, ...}。
+// KEYS[1] 队列, KEYS[2] 用户所在的队列, KEYS[3] 来源; ARGV[1] 玩法, 之后为 {用户 ID, 加入时间, 来源快照, ...}。
 var requeueScript = redis.NewScript(`
-for i = 2, #ARGV, 2 do
+for i = 2, #ARGV, 3 do
 	if redis.call('HSETNX', KEYS[2], ARGV[i], ARGV[1]) == 1 then
 		redis.call('ZADD', KEYS[1], ARGV[i + 1], ARGV[i])
+		redis.call('HSET', KEYS[3], ARGV[i], ARGV[i + 2])
 	end
 end
 return 0
@@ -228,17 +238,20 @@ type Origin struct {
 	Device string // 设备标识, 见 deviceCookieName
 }
 
-// queueOrigin 存在 queueOriginsKey 中的来源, 只有每局不止一个真人的玩法记录
+// queueOrigin 存在 queueOriginsKey 中的匹配版本和来源, 只有多人玩法记录防串通信息
 type queueOrigin struct {
-	IP     string   `json:"ip,omitempty"`     // 关闭同 IP 限制时为空
-	Device string   `json:"device,omitempty"` // 没有设备标识时为空
-	Recent []string `json:"recent,omitempty"` // 同一类玩法最近几局中一起打过的真人
+	MatchID string   `json:"match_id"`         // 入队前最后参与的对局 ID, 字符串避免 Lua JSON 精度丢失
+	IP      string   `json:"ip,omitempty"`     // 关闭同 IP 限制时为空
+	Device  string   `json:"device,omitempty"` // 没有设备标识时为空
+	Recent  []string `json:"recent,omitempty"` // 同一类玩法最近几局中一起打过的真人
 }
 
 // queuedUser 从队列中取出的用户
 type queuedUser struct {
 	UserID   uint64
-	JoinedAt int64 // 加入队列的毫秒时间戳
+	JoinedAt int64  // 加入队列的毫秒时间戳
+	MatchID  uint64 // 入队前最后参与的对局, 之后变化说明该请求已被其他开局取代
+	Origin   string // 取出时的来源 JSON, 回队时原样恢复匹配版本和防串通信息
 }
 
 // QueueStatus 排队状态
@@ -281,6 +294,10 @@ func Join(ctx context.Context, userID uint64, modeCode string, from Origin) (*Ma
 	if err != nil {
 		return nil, err
 	}
+	previousMatchID, err := latestMatchID(db.DB(ctx), userID)
+	if err != nil {
+		return nil, err
+	}
 	matchID, err := activeMatchID(db.DB(ctx), userID)
 	if err != nil {
 		return nil, err
@@ -293,13 +310,35 @@ func Join(ctx context.Context, userID uint64, modeCode string, from Origin) (*Ma
 			return nil, err
 		}
 	}
-	origin, err := encodeOrigin(ctx, mode, userID, from)
+	origin, err := encodeOrigin(ctx, mode, userID, from, previousMatchID)
 	if err != nil {
 		return nil, err
 	}
 
 	now := time.Now().UnixMilli()
-	result, err := joinScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey, queueOriginsKey}, userID, modeCode, now, origin).Slice()
+	var result []interface{}
+	err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		// 准入检查和来源查询可能耗时; 真正入队前与建局共用用户锁再检查一次。
+		if err := lockMatchUsers(tx, []uint64{userID}); err != nil {
+			return err
+		}
+		matchID, err := activeMatchID(tx, userID)
+		if err != nil {
+			return err
+		}
+		if matchID != 0 {
+			return fault.Conflict(InMatch)
+		}
+		latest, err := latestMatchID(tx, userID)
+		if err != nil {
+			return err
+		}
+		if latest != previousMatchID {
+			return fault.Conflict(MatchmakingFailed)
+		}
+		result, err = joinScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey, queueOriginsKey}, userID, modeCode, now, origin).Slice()
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -323,6 +362,11 @@ func Join(ctx context.Context, userID uint64, modeCode string, from Origin) (*Ma
 
 // Leave 离开匹配队列, 不在队列中时什么都不做
 func Leave(ctx context.Context, userID uint64) error {
+	return leaveQueue(ctx, userID, nil)
+}
+
+// previous 非空时仅清理同一次匹配版本的队列, 不撤销玩家后来主动发起的新匹配。
+func leaveQueue(ctx context.Context, userID uint64, previous *uint64) error {
 	modeCode, err := db.Redis.HGet(ctx, queueUsersKey, strconv.FormatUint(userID, 10)).Result()
 	if errors.Is(err, redis.Nil) {
 		return nil
@@ -330,7 +374,11 @@ func Leave(ctx context.Context, userID uint64) error {
 	if err != nil {
 		return err
 	}
-	left, err := leaveScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey, queueOriginsKey}, userID, modeCode).Int()
+	args := []interface{}{userID, modeCode}
+	if previous != nil {
+		args = append(args, strconv.FormatUint(*previous, 10))
+	}
+	left, err := leaveScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey, queueOriginsKey}, args...).Int()
 	if err != nil {
 		return err
 	}
@@ -369,6 +417,10 @@ func QueryMatchmakingStatus(ctx context.Context, userID uint64) (*MatchmakingSta
 	if status.MatchID, err = activeMatchID(db.DB(ctx), userID); err != nil {
 		return nil, err
 	}
+	if status.MatchID != 0 {
+		// 读队列后可能刚好完成建局, 已提交的对局优先于较早读到的排队状态。
+		status.Queue = nil
+	}
 	return status, nil
 }
 
@@ -398,7 +450,7 @@ func form(ctx context.Context, modeCode string) (bool, error) {
 		if fillsWithBots(mode) {
 			cutoff = strconv.FormatInt(time.Now().Add(-mode.BotFillAfter()).UnixMilli(), 10)
 		}
-		popped, err := popScript.Run(ctx, db.Redis, keys, count, mode.MinHumans(), cutoff, modeCode).Int64Slice()
+		popped, err := popScript.Run(ctx, db.Redis, keys, count, mode.MinHumans(), cutoff, modeCode).StringSlice()
 		if err != nil {
 			return changed, err
 		}
@@ -406,9 +458,9 @@ func form(ctx context.Context, modeCode string) (bool, error) {
 			return changed, nil
 		}
 		changed = true
-		queued := make([]queuedUser, 0, len(popped)/2)
-		for i := 0; i < len(popped); i += 2 {
-			queued = append(queued, queuedUser{UserID: uint64(popped[i]), JoinedAt: popped[i+1]})
+		queued, err := decodeQueuedUsers(popped)
+		if err != nil {
+			return true, err
 		}
 
 		result, err := createMatch(ctx, mode, queued)
@@ -440,6 +492,30 @@ func form(ctx context.Context, modeCode string) (bool, error) {
 	}
 }
 
+// decodeQueuedUsers 保留 Lua 返回的字符串整数, 不经过 JSON 浮点数转换。
+func decodeQueuedUsers(values []string) ([]queuedUser, error) {
+	if len(values)%4 != 0 {
+		return nil, errors.New("match: invalid popped queue data")
+	}
+	users := make([]queuedUser, 0, len(values)/4)
+	for i := 0; i < len(values); i += 4 {
+		userID, err := strconv.ParseUint(values[i], 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		joinedAt, err := strconv.ParseInt(values[i+1], 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		matchID, err := strconv.ParseUint(values[i+2], 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, queuedUser{UserID: userID, JoinedAt: joinedAt, MatchID: matchID, Origin: values[i+3]})
+	}
+	return users, nil
+}
+
 // dropQueue 玩法已不存在(如地图被删除)时清空它的队列, 推送 MessageMatchmakingFailed 让这些用户重新匹配
 func dropQueue(ctx context.Context, modeCode string) error {
 	popped, err := dropScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey, queueOriginsKey}, modeCode).Int64Slice()
@@ -463,26 +539,51 @@ func fillsWithBots(mode Mode) bool {
 //
 // 用户在取出后到放回前离开队列时, 离开不会生效, 仍会被放回队列。
 func requeue(ctx context.Context, modeCode string, users []queuedUser) error {
-	args := make([]interface{}, 0, 1+len(users)*2)
-	args = append(args, modeCode)
-	for _, user := range users {
-		args = append(args, user.UserID, user.JoinedAt)
-	}
-	return requeueScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey}, args...).Err()
+	return db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		ids := make([]uint64, len(users))
+		for i, user := range users {
+			ids[i] = user.UserID
+		}
+		if err := lockMatchUsers(tx, ids); err != nil {
+			return err
+		}
+		args := make([]interface{}, 0, 1+len(users)*3)
+		args = append(args, modeCode)
+		for _, user := range users {
+			// 人数不足的组局事务结束后, 该账号可能已由另一请求进入对局。
+			matchID, err := activeMatchID(tx, user.UserID)
+			if err != nil {
+				return err
+			}
+			latest, err := latestMatchID(tx, user.UserID)
+			if err != nil {
+				return err
+			}
+			if matchID == 0 && latest == user.MatchID {
+				args = append(args, user.UserID, user.JoinedAt, user.Origin)
+			}
+		}
+		if len(args) == 1 {
+			return nil
+		}
+		return requeueScript.Run(ctx, db.Redis, []string{queueKeyPrefix + modeCode, queueUsersKey, queueOriginsKey}, args...).Err()
+	})
 }
 
-// encodeOrigin 每局不止一个真人的玩法返回要记录的来源 JSON, 否则返回空字符串
+// encodeOrigin 记录入队前的最后一局, 多人玩法另外记录防串通来源。
 //
 // 是否限制同 IP 和避开最近几局按排位设置; 最近几局只看同一类玩法, 即代码前缀相同(如 ranked)的对局。
-func encodeOrigin(ctx context.Context, mode Mode, userID uint64, from Origin) (string, error) {
+func encodeOrigin(ctx context.Context, mode Mode, userID uint64, from Origin, matchID uint64) (string, error) {
+	origin := queueOrigin{MatchID: strconv.FormatUint(matchID, 10)}
 	if mode.MaxHumans() <= 1 {
-		return "", nil
+		raw, err := json.Marshal(origin)
+		return string(raw), err
 	}
 	cfg, err := settings.Ranked.Get(ctx)
 	if err != nil {
 		return "", err
 	}
-	origin := queueOrigin{Device: from.Device}
+	origin.Device = from.Device
 	if cfg.SeparateIP {
 		origin.IP = from.IP
 	}
@@ -577,6 +678,25 @@ type formResult struct {
 // errNotEnough 准入后真人不够 MinHumans, 回滚已创建的对局和准入时的写入
 var errNotEnough = errors.New("match: not enough humans")
 
+// latestMatchID 作为账号的匹配版本, 已结束或释放的对局也会使旧排队请求失效。
+func latestMatchID(tx *gorm.DB, userID uint64) (uint64, error) {
+	var id uint64
+	err := tx.Model(&Player{}).Where("user_id = ?", userID).Select("COALESCE(MAX(match_id), 0)").Scan(&id).Error
+	return id, err
+}
+
+// lockMatchUsers 入队、建局和回队共用用户锁, 按固定顺序取得直到事务结束。
+func lockMatchUsers(tx *gorm.DB, userIDs []uint64) error {
+	ids := slices.Clone(userIDs)
+	slices.Sort(ids)
+	for _, userID := range slices.Compact(ids) {
+		if err := db.Lock(tx, fmt.Sprintf("match_user:%d", userID)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // createMatch 为取出的玩家创建对局, 不够的座位由人机补齐, 座位随机分配
 //
 // 已在对局中的玩家被跳过; 每个真人通过 Admit 后才入座, 通过的真人不够 MinHumans 时不创建对局, 需要把这些人放回队列。
@@ -589,13 +709,8 @@ func createMatch(ctx context.Context, mode Mode, queued []queuedUser) (*formResu
 		for i, user := range queued {
 			userIDs[i] = user.UserID
 		}
-		// 加入队列时检查过, 这里兜底: 刚被组进一局还没提交时, 同一个人可能又加入了队列(如连点开始匹配)。
-		// 按用户 ID 顺序加锁到事务结束, 同一个人的组局排队进行, 后一个事务能看到前一个已提交的对局
-		slices.Sort(userIDs)
-		for _, userID := range userIDs {
-			if err := db.Lock(tx, fmt.Sprintf("match_user:%d", userID)); err != nil {
-				return err
-			}
+		if err := lockMatchUsers(tx, userIDs); err != nil {
+			return err
 		}
 		var busy []uint64
 		if err := tx.Model(&Player{}).
@@ -606,8 +721,17 @@ func createMatch(ctx context.Context, mode Mode, queued []queuedUser) (*formResu
 		}
 		candidates := make([]queuedUser, 0, len(queued))
 		for _, user := range queued {
-			if !slices.Contains(busy, user.UserID) {
+			latest, err := latestMatchID(tx, user.UserID)
+			if err != nil {
+				return err
+			}
+			if slices.Contains(busy, user.UserID) {
+				continue
+			}
+			if latest == user.MatchID {
 				candidates = append(candidates, user)
+			} else {
+				result.Rejected = append(result.Rejected, rejectedUser{UserID: user.UserID, Reason: MatchmakingFailed})
 			}
 		}
 		if len(candidates) < mode.MinHumans() {
@@ -664,6 +788,12 @@ func createMatch(ctx context.Context, mode Mode, queued []queuedUser) (*formResu
 		}
 		if err := tx.Where("match_id = ?", m.ID).Order("seat").Find(&players).Error; err != nil {
 			return err
+		}
+		// pop 到取得用户锁之间可能有重复请求重新入队; 成功开局后清理同版本的残留队列。
+		for _, user := range admitted {
+			if err := leaveQueue(ctx, user.UserID, &user.MatchID); err != nil {
+				return err
+			}
 		}
 		result.Match, result.Players, result.Hooks = m, players, hooks
 		return nil
