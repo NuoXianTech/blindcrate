@@ -43,6 +43,7 @@ const (
 	SceneRegister = "register" // 注册和发送注册验证码
 	SceneCheckin  = "checkin"  // 签到
 	SceneShop     = "shop"     // 商店购买
+	SceneMission  = "mission"  // 任务领取
 )
 
 // TokenHeader 带令牌的请求头

@@ -248,6 +248,7 @@ type CaptchaSettings struct {
 	RegisterEnabled bool `json:"register_enabled" label:"注册" help:"开启后注册和发送注册验证码时需要通过人机验证" public:"true"`
 	CheckinEnabled  bool `json:"checkin_enabled" label:"签到" help:"开启后签到时需要通过人机验证" public:"true"`
 	ShopEnabled     bool `json:"shop_enabled" label:"商店购买" help:"开启后在商店购买商品时需要通过人机验证" public:"true"`
+	MissionEnabled  bool `json:"mission_enabled" label:"任务领取" help:"开启后领取每日任务、每周任务和成就奖励时需要通过人机验证" public:"true"`
 }
 
 // MailSettings 邮件(SMTP)配置

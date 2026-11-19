@@ -58,7 +58,9 @@ func ListMissions(c *gin.Context) {
 // @Description 进度达到目标且满足任务条件时领取当前周期的奖励; 已下架的物品按回收价折成货币发放。不满足条件或奖励暂时无法发放时返回 403
 // @Produce json
 // @Param code path string true "mission code"
+// @Param X-Captcha-Token header string false "人机验证令牌, 该场景开启人机验证时必填"
 // @Success 200 {object} reply.Response{data=ClaimResult}
+// @Failure 400 {object} reply.Response
 // @Failure 401 {object} reply.Response
 // @Failure 403 {object} reply.Response
 // @Failure 404 {object} reply.Response

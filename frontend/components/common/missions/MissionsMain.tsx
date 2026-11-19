@@ -7,7 +7,9 @@ import {Badge} from '@/components/ui/badge';
 import {Skeleton} from '@/components/ui/skeleton';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {useAuth} from '@/components/common/auth';
+import {useCaptchaDialog} from '@/components/common/captcha';
 import {RewardResultDialog} from '@/components/common/reward';
+import {useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {ClaimMissionResult, Mission, MissionsData} from '@/lib/services/mission';
@@ -30,6 +32,8 @@ export function MissionsMain() {
   const [tab, setTab] = useState('');
   const [claiming, setClaiming] = useState<string | null>(null);
   const [result, setResult] = useState<ClaimMissionResult | null>(null);
+  const {pending, submit} = useSubmit();
+  const captcha = useCaptchaDialog('mission');
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -48,17 +52,16 @@ export function MissionsMain() {
     void load();
   }, [load]);
 
-  const claim = async (mission: Mission) => {
+  const claim = (mission: Mission) => submit(async () => {
     setClaiming(mission.code);
     try {
-      setResult(await services.mission.claim(mission.code));
-    } catch (err) {
-      toast.error(toErrorMessage(err));
+      const token = await captcha.verify();
+      setResult(await services.mission.claim(mission.code, token));
     } finally {
       setClaiming(null);
       void load();
     }
-  };
+  })();
 
   const groups = data?.groups ?? [];
   const active = groups.some((g) => g.cycle === tab) ? tab : groups[0]?.cycle;
@@ -112,7 +115,7 @@ export function MissionsMain() {
                         key={m.code}
                         mission={m}
                         claiming={claiming === m.code}
-                        disabled={claiming !== null}
+                        disabled={pending}
                         onClaim={() => void claim(m)}
                       />
                     ))
@@ -128,6 +131,7 @@ export function MissionsMain() {
       )}
 
       <RewardResultDialog lines={result?.received ?? null} onClose={() => setResult(null)} />
+      {captcha.dialog}
     </div>
   );
 }
