@@ -11255,7 +11255,7 @@
         },
         "/api/v1/shop/items": {
             "get": {
-                "description": "按排序值和 ID 排列, 带价格和商品的名称、当前用户对购买条件的达成情况和已购买的份数; 页签由前端按 tab 分组",
+                "description": "按排序值和 ID 排列, 带价格和商品的名称、购买条件、限购进度和当前可购买的最大份数; 页签由前端按 tab 分组, 实际下单时重新检查",
                 "produces": [
                     "application/json"
                 ],
@@ -18099,6 +18099,10 @@
                     "items": {
                         "$ref": "#/definitions/shop.LimitView"
                     }
+                },
+                "max_quantity": {
+                    "description": "当前余额、支付物品、库存、限购及单次变动上限允许购买的最大份数",
+                    "type": "integer"
                 },
                 "name": {
                     "type": "string"
