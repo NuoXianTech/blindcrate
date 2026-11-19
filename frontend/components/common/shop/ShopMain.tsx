@@ -1,15 +1,17 @@
 'use client';
 
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {ScrollText, Store} from 'lucide-react';
 import {toast} from 'sonner';
 import {Skeleton} from '@/components/ui/skeleton';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {useAuth} from '@/components/common/auth';
 import {RedeemButton} from '@/components/common/redeem';
+import {useWsConnected, useWsEvent} from '@/hooks/use-ws';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {ShopItem} from '@/lib/services/shop';
+import {WALLET_MESSAGES} from '@/lib/services/wallet';
 import {BuyDialog} from './BuyDialog';
 import {OrderList} from './OrderList';
 import {ShopItemCard} from './ShopItemCard';
@@ -36,23 +38,55 @@ function groupByTab(items: ShopItem[]): [string, ShopItem[]][] {
  */
 export function ShopMain() {
   const {user} = useAuth();
+  return user ? <ShopContent key={user.id} /> : null;
+}
+
+function ShopContent() {
   const [items, setItems] = useState<ShopItem[] | null>(null);
   const [tab, setTab] = useState('');
   const [buying, setBuying] = useState<ShopItem | null>(null);
+  const [reading, setReading] = useState(false);
+  const [readError, setReadError] = useState('');
+  const readID = useRef(0);
+  const connected = useWsConnected();
+  const invalidateRead = useCallback(() => {
+    readID.current++;
+  }, []);
 
   const load = useCallback(async () => {
-    if (!user) return;
+    const id = ++readID.current;
+    setReading(true);
+    setReadError('');
     try {
-      setItems((await services.shop.listItems()).items);
+      const next = (await services.shop.listItems()).items;
+      if (id !== readID.current) return null;
+      setItems(next);
+      setBuying((selected) => selected ? next.find((it) => it.code === selected.code) ?? {...selected, max_quantity: 0} : null);
+      return next;
     } catch (err) {
-      toast.error(toErrorMessage(err));
+      if (id === readID.current) {
+        setReadError(toErrorMessage(err));
+        toast.error(toErrorMessage(err));
+      }
+      return null;
+    } finally {
+      if (id === readID.current) setReading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 进入页面时拉取商品
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 进入页面或重新连接时读取当前可购买份数
     void load();
-  }, [load]);
+    const onFocus = () => void load();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      invalidateRead();
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [load, connected, invalidateRead]);
+
+  useWsEvent(WALLET_MESSAGES.balanceChanged, () => void load());
+  useWsEvent('inventory:items_changed', () => void load());
 
   const groups = groupByTab(items ?? []);
   const single = groups.length <= 1;
@@ -64,7 +98,10 @@ export function ShopMain() {
     list.length ? (
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {list.map((item) => (
-          <ShopItemCard key={item.code} item={item} onBuy={() => setBuying(item)} />
+          <ShopItemCard key={item.code} item={item} onBuy={() => {
+            setBuying(item);
+            void load();
+          }} />
         ))}
       </div>
     ) : (
@@ -125,7 +162,7 @@ export function ShopMain() {
         </TabsContent>
       </Tabs>
 
-      <BuyDialog item={buying} onClose={() => setBuying(null)} onRefresh={() => void load()} />
+      <BuyDialog item={buying} reading={reading} readError={readError} onClose={() => setBuying(null)} onRefresh={load} />
     </div>
   );
 }

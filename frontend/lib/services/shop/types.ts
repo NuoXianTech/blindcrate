@@ -44,6 +44,8 @@ export interface ShopItem {
   limits: ShopLimit[];
   /** 全服剩余库存, 为空时不限 */
   stock: number | null;
+  /** 当前支付资源、库存、限购及单次上限允许购买的最大份数 */
+  max_quantity: number;
   /** 下架时间, 为空时不限 */
   ends_at: string | null;
 }

@@ -1,9 +1,6 @@
 import type {Bundle, RewardLine} from '@/lib/services/reward';
 import type {ShopItem, ShopLimitType} from '@/lib/services/shop';
 
-/** 一次最多购买的份数, 与后端 shop.MaxQuantity 一致 */
-export const MAX_QUANTITY = 99;
-
 /** 购买记录每页条数 */
 export const ORDER_PAGE_SIZE = 20;
 
@@ -29,19 +26,12 @@ export function scaleLines(lines: RewardLine[], quantity: number): RewardLine[] 
   return lines.map((l) => ({...l, amount: l.amount * quantity}));
 }
 
-/** 最多还能买几份, 受库存、限购和单次上限约束; 不能购买时为 0 */
-export function maxQuantity(item: ShopItem): number {
-  let max = MAX_QUANTITY;
-  if (item.stock !== null) max = Math.min(max, item.stock);
-  for (const l of item.limits) max = Math.min(max, l.limit - l.bought);
-  return Math.max(max, 0);
-}
-
-/** 不能购买的原因, 可以购买时为 null; 余额不足由后端判断 */
+/** 不能购买的原因, 可以购买时为 null */
 export function unavailableReason(item: ShopItem): string | null {
   if (!item.eligible) return '未满足条件';
   if (item.stock === 0) return '已售罄';
   if (item.limits.some((l) => l.bought >= l.limit)) return '已达限购';
+  if (item.max_quantity === 0) return '当前无法购买';
   return null;
 }
 

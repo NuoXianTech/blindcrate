@@ -456,6 +456,7 @@ type ItemView struct {
 	Limits        []LimitView          `json:"limits"`         // 设置了的限购和已购买的份数
 	Stock         *int64               `json:"stock"`          // 全服剩余库存, 为空时不限
 	EndsAt        *time.Time           `json:"ends_at"`        // 下架时间, 为空时不限
+	MaxQuantity   int64                `json:"max_quantity"`   // 当前余额、支付物品、库存、限购及单次变动上限允许购买的最大份数
 }
 
 // LimitView 一种限购和用户已购买的份数
@@ -495,6 +496,10 @@ func QueryItems(ctx context.Context, userID uint64) ([]ItemView, error) {
 	if err != nil {
 		return nil, err
 	}
+	resources, err := queryPurchaseResources(tx, userID, items)
+	if err != nil {
+		return nil, err
+	}
 
 	for i := range items {
 		it := &items[i]
@@ -525,6 +530,7 @@ func QueryItems(ctx context.Context, userID uint64) ([]ItemView, error) {
 			Stock:         it.Stock,
 			EndsAt:        it.EndsAt,
 		}
+		views[i].MaxQuantity = resources.maxQuantity(it, &views[i], current != nil)
 	}
 	return views, nil
 }

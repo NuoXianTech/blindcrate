@@ -40,7 +40,7 @@ type ListItemsResponseData struct {
 // ListItems
 // @Tags shop
 // @Summary 获取上架中的商品
-// @Description 按排序值和 ID 排列, 带价格和商品的名称、当前用户对购买条件的达成情况和已购买的份数; 页签由前端按 tab 分组
+// @Description 按排序值和 ID 排列, 带价格和商品的名称、购买条件、限购进度和当前可购买的最大份数; 页签由前端按 tab 分组, 实际下单时重新检查
 // @Produce json
 // @Success 200 {object} reply.Response{data=ListItemsResponseData}
 // @Failure 401 {object} reply.Response
