@@ -3,7 +3,7 @@
 import {useState} from 'react';
 import {usePathname} from 'next/navigation';
 import {useTheme} from 'next-themes';
-import {LayoutDashboard, LogOut, Palette} from 'lucide-react';
+import {LayoutDashboard, LogOut, Palette, Settings} from 'lucide-react';
 import {toast} from 'sonner';
 import {FloatingDock, type DockEntry} from '@/components/ui/floating-dock';
 import {useAuth} from '@/components/common/auth';
@@ -68,6 +68,7 @@ export function ManagementBar() {
   if (THEMES.length > 1) personal.push({title: '切换主题', icon: <Palette />, onClick: cycleTheme});
   if (user) {
     personal.push(
+        {title: '游戏设置', icon: <Settings />, href: ROUTES.gameSettings, active: pathname === ROUTES.gameSettings, disabled: blocked(ROUTES.gameSettings)},
         {
           title: user.nickname,
           icon: <UserAvatar user={user} className="text-sm" />,

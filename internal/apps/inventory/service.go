@@ -39,6 +39,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
 	"github.com/NuoXianTech/blindcrate/internal/apps/item"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ledger"
+	"github.com/NuoXianTech/blindcrate/internal/apps/playersettings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/db"
@@ -282,6 +283,9 @@ func QueryUserItems(ctx context.Context, userID uint64, req *ListItemsRequest) (
 	query := db.DB(ctx).Model(&UserItem{}).
 		Joins("LEFT JOIN items ON items.id = inventory_items.item_id AND items.deleted_at IS NULL").
 		Where("inventory_items.user_id = ? AND inventory_items.quantity > 0", userID)
+	if len(req.ItemIDs) > 0 {
+		query = query.Where("inventory_items.item_id IN ?", req.ItemIDs)
+	}
 	if req.Quality != nil {
 		query = query.Where(quality+" = ?", *req.Quality)
 	}
@@ -443,11 +447,12 @@ type SellIncome struct {
 
 // SellOrderDetail 出售单, 附带明细和各货币的入账
 type SellOrderDetail struct {
-	ID        uint64          `json:"id"`
-	FeeRate   int32           `json:"fee_rate"` // 出售时的手续费率, 单位为基点
-	Items     []SellOrderItem `json:"items"`    // 按物品 ID 排序
-	Incomes   []SellIncome    `json:"incomes"`  // 按货币代码排序
-	CreatedAt time.Time       `json:"created_at"`
+	KeepOneCollectible bool            `json:"keep_one_collectible"`
+	ID                 uint64          `json:"id"`
+	FeeRate            int32           `json:"fee_rate"` // 出售时的手续费率, 单位为基点
+	Items              []SellOrderItem `json:"items"`    // 按物品 ID 排序
+	Incomes            []SellIncome    `json:"incomes"`  // 按货币代码排序
+	CreatedAt          time.Time       `json:"created_at"`
 }
 
 // doSellItems 按物品当前的卖出价出售背包中的物品, 一次可以卖出多种物品, 全部成功或全部失败
@@ -501,12 +506,21 @@ func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*Se
 			return nil
 		}
 		// 重放时返回原出售单, 不比较手续费率
+		if err := playersettings.Lock(tx, userID); err != nil {
+			return err
+		}
+		preferences, err := playersettings.Read(tx, userID)
+		if err != nil {
+			return err
+		}
+		if req.GameSettingsVersion != nil && *req.GameSettingsVersion != preferences.Version {
+			return fault.Conflict(playersettings.Changed)
+		}
 		if req.FeeRate != nil && *req.FeeRate != feeRate {
 			return fault.Conflict(SellFeeRateChanged)
 		}
 
-		var err error
-		detail, itemTxns, walletTxns, err = sell(tx, userID, req.IdempotencyKey, feeRate, lines)
+		detail, itemTxns, walletTxns, err = sell(tx, userID, req.IdempotencyKey, feeRate, preferences.KeepOneCollectible, lines)
 		return err
 	})
 	if err != nil {
@@ -520,7 +534,7 @@ func doSellItems(ctx context.Context, userID uint64, req *SellItemsRequest) (*Se
 // sell 创建出售单, 扣除物品后按货币汇总入账, 再按手续费率扣除手续费, lines 需已按物品 ID 排序且不重复
 //
 // 返回出售单以及产生的背包流水和余额流水, 流水用于提交后推送。
-func sell(tx *gorm.DB, userID uint64, idempotencyKey string, feeRate int32, lines []SellItemsRequestItem) (*SellOrderDetail, []*Transaction, []*wallet.Transaction, error) {
+func sell(tx *gorm.DB, userID uint64, idempotencyKey string, feeRate int32, keepOne bool, lines []SellItemsRequestItem) (*SellOrderDetail, []*Transaction, []*wallet.Transaction, error) {
 	ids := make([]uint64, len(lines))
 	for i := range lines {
 		ids[i] = lines[i].ItemID
@@ -532,7 +546,7 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, feeRate int32, line
 		return nil, nil, nil, err
 	}
 
-	order := &SellOrder{UserID: userID, IdempotencyKey: idempotencyKey, FeeRate: feeRate}
+	order := &SellOrder{UserID: userID, IdempotencyKey: idempotencyKey, FeeRate: feeRate, KeepOneCollectible: keepOne}
 	if err := tx.Create(order).Error; err != nil {
 		// 咨询锁之外的兜底, 正常不会走到
 		if db.IsUniqueViolation(err) {
@@ -576,6 +590,10 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, feeRate int32, line
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		// Change 的原子 UPDATE 持有背包行锁直到事务结束, 检查失败时整单回滚。
+		if keepOne && target.Category == item.CategoryCollectible && !target.IsPlaceholder && itemTxn.QuantityAfter < 1 {
+			return nil, nil, nil, fault.Conflict(CollectibleReserved)
+		}
 		if batchID == 0 {
 			batchID = itemTxn.ID // 一次出售多种物品, 背包记录中合并为一条
 		}
@@ -595,7 +613,7 @@ func sell(tx *gorm.DB, userID uint64, idempotencyKey string, feeRate int32, line
 	}
 
 	// 按货币代码顺序入账, 与背包行同理, 固定加锁顺序; 手续费单独记一条流水, 便于统计回收的金额
-	detail := &SellOrderDetail{ID: order.ID, FeeRate: feeRate, Items: orderItems, CreatedAt: order.CreatedAt}
+	detail := &SellOrderDetail{ID: order.ID, FeeRate: feeRate, KeepOneCollectible: keepOne, Items: orderItems, CreatedAt: order.CreatedAt}
 	walletTxns := make([]*wallet.Transaction, 0, len(incomes)*2)
 	for _, currency := range slices.Sorted(maps.Keys(incomes)) {
 		txn, _, err := wallet.Change(tx, &wallet.ChangeRequest{
@@ -651,7 +669,7 @@ func loadSellOrders(tx *gorm.DB, orders []SellOrder) ([]SellOrderDetail, error) 
 	ids := make([]uint64, len(orders))
 	bizIDs := make([]string, len(orders))
 	for i := range orders {
-		details[i] = SellOrderDetail{ID: orders[i].ID, FeeRate: orders[i].FeeRate, Items: []SellOrderItem{}, Incomes: []SellIncome{}, CreatedAt: orders[i].CreatedAt}
+		details[i] = SellOrderDetail{ID: orders[i].ID, FeeRate: orders[i].FeeRate, KeepOneCollectible: orders[i].KeepOneCollectible, Items: []SellOrderItem{}, Incomes: []SellIncome{}, CreatedAt: orders[i].CreatedAt}
 		byID[orders[i].ID] = &details[i]
 		ids[i] = orders[i].ID
 		bizIDs[i] = strconv.FormatUint(orders[i].ID, 10)

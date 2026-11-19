@@ -60,7 +60,10 @@ export function SellOrderList({currencies}: { currencies: BalanceItem[] }) {
             ) : data?.orders.length ? (
               data.orders.map((order) => (
                 <TableRow key={order.id} className="align-top">
-                  <TableCell className="text-muted-foreground">{formatDateTime(order.created_at)}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDateTime(order.created_at)}
+                    {order.keep_one_collectible && <div className="mt-1 text-xs">出售时收藏保护已开启</div>}
+                  </TableCell>
                   <TableCell>
                     <ul className="flex flex-col gap-1">
                       {order.items.map((i) => (

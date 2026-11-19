@@ -60,6 +60,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/mission"
 	"github.com/NuoXianTech/blindcrate/internal/apps/mission/missionadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/pack"
+	"github.com/NuoXianTech/blindcrate/internal/apps/playersettings"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked"
 	"github.com/NuoXianTech/blindcrate/internal/apps/ranked/rankedadmin"
 	"github.com/NuoXianTech/blindcrate/internal/apps/redeem"
@@ -189,6 +190,8 @@ func publicRoutes(r *gin.RouterGroup) {
 
 // userRoutes 需要登录的接口, 登录校验已在外层加上
 func userRoutes(r *gin.RouterGroup) {
+	r.GET("/player-settings", playersettings.GetSettings)
+	r.PATCH("/player-settings", ratelimit.ByUser("player_settings:update", ratelimit.PerMinute(60)), playersettings.UpdateSettings)
 	// Auth
 	r.GET("/auth/user-info", auth.UserInfo)
 	r.PATCH("/auth/user-info", auth.UpdateUserInfo)

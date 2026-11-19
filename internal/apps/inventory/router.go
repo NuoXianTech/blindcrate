@@ -36,9 +36,10 @@ import (
 
 // ListItemsRequest 背包物品查询参数
 type ListItemsRequest struct {
-	Current int    `json:"current" form:"current" binding:"min=1"`
-	Size    int    `json:"size" form:"size" binding:"min=1,max=100"`
-	Quality *int16 `json:"quality" form:"quality" binding:"omitempty,min=1"` // 品质等级
+	ItemIDs []uint64 `form:"item_ids" binding:"omitempty,max=100,unique,dive,min=1" collectionFormat:"multi"` // 出售确认时按 ID 重新读取, 最多 100 种
+	Current int      `json:"current" form:"current" binding:"min=1"`
+	Size    int      `json:"size" form:"size" binding:"min=1,max=100"`
+	Quality *int16   `json:"quality" form:"quality" binding:"omitempty,min=1"` // 品质等级
 }
 
 // ListItemsResponseData 背包物品分页结果
@@ -127,9 +128,10 @@ type SellItemsRequestItem struct {
 
 // SellItemsRequest 出售请求体
 type SellItemsRequest struct {
-	Items          []SellItemsRequestItem `json:"items" binding:"required,min=1,max=100,dive"`          // 同一物品只能出现一次
-	IdempotencyKey string                 `json:"idempotency_key" binding:"required,max=64,printascii"` // 每次打开出售确认框生成一个, 重复提交只生效一次
-	FeeRate        *int32                 `json:"fee_rate" binding:"omitempty,min=0,max=10000"`         // 出售确认框中看到的手续费率(基点), 传入时与当前不一致则拒绝出售
+	GameSettingsVersion *int64                 `json:"game_settings_version" binding:"omitempty,min=0"`      // 确认框读取的游戏设置版本; 旧客户端可不传, 收藏保护仍强制执行
+	Items               []SellItemsRequestItem `json:"items" binding:"required,min=1,max=100,dive"`          // 同一物品只能出现一次
+	IdempotencyKey      string                 `json:"idempotency_key" binding:"required,max=64,printascii"` // 每次打开出售确认框生成一个, 重复提交只生效一次
+	FeeRate             *int32                 `json:"fee_rate" binding:"omitempty,min=0,max=10000"`         // 出售确认框中看到的手续费率(基点), 传入时与当前不一致则拒绝出售
 }
 
 // SellItems

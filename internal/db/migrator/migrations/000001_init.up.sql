@@ -23,6 +23,16 @@ CREATE INDEX IF NOT EXISTS idx_users_banned_until ON users (banned_until);
 CREATE INDEX IF NOT EXISTS idx_users_last_login_at ON users (last_login_at);
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users (created_at);
 
+-- 玩家自己的游戏设置, 未保存过的账号使用默认值; version 用于避免多设备覆盖
+CREATE TABLE IF NOT EXISTS player_game_settings
+(
+    user_id              BIGINT PRIMARY KEY,
+    keep_one_collectible BOOLEAN     NOT NULL DEFAULT FALSE,
+    version              BIGINT      NOT NULL DEFAULT 0,
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_player_game_settings_version CHECK (version >= 0)
+);
+
 -- 第三方登录身份, 一个用户可绑定多个
 CREATE TABLE IF NOT EXISTS user_identities
 (
@@ -204,11 +214,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_inventory_transactions_idempotency_key ON
 -- 出售单, 一次出售一行; 出售产生的背包流水和余额流水, biz_id 都是出售单 ID
 CREATE TABLE IF NOT EXISTS inventory_sell_orders
 (
-    id              BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT      NOT NULL,
-    idempotency_key VARCHAR(64) NOT NULL,           -- 幂等键, 同一用户内唯一
-    fee_rate        INTEGER     NOT NULL DEFAULT 0, -- 出售时的手续费率, 单位为基点
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id                   BIGSERIAL PRIMARY KEY,
+    user_id              BIGINT      NOT NULL,
+    idempotency_key      VARCHAR(64) NOT NULL,           -- 幂等键, 同一用户内唯一
+    fee_rate             INTEGER     NOT NULL DEFAULT 0, -- 出售时的手续费率, 单位为基点
+    keep_one_collectible BOOLEAN     NOT NULL DEFAULT FALSE, -- 出售时的收藏保护设置
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_inventory_sell_orders_user_id ON inventory_sell_orders (user_id, id);

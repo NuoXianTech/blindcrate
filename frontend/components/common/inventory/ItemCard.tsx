@@ -7,12 +7,13 @@ import type {UserItem} from '@/lib/services/inventory';
 /**
  * 网格里的物品卡片: 品质色条 + 图片 + 数量; 可以在背包中使用的左上角有标记, 多选时右上角显示勾选状态
  */
-export function ItemCard({item, onClick, selected, disabled}: {
+export function ItemCard({item, onClick, selected, disabled, reserved}: {
   item: UserItem;
   onClick: () => void;
   /** 多选模式下是否已选中, 不在多选模式时为 undefined */
   selected?: boolean;
   disabled?: boolean;
+  reserved?: boolean;
 }) {
   const q = useQualities().qualityOf(item.quality);
   return (
@@ -56,6 +57,7 @@ export function ItemCard({item, onClick, selected, disabled}: {
         <span className="text-xs text-muted-foreground">
           {q.name} · {item.width}×{item.height}
         </span>
+        {reserved && <span className="text-xs text-muted-foreground">{item.quantity === 1 ? '保留收藏' : '保留 1 件'}</span>}
       </span>
     </button>
   );

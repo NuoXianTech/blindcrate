@@ -34,4 +34,5 @@ const (
 	SellPriceChanged     = "物品售价已变动, 请刷新后重试"
 	SellFeeRateChanged   = "出售手续费率已变动, 请确认新的手续费后重试"
 	SellAmountExceeded   = "单次出售金额过大, 请分批出售"
+	CollectibleReserved  = "收藏保护已开启, 每种藏品至少保留 1 件, 请重新确认出售数量"
 )

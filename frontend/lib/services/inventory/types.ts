@@ -167,6 +167,7 @@ export interface SellItemLine {
 }
 
 export interface SellItemsRequest {
+  game_settings_version?: number;
   /** 同一物品只能出现一次, 最多 100 种 */
   items: SellItemLine[];
   /** 出售内容相同的重复提交只成交一次 */
@@ -200,6 +201,7 @@ export interface SellIncome {
 
 /** 出售单, 对应后端 inventory.SellOrderDetail */
 export interface SellOrder {
+  keep_one_collectible: boolean;
   id: number;
   /** 出售时的手续费率, 单位为基点 */
   fee_rate: number;

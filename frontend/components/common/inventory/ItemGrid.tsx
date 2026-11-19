@@ -1,6 +1,7 @@
 'use client';
 
 import {useCallback, useEffect, useState} from 'react';
+import Link from 'next/link';
 import {Backpack, HandCoins, ListChecks} from 'lucide-react';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
@@ -9,6 +10,8 @@ import {useAuth} from '@/components/common/auth';
 import {Pagination} from '@/components/common/layout';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
+import {usePlayerSettings} from '@/components/common/player-settings/PlayerSettingsProvider';
+import {ROUTES} from '@/lib/access';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {UserItem} from '@/lib/services/inventory';
@@ -18,8 +21,8 @@ import {ItemCard} from './ItemCard';
 import {ItemDetailDialog} from './ItemDetailDialog';
 import {SellDialog} from './SellDialog';
 import {UseDialog} from './UseDialog';
-import {ITEM_PAGE_SIZE, MAX_SELL_LINES, MAX_SELL_QUANTITY} from './constants';
-import {sellTotals, type SellLine} from './sell';
+import {ITEM_PAGE_SIZE, MAX_SELL_LINES} from './constants';
+import {sellableQuantity, sellTotals, type SellLine} from './sell';
 
 /**
  * 物品网格, 可按品质筛选, 点击物品查看详情, 箱子可以在详情中开启; 多选模式下可以批量出售
@@ -30,6 +33,9 @@ export function ItemGrid({currencies, onViewRecords}: {
 }) {
   const {user} = useAuth();
   const {qualities} = useQualities();
+  const {settings, error: settingsError, refresh: refreshSettings} = usePlayerSettings();
+  const keepOne = settings?.keep_one_collectible ?? false;
+  const settingsReady = !!settings && !settingsError;
   const [quality, setQuality] = useState<number | undefined>();
   const [current, setCurrent] = useState(1);
   const [data, setData] = useState<{ total: number; items: UserItem[] } | null>(null);
@@ -40,6 +46,10 @@ export function ItemGrid({currencies, onViewRecords}: {
   const [picked, setPicked] = useState<Map<number, UserItem>>(new Map());
   const [selling, setSelling] = useState<SellLine[] | null>(null);
   const [using, setUsing] = useState<UserItem | null>(null);
+
+  useEffect(() => {
+    void refreshSettings().catch(() => undefined);
+  }, [refreshSettings]);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -82,7 +92,7 @@ export function ItemGrid({currencies, onViewRecords}: {
   };
 
   // 本页可出售的物品全部选中, 已全部选中时取消
-  const pageSellable = data?.items.filter((item) => item.sell_price > 0) ?? [];
+  const pageSellable = settingsReady ? data?.items.filter((item) => sellableQuantity(item, keepOne) > 0) ?? [] : [];
   const pageAllPicked = pageSellable.length > 0 && pageSellable.every((item) => picked.has(item.item_id));
   const togglePage = () => {
     const next = new Map(picked);
@@ -93,8 +103,11 @@ export function ItemGrid({currencies, onViewRecords}: {
     setPicked(next);
   };
 
-  // 批量出售默认卖出全部数量, 可在确认框中调整
-  const pickedLines: SellLine[] = [...picked.values()].map((item) => ({item, quantity: Math.min(item.quantity, MAX_SELL_QUANTITY)}));
+  // 仅出售可售数量, 单件藏品在保护开启时自动跳过。
+  const pickedLines: SellLine[] = settingsReady ? [...picked.values()].flatMap((item) => {
+    const quantity = sellableQuantity(item, keepOne);
+    return quantity > 0 ? [{item, quantity}] : [];
+  }) : [];
   const pickedTotals = sellTotals(pickedLines, 0);
 
   const handleSold = () => {
@@ -105,6 +118,15 @@ export function ItemGrid({currencies, onViewRecords}: {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span className={settingsError ? 'text-destructive' : 'text-muted-foreground'}>
+          {settingsError ? `游戏设置读取失败：${settingsError}` : !settings ? '正在读取游戏设置…' : keepOne ? '收藏保护已开启 · 每种藏品保留 1 件' : '收藏保护已关闭'}
+        </span>
+        <div className="flex gap-2">
+          {settingsError && <Button variant="outline" size="sm" onClick={() => void refreshSettings().catch(() => undefined)}>重试</Button>}
+          <Button variant="ghost" size="sm" asChild><Link href={ROUTES.gameSettings}>游戏设置</Link></Button>
+        </div>
+      </div>
       <div className="flex items-center gap-2">
         <div className="hide-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto">
           <Button variant={quality === undefined ? 'secondary' : 'ghost'} size="sm" onClick={() => changeQuality(undefined)}>
@@ -135,7 +157,8 @@ export function ItemGrid({currencies, onViewRecords}: {
               key={item.item_id}
               item={item}
               selected={picking ? picked.has(item.item_id) : undefined}
-              disabled={picking && item.sell_price <= 0}
+              disabled={picking && (!settingsReady || (sellableQuantity(item, keepOne) === 0 && !picked.has(item.item_id)))}
+              reserved={keepOne && item.category === 'collectible' && !item.is_placeholder}
               onClick={() => (picking ? togglePicked(item) : setSelected(item))}
             />
           ))}
@@ -151,7 +174,7 @@ export function ItemGrid({currencies, onViewRecords}: {
 
       {picking && (
         <div className="sticky bottom-24 z-10 flex flex-wrap items-center gap-3 rounded-xl border bg-card/95 px-4 py-3 shadow-lg backdrop-blur">
-          <span className="text-sm font-medium">已选 {picked.size} 种</span>
+          <span className="text-sm font-medium">可出售 {pickedLines.length} 种{picked.size > pickedLines.length && ` · 已跳过 ${picked.size - pickedLines.length} 种`}</span>
           {pickedTotals.map((t) => (
             <span key={t.currency} className="flex items-center gap-1 text-sm text-muted-foreground">
               <CurrencyIcon currency={t.currency} className="size-4" />
@@ -164,7 +187,7 @@ export function ItemGrid({currencies, onViewRecords}: {
             <Button variant="ghost" size="sm" onClick={togglePage} disabled={!pageSellable.length}>
               {pageAllPicked ? '取消本页' : '全选本页'}
             </Button>
-            <Button size="sm" onClick={() => setSelling(pickedLines)} disabled={!picked.size}>
+            <Button size="sm" onClick={() => setSelling(pickedLines)} disabled={!pickedLines.length}>
               <HandCoins />
               出售
             </Button>
@@ -175,6 +198,8 @@ export function ItemGrid({currencies, onViewRecords}: {
       <ItemDetailDialog
         item={selected}
         currencies={currencies}
+        keepOne={keepOne}
+        settingsReady={settingsReady}
         onClose={() => setSelected(null)}
         onViewRecords={(item) => {
           setSelected(null);

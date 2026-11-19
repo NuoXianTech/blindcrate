@@ -1635,6 +1635,10 @@ definitions:
         maximum: 10000
         minimum: 0
         type: integer
+      game_settings_version:
+        description: 确认框读取的游戏设置版本; 旧客户端可不传, 收藏保护仍强制执行
+        minimum: 0
+        type: integer
       idempotency_key:
         description: 每次打开出售确认框生成一个, 重复提交只生效一次
         maxLength: 64
@@ -1691,6 +1695,8 @@ definitions:
         items:
           $ref: '#/definitions/inventory.SellOrderItem'
         type: array
+      keep_one_collectible:
+        type: boolean
     type: object
   inventory.SellOrderItem:
     properties:
@@ -3432,6 +3438,26 @@ definitions:
         type: integer
       value:
         type: string
+    type: object
+  playersettings.Settings:
+    properties:
+      keep_one_collectible:
+        type: boolean
+      updated_at:
+        type: string
+      version:
+        type: integer
+    type: object
+  playersettings.UpdateRequest:
+    properties:
+      keep_one_collectible:
+        type: boolean
+      version:
+        minimum: 0
+        type: integer
+    required:
+    - keep_one_collectible
+    - version
     type: object
   ranked.ListTiersResponseData:
     properties:
@@ -10080,6 +10106,15 @@ paths:
         minimum: 1
         name: current
         type: integer
+      - collectionFormat: multi
+        description: 出售确认时按 ID 重新读取, 最多 100 种
+        in: query
+        items:
+          type: integer
+        maxItems: 100
+        name: item_ids
+        type: array
+        uniqueItems: true
       - description: 品质等级
         in: query
         minimum: 1
@@ -11332,6 +11367,15 @@ paths:
         minimum: 1
         name: current
         type: integer
+      - collectionFormat: multi
+        description: 出售确认时按 ID 重新读取, 最多 100 种
+        in: query
+        items:
+          type: integer
+        maxItems: 100
+        name: item_ids
+        type: array
+        uniqueItems: true
       - description: 品质等级
         in: query
         minimum: 1
@@ -12331,6 +12375,73 @@ paths:
       summary: 领取任务奖励
       tags:
       - mission
+  /api/v1/player-settings:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/reply.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/playersettings.Settings'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reply.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reply.Response'
+      summary: 获取自己的游戏设置
+      tags:
+      - player-settings
+    patch:
+      consumes:
+      - application/json
+      description: 修改后立即生效; 版本不同返回 409, 不覆盖其他设备刚保存的设置
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/playersettings.UpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/reply.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/playersettings.Settings'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reply.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reply.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/reply.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reply.Response'
+      summary: 修改自己的游戏设置
+      tags:
+      - player-settings
   /api/v1/qualities:
     get:
       description: 按排序值排列, 无需登录; 前端用来展示品质的名称和颜色

@@ -1,4 +1,14 @@
 import type {UserItem} from '@/lib/services/inventory';
+import {MAX_SELL_QUANTITY} from './constants';
+
+export function reservedQuantity(item: UserItem, keepOne: boolean): number {
+  return keepOne && item.category === 'collectible' && !item.is_placeholder ? 1 : 0;
+}
+
+export function sellableQuantity(item: UserItem, keepOne: boolean): number {
+  if (item.sell_price <= 0) return 0;
+  return Math.min(MAX_SELL_QUANTITY, Math.max(0, item.quantity - reservedQuantity(item, keepOne)));
+}
 
 /** 出售确认框中的一种物品 */
 export interface SellLine {

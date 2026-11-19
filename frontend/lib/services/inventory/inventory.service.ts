@@ -21,6 +21,13 @@ export class InventoryService extends BaseService {
     return this.get<ListUserItemsData>('/items', {params});
   }
 
+  /** 出售确认时重读选中物品, 数量归零的物品不返回 */
+  static getSellItems(ids: number[]) {
+    const params = new URLSearchParams({current: '1', size: '100'});
+    ids.forEach((id) => params.append('item_ids', String(id)));
+    return this.get<ListUserItemsData>('/items', {params});
+  }
+
   /** 一个可以在背包中使用的物品、自己持有的数量和使用后可以得到的内容; 物品不能在背包中使用或暂时无法使用时失败 */
   static getUse(itemID: number) {
     return this.get<ItemUseView>(`/items/${itemID}/use`);
