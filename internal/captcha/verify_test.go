@@ -37,7 +37,7 @@ import (
 
 func TestEnabled(t *testing.T) {
 	s := &settings.CaptchaSettings{SiteKey: "site", SecretKey: "secret", LoginEnabled: true, ShopEnabled: true}
-	for scene, want := range map[string]bool{SceneLogin: true, SceneRegister: false, SceneCheckin: false, SceneShop: true} {
+	for scene, want := range map[string]bool{SceneLogin: true, SceneRegister: false, SceneCheckin: false, SceneShop: true, SceneMission: false} {
 		if got := enabled(s, scene); got != want {
 			t.Errorf("enabled(%q) = %t, want %t", scene, got, want)
 		}
@@ -51,6 +51,28 @@ func TestEnabled(t *testing.T) {
 			t.Errorf("enabled without keys: %+v", s)
 		}
 	}
+}
+
+func TestMissionEnabled(t *testing.T) {
+	// 任务领取有独立开关, 默认关闭; 两个密钥齐全才启用。
+	for _, tt := range []struct {
+		name     string
+		settings settings.CaptchaSettings
+		want     bool
+	}{
+		{"default off", settings.CaptchaSettings{SiteKey: "site", SecretKey: "secret"}, false},
+		{"enabled", settings.CaptchaSettings{SiteKey: "site", SecretKey: "secret", MissionEnabled: true}, true},
+		{"other scenes only", settings.CaptchaSettings{SiteKey: "site", SecretKey: "secret", CheckinEnabled: true, ShopEnabled: true}, false},
+		{"missing site key", settings.CaptchaSettings{SecretKey: "secret", MissionEnabled: true}, false},
+		{"missing secret key", settings.CaptchaSettings{SiteKey: "site", MissionEnabled: true}, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := enabled(&tt.settings, SceneMission); got != tt.want {
+				t.Errorf("enabled = %t, want %t", got, tt.want)
+			}
+		})
+	}
+	Required(SceneMission) // 新场景可以注册到路由, 不应 panic。
 }
 
 func TestCheckScene(t *testing.T) {

@@ -1,9 +1,11 @@
 'use client';
 
-import {useCallback, useEffect, useState, type ReactNode} from 'react';
+import {useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode} from 'react';
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {useSite} from '@/components/common/site';
 import {CancelledError} from '@/hooks/use-submit';
+import services from '@/lib/services';
+import {ApiError} from '@/lib/services/core';
 import {Captcha, loadTurnstile, type CaptchaScene} from './Captcha';
 
 /**
@@ -42,6 +44,7 @@ export function CaptchaDialog({siteKey, open, onVerified, onCancel}: CaptchaDial
 
 /** 正在等待结果的一次验证 */
 interface Verification {
+  siteKey: string;
   resolve: (token: string) => void;
   reject: (reason: Error) => void;
 }
@@ -51,10 +54,10 @@ interface Verification {
  *   const captcha = useCaptchaDialog('checkin');
  *   await services.checkin.checkin(await captcha.verify());
  *   ... {captcha.dialog} ...
- * 场景没有开启时不弹窗, verify 直接返回 undefined
+ * 每次操作先读取最新配置; 场景没有开启时不弹窗, verify 返回 undefined
  */
 export function useCaptchaDialog(scene: CaptchaScene): {
-  /** 弹出验证并等待令牌; 没有完成验证就关闭弹窗时中断提交且不提示, 需要在 useSubmit 的 submit 中调用 */
+  /** 读取最新配置后弹出验证并等待令牌; 取消时中断提交且不提示, 需要在 useSubmit 的 submit 中调用 */
   verify: () => Promise<string | undefined>;
   dialog: ReactNode;
 } {
@@ -63,8 +66,10 @@ export function useCaptchaDialog(scene: CaptchaScene): {
   const enabled = captcha[`${scene}_enabled`] && captcha.site_key !== '';
   /** 有值时弹窗打开 */
   const [waiting, setWaiting] = useState<Verification | null>(null);
+  const verification = useRef<Verification | null>(null);
+  const requestId = useRef(0);
 
-  // 先把脚本加载好, 点击后弹窗里可以马上开始验证
+  // 缓存中的开关仅用于预加载, 是否验证在点击时重新读取。
   useEffect(() => {
     if (!enabled) return;
     void loadTurnstile().catch(() => {
@@ -72,21 +77,51 @@ export function useCaptchaDialog(scene: CaptchaScene): {
     });
   }, [enabled]);
 
-  const verify = useCallback((): Promise<string | undefined> => {
-    if (!enabled) return Promise.resolve(undefined);
-    return new Promise((resolve, reject) => setWaiting({resolve, reject}));
-  }, [enabled]);
+  useLayoutEffect(() => () => {
+    // 页面可能被 Activity 隐藏并保留状态, 取消等待时也要关闭弹窗。
+    requestId.current++;
+    verification.current?.reject(new CancelledError());
+    verification.current = null;
+    setWaiting(null);
+  }, []);
+
+  const verify = useCallback(async (): Promise<string | undefined> => {
+    const id = ++requestId.current;
+    verification.current?.reject(new CancelledError());
+    verification.current = null;
+    setWaiting(null);
+    let latest;
+    try {
+      latest = await services.settings.getPublic();
+    } catch (err) {
+      if (id !== requestId.current) throw new CancelledError();
+      throw err;
+    }
+    if (id !== requestId.current) throw new CancelledError();
+    const current = latest.captcha;
+    if (!current) throw new ApiError('无法读取人机验证配置, 请稍后再试');
+    if (!current[`${scene}_enabled`] || !current.site_key) return undefined;
+    return new Promise((resolve, reject) => {
+      const next = {siteKey: current.site_key, resolve, reject};
+      verification.current = next;
+      setWaiting(next);
+    });
+  }, [scene]);
 
   const dialog = (
     <CaptchaDialog
-      siteKey={captcha.site_key}
+      siteKey={waiting?.siteKey ?? ''}
       open={!!waiting}
       onVerified={(token) => {
-        waiting?.resolve(token);
+        if (!waiting || verification.current !== waiting) return;
+        verification.current = null;
+        waiting.resolve(token);
         setWaiting(null);
       }}
       onCancel={() => {
-        waiting?.reject(new CancelledError());
+        if (!waiting || verification.current !== waiting) return;
+        verification.current = null;
+        waiting.reject(new CancelledError());
         setWaiting(null);
       }}
     />

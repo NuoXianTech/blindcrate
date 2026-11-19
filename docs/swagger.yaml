@@ -12288,6 +12288,10 @@ paths:
         name: code
         required: true
         type: string
+      - description: 人机验证令牌, 该场景开启人机验证时必填
+        in: header
+        name: X-Captcha-Token
+        type: string
       produces:
       - application/json
       responses:
@@ -12300,6 +12304,10 @@ paths:
                 data:
                   $ref: '#/definitions/mission.ClaimResult'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reply.Response'
         "401":
           description: Unauthorized
           schema:

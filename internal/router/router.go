@@ -296,7 +296,7 @@ func userRoutes(r *gin.RouterGroup) {
 	missionRouter := r.Group("/missions")
 	{
 		missionRouter.GET("", mission.ListMissions)
-		missionRouter.POST("/:code/claim", ratelimit.ByUser("mission:claim", ratelimit.PerMinute(60)), mission.ClaimMission)
+		missionRouter.POST("/:code/claim", ratelimit.ByUser("mission:claim", ratelimit.PerMinute(60)), captcha.Required(captcha.SceneMission), mission.ClaimMission)
 	}
 
 	// Checkin

@@ -1,4 +1,4 @@
-import {BaseService} from '../core';
+import {BaseService, captchaConfig} from '../core';
 import type {ClaimMissionResult, MissionsData} from './types';
 
 export class MissionService extends BaseService {
@@ -9,8 +9,8 @@ export class MissionService extends BaseService {
     return this.get<MissionsData>('');
   }
 
-  /** 领取当前周期的奖励 */
-  static claim(code: string) {
-    return this.post<ClaimMissionResult>(`/${encodeURIComponent(code)}/claim`);
+  /** 领取当前周期的奖励, 任务领取开启人机验证时必须带上令牌 */
+  static claim(code: string, captcha?: string) {
+    return this.post<ClaimMissionResult>(`/${encodeURIComponent(code)}/claim`, undefined, captchaConfig(captcha));
   }
 }

@@ -56,7 +56,7 @@ type verifyResponse struct {
 // checkScene 场景不存在时 panic, 在注册路由时调用
 func checkScene(scene string) {
 	switch scene {
-	case SceneLogin, SceneRegister, SceneCheckin, SceneShop:
+	case SceneLogin, SceneRegister, SceneCheckin, SceneShop, SceneMission:
 	default:
 		panic(fmt.Sprintf("captcha: unknown scene %q", scene))
 	}
@@ -76,6 +76,8 @@ func enabled(s *settings.CaptchaSettings, scene string) bool {
 		return s.CheckinEnabled
 	case SceneShop:
 		return s.ShopEnabled
+	case SceneMission:
+		return s.MissionEnabled
 	}
 	return false
 }

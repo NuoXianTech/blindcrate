@@ -10718,6 +10718,12 @@ const docTemplate = `{
                         "name": "code",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "人机验证令牌, 该场景开启人机验证时必填",
+                        "name": "X-Captcha-Token",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -10737,6 +10743,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reply.Response"
                         }
                     },
                     "401": {
