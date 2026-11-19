@@ -25,7 +25,7 @@ import {PAGE_SIZE, STATUS_FILTERS, toRequest, type StatusFilter} from './constan
  */
 export function ItemsMain() {
   const {user: me} = useAuth();
-  const {qualities} = useQualities();
+  const {qualities, refresh: refreshQualities} = useQualities();
   const isAdmin = !!me?.is_admin;
   const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -47,6 +47,7 @@ export function ItemsMain() {
 
   useEffect(() => {
     if (!isAdmin) return;
+    void refreshQualities().catch((err) => toast.error(toErrorMessage(err)));
     Promise.all([
       services.walletAdmin.listCurrencies(),
       services.itemAdmin.listItemCategories(),
@@ -58,7 +59,7 @@ export function ItemsMain() {
           setEffects(effectData.effects);
         })
         .catch((err) => toast.error(toErrorMessage(err)));
-  }, [isAdmin]);
+  }, [isAdmin, refreshQualities]);
 
   const load = useCallback(async () => {
     // 确认是管理员后再拉取, 否则 AdminGuard 会跳走

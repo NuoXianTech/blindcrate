@@ -9,6 +9,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {SubmitButton} from '@/components/common/form';
+import {useQualities} from '@/components/common/site';
 import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import type {AdminQuality, QualityRequest} from '@/lib/services/item';
@@ -75,6 +76,7 @@ function QualityForm({quality, nextLevel, onClose, onSaved}: Omit<QualityDialogP
   quality: AdminQuality | null;
 }) {
   const router = useRouter();
+  const {refresh: refreshLiveQualities} = useQualities();
   const {pending, submit} = useSubmit();
   const [level, setLevel] = useState(String(quality?.level ?? nextLevel));
   const [code, setCode] = useState(quality?.code ?? '');
@@ -103,8 +105,8 @@ function QualityForm({quality, nextLevel, onClose, onSaved}: Omit<QualityDialogP
       await services.itemAdmin.createQuality(created);
       toast.success(`已新建 ${body.name}`);
     }
-    // 刷新服务端缓存的品质, 全站的名称和颜色随即更新; 刷新失败不算保存失败, 缓存过一会儿也会自动更新
-    await refreshQualities().catch(() => undefined);
+    // 同时更新浏览器的品质和服务端缓存, 刷新失败不算保存失败。
+    await Promise.allSettled([refreshLiveQualities(), refreshQualities()]);
     router.refresh();
     onSaved();
     onClose();
