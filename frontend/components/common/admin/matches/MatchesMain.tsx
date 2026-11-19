@@ -19,7 +19,7 @@ import type {AdminVenue} from '@/lib/services/venue';
 import type {Currency} from '@/lib/services/wallet';
 import {formatDateTime, parseID} from '@/lib/utils';
 import {CancelMatchDialog} from './CancelMatchDialog';
-import {ALL, PAGE_SIZE, STATUS_LABELS, phaseLabel} from './constants';
+import {ALL, PAGE_SIZE, STATUS_LABELS, phaseLabel, statusOf} from './constants';
 import {MatchDetailDialog} from './MatchDetailDialog';
 
 /** 地图筛选下拉框中最多列出的地图数 */
@@ -237,7 +237,7 @@ function MatchRow({match: m, venueName, onView, onCancel}: {
   onCancel: (match: AdminMatch) => void;
 }) {
   const parsed = parseMode(m.mode);
-  const status = STATUS_LABELS[m.status];
+  const status = statusOf(m);
   const humans = m.players.filter((p) => !p.is_bot);
   const bots = m.players.length - humans.length;
 

@@ -15,6 +15,12 @@ export const STATUS_LABELS: Record<string, { label: string; variant: 'default' |
   [MATCH_STATUS.cancelled]: {label: '已取消', variant: 'outline'},
 };
 
+/** 已释放的对局仅剩结果展示, 玩家可以参加下一局。 */
+export function statusOf(m: Pick<AdminMatch, 'status' | 'released_at'>): { label: string; variant: 'default' | 'secondary' | 'outline' } {
+  if (m.status === MATCH_STATUS.playing && m.released_at) return {label: '已结算 · 展示中', variant: 'secondary'};
+  return STATUS_LABELS[m.status] ?? {label: m.status, variant: 'outline'};
+}
+
 /** 对局所处的阶段, 出价时带上轮次, 如 "出价 第 2 轮"; 已结束或已取消时为结束前的阶段 */
 export function phaseLabel(m: Pick<AdminMatch, 'phase' | 'round'>) {
   const name = PHASES[m.phase] ?? (m.phase || '-');

@@ -76,7 +76,7 @@ const (
 	queueKeyPrefix = "blindcrate:matchmaking:queue:"
 	// queueUsersKey 哈希, 用户 ID -> 正在排队的玩法, 保证同一用户同时只在一个队列中
 	queueUsersKey = "blindcrate:matchmaking:users"
-	// queueOriginsKey 哈希, 用户 ID -> 加入多人队列时的来源(queueOrigin 的 JSON), 组局时用于防串通
+	// queueOriginsKey 哈希, 用户 ID -> 匹配版本和来源(queueOrigin 的 JSON), 组局时用于去重和防串通
 	queueOriginsKey = "blindcrate:matchmaking:origins"
 )
 

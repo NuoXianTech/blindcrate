@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {LoaderCircle, RotateCcw} from 'lucide-react';
@@ -41,6 +41,7 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
 }) {
   const router = useRouter();
   const [joining, setJoining] = useState(false);
+  const joiningRef = useRef(false);
   const [tiers, setTiers] = useState<Tier[] | null>(null);
   const {warehouse, self} = view;
   const sold = lot.outcome === AUCTION_OUTCOME.sold;
@@ -76,12 +77,15 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
   }
 
   const again = async () => {
+    if (joiningRef.current) return;
+    joiningRef.current = true;
     setJoining(true);
     try {
       const status = await services.match.joinMatchmaking(view.mode);
       router.push(status.match_id ? matchHref(status.match_id) : ROUTES.gameHome);
     } catch (err) {
       toast.error(toErrorMessage(err));
+      joiningRef.current = false;
       setJoining(false);
     }
   };
