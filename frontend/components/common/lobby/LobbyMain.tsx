@@ -13,6 +13,8 @@ import {useLockNavigation} from '@/hooks/use-navigation-lock';
 import {useWsConnected, useWsEvent} from '@/hooks/use-ws';
 import {matchHref} from '@/lib/access';
 import {modeCode, parseMode, type ModeKind} from '@/lib/auction';
+import {useCaptchaDialog} from '@/components/common/captcha';
+import {CancelledError} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import {
@@ -158,6 +160,8 @@ function LobbyContent() {
     void loadStatus();
   });
 
+  const captcha = useCaptchaDialog('match');
+
   const join = async (venue: Venue, kind: ModeKind) => {
     // ref 同步拦住同一帧内的人机/排位连点, 成功后先保存状态再跳转。
     if (changing.current || !latestStatus.current || latestStatus.current.queue || latestStatus.current.match_id) return;
@@ -165,7 +169,10 @@ function LobbyContent() {
     const id = ++statusRead.current;
     setJoining({venue: venue.code, kind});
     try {
-      const next = await services.match.joinMatchmaking(modeCode(kind, venue.code));
+      // 排位和人机的人机验证分开开关; 在验证冷却内时不弹出
+      const token = await captcha.verify(kind === 'ranked' ? 'ranked' : 'match');
+      if (id !== statusRead.current) return;
+      const next = await services.match.joinMatchmaking(modeCode(kind, venue.code), token);
       if (id !== statusRead.current) return;
       if (next.match_id) {
         enterMatch(next.match_id);
@@ -173,6 +180,8 @@ function LobbyContent() {
       }
       applyStatus(next);
     } catch (err) {
+      // 关闭了验证弹窗, 还没有发起匹配
+      if (err instanceof CancelledError) return;
       if (id !== statusRead.current) return;
       toast.error(toErrorMessage(err));
       // 请求失败也可能已经入队, 在确认状态之前不允许再次发起匹配。
@@ -272,6 +281,7 @@ function LobbyContent() {
         decimals={viewing ? decimals[viewing.bid_currency] ?? 0 : 0}
         onClose={() => setViewing(null)}
       />
+      {captcha.dialog}
     </div>
   );
 }

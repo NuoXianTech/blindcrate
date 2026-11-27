@@ -29,9 +29,12 @@ import (
 	"encoding/hex"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/auth"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reply"
+	"github.com/NuoXianTech/blindcrate/internal/apps/venue"
+	"github.com/NuoXianTech/blindcrate/internal/captcha"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/gin-gonic/gin"
 )
@@ -63,6 +66,7 @@ func deviceOf(c *gin.Context) string {
 // @Description 凑够一局时立即开局, 此时返回的 match_id 不为 0, 并推送 match:updated; 否则排队等待, 玩法允许人机补位时, 排队人数达到玩法的最少真人数且等到补位时间后用人机补齐; 同一 IP 或同一设备(cookie bc_device, 没有时写入)的账号不排进同一局, 最近一起打过的人优先不排进同一局。已在同一个队列中时不重复加入。不满足玩法的条件(如余额不足)时返回 403; 开局时不满足条件会被移出队列并推送 match:matchmaking_rejected
 // @Accept json
 // @Produce json
+// @Param X-Captcha-Token header string false "人机验证令牌, 匹配或排位开启人机验证且不在验证冷却内时必填, 见 /api/v1/settings/captcha/{scene}"
 // @Param request body JoinMatchmakingRequest true "request body"
 // @Success 200 {object} reply.Response{data=MatchmakingStatus}
 // @Failure 400 {object} reply.Response
@@ -76,6 +80,14 @@ func JoinMatchmaking(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req JoinMatchmakingRequest
 	if !reply.JSON(c, &req) {
+		return
+	}
+	// 匹配和排位的人机验证分开开关, 读了玩法才知道是哪个场景
+	scene := captcha.SceneMatch
+	if strings.HasPrefix(req.Mode, venue.ModeRanked+":") {
+		scene = captcha.SceneRanked
+	}
+	if !captcha.Check(c, scene) {
 		return
 	}
 	user := auth.CurrentUser(c)

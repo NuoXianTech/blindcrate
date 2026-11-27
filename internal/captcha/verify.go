@@ -27,14 +27,19 @@ package captcha
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/NuoXianTech/blindcrate/internal/apps/settings"
+	"github.com/NuoXianTech/blindcrate/internal/db"
+	"github.com/NuoXianTech/blindcrate/internal/logger"
+	"github.com/redis/go-redis/v9"
 )
 
 // client 请求 Cloudflare 用的客户端
@@ -56,7 +61,7 @@ type verifyResponse struct {
 // checkScene 场景不存在时 panic, 在注册路由时调用
 func checkScene(scene string) {
 	switch scene {
-	case SceneLogin, SceneRegister, SceneCheckin, SceneShop, SceneMission:
+	case SceneLogin, SceneRegister, SceneCheckin, SceneShop, SceneMission, SceneMatch, SceneRanked:
 	default:
 		panic(fmt.Sprintf("captcha: unknown scene %q", scene))
 	}
@@ -78,6 +83,10 @@ func enabled(s *settings.CaptchaSettings, scene string) bool {
 		return s.ShopEnabled
 	case SceneMission:
 		return s.MissionEnabled
+	case SceneMatch:
+		return s.MatchEnabled
+	case SceneRanked:
+		return s.RankedEnabled
 	}
 	return false
 }
@@ -148,4 +157,41 @@ func verify(ctx context.Context, secret, token, ip string) (bool, []string, erro
 		}
 	}
 	return result.Success, result.ErrorCodes, nil
+}
+
+// inCooldown 在 passedAt 通过验证后, now 时是否还在 cooldown 秒的冷却内; 冷却为 0 时每次都要验证
+func inCooldown(passedAt, now time.Time, cooldown int) bool {
+	if cooldown <= 0 {
+		return false
+	}
+	elapsed := now.Sub(passedAt)
+	// 时钟回拨时不算在冷却内
+	return elapsed >= 0 && elapsed < time.Duration(cooldown)*time.Second
+}
+
+// passedRecently 用户是否在冷却时间内通过过验证; 保存的是通过的时间, 修改冷却时间后立即按新的值判断
+//
+// 没有登录(userID 为 0)、没有启用 Redis 或读取出错时视为没有通过过, 照常验证。
+func passedRecently(ctx context.Context, userID uint64, cooldown int) bool {
+	if userID == 0 || cooldown <= 0 || db.Redis == nil {
+		return false
+	}
+	millis, err := db.Redis.Get(ctx, passedKeyPrefix+strconv.FormatUint(userID, 10)).Int64()
+	if err != nil {
+		if !errors.Is(err, redis.Nil) {
+			logger.ErrorF(ctx, "[Captcha] query last pass of %d failed: %v", userID, err)
+		}
+		return false
+	}
+	return inCooldown(time.UnixMilli(millis), time.Now(), cooldown)
+}
+
+// markPassed 记下用户刚通过了验证; 写入失败只记录日志, 下次照常验证
+func markPassed(ctx context.Context, userID uint64) {
+	if userID == 0 || db.Redis == nil {
+		return
+	}
+	if err := db.Redis.Set(ctx, passedKeyPrefix+strconv.FormatUint(userID, 10), time.Now().UnixMilli(), passedTTL).Err(); err != nil {
+		logger.ErrorF(ctx, "[Captcha] save last pass of %d failed: %v", userID, err)
+	}
 }

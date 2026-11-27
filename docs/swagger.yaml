@@ -1137,6 +1137,15 @@ definitions:
     - name
     - strategy
     type: object
+  captcha.Status:
+    properties:
+      required:
+        description: 场景已开启且不在验证冷却内
+        type: boolean
+      site_key:
+        description: Turnstile 的站点密钥, 不需要验证时为空
+        type: string
+    type: object
   checkin.CheckinResult:
     properties:
       day:
@@ -12251,6 +12260,10 @@ paths:
         最近一起打过的人优先不排进同一局。已在同一个队列中时不重复加入。不满足玩法的条件(如余额不足)时返回 403; 开局时不满足条件会被移出队列并推送
         match:matchmaking_rejected
       parameters:
+      - description: 人机验证令牌, 匹配或排位开启人机验证且不在验证冷却内时必填, 见 /api/v1/settings/captcha/{scene}
+        in: header
+        name: X-Captcha-Token
+        type: string
       - description: request body
         in: body
         name: request
@@ -12630,6 +12643,43 @@ paths:
       summary: 获取当前赛季
       tags:
       - season
+  /api/v1/settings/captcha/{scene}:
+    get:
+      description: '点击签到、购买、领取任务、匹配等操作前调用: 场景已开启且当前用户不在验证冷却内时 required 为 true, 需要先完成验证并在请求头
+        X-Captcha-Token 中带上令牌。场景为 checkin、shop、mission、match 或 ranked'
+      parameters:
+      - description: 场景
+        in: path
+        name: scene
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/reply.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/captcha.Status'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reply.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reply.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reply.Response'
+      summary: 这次操作要不要人机验证
+      tags:
+      - captcha
   /api/v1/settings/public:
     get:
       description: 如站点名称、是否开放注册, 无需登录; 返回 设置组 -> 字段 -> 值, 只包含公开字段

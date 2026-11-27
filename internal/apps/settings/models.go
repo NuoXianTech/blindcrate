@@ -249,6 +249,10 @@ type CaptchaSettings struct {
 	CheckinEnabled  bool `json:"checkin_enabled" label:"签到" help:"开启后签到时需要通过人机验证" public:"true"`
 	ShopEnabled     bool `json:"shop_enabled" label:"商店购买" help:"开启后在商店购买商品时需要通过人机验证" public:"true"`
 	MissionEnabled  bool `json:"mission_enabled" label:"任务领取" help:"开启后领取每日任务、每周任务和成就奖励时需要通过人机验证" public:"true"`
+	MatchEnabled    bool `json:"match_enabled" label:"匹配" help:"开启后开始人机对局的匹配时需要通过人机验证" public:"true"`
+	RankedEnabled   bool `json:"ranked_enabled" label:"排位" help:"开启后开始排位的匹配时需要通过人机验证" public:"true"`
+
+	Cooldown int `json:"cooldown" label:"验证冷却" help:"登录后通过一次人机验证, 在这么多秒内签到、购买、领取任务、匹配和排位都不用再验证; 0 表示每次都要验证, 最长 86400 秒; 登录和注册不受影响" binding:"min=0,max=86400" unit:"second"`
 }
 
 // MailSettings 邮件(SMTP)配置

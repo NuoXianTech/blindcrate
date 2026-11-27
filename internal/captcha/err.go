@@ -27,4 +27,5 @@ package captcha
 const (
 	TokenRequired = "请先完成人机验证"
 	VerifyFailed  = "人机验证没有通过, 请重试"
+	SceneInvalid  = "人机验证的场景不存在"
 )

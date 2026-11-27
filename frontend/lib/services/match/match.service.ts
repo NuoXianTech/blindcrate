@@ -1,4 +1,4 @@
-import {BaseService} from '../core';
+import {BaseService, captchaConfig} from '../core';
 import type {ListMatchesData, ListMatchesParams, MatchView, MatchmakingStatus} from './types';
 
 export class MatchService extends BaseService {
@@ -9,9 +9,9 @@ export class MatchService extends BaseService {
     return this.get<MatchmakingStatus>('/matchmaking');
   }
 
-  /** 加入玩法的匹配队列, 凑够一局时立即开局, 此时 match_id 不为 0 */
-  static joinMatchmaking(mode: string) {
-    return this.post<MatchmakingStatus>('/matchmaking', {mode});
+  /** 加入玩法的匹配队列, 凑够一局时立即开局, 此时 match_id 不为 0; 匹配或排位需要人机验证时必须带上令牌 */
+  static joinMatchmaking(mode: string, captcha?: string) {
+    return this.post<MatchmakingStatus>('/matchmaking', {mode}, captchaConfig(captcha));
   }
 
   /** 离开匹配队列, 已开局时无法离开 */
