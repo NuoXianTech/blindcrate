@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 // eslint-disable-next-line camelcase
 import {Inter, JetBrains_Mono, Noto_Sans_SC} from 'next/font/google';
 import {AuthProvider} from '@/components/common/auth';
+import {GameSettingsDialog} from '@/components/common/player-settings/GameSettingsDialog';
 import {PlayerSettingsProvider} from '@/components/common/player-settings/PlayerSettingsProvider';
 import {SiteProvider} from '@/components/common/site';
 import {ThemeProvider} from '@/components/common/layout';
@@ -55,7 +56,7 @@ export default async function RootLayout({children}: LayoutProps<'/'>) {
       <body className="flex min-h-full flex-col">
         <ThemeProvider>
           <SiteProvider settings={settings} qualities={qualities}>
-            <AuthProvider><PlayerSettingsProvider>{children}</PlayerSettingsProvider></AuthProvider>
+            <AuthProvider><PlayerSettingsProvider>{children}<GameSettingsDialog /></PlayerSettingsProvider></AuthProvider>
           </SiteProvider>
           <Toaster />
         </ThemeProvider>

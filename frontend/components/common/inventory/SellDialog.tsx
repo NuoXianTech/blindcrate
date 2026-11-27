@@ -1,7 +1,6 @@
 'use client';
 
 import {useCallback, useEffect, useRef, useState} from 'react';
-import Link from 'next/link';
 import {X} from 'lucide-react';
 import {nanoid} from 'nanoid';
 import {toast} from 'sonner';
@@ -17,7 +16,6 @@ import {check, useSubmit} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import {ApiError, toErrorMessage} from '@/lib/services/core';
 import type {PlayerSettings} from '@/lib/services/player-settings';
-import {ROUTES} from '@/lib/access';
 import type {SellOrder} from '@/lib/services/inventory';
 import type {BalanceItem} from '@/lib/services/wallet';
 import {formatAmount, parseAmount} from '@/lib/utils';
@@ -74,7 +72,7 @@ function quantityOf(line: DraftLine, keepOne: boolean): number | null {
  */
 function SellForm({initial, currencies, onClose, onSold}: Omit<SellDialogProps, 'lines'> & { initial: SellLine[] }) {
   const {qualityOf} = useQualities();
-  const {settings, refresh: refreshSettings} = usePlayerSettings();
+  const {settings, refresh: refreshSettings, openDialog: openSettings} = usePlayerSettings();
   const [snapshot, setSnapshot] = useState<PlayerSettings | null>(null);
   const [feeRate, setFeeRate] = useState(0);
   const [reading, setReading] = useState(true);
@@ -185,7 +183,19 @@ function SellForm({initial, currencies, onClose, onSold}: Omit<SellDialogProps, 
         {(readError || changed) && <p role="alert" className="text-destructive">{readError || '游戏设置已变化, 请重新读取并确认出售数量。'}</p>}
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" disabled={reading || pending} onClick={() => void readCurrent()}>重新读取</Button>
-          <Link href={ROUTES.gameSettings} className="text-muted-foreground underline underline-offset-4" onClick={onClose}>调整游戏设置</Link>
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="px-0 text-muted-foreground"
+            onClick={() => {
+              // 先关闭出售框再打开设置, 改完设置后重新发起出售
+              onClose();
+              openSettings();
+            }}
+          >
+            调整游戏设置
+          </Button>
         </div>
       </div>
       <ul className="flex flex-col divide-y rounded-lg border">
