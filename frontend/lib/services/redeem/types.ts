@@ -6,14 +6,14 @@ import type {PageParams} from '../core';
 export interface RedeemResult {
   /** 批次的名称 */
   name: string;
-  /** 实际得到的货币和物品, 已下架的物品按回收价折成了货币 */
-  received: RewardLine[];
+  /** 邮件附件中的货币和物品, 在信箱中领取后才发放 */
+  reward: RewardLine[];
 }
 
 /** 兑换码批次, 一次生成的兑换码共用这些设置, 对应后端 redeem.Batch */
 export interface RedeemBatch {
   id: number;
-  /** 兑换成功后展示给玩家, 也是流水的备注 */
+  /** 兑换成功后展示给玩家, 也是奖励邮件的标题 */
   name: string;
   /** 兑换一次得到的奖励 */
   reward: Bundle;
@@ -88,7 +88,7 @@ export interface RedeemRecord {
   batch_id: number;
   code_id: number;
   user_id: number;
-  /** 实际发放的奖励, 已下架的物品按回收价折成了货币 */
+  /** 兑换时批次的奖励, 以邮件附件发给了用户 */
   reward: Bundle;
   created_at: string;
   /** 用户已不存在时为空 */

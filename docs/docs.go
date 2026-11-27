@@ -11085,7 +11085,7 @@ const docTemplate = `{
         },
         "/api/v1/redeem": {
             "post": {
-                "description": "兑换成功后奖励直接发放, 已下架的物品按回收价折成货币。兑换码不存在或所在的批次已停用时返回 404; 已过期、已被兑换完或自己已兑换过时返回 409; 不满足使用条件、达到每人可兑换的个数或奖励暂时无法发放时返回 403",
+                "description": "兑换成功后奖励以邮件发放, 在信箱中领取附件。兑换码不存在或所在的批次已停用时返回 404; 已过期、已被兑换完或自己已兑换过时返回 409; 不满足使用条件或达到每人可兑换的个数时返回 403",
                 "consumes": [
                     "application/json"
                 ],
@@ -17164,7 +17164,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
-                    "description": "兑换成功后展示给玩家, 也是流水的备注",
+                    "description": "兑换成功后展示给玩家, 也是奖励邮件的标题",
                     "type": "string"
                 },
                 "requirements": {
@@ -17230,8 +17230,8 @@ const docTemplate = `{
                     "description": "批次的名称",
                     "type": "string"
                 },
-                "received": {
-                    "description": "实际得到的货币和物品, 已下架的物品按回收价折成了货币",
+                "reward": {
+                    "description": "邮件附件中的货币和物品, 在信箱中领取后才发放",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/reward.Line"
@@ -17272,7 +17272,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
-                    "description": "兑换成功后展示给玩家, 也是流水的备注",
+                    "description": "兑换成功后展示给玩家, 也是奖励邮件的标题",
                     "type": "string"
                 },
                 "redeemed": {
@@ -17322,7 +17322,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
-                    "description": "兑换成功后展示给玩家, 也是流水的备注",
+                    "description": "兑换成功后展示给玩家, 也是奖励邮件的标题",
                     "type": "string",
                     "maxLength": 64
                 },
@@ -17381,7 +17381,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
-                    "description": "兑换成功后展示给玩家, 也是流水的备注",
+                    "description": "兑换成功后展示给玩家, 也是奖励邮件的标题",
                     "type": "string",
                     "maxLength": 64
                 },
@@ -17468,7 +17468,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "reward": {
-                    "description": "实际发放的奖励, 已下架的物品按回收价折成了货币",
+                    "description": "兑换时批次的奖励, 以邮件附件发给了用户",
                     "allOf": [
                         {
                             "$ref": "#/definitions/reward.Bundle"

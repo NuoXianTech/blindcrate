@@ -203,7 +203,7 @@ function BatchForm({target, options, onClose, onSaved}: Omit<BatchDialogProps, '
                 <FormControl>
                   <Input maxLength={MAX_NAME} placeholder="如 开服礼包" disabled={pending} {...field} />
                 </FormControl>
-                <FormDescription className="text-xs">兑换成功后展示给玩家, 也是钱包和背包流水的备注</FormDescription>
+                <FormDescription className="text-xs">兑换成功后展示给玩家, 也是奖励邮件的标题</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -337,7 +337,7 @@ function BatchForm({target, options, onClose, onSaved}: Omit<BatchDialogProps, '
           </div>
         </FieldGroup>
 
-        <FieldGroup title="奖励" help={`兑换一次得到的货币和物品, 不能为空; 已下架的物品按回收价折成货币发放; 最多 ${MAX_REWARD_LINES} 项`}>
+        <FieldGroup title="奖励" help={`兑换后以邮件发放的货币和物品, 不能为空; 领取邮件时已下架的物品按回收价折成货币; 最多 ${MAX_REWARD_LINES} 项`}>
           <FormField
             control={form.control}
             name="reward"

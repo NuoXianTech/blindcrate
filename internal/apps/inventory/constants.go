@@ -36,8 +36,6 @@ const (
 	BizItemUse       = "item_use"        // 使用带效果的物品, biz_id 由场景决定, 对局中为对局 ID
 	BizItemUseRefund = "item_use_refund" // 退还用掉的物品, 如对局被取消, biz_id 同 BizItemUse
 
-	BizSeasonReward = "season_reward" // 赛季结束后按最高段位分发放的奖励, biz_id 为赛季代码
-
 	BizShopBuy    = "shop_buy"    // 商城购买时扣除的价格, biz_id 为订单 ID
 	BizShopGrant  = "shop_grant"  // 商城购买得到的商品, biz_id 为订单 ID
 	BizShopRefund = "shop_refund" // 管理员退款: 退还价格并收回商品, biz_id 为订单 ID

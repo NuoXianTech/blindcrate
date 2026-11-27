@@ -27,11 +27,14 @@
 //   - 批次: 一次生成的兑换码为一个批次, 共用名称、奖励、使用条件、可使用次数和到期时间, 见 Batch
 //   - 兑换码: 随机生成或由管理员指定; 保存和兑换时都先规范化, 不区分大小写, 忽略空白和连字符, 见 Normalize
 //   - 次数: 每个兑换码可以被 MaxUses 个用户各兑换一次, 1 为单次使用, 0 表示不限; 同一用户在一个批次中最多兑换 UserLimit 个
-//   - 兑换: 检查到期时间、次数和使用条件后发放奖励并写兑换记录, 见 Redeem
+//   - 兑换: 检查到期时间、次数和使用条件后写兑换记录, 奖励以邮件发放, 玩家在信箱中领取附件, 见 Redeem
 package redeem
 
-// BizRedeem 兑换码的流水业务类型, biz_id 为兑换记录 ID
-const BizRedeem = "redeem_code"
+// SourceRedeem 邮件来源: 兑换码的奖励, 来源单号为兑换记录 ID
+const SourceRedeem = "redeem"
+
+// mailContent 奖励邮件的正文, 标题为批次的名称
+const mailContent = "兑换成功, 请领取附件中的奖励。"
 
 // 操作日志
 const (

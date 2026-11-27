@@ -44,8 +44,6 @@ const (
 
 	BizItemUseRefund = "item_use_refund" // 退还用掉的物品时, 已下架或已删除的物品按回收价折成货币, biz_id 由场景决定
 
-	BizSeasonReward = "season_reward" // 赛季结束后按最高段位分发放的奖励, 已下架的物品按回收价折成货币, biz_id 为赛季代码
-
 	BizShopBuy    = "shop_buy"    // 商城购买时扣除的价格, biz_id 为订单 ID
 	BizShopGrant  = "shop_grant"  // 商城购买得到的商品, biz_id 为订单 ID
 	BizShopRefund = "shop_refund" // 管理员退款: 退还价格并收回商品, biz_id 为订单 ID

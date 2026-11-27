@@ -115,8 +115,7 @@ function ShopContent() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">商城</h1>
-        {/* 兑换到的货币和物品会影响商品的购买条件, 兑换后刷新商品 */}
-        <RedeemButton onRedeemed={() => void load()} />
+        <RedeemButton />
       </div>
       <Tabs value={active} onValueChange={setTab}>
         <TabsList className="h-auto flex-wrap">

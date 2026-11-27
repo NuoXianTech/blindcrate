@@ -200,7 +200,7 @@ function SeasonForm({season, options, onClose, onSaved}: Omit<SeasonDialogProps,
       <div className="flex flex-col gap-2">
         <Label>赛季奖励</Label>
         <span className="text-xs text-muted-foreground">
-          赛季结束后按本赛季的最高段位分发放满足条件的最高一档, 只发给打过排位的人, 停用和封禁中的账号不发; 已下架的物品按回收价折成货币; 最多 {MAX_REWARDS} 档, 赛季结束后不能修改
+          赛季结束后按本赛季的最高段位分以邮件发放满足条件的最高一档, 只发给打过排位的人, 停用和封禁中的账号不发; 领取邮件时已下架的物品按回收价折成货币; 最多 {MAX_REWARDS} 档, 赛季结束后不能修改
         </span>
         <RewardsEditor
           drafts={rewards}
