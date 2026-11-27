@@ -192,3 +192,41 @@ func TestBreaker(t *testing.T) {
 		t.Error("still paused after a successful probe")
 	}
 }
+
+func TestMatchScenes(t *testing.T) {
+	// 匹配和排位各有开关, 互不影响
+	s := &settings.CaptchaSettings{SiteKey: "site", SecretKey: "secret", RankedEnabled: true}
+	if enabled(s, SceneMatch) || !enabled(s, SceneRanked) {
+		t.Errorf("ranked only: match %t, ranked %t", enabled(s, SceneMatch), enabled(s, SceneRanked))
+	}
+	s = &settings.CaptchaSettings{SiteKey: "site", SecretKey: "secret", MatchEnabled: true}
+	if !enabled(s, SceneMatch) || enabled(s, SceneRanked) {
+		t.Errorf("match only: match %t, ranked %t", enabled(s, SceneMatch), enabled(s, SceneRanked))
+	}
+	Required(SceneMatch)
+	Required(SceneRanked)
+}
+
+func TestInCooldown(t *testing.T) {
+	now := time.Now()
+	for _, c := range []struct {
+		name     string
+		ago      time.Duration
+		cooldown int
+		want     bool
+	}{
+		{"off", time.Second, 0, false},
+		{"inside", 59 * time.Second, 60, true},
+		{"at the end", 60 * time.Second, 60, false},
+		{"after", 2 * time.Minute, 60, false},
+		{"clock went back", -time.Second, 60, false},
+	} {
+		if got := inCooldown(now.Add(-c.ago), now, c.cooldown); got != c.want {
+			t.Errorf("%s: got %t, want %t", c.name, got, c.want)
+		}
+	}
+	// 没有登录的请求不计冷却
+	if passedRecently(context.Background(), 0, 60) {
+		t.Error("anonymous request should not be in cooldown")
+	}
+}

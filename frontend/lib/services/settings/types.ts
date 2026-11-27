@@ -61,3 +61,11 @@ export interface UpdateSettingRequest {
   /** 需要清空的密钥字段 */
   clear_secrets?: string[];
 }
+
+/** 当前用户在一个场景中这次要不要人机验证 */
+export interface CaptchaStatus {
+  /** 场景已开启且不在验证冷却内 */
+  required: boolean;
+  /** Turnstile 的站点密钥, 不需要验证时为空 */
+  site_key: string;
+}

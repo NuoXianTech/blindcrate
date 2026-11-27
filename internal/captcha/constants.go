@@ -27,7 +27,9 @@
 // 站点密钥、私钥和各场景的开关在系统设置的人机验证中配置, 见 settings.CaptchaSettings, 修改后立即生效。
 //
 // 使用: 在路由上加 Required 中间件, 场景开启时请求需要在 TokenHeader 请求头中带上前端组件拿到的令牌, 令牌只能使用一次;
-// 没有令牌时返回 400, 验证没有通过时返回 403。
+// 没有令牌时返回 400, 验证没有通过时返回 403。场景要读了请求体才知道时, 在处理函数中调用 Check。
+//
+// 冷却: 登录后的用户通过一次验证, 在设置的冷却时间内各场景都不用再验证, 见 passedRecently; 前端在操作前用 GetStatus 询问这次要不要验证。
 //
 // 没有填写站点密钥或私钥时视为关闭; 读取设置出错、连不上 Cloudflare 或私钥填错时放行并记录日志: 人机验证只用于防刷, 不影响正常业务, 也避免管理员无法登录后台改回来。
 //
@@ -44,6 +46,8 @@ const (
 	SceneCheckin  = "checkin"  // 签到
 	SceneShop     = "shop"     // 商店购买
 	SceneMission  = "mission"  // 任务领取
+	SceneMatch    = "match"    // 开始人机对局的匹配
+	SceneRanked   = "ranked"   // 开始排位的匹配
 )
 
 // TokenHeader 带令牌的请求头
@@ -58,6 +62,10 @@ const (
 	breakerThreshold = 3
 	// breakerCooldown 熔断的时长
 	breakerCooldown = 30 * time.Second
+	// passedKeyPrefix 用户最近一次通过验证的时间(毫秒时间戳)在 Redis 中的 key 前缀, 后面是用户 ID
+	passedKeyPrefix = "captcha:passed:"
+	// passedTTL 通过时间保留多久, 与设置中验证冷却的上限一致
+	passedTTL = 24 * time.Hour
 )
 
 // verifyURL Turnstile 的验证接口, 测试时替换

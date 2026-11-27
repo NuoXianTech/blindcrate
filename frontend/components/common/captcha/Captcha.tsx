@@ -6,7 +6,7 @@ import {useSite} from '@/components/common/site';
 import {check} from '@/hooks/use-submit';
 
 /** 需要人机验证的场景, 与后端 captcha 的场景一致, 每个场景在系统设置中单独开关 */
-export type CaptchaScene = 'login' | 'register' | 'checkin' | 'shop' | 'mission';
+export type CaptchaScene = 'login' | 'register' | 'checkin' | 'shop' | 'mission' | 'match' | 'ranked';
 
 /** Cloudflare Turnstile 的脚本, 由组件自己调用 render; 脚本和验证用的 iframe 都由浏览器直接从 Cloudflare 加载, 不经过后端 */
 const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';

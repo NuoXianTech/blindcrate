@@ -10572,6 +10572,12 @@ const docTemplate = `{
                 "summary": "加入匹配队列",
                 "parameters": [
                     {
+                        "type": "string",
+                        "description": "人机验证令牌, 匹配或排位开启人机验证且不在验证冷却内时必填, 见 /api/v1/settings/captcha/{scene}",
+                        "name": "X-Captcha-Token",
+                        "in": "header"
+                    },
+                    {
                         "description": "request body",
                         "name": "request",
                         "in": "body",
@@ -11208,6 +11214,65 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/reply.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reply.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/settings/captcha/{scene}": {
+            "get": {
+                "description": "点击签到、购买、领取任务、匹配等操作前调用: 场景已开启且当前用户不在验证冷却内时 required 为 true, 需要先完成验证并在请求头 X-Captcha-Token 中带上令牌。场景为 checkin、shop、mission、match 或 ranked",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "captcha"
+                ],
+                "summary": "这次操作要不要人机验证",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "场景",
+                        "name": "scene",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/reply.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/captcha.Status"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reply.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/reply.Response"
                         }
@@ -13646,6 +13711,19 @@ const docTemplate = `{
                     "description": "决策策略的代码, 见 GET /admin/bot/strategies",
                     "type": "string",
                     "maxLength": 32
+                }
+            }
+        },
+        "captcha.Status": {
+            "type": "object",
+            "properties": {
+                "required": {
+                    "description": "场景已开启且不在验证冷却内",
+                    "type": "boolean"
+                },
+                "site_key": {
+                    "description": "Turnstile 的站点密钥, 不需要验证时为空",
+                    "type": "string"
                 }
             }
         },

@@ -14,6 +14,8 @@ import type {Scan} from '@/hooks/use-scan';
 import {ROUTES, matchHref} from '@/lib/access';
 import {OUTCOMES, parseMode} from '@/lib/auction';
 import {tierOf} from '@/lib/ranked';
+import {useCaptchaDialog} from '@/components/common/captcha';
+import {CancelledError} from '@/hooks/use-submit';
 import services from '@/lib/services';
 import {AUCTION_OUTCOME, type AuctionView, type LotView} from '@/lib/services/auction';
 import {toErrorMessage} from '@/lib/services/core';
@@ -76,15 +78,19 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
     title = refunded ? '对局已取消, 入场代价已退还' : '对局已取消, 已成交的拍品不受影响';
   }
 
+  const captcha = useCaptchaDialog('match');
+
   const again = async () => {
     if (joiningRef.current) return;
     joiningRef.current = true;
     setJoining(true);
     try {
-      const status = await services.match.joinMatchmaking(view.mode);
+      const token = await captcha.verify(parseMode(view.mode)?.kind === 'ranked' ? 'ranked' : 'match');
+      const status = await services.match.joinMatchmaking(view.mode, token);
       router.push(status.match_id ? matchHref(status.match_id) : ROUTES.gameHome);
     } catch (err) {
-      toast.error(toErrorMessage(err));
+      // 关闭了验证弹窗时不提示
+      if (!(err instanceof CancelledError)) toast.error(toErrorMessage(err));
       joiningRef.current = false;
       setJoining(false);
     }
@@ -228,6 +234,7 @@ export function ResultPanel({view, lot, players, decimals, scan, finished, relea
       ) : (
         <span className="text-center text-xs text-muted-foreground">开箱中, 稍后可以再来一局</span>
       )}
+      {captcha.dialog}
     </div>
   );
 }

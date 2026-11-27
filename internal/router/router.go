@@ -190,6 +190,7 @@ func publicRoutes(r *gin.RouterGroup) {
 
 // userRoutes 需要登录的接口, 登录校验已在外层加上
 func userRoutes(r *gin.RouterGroup) {
+	r.GET("/settings/captcha/:scene", captcha.GetStatus)
 	r.GET("/player-settings", playersettings.GetSettings)
 	r.PATCH("/player-settings", ratelimit.ByUser("player_settings:update", ratelimit.PerMinute(60)), playersettings.UpdateSettings)
 	// Auth

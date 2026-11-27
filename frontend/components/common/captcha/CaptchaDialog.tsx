@@ -5,7 +5,6 @@ import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} fro
 import {useSite} from '@/components/common/site';
 import {CancelledError} from '@/hooks/use-submit';
 import services from '@/lib/services';
-import {ApiError} from '@/lib/services/core';
 import {Captcha, loadTurnstile, type CaptchaScene} from './Captcha';
 
 /**
@@ -57,8 +56,11 @@ interface Verification {
  * 每次操作先读取最新配置; 场景没有开启时不弹窗, verify 返回 undefined
  */
 export function useCaptchaDialog(scene: CaptchaScene): {
-  /** 读取最新配置后弹出验证并等待令牌; 取消时中断提交且不提示, 需要在 useSubmit 的 submit 中调用 */
-  verify: () => Promise<string | undefined>;
+  /**
+   * 询问后端这次要不要验证, 需要时弹出验证并等待令牌; 场景没有开启或还在验证冷却内时不弹出, 返回 undefined
+   * 取消时抛出 CancelledError, 在 useSubmit 的 submit 中调用时中断提交且不提示; 场景要到点击时才知道的可以传入 target
+   */
+  verify: (target?: CaptchaScene) => Promise<string | undefined>;
   dialog: ReactNode;
 } {
   const {captcha} = useSite();
@@ -69,7 +71,7 @@ export function useCaptchaDialog(scene: CaptchaScene): {
   const verification = useRef<Verification | null>(null);
   const requestId = useRef(0);
 
-  // 缓存中的开关仅用于预加载, 是否验证在点击时重新读取。
+  // 缓存中的开关仅用于预加载, 是否验证在点击时询问后端。
   useEffect(() => {
     if (!enabled) return;
     void loadTurnstile().catch(() => {
@@ -85,22 +87,20 @@ export function useCaptchaDialog(scene: CaptchaScene): {
     setWaiting(null);
   }, []);
 
-  const verify = useCallback(async (): Promise<string | undefined> => {
+  const verify = useCallback(async (target: CaptchaScene = scene): Promise<string | undefined> => {
     const id = ++requestId.current;
     verification.current?.reject(new CancelledError());
     verification.current = null;
     setWaiting(null);
-    let latest;
+    let current;
     try {
-      latest = await services.settings.getPublic();
+      current = await services.settings.captchaStatus(target);
     } catch (err) {
       if (id !== requestId.current) throw new CancelledError();
       throw err;
     }
     if (id !== requestId.current) throw new CancelledError();
-    const current = latest.captcha;
-    if (!current) throw new ApiError('无法读取人机验证配置, 请稍后再试');
-    if (!current[`${scene}_enabled`] || !current.site_key) return undefined;
+    if (!current.required || !current.site_key) return undefined;
     return new Promise((resolve, reject) => {
       const next = {siteKey: current.site_key, resolve, reject};
       verification.current = next;
