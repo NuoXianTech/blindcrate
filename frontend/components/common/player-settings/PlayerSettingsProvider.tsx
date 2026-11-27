@@ -13,6 +13,10 @@ interface Value {
   saving: boolean;
   refresh: () => Promise<PlayerSettings>;
   save: (keepOne: boolean) => Promise<void>;
+  /** 游戏设置弹窗是否打开, 弹窗见 GameSettingsDialog */
+  dialogOpen: boolean;
+  openDialog: () => void;
+  closeDialog: () => void;
 }
 
 const Context = createContext<Value | null>(null);
@@ -27,6 +31,7 @@ function Session({userID, children}: {userID?: number; children: React.ReactNode
   const [settings, setSettings] = useState<PlayerSettings | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const latest = useRef<PlayerSettings | null>(null);
   const alive = useRef(true);
   const savingRef = useRef(false);
@@ -97,7 +102,13 @@ function Session({userID, children}: {userID?: number; children: React.ReactNode
     return () => document.removeEventListener('visibilitychange', visible);
   }, [userID, refresh]);
 
-  const value = useMemo(() => ({settings, error, saving, refresh, save}), [settings, error, saving, refresh, save]);
+  const openDialog = useCallback(() => setDialogOpen(true), []);
+  const closeDialog = useCallback(() => setDialogOpen(false), []);
+
+  const value = useMemo(
+      () => ({settings, error, saving, refresh, save, dialogOpen, openDialog, closeDialog}),
+      [settings, error, saving, refresh, save, dialogOpen, openDialog, closeDialog],
+  );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 

@@ -10,6 +10,7 @@ import {useAuth} from '@/components/common/auth';
 import {ProfileDialog, UserAvatar} from '@/components/common/user';
 import {useMailCounts, useMailCountsSync} from '@/hooks/use-mail-counts';
 import {useNavigationLocked} from '@/hooks/use-navigation-lock';
+import {usePlayerSettings} from '@/components/common/player-settings/PlayerSettingsProvider';
 import {ROUTES} from '@/lib/access';
 import {ADMIN_NAV, PLAYER_NAV, isActive, type NavBadge} from '@/lib/nav';
 import {THEMES} from '@/lib/themes';
@@ -19,6 +20,7 @@ export function ManagementBar() {
   const pathname = usePathname();
   const {theme, setTheme} = useTheme();
   const {user, logout} = useAuth();
+  const {openDialog: openSettings} = usePlayerSettings();
   const locked = useNavigationLocked();
   const [profileOpen, setProfileOpen] = useState(false);
   useMailCountsSync(user?.id);
@@ -68,7 +70,7 @@ export function ManagementBar() {
   if (THEMES.length > 1) personal.push({title: '切换主题', icon: <Palette />, onClick: cycleTheme});
   if (user) {
     personal.push(
-        {title: '游戏设置', icon: <Settings />, href: ROUTES.gameSettings, active: pathname === ROUTES.gameSettings, disabled: blocked(ROUTES.gameSettings)},
+        {title: '游戏设置', icon: <Settings />, onClick: openSettings},
         {
           title: user.nickname,
           icon: <UserAvatar user={user} className="text-sm" />,

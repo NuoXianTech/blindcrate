@@ -1,7 +1,6 @@
 'use client';
 
 import {useCallback, useEffect, useState} from 'react';
-import Link from 'next/link';
 import {Backpack, HandCoins, ListChecks} from 'lucide-react';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
@@ -11,7 +10,6 @@ import {Pagination} from '@/components/common/layout';
 import {CurrencyIcon} from '@/components/common/wallet';
 import {useQualities} from '@/components/common/site';
 import {usePlayerSettings} from '@/components/common/player-settings/PlayerSettingsProvider';
-import {ROUTES} from '@/lib/access';
 import services from '@/lib/services';
 import {toErrorMessage} from '@/lib/services/core';
 import type {UserItem} from '@/lib/services/inventory';
@@ -33,7 +31,7 @@ export function ItemGrid({currencies, onViewRecords}: {
 }) {
   const {user} = useAuth();
   const {qualities} = useQualities();
-  const {settings, error: settingsError, refresh: refreshSettings} = usePlayerSettings();
+  const {settings, error: settingsError, refresh: refreshSettings, openDialog: openSettings} = usePlayerSettings();
   const keepOne = settings?.keep_one_collectible ?? false;
   const settingsReady = !!settings && !settingsError;
   const [quality, setQuality] = useState<number | undefined>();
@@ -124,7 +122,7 @@ export function ItemGrid({currencies, onViewRecords}: {
         </span>
         <div className="flex gap-2">
           {settingsError && <Button variant="outline" size="sm" onClick={() => void refreshSettings().catch(() => undefined)}>重试</Button>}
-          <Button variant="ghost" size="sm" asChild><Link href={ROUTES.gameSettings}>游戏设置</Link></Button>
+          <Button variant="ghost" size="sm" onClick={openSettings}>游戏设置</Button>
         </div>
       </div>
       <div className="flex items-center gap-2">
