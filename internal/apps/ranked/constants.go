@@ -28,7 +28,7 @@
 //   - 初始分: 第一次在赛季中结算排位时创建, 有上一个赛季的段位分时按赛季的继承比例向基础分靠拢, 见 initialRating
 //   - 加减: 成交的排位局按名次加减, 人机占名次但不计分, 流拍不计分; 扣到 0 为止, 见 Settle
 //   - 条件: 注册条件类型 min_rating、max_rating 和 no_afk_ban, 地图可以按段位分限制入场, 也可以把挂机禁赛的人挡在其他地方
-//   - 赛季奖励: 赛季结束后按赛季中的最高段位分发放, 见 HandleSeasonSettle
+//   - 赛季奖励: 赛季结束后按赛季中的最高段位分以邮件发放, 玩家在信箱中领取, 见 HandleSeasonSettle
 //   - 挂机: 一局中所有轮次都没有提交出价记为一次挂机, 写入统计指标 afk; 24 小时内次数达到设置时禁止排位, 见 RecordAfk、AfkBanReason
 package ranked
 
@@ -46,6 +46,12 @@ const MetricAfk = "afk"
 
 // 发放赛季奖励
 const (
+	// SourceSeason 邮件来源: 赛季奖励, 来源单号为赛季代码
+	SourceSeason = "season"
+	// seasonMailTitle 赛季奖励邮件的标题
+	seasonMailTitle = "赛季奖励"
+	// seasonMailContent 赛季奖励邮件的正文, 参数为赛季名称、最高段位分和达到的分数线
+	seasonMailContent = "%s 已结束。你在本赛季的最高段位分为 %d, 达到 %d 分档的赛季奖励, 请领取附件。"
 	// settleDelay 赛季结束多久之后发放, 等结束前开始结算的对局写完段位分
 	settleDelay = time.Minute
 	// settleBatch 每批发放的人数

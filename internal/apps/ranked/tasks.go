@@ -29,10 +29,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/NuoXianTech/blindcrate/internal/apps/inventory"
-	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
+	"github.com/NuoXianTech/blindcrate/internal/apps/mailbox"
 	"github.com/NuoXianTech/blindcrate/internal/apps/season"
-	"github.com/NuoXianTech/blindcrate/internal/apps/wallet"
 	"github.com/NuoXianTech/blindcrate/internal/config"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"github.com/NuoXianTech/blindcrate/internal/logger"
@@ -43,13 +41,14 @@ import (
 
 func init() {
 	// 发放赛季奖励, 可以重复执行, 失败时重试几次; 未配置时不发放
+	mailbox.RegisterSource(SourceSeason, "赛季奖励")
 	task.Register(task.Job{Type: task.TypeSeasonSettle, Handler: HandleSeasonSettle, Cron: config.Config.Schedule.SeasonSettle, Periodic: true, Queue: task.QueueLow, MaxRetry: 3})
 }
 
 // HandleSeasonSettle 给已结束的赛季发放赛季奖励, 发完后写入 settled_at
 //
-// 赛季结束 settleDelay 之后才发放; 本赛季打过排位的人按最高段位分领取满足条件的最高一档, 停用和封禁中的账号不发。
-// 每人一个事务, 中途失败时重试会跳过已发放的人, 可以重复执行。
+// 赛季结束 settleDelay 之后才发放; 本赛季打过排位的人按最高段位分得到满足条件的最高一档, 停用和封禁中的账号不发。
+// 奖励以邮件发放, 玩家在信箱中领取附件; 同一个赛季对同一用户只写一封, 中途失败时重试不会重复, 可以重复执行。
 func HandleSeasonSettle(ctx context.Context, _ *asynq.Task) error {
 	var seasons []season.Season
 	if err := db.DB(ctx).
@@ -67,7 +66,7 @@ func HandleSeasonSettle(ctx context.Context, _ *asynq.Task) error {
 
 // settleSeason 按用户 ID 分批给一个赛季的玩家发放奖励, 发完后标记为已结算
 func settleSeason(ctx context.Context, s *season.Season) error {
-	granted := 0
+	var granted int64
 	if len(s.Rewards) > 0 {
 		var lastUserID uint64
 		for {
@@ -81,11 +80,12 @@ func settleSeason(ctx context.Context, s *season.Season) error {
 			if len(ratings) == 0 {
 				break
 			}
-			n, err := grantSeasonRewards(ctx, s, ratings)
+			sent, err := mailSeasonRewards(ctx, s, ratings)
 			if err != nil {
 				return err
 			}
-			granted += n
+			sent.Push(ctx)
+			granted += sent.Count
 			lastUserID = ratings[len(ratings)-1].UserID
 		}
 	}
@@ -98,77 +98,39 @@ func settleSeason(ctx context.Context, s *season.Season) error {
 		return result.Error
 	}
 	if result.RowsAffected > 0 {
-		logger.InfoF(ctx, "[Ranked] settled season %s, granted rewards to %d users", s.Code, granted)
+		logger.InfoF(ctx, "[Ranked] settled season %s, mailed rewards to %d users", s.Code, granted)
 	}
 	return nil
 }
 
-// grantSeasonRewards 给一批玩家发放赛季奖励, 返回本次发放的人数
+// mailSeasonRewards 给一批玩家发送赛季奖励邮件, 一批一个事务
 //
-// 已有赛季奖励流水的人视为已发放, 不再发放: 重试时已下架的物品会折成货币, 内容变了, 幂等键拦不住。
-// 某一档的奖励发不出(货币已停用, 或全是已下架且没有回收价的物品)时返回错误, 不跳过这个人。
-func grantSeasonRewards(ctx context.Context, s *season.Season, ratings []Rating) (int, error) {
-	userIDs := make([]uint64, len(ratings))
-	for i, r := range ratings {
-		userIDs[i] = r.UserID
-	}
-	done, err := seasonRewarded(db.DB(ctx), s.Code, userIDs)
-	if err != nil {
-		return 0, err
-	}
-	granted := 0
+// 来源单号为赛季代码, 已经收到过的人会被跳过。附件是赛季中配置的内容, 领取时才发放:
+// 已下架的物品在领取时按回收价折成货币, 货币已停用时玩家暂时领不了, 不影响结算。
+func mailSeasonRewards(ctx context.Context, s *season.Season, ratings []Rating) (*mailbox.Sent, error) {
+	mails := make([]mailbox.Mail, 0, len(ratings))
 	for _, r := range ratings {
 		target := s.RewardOf(r.Peak)
-		if target == nil || done[r.UserID] {
+		if target == nil || target.Bundle.IsEmpty() {
 			continue
 		}
-		var delivery *reward.Delivery
-		err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
-			var err error
-			delivery, err = reward.Deliver(tx, &reward.ApplyRequest{
-				UserID:         r.UserID,
-				Bundle:         target.Bundle,
-				BizType:        wallet.BizSeasonReward,
-				BizID:          s.Code,
-				IdempotencyKey: fmt.Sprintf("season:%s:reward:%d", s.Code, r.UserID),
-				Remark:         s.Name,
-			})
-			return err
+		mails = append(mails, mailbox.Mail{
+			UserID:      r.UserID,
+			Source:      SourceSeason,
+			SourceID:    s.Code,
+			Title:       seasonMailTitle,
+			Content:     fmt.Sprintf(seasonMailContent, s.Name, r.Peak, target.MinRating),
+			Attachments: target.Bundle,
 		})
-		// 奖励发不出时赛季不标记为已结算, 奖励改好后下次执行时继续发放, 已经发过的人不会重复发
-		if reward.FailureOf(err) != reward.Delivered {
-			return granted, fmt.Errorf("reward of rating %d cannot be delivered to user %d: %w", target.MinRating, r.UserID, err)
-		}
-		if err != nil {
-			return granted, fmt.Errorf("grant user %d: %w", r.UserID, err)
-		}
-		if !delivery.Replayed() {
-			delivery.Push(ctx)
-			granted++
-		}
 	}
-	return granted, nil
-}
-
-// seasonRewarded 这批用户中已经领过赛季奖励的人, 余额和背包的流水都要查, 奖励可能只有其中一种
-func seasonRewarded(tx *gorm.DB, code string, userIDs []uint64) (map[uint64]bool, error) {
-	var walletUsers, inventoryUsers []uint64
-	if err := tx.Model(&wallet.Transaction{}).
-		Where("biz_type = ? AND biz_id = ? AND user_id IN ?", wallet.BizSeasonReward, code, userIDs).
-		Distinct().Pluck("user_id", &walletUsers).Error; err != nil {
+	var sent *mailbox.Sent
+	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		sent, err = mailbox.Send(tx, mails)
+		return err
+	})
+	if err != nil {
 		return nil, err
 	}
-	if err := tx.Model(&inventory.Transaction{}).
-		Where("biz_type = ? AND biz_id = ? AND user_id IN ?", inventory.BizSeasonReward, code, userIDs).
-		Distinct().Pluck("user_id", &inventoryUsers).Error; err != nil {
-		return nil, err
-	}
-	done := make(map[uint64]bool, len(walletUsers)+len(inventoryUsers))
-	for _, id := range walletUsers {
-		done[id] = true
-	}
-	for _, id := range inventoryUsers {
-		done[id] = true
-	}
-	return done, nil
+	return sent, nil
 }

@@ -37,7 +37,7 @@ import (
 // 删除为软删除, 兑换记录仍然对应得上; 删除后批次中的兑换码不能再兑换, 也不能被新的批次使用。
 type Batch struct {
 	ID             uint64                `gorm:"primaryKey" json:"id"`
-	Name           string                `gorm:"size:64;not null" json:"name"`                                                   // 兑换成功后展示给玩家, 也是流水的备注
+	Name           string                `gorm:"size:64;not null" json:"name"`                                                   // 兑换成功后展示给玩家, 也是奖励邮件的标题
 	Reward         reward.Bundle         `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"reward"`                 // 兑换一次得到的奖励, 数量为正数, 不能为空
 	Requirements   []condition.Condition `gorm:"type:jsonb;serializer:json;not null;default:'[]'" json:"requirements"`           // 使用条件, 需要全部满足
 	MaxUses        int32                 `gorm:"not null;check:chk_redeem_batches_max_uses,max_uses >= 0" json:"max_uses"`       // 每个兑换码可以被多少个用户兑换, 1 为单次使用, 0 表示不限
@@ -82,7 +82,7 @@ type Record struct {
 	BatchID   uint64        `gorm:"not null;index:idx_redeem_records_batch_user,priority:1" json:"batch_id"`
 	CodeID    uint64        `gorm:"not null;index:uniq_redeem_records_code_user,unique,priority:1" json:"code_id"`
 	UserID    uint64        `gorm:"not null;index:idx_redeem_records_user_id,priority:1;index:idx_redeem_records_batch_user,priority:2;index:uniq_redeem_records_code_user,unique,priority:2" json:"user_id"`
-	Reward    reward.Bundle `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"reward"` // 实际发放的奖励, 已下架的物品按回收价折成了货币
+	Reward    reward.Bundle `gorm:"type:jsonb;serializer:json;not null;default:'{}'" json:"reward"` // 兑换时批次的奖励, 以邮件附件发给了用户
 	CreatedAt time.Time     `gorm:"not null;default:now();autoCreateTime" json:"created_at"`
 }
 

@@ -60,7 +60,6 @@ func init() {
 		{Code: BizMatchRefund, Label: "对局退还"},
 		{Code: BizMatchReward, Label: "竞拍所得"},
 		{Code: BizMatchPoolShare, Label: "奖池分红"},
-		{Code: BizSeasonReward, Label: "赛季奖励"},
 		{Code: BizShopBuy, Label: "商城购买"},
 		{Code: BizShopGrant, Label: "商城获得"},
 		{Code: BizShopRefund, Label: "商城退款"},

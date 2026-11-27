@@ -3579,7 +3579,7 @@ definitions:
         description: 每个兑换码可以被多少个用户兑换, 1 为单次使用, 0 表示不限
         type: integer
       name:
-        description: 兑换成功后展示给玩家, 也是流水的备注
+        description: 兑换成功后展示给玩家, 也是奖励邮件的标题
         type: string
       requirements:
         description: 使用条件, 需要全部满足
@@ -3623,8 +3623,8 @@ definitions:
       name:
         description: 批次的名称
         type: string
-      received:
-        description: 实际得到的货币和物品, 已下架的物品按回收价折成了货币
+      reward:
+        description: 邮件附件中的货币和物品, 在信箱中领取后才发放
         items:
           $ref: '#/definitions/reward.Line'
         type: array
@@ -3653,7 +3653,7 @@ definitions:
         description: 每个兑换码可以被多少个用户兑换, 1 为单次使用, 0 表示不限
         type: integer
       name:
-        description: 兑换成功后展示给玩家, 也是流水的备注
+        description: 兑换成功后展示给玩家, 也是奖励邮件的标题
         type: string
       redeemed:
         description: 批次中全部兑换码已兑换的次数
@@ -3685,7 +3685,7 @@ definitions:
         description: 每个兑换码可以被多少个用户兑换, 1 为单次使用, 0 表示不限
         type: integer
       name:
-        description: 兑换成功后展示给玩家, 也是流水的备注
+        description: 兑换成功后展示给玩家, 也是奖励邮件的标题
         maxLength: 64
         type: string
       requirements:
@@ -3726,7 +3726,7 @@ definitions:
         description: 每个兑换码可以被多少个用户兑换, 1 为单次使用, 0 表示不限
         type: integer
       name:
-        description: 兑换成功后展示给玩家, 也是流水的备注
+        description: 兑换成功后展示给玩家, 也是奖励邮件的标题
         maxLength: 64
         type: string
       requirements:
@@ -3788,7 +3788,7 @@ definitions:
       reward:
         allOf:
         - $ref: '#/definitions/reward.Bundle'
-        description: 实际发放的奖励, 已下架的物品按回收价折成了货币
+        description: 兑换时批次的奖励, 以邮件附件发给了用户
       user_id:
         type: integer
       username:
@@ -12548,8 +12548,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: 兑换成功后奖励直接发放, 已下架的物品按回收价折成货币。兑换码不存在或所在的批次已停用时返回 404; 已过期、已被兑换完或自己已兑换过时返回
-        409; 不满足使用条件、达到每人可兑换的个数或奖励暂时无法发放时返回 403
+      description: 兑换成功后奖励以邮件发放, 在信箱中领取附件。兑换码不存在或所在的批次已停用时返回 404; 已过期、已被兑换完或自己已兑换过时返回
+        409; 不满足使用条件或达到每人可兑换的个数时返回 403
       parameters:
       - description: request body
         in: body

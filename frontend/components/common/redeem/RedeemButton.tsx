@@ -23,10 +23,10 @@ const MAX_CODE_INPUT = 64;
 /**
  * 兑换码入口: 点击后输入兑换码, 兑换成功后展示得到的奖励
  */
-export function RedeemButton({onRedeemed}: {
-  /** 兑换成功后调用, 用于刷新页面上受奖励影响的内容 */
-  onRedeemed?: () => void;
-}) {
+/**
+ * 兑换码入口: 兑换成功后奖励以邮件发放, 在信箱中领取
+ */
+export function RedeemButton() {
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<RedeemResult | null>(null);
 
@@ -41,25 +41,22 @@ export function RedeemButton({onRedeemed}: {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>使用兑换码</DialogTitle>
-            <DialogDescription>输入兑换码领取奖励, 不区分大小写</DialogDescription>
+            <DialogDescription>输入兑换码, 奖励会发送到信箱; 不区分大小写</DialogDescription>
           </DialogHeader>
           {/* 每次打开都是新的表单 */}
           {open && (
             <RedeemForm
               onClose={() => setOpen(false)}
-              onRedeemed={(redeemed) => {
-                setResult(redeemed);
-                onRedeemed?.();
-              }}
+              onRedeemed={setResult}
             />
           )}
         </DialogContent>
       </Dialog>
 
       <RewardResultDialog
-        lines={result?.received ?? null}
+        lines={result?.reward ?? null}
         title="兑换成功"
-        description={result && `${result.name} 的奖励已放进背包和钱包`}
+        description={result && `${result.name} 的奖励已发送到信箱, 请在邮件中领取`}
         onClose={() => setResult(null)}
       />
     </>

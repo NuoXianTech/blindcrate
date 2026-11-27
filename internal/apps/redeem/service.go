@@ -38,6 +38,7 @@ import (
 	"github.com/NuoXianTech/blindcrate/internal/apps/audit"
 	"github.com/NuoXianTech/blindcrate/internal/apps/condition"
 	"github.com/NuoXianTech/blindcrate/internal/apps/fault"
+	"github.com/NuoXianTech/blindcrate/internal/apps/mailbox"
 	"github.com/NuoXianTech/blindcrate/internal/apps/reward"
 	"github.com/NuoXianTech/blindcrate/internal/db"
 	"gorm.io/gorm"
@@ -45,7 +46,7 @@ import (
 )
 
 func init() {
-	reward.RegisterBizType(BizRedeem, "兑换码")
+	mailbox.RegisterSource(SourceRedeem, "兑换码")
 	audit.RegisterAction(ActionCreate, "生成兑换码")
 	audit.RegisterAction(ActionUpdate, "修改兑换码批次")
 	audit.RegisterAction(ActionDelete, "删除兑换码批次")
@@ -156,24 +157,24 @@ func Generate(count int) []string {
 
 // Result 兑换的结果
 type Result struct {
-	Name     string        `json:"name"`     // 批次的名称
-	Received []reward.Line `json:"received"` // 实际得到的货币和物品, 已下架的物品按回收价折成了货币
+	Name   string        `json:"name"`   // 批次的名称
+	Reward []reward.Line `json:"reward"` // 邮件附件中的货币和物品, 在信箱中领取后才发放
 }
 
 // Redeem 用兑换码兑换奖励, input 为玩家输入的兑换码, 不需要先规范化
 //
+// 奖励以邮件发放, 玩家在信箱中领取附件: 已下架的物品在领取时按回收价折成货币, 货币已停用时暂时领不了, 不影响兑换。
 // 同一用户的兑换在咨询锁上排队, 兑换码加行锁, 可使用次数和每人可兑换的个数都不会被并发请求绕过; 批次加共享锁, 与后台修改和删除互斥。
-// 兑换记录的唯一索引防止同一用户重复兑换同一个兑换码, 发放的幂等键再兜底一次。
+// 兑换记录的唯一索引防止同一用户重复兑换同一个兑换码, 邮件的来源单号为兑换记录 ID, 再兜底一次。
 // 兑换码不存在、批次已停用或已删除时都返回 CodeNotFound; 不满足使用条件或达到每人可兑换的个数时返回 *RejectedError。
-// 奖励中已下架或已删除的物品按回收价折成货币; 货币已停用时返回 RewardUnavailable, 不计次数, 可以之后再兑换。
 func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 	code := Normalize(input)
 	if !ValidCode(code) {
 		return nil, fault.NotFound(CodeNotFound)
 	}
 	var (
-		batch    Batch
-		delivery *reward.Delivery
+		batch Batch
+		sent  *mailbox.Sent
 	)
 	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := db.Lock(tx, fmt.Sprintf("redeem:%d", userID)); err != nil {
@@ -223,12 +224,7 @@ func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 		if unmet != nil {
 			return &RejectedError{Reason: fmt.Sprintf(RequirementUnmet, unmet.Text)}
 		}
-		// 兑换记录中保存合并后实际发放的内容; 奖励发不出时不记兑换, 奖励改好后还可以兑换
-		bundle, err := reward.Prepare(tx, batch.Reward)
-		if err != nil {
-			return undeliverable(err)
-		}
-		record := Record{BatchID: batch.ID, CodeID: target.ID, UserID: userID, Reward: bundle}
+		record := Record{BatchID: batch.ID, CodeID: target.ID, UserID: userID, Reward: batch.Reward}
 		if err := tx.Create(&record).Error; err != nil {
 			// 咨询锁之外的兜底, 正常不会走到
 			if db.IsUniqueViolation(err) {
@@ -236,36 +232,26 @@ func Redeem(ctx context.Context, userID uint64, input string) (*Result, error) {
 			}
 			return err
 		}
-		if delivery, err = reward.Deliver(tx, &reward.ApplyRequest{
-			UserID:         userID,
-			Bundle:         bundle,
-			BizType:        BizRedeem,
-			BizID:          strconv.FormatUint(record.ID, 10),
-			IdempotencyKey: fmt.Sprintf("redeem:%d:%d", target.ID, userID),
-			Remark:         batch.Name,
-		}); err != nil {
-			return undeliverable(err)
+		// 邮件中不带兑换码
+		if sent, err = mailbox.Send(tx, []mailbox.Mail{{
+			UserID:      userID,
+			Source:      SourceRedeem,
+			SourceID:    strconv.FormatUint(record.ID, 10),
+			Title:       batch.Name,
+			Content:     mailContent,
+			Attachments: batch.Reward,
+		}}); err != nil {
+			return err
 		}
 		return tx.Model(&target).UpdateColumn("used", gorm.Expr("used + 1")).Error
 	})
 	if err != nil {
 		return nil, err
 	}
-	delivery.Push(ctx)
-	received, err := delivery.Received(db.DB(ctx))
+	sent.Push(ctx)
+	lines, err := reward.Lines(db.DB(ctx), batch.Reward)
 	if err != nil {
 		return nil, err
 	}
-	return &Result{Name: batch.Name, Received: received}, nil
-}
-
-// undeliverable 奖励发不出时换成给玩家的提示, 其他错误原样返回
-func undeliverable(err error) error {
-	switch reward.FailureOf(err) {
-	case reward.Unavailable:
-		return fault.Forbidden(RewardUnavailable)
-	case reward.TooLarge:
-		return fault.Forbidden(RewardTooLarge)
-	}
-	return err
+	return &Result{Name: batch.Name, Reward: lines[0]}, nil
 }

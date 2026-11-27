@@ -83,7 +83,7 @@ func ListRedeemBatches(c *gin.Context) {
 //
 // 奖励、使用条件和次数不在这里校验, 由 redeem.Validate 校验, 提示更具体。
 type BatchRequest struct {
-	Name         string                `json:"name" binding:"required,max=64"` // 兑换成功后展示给玩家, 也是流水的备注
+	Name         string                `json:"name" binding:"required,max=64"` // 兑换成功后展示给玩家, 也是奖励邮件的标题
 	Reward       reward.Bundle         `json:"reward" binding:"-"`             // 兑换一次得到的奖励, 数量为正数, 不能为空
 	Requirements []condition.Condition `json:"requirements" binding:"-"`       // 使用条件, 需要全部满足
 	MaxUses      int32                 `json:"max_uses"`                       // 每个兑换码可以被多少个用户兑换, 1 为单次使用, 0 表示不限
